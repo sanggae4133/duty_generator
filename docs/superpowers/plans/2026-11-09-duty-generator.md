@@ -4,7 +4,7 @@
 
 **Goal:** 구글 시트 + Apps Script 당번표 제작 흐름을 대체하는 Django 웹(회차 관리, 부서 출근표 취합, 장중관제 생성, 배포, 조회, 근무 변경, 노티파이어 API)을 만든다.
 
-**Architecture:** Django 단일 앱 `duty`. 순수 로직(`shifts.py`, `generator.py`, `csv_io.py`)은 ORM에 의존하지 않고, DB를 바꾸는 모든 규칙(권한, 지난 날짜, ChangeLog)은 `duty/services/` 를 거친다. 화면은 서버 렌더링 템플릿 + htmx(근무 변경 팝업) + Pico.css(CDN), 빌드 단계 없음.
+**Architecture:** Django 단일 앱 `duty`. 순수 로직(`shifts.py`, `generator.py`, `csv_io.py`)은 ORM에 의존하지 않고, DB를 바꾸는 모든 규칙(권한, 지난 날짜, ChangeLog)은 `duty/services/` 를 거친다. 화면은 서버 렌더링 템플릿 + htmx(근무 변경 팝업) + Pico.css(정적 파일로 직접 서빙), 빌드 단계 없음.
 
 **Tech Stack:** Python 3.12, Django 5.2, django-axes, openpyxl, whitenoise, gunicorn, SQLite(WAL), pytest + pytest-django.
 
@@ -669,7 +669,7 @@ class ControlDuty(models.Model):
 
 class ChangeLog(models.Model):
     at = models.DateTimeField(auto_now_add=True)
-    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)  # null = import
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = import. 계정은 삭제 대신 비활성화
     period = models.ForeignKey(Period, on_delete=models.CASCADE)
     date = models.DateField()
     cell = models.CharField(max_length=8)  # dawn|normal|dinner|night|slot0..slot9
@@ -988,6 +988,11 @@ def test_parse_basic():
     assert len(t) == 2  # 빈 행 무시
 
 
+def test_binary_file_is_csv_invalid():
+    with pytest.raises(CsvInvalid):
+        parse_commute_csv(b"\xff\xfe\x00\x81\xff", KEYS)
+
+
 def test_parse_cp949():
     t = parse_commute_csv(SAMPLE.encode("cp949"), KEYS)
     assert t[date(2026, 11, 9)]["normal"] == ["다"]
@@ -1070,10 +1075,12 @@ class CsvInvalid(Exception):
 
 
 def decode(raw: bytes) -> str:
-    try:
-        return raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return raw.decode("cp949")  # 한국어 Windows 엑셀 기본 저장 형식
+    for enc in ("utf-8-sig", "cp949"):  # cp949: 한국어 Windows 엑셀 기본 저장 형식
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    raise CsvInvalid([CsvError(0, "", "UTF-8이나 CP949 CSV 파일이 아닙니다.")])
 
 
 _NAME_SPLIT = re.compile(r"[,\n]")
@@ -1107,7 +1114,10 @@ def parse_date(s: str) -> date | None:
 
 
 def parse_commute_csv(raw: bytes, shift_keys: list[str]) -> CommuteTable:
-    rows = list(csv.reader(io.StringIO(decode(raw))))
+    try:
+        rows = list(csv.reader(io.StringIO(decode(raw))))
+    except csv.Error as e:
+        raise CsvInvalid([CsvError(0, "", f"CSV 형식 오류: {e}")]) from e
     if not rows:
         raise CsvInvalid([CsvError(1, "", "빈 파일입니다.")])
     header = [header_key(h) for h in rows[0]]
@@ -1156,7 +1166,7 @@ def export_commute_csv(dates: list[date], shift_keys: list[str], table: CommuteT
 - [ ] **Step 4: 통과 확인**
 
 Run: `.venv/bin/pytest tests/test_csv_io.py -v`
-Expected: 8 passed
+Expected: 9 passed
 
 - [ ] **Step 5: 커밋**
 
@@ -1181,7 +1191,7 @@ git commit -m "feat: 부서 출근표 CSV 파싱과 내보내기"
   - `periods.close_collecting(period)` (collecting → closed)
   - `periods.missing_dates(period) -> dict[str, list[date]]` (부서 코드 → 비어 있는 날짜, 빈 부서는 키 없음)
   - `collect.load_table(period, dept) -> CommuteTable`
-  - `collect.validate_table(user, period, dept, table, full: bool) -> list[CsvError]`
+  - `collect.validate_table(user, period, dept, table) -> list[CsvError]` (부서 전체 교체 기준)
   - `collect.apply_table(user, period, dept, table) -> int` (부서 전체 교체, 반영 인원수 반환; CsvInvalid/DutyError/PermissionDenied)
   - `collect.apply_csv(user, period, dept, raw: bytes) -> int`
   - `collect.export_csv(period, dept) -> bytes`
@@ -1221,6 +1231,11 @@ def test_overlap_with_published_is_allowed(db):
 def test_start_after_end_rejected(db):
     with pytest.raises(DutyError):
         periods.save_draft(Period(name="a", start_date=d(11, 30), end_date=d(11, 9)))
+
+
+def test_weekend_only_period_rejected(db):
+    with pytest.raises(DutyError):
+        periods.save_draft(Period(name="a", start_date=d(11, 14), end_date=d(11, 15)))
 
 
 def test_dates_editable_only_in_draft(db):
@@ -1331,12 +1346,12 @@ def test_rejects_weekend_and_out_of_period(setup):
     assert len(e.value.errors) == 2
 
 
-def test_rejects_shift_department_does_not_have(setup, depts, make_member):
-    p, _, user = setup
+def test_rejects_shift_department_does_not_have(setup, depts, make_member, admin_user):
+    p, _, _ = setup
     make_member("유아이", dept="UI")
     table = {date(2026, 11, 9): {"dawn": ["유아이"]}}
     with pytest.raises(CsvInvalid) as e:
-        collect.apply_table(user, p, depts["UI"], table)
+        collect.apply_table(admin_user, p, depts["UI"], table)
     assert "출근조가 없습니다" in reasons(e)
 
 
@@ -1419,6 +1434,8 @@ def save_draft(period: Period) -> Period:
         raise DutyError("기간은 작성 중(draft) 상태에서만 수정할 수 있습니다.")
     if period.start_date > period.end_date:
         raise DutyError("시작일이 종료일보다 늦습니다.")
+    if not period.dates():
+        raise DutyError("기간에 평일이 없습니다.")
     clash = (
         Period.objects.exclude(pk=period.pk)
         .exclude(status=S.PUBLISHED)
@@ -1495,7 +1512,7 @@ def _norm(day: dict[str, list[str]]) -> dict[str, list[str]]:
     return {k: sorted(v) for k, v in day.items() if v}
 
 
-def validate_table(user, period: Period, dept: Department, table: CommuteTable, full: bool) -> list[CsvError]:
+def validate_table(user, period: Period, dept: Department, table: CommuteTable) -> list[CsvError]:
     errors: list[CsvError] = []
     valid_dates = set(period.dates())
     shift_keys = dept.shift_keys()
@@ -1520,8 +1537,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable, 
     if not perms.is_admin(user):
         existing = load_table(period, dept)
         today = perms.today()
-        candidates = set(table) | (set(existing) if full else set())
-        for d in sorted(x for x in candidates if x < today):
+        for d in sorted(x for x in set(table) | set(existing) if x < today):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
                 errors.append(CsvError(0, d.isoformat(), "지난 날짜는 어드민만 수정할 수 있습니다."))
     return errors
@@ -1530,7 +1546,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable, 
 @transaction.atomic
 def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> int:
     _require_input(user, period, dept)
-    errors = validate_table(user, period, dept, table, full=True)
+    errors = validate_table(user, period, dept, table)
     if errors:
         raise CsvInvalid(errors)
     by_name = {m.name: m for m in Member.objects.filter(department=dept)}
@@ -1831,7 +1847,13 @@ def preview_publish(period: Period, overwrite_from: date) -> PublishPreview:
     rng = {"date__gte": overwrite_from, "date__lte": period.end_date}
     names = set(Commute.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
     names |= set(ControlDuty.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
-    discarded = ChangeLog.objects.filter(period__in=_others(period), **rng).count()
+    # 이미 덮어써져 행이 없는 날짜의 옛 이력은 세지 않는다
+    live = set(Commute.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
+    live |= set(ControlDuty.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
+    discarded = sum(
+        1 for key in ChangeLog.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date")
+        if key in live
+    )
     return PublishPreview(overwrite_from, period.end_date, sorted(names), discarded)
 
 
@@ -2422,8 +2444,9 @@ def test_member_stats_date_range(make_member):
 
 def test_period_duty_counts(make_member):
     p = setup_period(make_member, status=S.GENERATED)
+    Commute.objects.create(period=p, date=D1, member=make_member("다"), shift="normal")  # 자격 있지만 0회
     counts, spread, reached = period_duty_counts(p)
-    assert counts == [("가", 1), ("나", 2)] and spread == 1 and reached
+    assert counts == [("다", 0), ("가", 1), ("나", 2)] and spread == 2 and reached
 ```
 
 - [ ] **Step 2: 실패 확인**
@@ -2438,10 +2461,8 @@ import statistics
 from dataclasses import dataclass
 from datetime import date
 
-from django.db.models import Count
-
-from ..models import ControlDuty, Member, Period
-from ..shifts import DEVELOPER, TARGET_SPREAD, is_slot_cell
+from ..models import Commute, ControlDuty, Member, Period
+from ..shifts import CONTROL_SLOTS, DEVELOPER, TARGET_SPREAD, is_slot_cell
 from .roster import published_days
 
 
@@ -2491,13 +2512,13 @@ def member_stats(start: date | None, end: date | None):
 
 
 def period_duty_counts(period: Period) -> tuple[list[tuple[str, int]], int, bool]:
-    rows = (
-        ControlDuty.objects.filter(period=period)
-        .values("member__name")
-        .annotate(n=Count("id"))
-        .order_by("n", "member__name")
-    )
-    counts = [(r["member__name"], r["n"]) for r in rows]
+    # 생성기 풀과 같은 모집단: 회차 안에 자격 출근조가 있는 개발자. 0회 배정자도 포함한다.
+    eligible = {s for _, allowed in CONTROL_SLOTS for s in allowed}
+    pool = Commute.objects.filter(period=period, shift__in=eligible, member__type=DEVELOPER)
+    n: dict[str, int] = dict.fromkeys(pool.values_list("member__name", flat=True), 0)
+    for name in ControlDuty.objects.filter(period=period).values_list("member__name", flat=True):
+        n[name] = n.get(name, 0) + 1
+    counts = sorted(n.items(), key=lambda x: (x[1], x[0]))
     spread = counts[-1][1] - counts[0][1] if counts else 0
     return counts, spread, spread <= TARGET_SPREAD
 ```
@@ -2853,16 +2874,24 @@ urlpatterns = [
 ]
 ```
 
+정적 파일은 CDN 대신 직접 서빙한다(로그인 화면에서 외부 JS를 실행하지 않기 위해):
+
+```bash
+mkdir -p duty/static/vendor
+curl -fsSL -o duty/static/vendor/htmx.min.js https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js
+curl -fsSL -o duty/static/vendor/pico.min.css https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css
+```
+
 `duty/templates/duty/base.html`
 ```html
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}IT 당번표{% endblock %}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <link rel="stylesheet" href="{% static 'vendor/pico.min.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
     .grid-wrap { overflow-x: auto; }
     table.roster { font-size: .8rem; white-space: pre-line; }
@@ -3032,6 +3061,14 @@ def test_past_date_change_forbidden_for_member(client, world, fixed_today, make_
     assert r.status_code == 403
 
 
+def test_unknown_member_code_is_rejected(client, world):
+    a, _ = world
+    client.force_login(a.user)
+    r = client.post(f"/cell/{D}/normal/", {"before": a.code, "after": "NO_SUCH"})
+    assert r.status_code == 302
+    assert Commute.objects.filter(date=D, member=a, shift="normal").exists()
+
+
 def test_swap_via_post(client, world):
     a, b = world
     client.force_login(a.user)
@@ -3095,7 +3132,12 @@ def _wrap(names: list[str], per_line: int = 3) -> str:
 
 
 def _member(code: str | None) -> Member | None:
-    return Member.objects.filter(code=code).first() if code else None
+    if not code:
+        return None
+    m = Member.objects.filter(code=code).first()
+    if m is None:
+        raise DutyError("없는 멤버입니다.")  # 조작된 코드가 '삭제'로 해석되지 않게
+    return m
 
 
 def _active_members():
@@ -3129,7 +3171,7 @@ def roster(request):
         anchored = anchored or anchor
         rows.append({
             "date": day.date, "weekday": DAY_LABELS[day.date.weekday()], "cells": cells,
-            "anchor": anchor, "editable": admin or day.date >= today,
+            "anchor": anchor, "is_today": day.date == today, "editable": admin or day.date >= today,
         })
     return render(request, "duty/roster.html", {
         "headers": [cell_label(k) for k in CELLS], "rows": rows, "start": start, "end": end, "q": q,
@@ -3258,7 +3300,7 @@ from .views import roster as roster_views
   <thead><tr><th>날짜</th><th>요일</th>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in rows %}
-    <tr {% if row.anchor %}id="today" class="today"{% endif %}>
+    <tr{% if row.anchor %} id="today"{% endif %}{% if row.is_today %} class="today"{% endif %}>
       <td><a href="{% url 'day' row.date %}">{{ row.date|date:"Y-m-d" }}</a></td>
       <td>{{ row.weekday }}</td>
       {% for c in row.cells %}
@@ -4117,6 +4159,11 @@ def test_diff_cell_pairs_overwrites_as_replacement():
     assert final == ["가", "다"] and logs == [("나", "다")]
 
 
+def test_diff_cell_many_changes_are_not_guessed():
+    final, logs = diff_cell(["가", "나"], "다, 라")
+    assert final == ["다", "라"] and logs == [("가", None), ("나", None), (None, "다"), (None, "라")]
+
+
 def test_diff_cell_chain():
     final, logs = diff_cell(["가"], "가>나>다")
     assert final == ["다"] and logs == [("가", "나"), ("나", "다")]
@@ -4152,6 +4199,13 @@ def test_dry_run_writes_nothing(db):
     report = run_import(maker(), deploy({}), dry_run=True)
     assert report.errors == [] and report.dates == 1 and report.duties == 10
     assert not Member.objects.exists()
+
+
+def test_missing_column_aborts(db):
+    wb = openpyxl.load_workbook(BytesIO(deploy({})))
+    wb["근무표"].cell(row=2, column=3).value = "엉뚱한 열"
+    report = run_import(maker(), _bytes(wb), dry_run=False)
+    assert report.errors and not Member.objects.exists()
 
 
 def test_second_import_refused(db):
@@ -4224,9 +4278,10 @@ def diff_cell(original: list[str], final_cell) -> tuple[list[str], list[Log]]:
     heads = [c[0] for c in chains]
     removed = [o for o in original if o not in heads]
     added = [h for h in heads if h not in original]
-    logs: list[Log] = list(zip(removed, added))  # 이름을 덮어쓴 칸은 교체로 본다
-    logs += [(o, None) for o in removed[len(added):]]
-    logs += [(None, h) for h in added[len(removed):]]
+    if len(removed) == len(added) == 1:  # 한 명을 덮어쓴 칸은 교체로 본다
+        logs: list[Log] = [(removed[0], added[0])]
+    else:  # 여러 명이 바뀌면 누가 누구를 대신했는지 모르므로 제거/추가로 남긴다
+        logs = [(o, None) for o in removed] + [(None, h) for h in added]
     for c in chains:
         logs.extend(zip(c, c[1:]))
     return [c[-1] for c in chains], logs
@@ -4241,10 +4296,15 @@ def _as_date(v):
 def read_grid(ws, header_row: int) -> dict[date, dict[str, str]]:
     rows = list(ws.iter_rows(min_row=header_row, values_only=True))
     cols = {i: CELL_BY_LABEL[str(h).strip()] for i, h in enumerate(rows[0]) if h is not None and str(h).strip() in CELL_BY_LABEL}
+    missing = [cell_label(c) for c in CELLS if c not in cols.values()]
+    if missing:  # 열이 빠지면 빈 칸으로 읽혀 전원 제거로 잘못 이관된다
+        raise ValueError(f"{ws.title}: 열이 없습니다 — {', '.join(missing)}")
     grid = {}
     for r in rows[1:]:
         d = _as_date(r[0]) if r else None
         if d:
+            if d in grid:
+                raise ValueError(f"{ws.title}: 날짜 중복 {d}")
             grid[d] = {cell: "" if i >= len(r) or r[i] is None else str(r[i]) for i, cell in cols.items()}
     return grid
 
@@ -4289,15 +4349,24 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
     dept_codes = {name: code for code, name, _ in DEPARTMENTS}
     errors: list[str] = []
     names: set[str] = set()
+    codes: set[str] = set()
     for m in members:
+        if m["code"] in codes:
+            errors.append(f"멤버 코드 중복: {m['code']}")
+        codes.add(m["code"])
         if m["department"] not in dept_codes:
             errors.append(f"{m['name']}: 알 수 없는 부서 {m['department']}")
         if m["name"] in names:
             errors.append(f"멤버 이름 중복: {m['name']}")
         names.add(m["name"])
 
-    original = read_grid(dp["view_all_combine"], 1)
-    final = read_grid(dp["근무표"], 2)
+    try:
+        original = read_grid(dp["view_all_combine"], 1)
+        final = read_grid(dp["근무표"], 2)
+    except ValueError as e:
+        report.errors.append(str(e))
+        return report
+    errors += [f"{d}: view_all_combine에 없는 날짜" for d in sorted(set(final) - set(original))]
     plan: dict[date, dict[str, tuple[list[str], list[Log]]]] = {}
     for d in sorted(original):
         if d not in final:
@@ -4537,7 +4606,7 @@ Description=duty_generator SQLite 백업
 Type=oneshot
 User=duty
 EnvironmentFile=/etc/duty_generator/env
-ExecStart=/bin/sh -c 'mkdir -p /var/backups/duty_generator && sqlite3 "$DUTY_DB_PATH" ".backup /var/backups/duty_generator/db-$(date +%%Y%%m%%d).sqlite3" && ls -1t /var/backups/duty_generator/db-*.sqlite3 | tail -n +31 | xargs -r rm --'
+ExecStart=/bin/sh -c 'sqlite3 "$DUTY_DB_PATH" ".backup /var/backups/duty_generator/db-$(date +%%Y%%m%%d).sqlite3" && ls -1t /var/backups/duty_generator/db-*.sqlite3 | tail -n +31 | xargs -r rm --'
 ```
 
 `deploy/duty-generator-backup.timer`
@@ -4574,12 +4643,14 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 ## 설치 (사내 서버, 노티파이어와 같은 서버)
 
 ```bash
+sudo apt install -y sqlite3   # 백업 타이머가 sqlite3 CLI를 쓴다
 sudo useradd -r -s /usr/sbin/nologin duty
-sudo mkdir -p /opt/duty_generator /etc/duty_generator /var/lib/duty_generator
-sudo chown duty: /var/lib/duty_generator
+sudo mkdir -p /opt/duty_generator
+sudo install -d -o duty -g duty -m 750 /var/lib/duty_generator /var/backups/duty_generator
+sudo install -d -o root -g duty -m 750 /etc/duty_generator
 # 코드 배치 후
 cd /opt/duty_generator && python3 -m venv .venv && .venv/bin/pip install .
-sudo cp deploy/env.example /etc/duty_generator/env   # 값 채우기 (SECRET_KEY, API 토큰은 python -c "import secrets;print(secrets.token_urlsafe(48))")
+sudo install -o root -g duty -m 640 deploy/env.example /etc/duty_generator/env   # 값 채우기 (SECRET_KEY, API 토큰은 python -c "import secrets;print(secrets.token_urlsafe(48))")
 sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; .venv/bin/python manage.py migrate && .venv/bin/python manage.py collectstatic --noinput'
 sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now duty-generator duty-generator-backup.timer
