@@ -1,7 +1,7 @@
 # duty_generator 설계
 
 - 작성일: 2026-11-09
-- 상태: 검토 중
+- 상태: 승인됨, 구현 계획 `docs/superpowers/plans/2026-11-09-duty-generator.md`
 
 ## 1. 목적
 
@@ -132,7 +132,7 @@ ControlDuty  period FK, date, slot(0~9), member FK
              UNIQUE(period, date, slot), UNIQUE(period, date, member)
 
 ChangeLog    at, by(User, nullable=import), period FK, date,
-             kind(commute|duty), shift_or_slot, before(Member, nullable), after(Member, nullable)
+             cell(dawn|normal|dinner|night|slot0~slot9), before(Member, nullable), after(Member, nullable)
 ```
 
 - 이름은 전체에서 고유하다. CSV와 시트가 이름으로 사람을 찾기 때문이다. 동명이인은 어드민이 구분 표기로 등록한다(예: 김민수A).
@@ -146,7 +146,7 @@ ChangeLog    at, by(User, nullable=import), period FK, date,
 
 - 출근조 칸: 교체(A→B), 추가(→B), 제거(A→)
 - 관제 칸: 교체만 한다. 관제 칸은 항상 1명이다.
-- 맞교환: 같은 날짜의 두 칸에서 두 사람을 서로 바꾼다. 출근조끼리, 관제끼리, 출근조와 관제 사이 모두 된다.
+- 맞교환: 같은 날짜의 두 칸에서 두 사람을 서로 바꾼다. 출근조끼리 또는 관제끼리만 된다. 관제 당번은 출근자 중에서 뽑히므로 출근조와 관제 칸을 맞바꾸는 것은 의미가 없다.
   - 하루에 출근조 하나 제약 때문에 교체를 두 번 하면 중간에 제약에 걸린다. 그래서 맞교환은 한 트랜잭션으로 처리하고 ChangeLog를 2건 남긴다.
 - 차단하는 경우
   - 없는 사람이거나 재직 중이 아닌 사람
@@ -167,7 +167,10 @@ def generate_control_duty(
 ) -> dict[date, list[str]]:                       # 날짜 → slot 0~9 의 member code
 ```
 
-기존 `InMarketControlDutyGenerator.gs`의 동작을 그대로 옮긴다.
+기존 `InMarketControlDutyGenerator.gs`의 동작을 옮기되, 버그 하나를 고친다.
+
+- 기존 JS는 배정 횟수 맵에 전체 멤버(직원 포함)를 넣는다. 최소값이 항상 0인 직원이 되고, 직원은 관제 자격이 없어서 Phase 2가 0회차에 바로 끝난다. 실제 1년치 데이터로 확인한 결과 편차 6이 그대로 남았다.
+- 이식본은 카운트 풀을 "기간 중 한 번이라도 자격이 있는 개발자"로 한정한다. 같은 데이터에서 swap 9회 후 편차 2에 도달한다.
 
 - Phase 1 (Greedy)
   - 날짜마다 slot별 자격자 집합을 계산한다.
@@ -182,7 +185,7 @@ def generate_control_duty(
   - 화면은 이 목록을 그대로 보여준다.
 - 결과
   - seed와 사람별 횟수, 최대 편차, 목표 도달 여부를 기록한다.
-  - 참고로 기존 1년치 결과는 133~139회, 편차 6이었다.
+  - 참고로 기존 1년치 결과는 133~139회, 편차 6이었다(Phase 2 미동작).
 
 ## 10. CSV 입력
 
@@ -203,17 +206,17 @@ def generate_control_duty(
 
 | 화면 | 대상 | 내용 |
 |---|---|---|
-| 통합 근무표 (첫 화면) | 전체 | 날짜, 요일, 새벽, 정상, 석식교대, 관제 10칸, 야간. 오늘 행 강조와 자동 스크롤, 이름 검색(최대 3명) 강조, 변경된 칸 `A>B` 강조, 날짜 범위 필터. 칸을 클릭하면 근무 변경 팝업, 날짜를 클릭하면 날짜 상세로 이동한다. |
+| 통합 근무표 (첫 화면) | 전체 | 날짜, 요일, 새벽, 정상, 석식교대, 관제 10칸, 야간. 오늘 행 강조와 자동 스크롤, 이름 검색(최대 3명) 강조, 변경된 칸 `A>B` 강조, 날짜 범위 필터. 칸을 클릭하면 근무 변경 팝업(htmx로 폼을 불러와 `<dialog>`에 표시)이 뜨고, 저장하면 원래 화면으로 돌아간다. 날짜를 클릭하면 날짜 상세로 이동한다. |
 | 날짜 상세 | 전체, 모바일 대응 | 한 날짜의 출근조 4개와 관제 10칸을 세로로 나열. 이전/다음 날짜 이동, 칸마다 [변경] 버튼. 변경 폼은 기본 `<select>`를 쓰고 PC 팝업과 같은 폼을 재사용한다. |
 | 부서별 뷰 | 전체 | IT운영(매칭엔진실/매매지원실 × 직원/개발자), 정보분배, UI를 탭으로 보여준다. |
 | 내 근무 | 전체, 모바일 대응 | 본인의 출근조와 관제 시간대를 다가오는 순서로 보여준다. 일정을 탭하면 날짜 상세로 간다. |
-| 출근표 입력 | 담당자, 어드민 | collecting 회차의 부서 표. CSV 업로드와 내려받기, 칸 편집. |
+| 출근표 입력 | 담당자, 어드민 | collecting 회차의 부서 표. CSV 업로드와 내려받기. 칸 편집은 표 전체가 하나의 폼이고 저장하면 CSV 업로드와 같은 검증·교체 경로를 탄다. |
 | 회차 관리 | 어드민 | 목록과 상태 전환, 부서별 진행률, 생성과 결과 미리보기(사람별 횟수, 편차), 배포(덮어쓰기 시작일, 확인창). |
 | 당번 통계 | 어드민 | 날짜 범위별로 사람별 관제/새벽/야간 횟수, 평균, 표준편차, 최대 편차를 보여준다. |
 | 변경 이력 | 어드민 | ChangeLog를 날짜, 사람, 수정자로 필터해서 보여준다. |
 | 멤버, 계정 관리 | 어드민 | Django Admin. "계정 발급" 액션이 아이디(멤버 코드)와 임시 비번을 한 번만 표시한다. 사용자는 첫 로그인 때 비번을 바꿔야 한다. |
 
-- 서버 렌더링 Django 템플릿과 htmx를 쓴다. 칸 변경과 저장은 부분 갱신한다.
+- 서버 렌더링 Django 템플릿을 쓰고, htmx는 근무 변경 팝업에만 쓴다.
 - CSS는 CDN 프레임워크 하나(Pico.css)만 쓰고 빌드 단계는 없다.
 - 통합 근무표는 모바일에서 가로 스크롤하고 날짜와 요일 열을 고정한다.
 - 입력, 회차 관리, 통계 화면은 PC 기준이다.
@@ -252,11 +255,12 @@ def generate_control_duty(
 
 ## 14. 보안 (Funnel 공개 전제)
 
-- 로그인 시도 제한: `django-axes`. 같은 계정이나 IP로 5회 실패하면 15분 동안 잠긴다. 잠금은 Admin에서 조회하고 해제할 수 있다.
+- 로그인 시도 제한: `django-axes`. 같은 계정으로 5회 실패하면 15분 동안 잠긴다. 잠금은 Admin에서 조회하고 해제할 수 있다.
+  - IP 기준 잠금은 쓰지 않는다. Funnel 뒤에서는 모든 요청 IP가 `127.0.0.1`이라 한 명이 틀려도 전원이 잠긴다.
 - 쿠키와 HTTPS
-  - `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, HSTS
+  - `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`
   - `ALLOWED_HOSTS`와 `CSRF_TRUSTED_ORIGINS`는 Funnel 도메인으로 고정한다.
-  - `SECURE_PROXY_SSL_HEADER`를 설정한다.
+  - TLS는 Funnel이 종료한다. Funnel이 넘겨주는 프로토콜 헤더를 확신할 수 없어 `SECURE_PROXY_SSL_HEADER`와 HSTS는 설정하지 않는다. `ts.net` 도메인은 브라우저 HSTS preload 대상이다.
 - 세션은 14일 유지한다. 비번을 바꾸면 다른 세션은 무효가 된다(Django 기본 동작).
 - 비밀번호는 Django 기본 검증기를 쓴다.
 - Django Admin 경로는 환경변수로 받은 추측하기 어려운 경로로 둔다.
@@ -273,7 +277,8 @@ duty/
   models.py              Department, Member, Period, Commute, ControlDuty, ChangeLog
   generator.py           장중관제 생성 (순수 함수)
   csv_io.py              CSV 파싱, 검증, 내보내기
-  services.py            상태 전환, 출근표 반영, 근무 변경, 배포 덮어쓰기, 날짜 권한 검사
+  perms.py               날짜 권한 검사, 역할 판정
+  services/              periods, collect, generate, publish, roster(읽기 모델), changes, stats
   views.py, urls.py      화면
   api.py                 노티파이어 API
   admin.py               멤버, 부서, 계정 발급 액션
@@ -283,7 +288,7 @@ tests/
 deploy/                  duty-generator.service, duty-generator-backup.{service,timer}
 ```
 
-- 화면, API, 명령은 `services.py`를 거쳐서만 데이터를 바꾼다. 권한, 날짜 규칙, ChangeLog 기록이 한 곳에 모인다.
+- 화면, API, 명령은 `services/`를 거쳐서만 데이터를 바꾼다. 권한, 날짜 규칙, ChangeLog 기록이 한 곳에 모인다.
 - `generator.py`와 `csv_io.py`는 Django ORM에 의존하지 않는다.
 
 ## 16. 테스트 (pytest + pytest-django)
@@ -291,13 +296,13 @@ deploy/                  duty-generator.service, duty-generator-backup.{service,
 | 대상 | 검증 |
 |---|---|
 | generator | 모든 slot이 자격자인지, 하루 중복이 없는지, 같은 seed면 같은 결과인지, 후보가 없으면 실패 목록을 내는지 |
-| 품질 기준선 | 기존 1년치 출근표 fixture로 생성했을 때 최대 편차가 6 이하인지 |
+| 품질 기준선 | 실제 1년치 출근표 fixture(멤버 코드만 저장)로 생성했을 때 편차 2 이하에 도달하는지 |
 | csv_io | 인코딩 2종, 헤더와 날짜 형식, 각 검증 실패, 오류가 있으면 전체 미반영인지 |
 | 권한과 상태 | 상태별 허용 동작, 담당자 부서 범위, 지난 날짜는 어드민만, 통계와 이력은 어드민만. 서버가 403을 반환하는지 확인한다. |
 | 근무 변경 | 교체, 추가, 제거, 맞교환, 중복 차단, 자격 경고, ChangeLog 체인 표시 |
 | 배포 덮어쓰기 | 시작일 이전은 유지, 이후는 교체, 포함 관계, 미배포 회차끼리의 겹침 거부 |
 | API | 응답 형식, `replaced`, 토큰 401, 미배포 제외 |
-| import_sheets | 저장해 둔 xlsx fixture로 실행했을 때 변경 393칸이 ChangeLog에 들어가고 최종 상태가 `근무표`와 일치하는지 |
+| import_sheets | 테스트에서 만든 작은 xlsx로 체인 파싱, 변경 기록, 오류 중단, dry-run을 확인. 실데이터(실명 포함)는 저장소에 넣지 않고 배포 전 `--dry-run`으로 확인 |
 
 브라우저 E2E 테스트는 만들지 않는다.
 
