@@ -130,3 +130,30 @@ def test_change_log_filters(admin_client_ok, make_member):
     assert "야간" in h and "새벽" not in h
     h = get(f"?by={a.user.username}")
     assert "새벽" in h and "야간" not in h
+
+
+def test_schema_page(admin_client_ok):
+    body = admin_client_ok.get("/schema/").content.decode()
+    assert "duty_commute" in body and "commute_one_shift_per_day" in body and "duty_one_member_per_slot" in body
+    assert "duty_one_slot_per_member" not in body
+
+
+def test_schema_forbidden_for_member(member_client):
+    assert member_client.get("/schema/").status_code == 403
+
+
+def test_schema_anonymous_redirected(client, db):
+    assert client.get("/schema/").status_code == 302
+
+
+def test_admin_nav_link_superuser_only(client, admin_user, make_member):
+    from django.contrib.auth.models import User
+
+    link = '<a href="/admin/">관리</a>'
+    root = User.objects.create_superuser("root", password="unused-Pw-123")
+    client.force_login(root)
+    assert link in client.get("/").content.decode()
+    client.force_login(admin_user)  # staff only
+    assert "관리</a>" not in client.get("/").content.decode()
+    client.force_login(make_member("가", user=True).user)
+    assert "관리</a>" not in client.get("/").content.decode()

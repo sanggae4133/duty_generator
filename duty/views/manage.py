@@ -1,7 +1,9 @@
 from datetime import date
 
+from django.apps import apps
 from django.contrib import messages
-from django.db.models import Q
+from django.db import connection
+from django.db.models import CheckConstraint, Q, UniqueConstraint
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -146,3 +148,59 @@ def change_log(request):
         for log in qs[:500]
     ]
     return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end})
+
+
+MODEL_DESC = {
+    "Department": "부서와 부서별 출근조 구성",
+    "Member": "멤버(이름·소속·유형·재직, 로그인 계정 연결)",
+    "Period": "근무 회차와 상태",
+    "Commute": "날짜별 출근조 배정",
+    "ControlDuty": "날짜별 장중관제 칸 배정",
+    "ChangeLog": "근무 변경 이력(교체·추가·제거)",
+}
+
+
+def _default(f) -> str:
+    if not f.has_default():
+        return "-"
+    return "함수" if callable(f.default) else repr(f.default)
+
+
+def _column(f) -> dict:
+    rel = f.remote_field
+    return {
+        "name": f.name, "column": f.column, "type": f.db_type(connection), "null": f.null,
+        "pk": f.primary_key, "unique": f.unique and not f.primary_key,
+        "fk": f"{f.related_model._meta.db_table} ({rel.on_delete.__name__})" if rel else "",
+        "default": _default(f),
+        "choices": ", ".join(f"{v}={l}" for v, l in f.choices) if f.choices else "",
+    }
+
+
+def _model_info(m) -> dict:
+    o = m._meta
+    constraints = []
+    for c in o.constraints:
+        if isinstance(c, UniqueConstraint):
+            constraints.append({"name": c.name, "kind": "UNIQUE", "fields": ", ".join(c.fields), "condition": str(c.condition or "")})
+        elif isinstance(c, CheckConstraint):
+            constraints.append({"name": c.name, "kind": "CHECK", "fields": "", "condition": str(getattr(c, "condition", None) or "")})
+        else:
+            constraints.append({"name": c.name, "kind": type(c).__name__, "fields": "", "condition": ""})
+    constraints += [{"name": "unique_together", "kind": "UNIQUE", "fields": ", ".join(t), "condition": ""} for t in o.unique_together]
+    return {
+        "name": m.__name__, "table": o.db_table, "desc": MODEL_DESC.get(m.__name__, ""),
+        "columns": [_column(f) for f in o.concrete_fields],
+        "m2m": [
+            {"name": f.name, "table": f.remote_field.through._meta.db_table,
+             "cols": f"{f.m2m_column_name()}, {f.m2m_reverse_name()}"}
+            for f in o.many_to_many
+        ],
+        "constraints": constraints,
+        "indexes": [{"name": i.name, "fields": ", ".join(i.fields)} for i in o.indexes],
+    }
+
+
+@admin_required
+def schema(request):
+    return render(request, "duty/schema.html", {"models": [_model_info(m) for m in apps.get_app_config("duty").get_models()]})

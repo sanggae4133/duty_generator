@@ -203,3 +203,11 @@ def test_command_non_xlsx_is_command_error(db, tmp_path):
     f.write_text("<html>")
     with pytest.raises(CommandError, match="xlsx가 아닙니다"):
         call_command("import_sheets", maker_xlsx=str(f), deploy_xlsx=str(f))
+
+
+@pytest.mark.parametrize("bad", ["가>나", "가,나", "+가", "가\n나"])
+def test_member_name_with_syntax_chars_is_error(db, bad):
+    wb = openpyxl.load_workbook(BytesIO(maker()))
+    wb["tb_member"].append(["MEX09", "매칭엔진실", bad, "매칭엔진", "개발자", False, True])
+    report = run_import(_bytes(wb), deploy({}), dry_run=True)
+    assert any("쓸 수 없고" in e for e in report.errors)

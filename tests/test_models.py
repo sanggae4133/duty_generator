@@ -41,3 +41,13 @@ def test_member_may_hold_several_duty_slots_per_day(make_member):
     a = make_member("가")
     ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=0, member=a)
     ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=1, member=a)
+
+
+@pytest.mark.parametrize("bad", ["가>나", "가,나", "+가", "가\n나"])
+def test_member_name_rejects_label_syntax(make_member, bad):
+    from django.core.exceptions import ValidationError
+
+    m = make_member("정상")
+    m.name = bad
+    with pytest.raises(ValidationError, match="쓸 수 없고"):
+        m.full_clean(exclude=["department", "user"])

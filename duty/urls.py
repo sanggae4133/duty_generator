@@ -30,7 +30,6 @@ urlpatterns = [
     path("day/<isodate:d>/", roster_views.day, name="day"),
     path("cell/<isodate:d>/<str:cell>/", roster_views.cell, name="cell"),
     path("swap/<isodate:d>/", roster_views.swap, name="swap"),
-    path("dept/<str:key>/", roster_views.dept, name="dept"),
     path("me/", roster_views.me, name="me"),
     path("collect/", collect_views.index, name="collect_index"),
     path("collect/<int:pid>/<str:code>/", collect_views.table, name="collect_table"),
@@ -42,5 +41,6 @@ urlpatterns = [
     path("periods/<int:pid>/publish/", manage_views.period_publish, name="period_publish"),
     path("stats/", manage_views.stats_view, name="stats"),
     path("changes/", manage_views.change_log, name="changes"),
+    path("schema/", manage_views.schema, name="schema"),
     path("api/assignments", api.assignments, name="api_assignments"),
 ]

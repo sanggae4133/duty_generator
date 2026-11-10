@@ -1,0 +1,22 @@
+{% extends "duty/base.html" %}
+{% block content %}
+<h2>데이터 구조</h2>
+<p><code>auth_user</code> — Django 로그인 계정 (Member.user, ChangeLog.by가 참조)</p>
+{% for m in models %}
+<article>
+  <h3><code>{{ m.table }}</code> <small>{{ m.desc }}</small></h3>
+  <div class="grid-wrap"><table>
+    <thead><tr><th>필드</th><th>컬럼</th><th>타입</th><th>NULL</th><th>키</th><th>참조</th><th>기본값</th><th>선택지</th></tr></thead>
+    <tbody>
+    {% for c in m.columns %}
+      <tr><td>{{ c.name }}</td><td>{{ c.column }}</td><td>{{ c.type }}</td><td>{% if c.null %}허용{% else %}-{% endif %}</td>
+        <td>{% if c.pk %}PK{% endif %}{% if c.unique %}UNIQUE{% endif %}</td><td>{{ c.fk }}</td><td>{{ c.default }}</td><td>{{ c.choices }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% for t in m.m2m %}<p>다대다 {{ t.name }}: <code>{{ t.table }}</code> ({{ t.cols }})</p>{% endfor %}
+  {% if m.constraints %}<p>제약:</p><ul>{% for c in m.constraints %}<li><code>{{ c.name }}</code> {{ c.kind }} ({{ c.fields }}){% if c.condition %} 조건 {{ c.condition }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+  {% if m.indexes %}<p>인덱스:</p><ul>{% for i in m.indexes %}<li><code>{{ i.name }}</code> ({{ i.fields }})</li>{% endfor %}</ul>{% endif %}
+</article>
+{% endfor %}
+{% endblock %}

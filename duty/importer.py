@@ -11,10 +11,11 @@ from datetime import date, datetime
 from io import BytesIO
 
 import openpyxl
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import ChangeLog, Commute, ControlDuty, Department, Member, Period
+from .models import ChangeLog, Commute, ControlDuty, Department, Member, Period, validate_member_name
 from .shifts import CELL_BY_LABEL, CELLS, DEVELOPER, STAFF, cell_label, is_slot_cell, slot_index
 
 MAKER_ID = "1y-T4gWwGb9p8g4Lkla0so1yY7Ox_QnV0N1unRChfYOI"
@@ -109,6 +110,11 @@ def read_members(ws) -> tuple[list[dict], list[str]]:
             continue
         if str(r[idx["type"]]).strip() not in (DEVELOPER, STAFF):
             errors.append(f"{ws.title} {n}행: 알 수 없는 구분 {str(r[idx['type']]).strip()!r}")
+            continue
+        try:
+            validate_member_name(str(r[idx["name"]]).strip())
+        except ValidationError as e:
+            errors.append(f"{ws.title} {n}행: {str(r[idx['name']]).strip()!r} {e.messages[0]}")
             continue
         active = r[idx["is_active"]]
         out.append({

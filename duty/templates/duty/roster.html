@@ -1,31 +1,42 @@
 {% extends "duty/base.html" %}
 {% block content %}
-<form method="get" role="group">
-  <input type="date" name="from" value="{{ start|date:'Y-m-d' }}" aria-label="시작일">
-  <input type="date" name="to" value="{{ end|date:'Y-m-d' }}" aria-label="종료일">
-  <input name="q" value="{{ q }}" placeholder="이름 검색 (쉼표로 최대 3명)">
-  <button>보기</button>
-</form>
-<div class="grid-wrap">
-<table class="roster">
-  <thead><tr><th>날짜</th><th>요일</th>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<div class="cal-nav">
+  <a role="button" class="{% if view != 'week' %}outline {% endif %}secondary" href="{{ week_link }}">주간</a>
+  <a role="button" class="{% if view != 'month' %}outline {% endif %}secondary" href="{{ month_link }}">월간</a>
+  {% if prev %}<a role="button" class="outline" href="{{ prev }}">◀ 이전</a>{% endif %}
+  <a role="button" class="outline" href="{{ today_link }}">오늘</a>
+  {% if next %}<a role="button" class="outline" href="{{ next }}">다음 ▶</a>{% endif %}
+  <strong class="cal-title">{{ title }}</strong>
+</div>
+<form method="get" class="search">
+  <input type="hidden" name="view" value="{{ view }}">
+  <span class="pair"><input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem"><button>이동</button></span>
+  <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
+  {% endfor %}<button>검색</button></span>
+  {% include "duty/_filters.html" %}</form>
+<div class="grid-wrap roster-scroll">
+<table class="roster month" id="roster">
+  <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
   <tbody>
-  {% for row in rows %}
-    <tr{% if row.anchor %} id="today"{% endif %}{% if row.is_today %} class="today"{% endif %}>
-      <td><a href="{% url 'day' row.date %}">{{ row.date|date:"Y-m-d" }}</a></td>
-      <td>{{ row.weekday }}</td>
-      {% for c in row.cells %}
-      <td class="{% if c.changed %}changed{% endif %} {% if c.hl %}hl{% endif %}">
-        {% if row.editable %}<a href="{% url 'day' row.date %}#{{ c.key }}" hx-get="{% url 'cell' row.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{{ c.text|default:"·" }}</a>{% else %}{{ c.text }}{% endif %}
-        {% for r in c.removed %}<div class="removed">{{ r }}</div>{% endfor %}
+  {% for week in weeks %}
+    <tr>
+    {% for d in week %}
+      <td{% if d.other %} class="other"{% elif d.is_today %} id="today" class="today-col"{% endif %}>
+        {% include "duty/_daycell.html" %}
       </td>
-      {% endfor %}
+    {% endfor %}
     </tr>
-  {% empty %}
-    <tr><td colspan="16">배포된 근무표가 없습니다.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
-<script>document.getElementById("today")?.scrollIntoView({block: "center"});</script>
+<script>
+  const today = document.getElementById("today");
+  if (today) {
+    today.scrollIntoView({block: "nearest", inline: "center"});
+    if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
+  }
+  const form = document.querySelector("form.search");
+  form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
+</script>
 {% endblock %}
