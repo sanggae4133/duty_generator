@@ -57,7 +57,8 @@ def generate_control_duty(
         for i in sorted(range(len(slots)), key=lambda i: len(slots[i])):
             candidates = sorted(m for m in slots[i] if m not in used)  # set 순서는 해시에 따라 바뀌므로 정렬 후 섞는다
             if not candidates:
-                failures.append(SlotFailure(d, i, len(candidates)))  # 그날 사용된 사람을 뺀 남은 후보 수
+                # 그날 이 칸의 전체 자격자 수(다른 칸에 이미 배정된 사람 포함). 0이면 자격자 없음, N>0이면 N명 전원이 다른 칸에 사용됨.
+                failures.append(SlotFailure(d, i, len(slots[i])))
                 continue
             rng.shuffle(candidates)
             pick = min(candidates, key=lambda m: counts[m])  # 동점이면 섞인 순서의 첫 번째

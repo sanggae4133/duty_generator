@@ -57,6 +57,17 @@ def test_failure_lists_slots_without_candidates():
     assert SlotFailure(DATES[0], 0, 0) in e.value.failures
 
 
+def test_failure_reports_eligible_count_when_all_used_elsewhere():
+    d = DATES[0]
+    c = {d: {"normal": {"N0"}}}
+    with pytest.raises(GenerationError) as e:
+        generate_control_duty([d], c, {"N0"}, seed=1)
+    # slot 0은 N0이 배정되고, slot 1..8은 자격자 1명(N0)이 전부 다른 칸에 쓰여 실패
+    for i in range(1, 9):
+        assert SlotFailure(d, i, 1) in e.value.failures
+    assert SlotFailure(d, 9, 0) in e.value.failures
+
+
 def test_most_constrained_slot_first_keeps_dinner_slot_fillable():
     d = DATES[0]
     normal = {f"N{i}" for i in range(8)}
