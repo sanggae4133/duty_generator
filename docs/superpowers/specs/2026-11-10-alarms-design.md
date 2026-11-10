@@ -1,0 +1,144 @@
+# 개인별 알림(텔레그램·웹 푸시) 설계
+
+상태: 사용자 확인 대기 · 2026-11-10 · 상위 설계: `2026-11-09-duty-generator-design.md`
+
+## 목표
+
+`duty_notifier`(시트 기반, 설정 파일의 공통 규칙)가 하던 당번 알림을 웹앱으로 옮기고, 사람마다 알림 규칙을 직접 정하게 한다.
+
+- 채널: 텔레그램(각자 chat_id 직접 입력, 선택), 웹 푸시(PWA, 기기별 구독).
+- 규칙은 사람마다 여러 개. 규칙마다 종류(개인/보고서형), 기준(시간/일/영업일), 채널(텔레그램·푸시 중복 선택), 대상 조건을 정한다.
+- 시간 기준과 영업일 기준은 병행·중복 가능.
+
+범위 밖: 텔레그램 봇의 조회 명령(`/today` 등) — `duty_notifier`에 남긴다. 공휴일 처리(근무표와 같이 평일 = 영업일).
+
+## 결정 사항
+
+| 항목 | 결정 |
+|---|---|
+| 발송 위치 | 웹앱(Django)으로 통합. `duty_notifier`의 알림 발송은 전환 시 끈다(중복 방지) |
+| 시간 단위 | 분. 화면은 "N시간 M분" 입력 → 분으로 저장. 발송 시각도 분 단위(HH:MM) |
+| 장중당번 | 개인 알림 대상에 포함. 시작 시각 = 칸 시간대의 시작(예: 10:30~11:30 → 10:30) |
+| 기본 규칙 | 모든 계정(신규·기존)에 2개: ① 개인, 1일 전 18:00, 텔레그램, 새벽·석식교대·야간 ② 개인, 시작 120분 전, 텔레그램, 새벽·석식교대·야간 |
+| enum | `TextChoices` + DB `CheckConstraint`(CLAUDE.md 규칙) |
+| 고아 row | 모든 FK `CASCADE`(사용자 → 프로필·구독·규칙 → 발송기록) |
+
+## 근무 시작 시각 (코드 상수, `duty/shifts.py`)
+
+| 스케줄 | 시간 |
+|---|---|
+| 새벽 `dawn` | 06:30~15:30 |
+| 정상 `normal` | 08:00~17:00 |
+| 석식교대 `dinner` | 09:00~18:00 |
+| 야간 `night` | 13:30~21:30 |
+| 장중당번 `slot0`~`slot9` | `CONTROL_SLOTS` 라벨의 시간대 |
+
+(`duty_notifier` config의 값과 같음: 9시 = 석식교대, 저녁 = 야간)
+
+## 데이터 구조
+
+```
+TelegramAlarmProfile         사용자당 1개
+├─ user      → User (1:1, CASCADE)
+└─ chat_id   CharField, 비우면 텔레그램 발송 안 함
+
+PushAlarmSubscription        기기마다 1개
+├─ user      → User (CASCADE)
+├─ endpoint  UNIQUE
+├─ p256dh, auth
+└─ created_at
+
+AlarmRule
+├─ user        → User (CASCADE)
+├─ enabled     bool
+├─ kind        enum personal | report
+├─ timing      enum before_start | days | bizdays
+├─ offset      int   before_start=분(1~10080) / days=일(0~30) / bizdays=영업일(1~30)
+├─ at_minute   int   0~1439 발송 시각. before_start면 0
+├─ telegram, push   bool
+├─ shifts      JSON [dawn, normal, dinner, night, slots] (고정 순서로 정렬 저장) 빈 값 = 전부
+├─ depts       JSON [부서 코드] (코드순) 빈 값 = 전부. personal이면 반드시 []
+└─ types       JSON [직원, 개발자] 빈 값 = 전부. personal이면 반드시 []
+   CHECK kind/timing ∈ enum, offset·at_minute 범위, before_start → at_minute=0,
+         telegram OR push, personal → depts=[] AND types=[]
+   UNIQUE (user, kind, timing, offset, at_minute, shifts, depts, types)
+
+AlarmSent                    발송 기록
+├─ rule      → AlarmRule (CASCADE)
+├─ date
+├─ cell      근무 칸 키(dawn, slot3 …). 보고서형은 "report"
+├─ channel   enum telegram | push
+├─ content_hash   보낸 내용 요약값
+└─ sent_at
+   CHECK channel ∈ enum, cell ∈ CELLS ∪ {report}
+   UNIQUE (rule, date, cell, channel)
+```
+
+- 채널은 유니크 키에서 뺐다: 조건이 같고 채널만 다른 규칙은 한 규칙에서 둘 다 켠다.
+- `at_minute`은 NULL 대신 0: SQLite 유니크는 NULL끼리 다르다고 본다.
+- JSON 목록은 저장 전에 고정 순서로 정렬(폼·서비스 한 곳에서)해 `[night, dawn]` = `[dawn, night]`.
+
+## 발송 시각 계산 (순수 함수, `duty/alarms/schedule.py`)
+
+`start` = 근무 시작 일시(보고서형은 그날 선택 스케줄 중 가장 이른 시작).
+
+- `before_start`: `start - offset분`
+- `days`: `(근무일 - offset일)`의 `at_minute`
+- `bizdays`: 근무일에서 평일만 세어 `offset`일 앞선 날의 `at_minute`
+
+발송 창: `send_at <= now < start`. 워커가 꺼져 있다가 켜져도 근무 시작 전이면 보낸다. 시작이 지난 알림은 버린다.
+
+## 알림 내용
+
+대상 판단은 배포된 근무표(`published_days`)의 현재 상태로 한다.
+
+- **개인**: 규칙 주인의 멤버가 그날 그 칸(규칙 `shifts`에 든 칸)에 있으면 1건/칸.
+  `[당번 알림] 11/16(월) 새벽당번 06:30~15:30` + `***님, 내일 새벽당번입니다.`
+- **보고서형**: 그날 1건. 규칙의 부서·유형·스케줄 조건으로 거른 출근표.
+  `[출근표] 11/16(월) — 매칭엔진실·개발자` + 스케줄별 `새벽(06:30~) ***, ***` 줄
+- **변경**: 이미 보낸 알림(`AlarmSent`)의 내용이 근무 시작 전에 바뀌면 다시 보낸다.
+  개인: 그 칸에서 빠지면 `[당번 변경] … 근무가 취소되었습니다(→ 후임)`. 보고서형: `[출근표 변경]` 차이 줄.
+  `content_hash`를 갱신한다.
+
+## 구성 요소
+
+- `duty/alarms/schedule.py` — 발송 시각 계산(ORM 없음).
+- `duty/alarms/plan.py` — 근무표 + 규칙 → 지금 보낼 알림 목록(ORM 없는 부분 최대화).
+- `duty/alarms/messages.py` — 문구.
+- `duty/alarms/telegram.py` — Bot API `sendMessage`(표준 라이브러리 `urllib`).
+- `duty/alarms/webpush.py` — `pywebpush`(신규 의존성 1개; VAPID 암호화를 직접 구현하지 않는다). 410/404 응답이면 구독 삭제.
+- `duty/services/alarms.py` — 규칙 CRUD·기본 규칙 생성·발송 기록(DB 쓰기는 여기만).
+- `manage.py run_alarms` — 1분마다 계획 → 발송 → 기록. systemd 서비스 `duty-alarms.service`(gunicorn과 별도 프로세스). 한 번에 하나만 돌도록 DB 잠금(IMMEDIATE 트랜잭션)으로 발송 기록을 먼저 쓰고 보낸다(중복보다 누락 쪽으로 실패).
+- 기본 규칙: User `post_save`(생성 시) + 데이터 마이그레이션(기존 계정).
+
+## 화면
+
+상단 메뉴 "알림 설정"(로그인한 누구나, 자기 것만).
+
+1. 텔레그램 chat_id 입력 + [테스트 발송]. chat_id 확인 방법 안내 문구.
+2. [이 기기에서 푸시 받기] / [이 기기 해제] — 서비스 워커 등록·구독 → 서버 저장. 등록된 기기 수 표시. 아이폰은 "홈 화면에 추가" 후에만 가능하다는 안내.
+3. 규칙 표: 켬, 종류, 기준(예: "1일 전 18:00", "2시간 전", "1영업일 전 17:00"), 채널, 조건 + [추가]/[수정]/[삭제]. 폼은 종류에 따라 부서·유형 칸을 숨기고, 기준에 따라 "N시간 M분" 또는 "N일 + HH:MM"을 보인다. 중복 규칙은 "같은 규칙이 이미 있습니다" 오류.
+
+PWA: `manifest.webmanifest`, 서비스 워커(`/sw.js`, 루트 범위) — `push` 이벤트에서 알림 표시, 클릭하면 해당 날짜 일별 보기 열기.
+
+## 설정·보안
+
+- 환경변수: `DUTY_TELEGRAM_BOT_TOKEN`, `DUTY_VAPID_PUBLIC_KEY`, `DUTY_VAPID_PRIVATE_KEY`, `DUTY_VAPID_SUBJECT`(mailto:). 없으면 해당 채널만 끄고 화면에 "설정 안 됨" 표시.
+- 구독·규칙 API는 로그인 + CSRF. 남의 규칙·구독은 404.
+- 웹 푸시는 HTTPS 필요(Tailscale Funnel = HTTPS). 로컬 개발은 `localhost` 예외로 동작.
+- 알림 문구에 실명이 들어간다 — 로그에는 남기지 않는다(발송 실패 로그는 규칙 id·채널·상태 코드만).
+
+## 전환 순서
+
+1. 웹앱 배포 → 각자 chat_id·푸시 등록(기본 규칙이 이미 있음).
+2. `duty_notifier`의 알림 규칙(`rules`)을 비워 발송 중지, 봇 조회 기능만 유지.
+3. `run_alarms` 서비스 시작.
+
+## 테스트
+
+- 시각 계산: 각 기준·경계(주말 건너뛰기, 0일 전, 월요일 근무의 1영업일 전 = 금요일, 장중 칸 시작 시각).
+- 계획: 개인/보고서형 대상 판단, 필터 조건, 발송 창, 중복 방지, 변경 재발송·취소.
+- 제약: 각 CHECK·UNIQUE가 IntegrityError, CASCADE로 고아 없음.
+- 화면: 남의 규칙 접근 404, 중복 규칙 오류, 기본 규칙 생성(신규·기존).
+- 발송기: 텔레그램·푸시 클라이언트는 가짜로 바꿔 끼워 검증(외부 호출 없음). 410이면 구독 삭제.
+- 브라우저: 설정 화면 1400/390px, 실제 푸시 수신은 수동 확인.
