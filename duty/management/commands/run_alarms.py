@@ -1,11 +1,10 @@
 import fcntl
 import logging
-import sys
 import time
 from collections import Counter
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from duty.services import alarm_runner
@@ -25,8 +24,7 @@ class Command(BaseCommand):
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | (fcntl.LOCK_NB if once or dry_run else 0))
             except BlockingIOError:
-                self.stderr.write("다른 run_alarms가 실행 중입니다.")
-                sys.exit(1)
+                raise CommandError("다른 run_alarms가 실행 중입니다.", returncode=1) from None
             if dry_run:
                 n = Counter(due.channel for due, _ in alarm_runner.collect(timezone.now()))
                 self.stdout.write(f"telegram={n['telegram']} push={n['push']}")

@@ -3,7 +3,7 @@ import logging
 from datetime import date, datetime, timedelta
 
 import pytest
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.utils import timezone
 
 from duty.alarms import senders
@@ -265,10 +265,10 @@ def test_telegram_send_includes_link(member, fake, env):
 def test_once_locked_exits_1(env, db):
     with open(env.ALARMS_LOCK_PATH, "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
-        with pytest.raises(SystemExit) as e:
+        with pytest.raises(CommandError, match="다른 run_alarms가 실행 중입니다.") as e:
             call_command("run_alarms", "--once")
-        assert e.value.code == 1
-        with pytest.raises(SystemExit):
+        assert e.value.returncode == 1
+        with pytest.raises(CommandError):
             call_command("run_alarms", "--dry-run")
 
 
@@ -288,3 +288,67 @@ def test_dry_run(member, fake, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "telegram=1" in out and "push=1" in out and NAME not in out
     assert fake.sent == [] and not AlarmDelivery.objects.exists()
+
+
+def test_telegram_link_too_long_is_dropped(env):
+    env.SITE_URL = "https://duty.example/" + "x" * 4000
+    t = alarm_runner.telegram_text("가" * 5000, "/day/2026-11-16/")
+    assert len(t) == 4000 and "https://" not in t
+    # 경계: 링크+줄바꿈 뒤에 생략 표시(CUT) 자리까지 있어야 링크 포함
+    from duty.alarms.messages import CUT
+    url = "/day/2026-11-16/"
+    for room, has_link in ((len(CUT), True), (len(CUT) - 1, False), (0, False)):
+        env.SITE_URL = "h" * (3999 - room - len(url))
+        t = alarm_runner.telegram_text("가" * 5000, url)
+        assert len(t) == 4000 and t.endswith(CUT if not has_link else "\n" + env.SITE_URL + url)
+        assert ("h" in t) == has_link
+
+
+def test_long_site_url_warns_once_without_url(member, fake, env, caplog):
+    env.SITE_URL = "https://secret-host.example/" + "x" * 4000
+    verify(member.user)
+    AlarmRule.objects.filter(timing="days").update(push=True)
+    PushAlarmSubscription.objects.create(user=member.user, endpoint="e", p256dh="p", auth="a")
+    with caplog.at_level(logging.WARNING):
+        alarm_runner.tick(SUN18)
+    assert len(fake.sent) == 2 and len(fake.sent[0][1]) <= 4000
+    assert caplog.text.count("SITE_URL") == 1 and "secret-host" not in caplog.text
+
+
+def test_failure_keeps_last_sent_hash(member, fake):
+    verify(member.user)
+    alarm_runner.tick(SUN18)
+    old = AlarmDelivery.objects.get().last_sent_hash
+    member.name = "가상인물2"
+    member.save()
+    fake.fail["111"] = senders.Temporary(502)
+    alarm_runner.tick(SUN18 + timedelta(minutes=1))
+    row = AlarmDelivery.objects.get()
+    assert row.status == "failed" and row.attempts == 1
+    assert row.last_sent_hash == old and row.content_hash != old and row.content_hash.startswith("in:")
+
+
+def test_log_has_no_token_or_endpoint(member, monkeypatch, env, caplog):
+    import requests
+    from pywebpush import WebPushException
+
+    token = "1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"
+    endpoint = "https://fcm.googleapis.com/fcm/send/secret-endpoint-abc"
+    env.TELEGRAM_BOT_TOKEN = token
+    verify(member.user)
+    AlarmRule.objects.filter(timing="days").update(push=True)
+    PushAlarmSubscription.objects.create(user=member.user, endpoint=endpoint, p256dh="p", auth="a")
+
+    def boom_url(*a, **kw):
+        raise OSError(f"connect failed {a[0].full_url}")
+
+    def boom_push(*a, **kw):
+        resp = requests.Response()
+        resp.status_code = 500
+        raise WebPushException(f"push failed {endpoint}", response=resp)
+
+    monkeypatch.setattr("urllib.request.urlopen", boom_url)
+    monkeypatch.setattr(senders, "webpush", boom_push)
+    with caplog.at_level(logging.DEBUG):
+        assert alarm_runner.tick(SUN18) == (2, 0, 2)
+    assert token not in caplog.text and "secret-endpoint" not in caplog.text and NAME not in caplog.text

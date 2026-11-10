@@ -110,7 +110,7 @@ def _personal(r, day, cells, starts, deliveries, now, destinations, today):
         for ch, dest in _targets(r, destinations):
             last = deliveries.get((r.id, day.date, c, ch, dest))
             # 취소는 이 목적지에 무언가 성공적으로 알린 적이 있을 때만
-            if last == h or (not inside and last is None):
+            if last == h or (not inside and not (last or "").startswith(("in:", "out:"))):
                 continue
             out.append(Due(r.id, day.date, c, ch, title, m.clip(text), h, f"/day/{day.date.isoformat()}/",
                            start, m.clip_bytes(text.replace("\n", " ")), dest))
@@ -131,7 +131,7 @@ def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic,
         names = [n for n in day.members.get(c, []) if keep(n)]
         uniq.update(names)
         lines.append(m.report_line(c, names))
-    h = hashlib.sha256("\n".join(lines).encode()).hexdigest()[:16]
+    h = _hash("report", "\n".join(lines))
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
     out = []
     for ch, dest in _targets(r, destinations):

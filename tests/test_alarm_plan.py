@@ -229,3 +229,13 @@ def test_successor_reverts_and_dash_name():
     d = day(dawn=["-"], replaced={("dawn", "-"): "가"})
     due = run([rule()], [d], SUN18, {k: h_none})
     assert due[0].content_hash != h_none and "후임: -" in due[0].text
+
+
+def test_cancel_needs_personal_hash_prefix():
+    # in:/out: 형식이 아닌 성공 기록(예: 잘못된 값)에는 취소를 보내지 않음
+    assert run([rule()], [day()], SUN18, {K(): "garbage"}) == []
+    assert run([rule()], [day()], SUN18, {K(): ""}) == []
+
+
+def test_report_hash_prefixed():
+    assert run([rep(shifts=("dawn",))], [day(dawn=["가"])], SUN18)[0].content_hash.startswith("report:")

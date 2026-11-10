@@ -18,14 +18,21 @@ from .roster import published_days
 log = logging.getLogger(__name__)
 HORIZON = timedelta(days=45)
 KEEP = timedelta(days=7)
+LIMIT = 4000  # 텔레그램 본문 최대 길이
+
+
+def _link(url: str) -> str | None:
+    """SITE_URL 절대 링크. 비었거나 너무 길어 본문(최소 생략 표시만큼) 자리가 없으면 None."""
+    link = settings.SITE_URL.rstrip("/") + url if settings.SITE_URL else None
+    return link if link and len(link) + 1 + len(m.CUT) <= LIMIT else None
 
 
 def telegram_text(text: str, url: str) -> str:
     """SITE_URL이 있으면 마지막 줄에 절대 링크. 링크 자리를 먼저 빼고 본문을 잘라 전체 4000자 이내."""
-    if not settings.SITE_URL:
-        return m.clip(text)
-    link = settings.SITE_URL.rstrip("/") + url
-    return m.clip(text, 4000 - len(link) - 1) + "\n" + link
+    link = _link(url)
+    if link is None:
+        return m.clip(text, LIMIT)
+    return m.clip(text, LIMIT - len(link) - 1) + "\n" + link
 
 
 def _destinations(rules):
@@ -101,6 +108,8 @@ def _next_attempt(err, attempts, now, expires):
 def tick(now) -> tuple[int, int, int]:
     pending = collect(now)
     sent = failed = 0
+    if settings.SITE_URL and any(d.channel == "telegram" and _link(d.url) is None for d, _ in pending):
+        log.warning("alarms: SITE_URL too long, telegram link omitted")
     for due, row in pending:
         key = dict(rule_id=due.rule_id, date=due.date, cell=due.cell, channel=due.channel, destination=due.destination)
         expires = timezone.make_aware(due.expires_at)
