@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="{% static 'vendor/pico.min.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
+    form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+    form.search input { width: auto; min-width: 9rem; flex: 1 1 9rem; margin: 0; }
+    form.search .name { display: flex; align-items: center; gap: .25rem; flex: 1 1 10rem; }
+    form.search button { width: auto; margin: 0; white-space: nowrap; }
+    nav a, nav button { white-space: nowrap; }
+    nav ul { flex-wrap: wrap; }
     .grid-wrap { overflow-x: auto; }
     table.roster { font-size: .8rem; }
     table.roster th { white-space: nowrap; word-break: keep-all; }
