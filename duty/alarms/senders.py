@@ -121,6 +121,12 @@ def telegram_check(chat_id: str) -> str:
 
 
 def push_send(sub, title: str, body: str, url: str, ttl: int) -> None:
+    from ..errors import DutyError
+    from ..services.alarms import check_endpoint  # 순환 import 회피
+    try:
+        check_endpoint(sub.endpoint)  # 방어: 저장 후 규칙이 강화돼도 허용 목록 밖으로는 보내지 않는다
+    except DutyError:
+        raise Permanent() from None
     try:
         webpush(
             subscription_info={"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}},

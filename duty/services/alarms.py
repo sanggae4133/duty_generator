@@ -217,7 +217,7 @@ def _b64url(v, lo, hi) -> bool:
 
 
 def check_endpoint(endpoint) -> None:
-    """SSRF 방지: https, userinfo·포트 없음, IP 리터럴 아님, 허용 목록 호스트."""
+    """SSRF 방지: https, 포트 없음, netloc은 [a-z0-9.-]만(userinfo·대문자·이스케이프 불가), IP 리터럴 아님, 허용 목록 호스트."""
     # 공백·제어 문자는 urlsplit·requests가 벗겨내므로 미리 막는다(같은 endpoint 중복 등록 방지)
     if not isinstance(endpoint, str) or len(endpoint) > 500 or not re.fullmatch(r"[\x21-\x7e]+", endpoint):
         raise DutyError("잘못된 푸시 구독입니다.")
@@ -226,8 +226,9 @@ def check_endpoint(endpoint) -> None:
         port = u.port
     except ValueError:
         raise DutyError("잘못된 푸시 구독입니다.") from None
-    host = (u.hostname or "").lower()
-    if u.scheme != "https" or "@" in u.netloc or port is not None or ":" in u.netloc or not host:
+    # 정규화 전 netloc을 그대로 호스트로 본다: \, %, @, :, 대문자 등이 섞이면 urlsplit과 requests의 해석이 갈린다
+    host = u.netloc
+    if u.scheme != "https" or port is not None or not re.fullmatch(r"[a-z0-9.-]+", host):
         raise DutyError(UNSUPPORTED)
     try:
         ipaddress.ip_address(host)

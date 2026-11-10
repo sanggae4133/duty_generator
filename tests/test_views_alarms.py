@@ -614,6 +614,10 @@ def test_subscribe_ok_and_label(client, me, vapid):
     EP + " ",
     "https://fcm.googleapis\n.com/x",
     "https://fcm.googleapis.com/x\ty",
+    "https://evil.example\\.fcm.googleapis.com/x",
+    "https://evil.example%5c.fcm.googleapis.com/x",
+    "https://evil%2eexample.fcm.googleapis.com/x",
+    "https://FCM.googleapis.com/fcm/send/y",
 ])
 def test_subscribe_bad_endpoint(client, me, vapid, endpoint):
     r = sub_json(client, endpoint=endpoint)
@@ -622,8 +626,8 @@ def test_subscribe_bad_endpoint(client, me, vapid, endpoint):
 
 
 def test_subscribe_host_ok(client, me, vapid):
-    for i, ep in enumerate(["https://updates.push.services.mozilla.com/wpush/v2/x",
-                            "https://web.push.apple.com/QGx", "https://FCM.googleapis.com/fcm/send/y"]):
+    for i, ep in enumerate(["https://updates.push.services.mozilla.com/wpush/v2/gAAAAABx-_y",
+                            "https://web.push.apple.com/QGx-Ab_9", "https://fcm.googleapis.com/fcm/send/dX:APA91b-y_z"]):
         assert sub_json(client, endpoint=ep).status_code == 200, ep
     assert PushAlarmSubscription.objects.count() == 3
 
