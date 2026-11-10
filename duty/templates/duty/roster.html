@@ -13,11 +13,7 @@
   <span class="pair"><input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem"><button>이동</button></span>
   <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
   {% endfor %}<button>검색</button></span>
-  <fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  <fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  <small class="hint">모두 해제하면 전체 표시</small>
-  <button type="button" class="outline secondary" id="slot-toggle"></button>
-</form>
+  {% include "duty/_filters.html" %}</form>
 <div class="grid-wrap roster-scroll">
 <table class="roster month" id="roster">
   <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
@@ -35,40 +31,12 @@
 </table>
 </div>
 <script>
-  const t = document.getElementById("roster"), b = document.getElementById("slot-toggle"), K = "roster.slotsHidden";
-  const paint = () => b.textContent = t.classList.contains("slots-hidden") ? "장중 당번 펼치기" : "장중 당번 접기";
-  try { t.classList.toggle("slots-hidden", localStorage.getItem(K) === "1"); } catch (e) {}
-  paint();
-  b.onclick = () => {
-    t.classList.toggle("slots-hidden");
-    try { localStorage.setItem(K, t.classList.contains("slots-hidden") ? "1" : "0"); } catch (e) {}
-    paint();
-  };
   const today = document.getElementById("today");
   if (today) {
     today.scrollIntoView({block: "nearest", inline: "center"});
     if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
   }
-  // 마지막 보기·필터 기억: 명시한 URL 파라미터가 항상 우선
   const form = document.querySelector("form.search");
-  const FILTERS = {dept: "roster.depts", type: "roster.types"};
-  const boxes = n => [...form.querySelectorAll(`input[name=${n}]`)];
-  Object.entries(FILTERS).forEach(([n, key]) => boxes(n).forEach(c => c.onchange = () => {
-    try {
-      const v = boxes(n).filter(x => x.checked).map(x => x.value);
-      localStorage.setItem(key, JSON.stringify(v.length === boxes(n).length ? [] : v));
-    } catch (e) {}
-    form.requestSubmit();
-  }));
-  try {
-    const u = new URL(location), p = u.searchParams;
-    if (p.get("view")) localStorage.setItem("roster.view", p.get("view"));
-    else if (localStorage.getItem("roster.view") === "month") p.set("view", "month");
-    Object.entries(FILTERS).forEach(([n, key]) => {
-      if (p.has(n)) localStorage.setItem(key, JSON.stringify(p.getAll(n)));
-      else JSON.parse(localStorage.getItem(key) || "[]").forEach(v => p.append(n, v));
-    });
-    if (u.search !== location.search) location.replace(u);
-  } catch (e) {}
+  form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
 </script>
 {% endblock %}

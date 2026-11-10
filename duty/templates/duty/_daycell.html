@@ -3,6 +3,6 @@
 {% for c in d.commute %}<div class="sec"><small>{{ c.label }}</small>
   {% if d.edit %}<a href="{% url 'day' d.date %}#{{ c.key }}" hx-get="{% url 'cell' d.date c.key %}?next={{ request.get_full_path|urlencode }}{{ filter_qs }}" hx-target="#dlg-body">{% include "duty/_cellbody.html" %}</a>{% else %}{% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}{% endif %}
   {% for line in c.removed %}<div>{% include "duty/_labels.html" %}</div>{% endfor %}</div>{% endfor %}
-<div class="sec slot"><small>관제</small>
-  {% for c in d.duty %}{% if c.lines or c.removed or d.edit %}<div>{% if d.edit %}<a href="{% url 'day' d.date %}#{{ c.key }}" hx-get="{% url 'cell' d.date c.key %}?next={{ request.get_full_path|urlencode }}{{ filter_qs }}" hx-target="#dlg-body">{% endif %}{{ c.time }} {% for line in c.lines %}{% include "duty/_labels.html" %}{% if not forloop.last %}, {% endif %}{% empty %}{% if d.edit %}·{% endif %}{% endfor %}{% if d.edit %}</a>{% endif %}{% for line in c.removed %} {% include "duty/_labels.html" %}{% endfor %}</div>{% endif %}{% endfor %}</div>
+{% if d.duty %}<div class="sec slot"><small>관제</small>
+  {% for c in d.duty %}{% if c.lines or c.removed or d.edit %}<div>{% if d.edit %}<a href="{% url 'day' d.date %}#{{ c.key }}" hx-get="{% url 'cell' d.date c.key %}?next={{ request.get_full_path|urlencode }}{{ filter_qs }}" hx-target="#dlg-body">{% endif %}{{ c.time }} {% for line in c.lines %}{% include "duty/_labels.html" %}{% if not forloop.last %}, {% endif %}{% empty %}{% if d.edit %}·{% endif %}{% endfor %}{% if d.edit %}</a>{% endif %}{% for line in c.removed %} {% include "duty/_labels.html" %}{% endfor %}</div>{% endif %}{% endfor %}</div>{% endif %}
 {% endif %}

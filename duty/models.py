@@ -108,3 +108,12 @@ class ChangeLog(models.Model):
 
     class Meta:
         ordering = ["at", "id"]
+
+
+class RosterPref(models.Model):
+    """사용자별 근무표 필터·보기 저장값. 빈 목록 = 전체."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    depts = models.JSONField(default=list)
+    types = models.JSONField(default=list)
+    shifts = models.JSONField(default=list)
+    view = models.CharField(max_length=5, default="week")

@@ -1,10 +1,17 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <nav>
-  <ul><li><a href="{% url 'day' prev %}">◀</a></li></ul>
+  <ul><li><a href="{% url 'day' prev %}{{ qs }}">◀</a></li></ul>
   <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong></li></ul>
-  <ul><li><a href="{% url 'day' next_day %}">▶</a></li></ul>
+  <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
 </nav>
+<form method="get" class="search">
+  {% include "duty/_filters.html" %}
+</form>
+<script>
+  const form = document.querySelector("form.search");
+  form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
+</script>
 {% if not found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
 {% for s in sections %}
 <article id="{{ s.cell }}">
