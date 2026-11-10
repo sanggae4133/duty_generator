@@ -1,0 +1,18 @@
+{% extends "duty/base.html" %}
+{% block content %}
+<h3>회차</h3>
+<form method="post" role="group">{% csrf_token %}
+  <input name="name" placeholder="회차 이름" required>
+  <input type="date" name="start_date" required aria-label="시작일">
+  <input type="date" name="end_date" required aria-label="종료일">
+  <button>새 회차</button>
+</form>
+<table>
+  <thead><tr><th>이름</th><th>기간</th><th>상태</th></tr></thead>
+  <tbody>{% for p in periods %}
+    <tr><td><a href="{% url 'period_detail' p.pk %}">{{ p.name }}</a></td>
+      <td>{{ p.start_date|date:"Y-m-d" }} ~ {{ p.end_date|date:"Y-m-d" }}</td>
+      <td>{{ p.get_status_display }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% endblock %}

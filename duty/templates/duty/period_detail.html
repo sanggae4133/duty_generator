@@ -1,0 +1,45 @@
+{% extends "duty/base.html" %}
+{% block content %}
+<h3>{{ period.name }} <small>({{ period.get_status_display }})</small></h3>
+{% if period.status == S.DRAFT %}
+<form method="post" role="group">{% csrf_token %}
+  <input name="name" value="{{ period.name }}" required>
+  <input type="date" name="start_date" value="{{ period.start_date|date:'Y-m-d' }}" required>
+  <input type="date" name="end_date" value="{{ period.end_date|date:'Y-m-d' }}" required>
+  <button>저장</button>
+</form>
+{% else %}
+<p>{{ period.start_date|date:"Y-m-d" }} ~ {{ period.end_date|date:"Y-m-d" }}</p>
+{% endif %}
+
+<div role="group">
+  {% if period.status == S.DRAFT or period.status == S.CLOSED or period.status == S.GENERATED %}
+  <form method="post" action="{% url 'period_action' period.pk 'open' %}">{% csrf_token %}<button class="secondary">{% if period.status == S.DRAFT %}취합 열기{% else %}재오픈 (생성 결과 삭제){% endif %}</button></form>
+  {% endif %}
+  {% if period.status == S.COLLECTING %}
+  <form method="post" action="{% url 'period_action' period.pk 'close' %}">{% csrf_token %}<button>취합 마감</button></form>
+  {% endif %}
+  {% if period.status == S.CLOSED or period.status == S.GENERATED %}
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>{% if period.status == S.GENERATED %}재생성{% else %}생성{% endif %}</button></form>
+  {% endif %}
+  {% if period.status == S.GENERATED %}
+  <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
+  {% endif %}
+</div>
+
+<h4>부서별 입력 현황</h4>
+<ul>{% for code, p in progress.items %}<li>{{ code }}: {{ p.0 }} / {{ p.1 }}일
+  {% if code in missing %}<small>(비어 있는 날짜 있음)</small>{% endif %}</li>{% endfor %}</ul>
+
+{% if failures %}
+<article><strong>배정할 수 없는 칸이 있습니다.</strong>
+  <table><thead><tr><th>날짜</th><th>시간대</th><th>후보 수</th></tr></thead>
+  <tbody>{% for f in failures %}<tr><td>{{ f.date|date:"Y-m-d" }}</td><td>{{ f.slot }}</td><td>{{ f.candidates }}</td></tr>{% endfor %}</tbody></table>
+</article>
+{% endif %}
+
+{% if counts %}
+<h4>장중관제 배정 횟수 — 편차 {{ spread }} {% if reached %}(목표 2 이하 도달){% else %}(목표 2 미도달){% endif %}</h4>
+<table><tbody>{% for name, n in counts %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table>
+{% endif %}
+{% endblock %}

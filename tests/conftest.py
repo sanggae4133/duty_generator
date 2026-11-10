@@ -46,3 +46,9 @@ def fixed_today(monkeypatch):
         monkeypatch.setattr("duty.perms.today", lambda: d)
 
     return set_today
+
+
+@pytest.fixture
+def admin_client_ok(client, admin_user):
+    client.force_login(admin_user)
+    return client
