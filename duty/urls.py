@@ -5,6 +5,7 @@ from django.urls import path, register_converter
 
 from . import api
 from .views import auth as auth_views_local
+from .views import roster as roster_views
 
 
 class IsoDateConverter:
@@ -23,5 +24,11 @@ urlpatterns = [
     path("login/", auth_views.LoginView.as_view(template_name="duty/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password/", auth_views_local.PasswordChange.as_view(), name="password_change"),
+    path("", roster_views.roster, name="roster"),
+    path("day/<isodate:d>/", roster_views.day, name="day"),
+    path("cell/<isodate:d>/<str:cell>/", roster_views.cell, name="cell"),
+    path("swap/<isodate:d>/", roster_views.swap, name="swap"),
+    path("dept/<str:key>/", roster_views.dept, name="dept"),
+    path("me/", roster_views.me, name="me"),
     path("api/assignments", api.assignments, name="api_assignments"),
 ]

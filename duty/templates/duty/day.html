@@ -1,0 +1,29 @@
+{% extends "duty/base.html" %}
+{% block content %}
+<nav>
+  <ul><li><a href="{% url 'day' prev %}">◀</a></li></ul>
+  <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong></li></ul>
+  <ul><li><a href="{% url 'day' next_day %}">▶</a></li></ul>
+</nav>
+{% if not found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
+{% for s in sections %}
+<article id="{{ s.cell }}" {% if s.changed %}class="changed"{% endif %}>
+  <strong>{{ s.label }}</strong>
+  <p>{{ s.labels|join:", "|default:"-" }}{% for r in s.removed %} <span class="removed">{{ r }}</span>{% endfor %}</p>
+  {% if editable %}
+  <details><summary>변경</summary>
+    {% include "duty/_cell_form.html" with cell=s.cell label=s.label slot=s.slot current_members=s.current_members members=s.members next=s.next %}
+  </details>
+  {% endif %}
+</article>
+{% endfor %}
+{% if found and editable %}
+<details><summary>맞교환</summary>
+  <form method="post" action="{% url 'swap' d %}">{% csrf_token %}
+    <select name="a">{% for o in swap_options %}<option value="{{ o.value }}">{{ o.text }}</option>{% endfor %}</select>
+    <select name="b">{% for o in swap_options %}<option value="{{ o.value }}">{{ o.text }}</option>{% endfor %}</select>
+    <button>맞교환</button>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

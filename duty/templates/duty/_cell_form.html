@@ -1,0 +1,17 @@
+<form method="post" action="{% url 'cell' d cell %}">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <p><strong>{{ d|date:"Y-m-d" }} {{ label }}</strong></p>
+  <label>누구를
+    <select name="before">
+      {% if not slot %}<option value="">(새로 추가)</option>{% endif %}
+      {% for m in current_members %}<option value="{{ m.code }}">{{ m.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>누구로
+    <select name="after">
+      {% if not slot %}<option value="">(빼기)</option>{% endif %}
+      {% for m in members %}<option value="{{ m.code }}">{{ m.name }} · {{ m.department.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button>변경</button>
+</form>
