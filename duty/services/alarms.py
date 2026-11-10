@@ -19,9 +19,9 @@ def normalize(kind, shifts, depts, types):
         return [] if len(got) == len(order) else got
 
     s = pick(shifts, SHIFT_KEYS)
-    if kind == "personal":
-        return s, [], []
-    return s, pick(depts, sorted(Department.objects.values_list("code", flat=True))), pick(types, [STAFF, DEVELOPER])
+    d = pick(depts, sorted(Department.objects.values_list("code", flat=True)))
+    t = pick(types, [STAFF, DEVELOPER])
+    return (s, [], []) if kind == "personal" else (s, d, t)
 
 
 def create_defaults(user) -> None:

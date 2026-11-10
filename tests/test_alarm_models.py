@@ -116,8 +116,9 @@ def test_normalize_rejects_unknown(depts):
     for args in [(["x"], [], []), ([], ["ZZ"], []), ([], [], ["외계인"])]:
         with pytest.raises(DutyError, match="알 수 없는 값"):
             alarms.normalize("report", *args)
-    with pytest.raises(DutyError, match="x"):
-        alarms.normalize("personal", ["x"], [], [])
+    for args in [(["x"], [], []), (["dawn"], ["UNKNOWN"], []), (["dawn"], [], ["UNKNOWN"])]:
+        with pytest.raises(DutyError, match="알 수 없는 값"):
+            alarms.normalize("personal", *args)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -129,7 +130,7 @@ def test_data_migration_only_for_users_without_rules():
     apps = MigrationExecutor(connection).loader.project_state([("duty", "0006_alarms")]).apps
     U, R = apps.get_model("auth", "User"), apps.get_model("duty", "AlarmRule")
     none, one = U.objects.create(username="n"), U.objects.create(username="o")
-    R.objects.filter(user__in=[none, one]).delete()  # 신호가 만든 기본 규칙 제거(실제 DB의 기존 사용자 상황)
+    R.objects.filter(user__in=[none, one]).delete()  # 기존 사용자 상황 재현(과거 상태 모델은 실제 post_save 수신기를 타지 않아 보통 비어 있다)
     R.objects.create(user=one, **{**BASE, "telegram": True})
     MigrationExecutor(connection).migrate([("duty", "0007_default_alarm_rules")])
     assert R.objects.filter(user=none).count() == 2
