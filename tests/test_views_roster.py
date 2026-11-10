@@ -45,7 +45,18 @@ def test_name_inside_chain_highlights(client, world, make_member):
     client.force_login(a.user)
     client.post(f"/cell/{D}/normal/", {"before": a.code, "after": c.code})
     body = client.get("/?q3=다").content.decode()
-    assert '<span class="hl3">가>다</span>' in body.replace("&gt;", ">")
+    body = body.replace("&gt;", ">")
+    assert '<span class="lb chg"><s>가</s>><span class="hl3">다</span></span>' in body
+    assert "changed" not in body.split("<body")[1].split("<script")[0]  # 셀 배경 클래스 없음
+
+
+def test_highlighted_struck_name_keeps_both(client, world, make_member):
+    a, _ = world
+    c = make_member("다")
+    client.force_login(a.user)
+    client.post(f"/cell/{D}/normal/", {"before": a.code, "after": c.code})
+    body = client.get("/?q1=가").content.decode()
+    assert '<span class="hl1"><s>가</s></span>' in body
 
 
 def test_cells_use_nowrap_lines(client, world):

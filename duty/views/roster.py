@@ -18,14 +18,22 @@ from ..shifts import CELLS, DAY_LABELS, cell_label, is_slot_cell
 from .common import date_param, safe_next
 
 
-def _hl(label: str, names: list[str]) -> int:
-    """라벨(A, A>B>C, +B)에 속한 이름 중 검색어 번호(1..3, 낮은 쪽 우선). 없으면 0."""
+def _item(label: str, names: list[str], removed: bool = False) -> dict:
+    """라벨(A, A>B>C, +B)을 이름 토큰으로 나눈다. 마지막 이름 앞은 취소선, hl은 검색어 번호(1..3)."""
     parts = [p.strip().lstrip("+") for p in label.split(">")]
-    return next((i for i, n in enumerate(names, 1) if n in parts), 0)
+    tokens = [
+        {"name": n, "struck": removed or k < len(parts) - 1, "hl": next((i for i, q in enumerate(names, 1) if q == n), 0)}
+        for k, n in enumerate(parts)
+    ]
+    return {"tokens": tokens, "changed": len(parts) > 1 or label.startswith("+") or removed, "removed": removed}
 
 
-def _lines(labels: list[str], names: list[str], per_line: int = 3) -> list[list[dict]]:
-    items = [{"text": lb, "hl": _hl(lb, names)} for lb in labels]
+def _items(labels: list[str], names: list[str], removed: bool = False) -> list[dict]:
+    return [_item(lb, names, removed) for lb in labels]
+
+
+def _lines(labels: list[str], names: list[str], removed: bool = False, per_line: int = 3) -> list[list[dict]]:
+    items = _items(labels, names, removed)
     return [items[i:i + per_line] for i in range(0, len(items), per_line)]
 
 
@@ -92,8 +100,7 @@ def roster(request):
             k: {
                 "key": k, "slot": is_slot_cell(k), "label": cell_label(k),
                 "lines": _lines(found.cells[k].labels, names) if found else [],
-                "removed": _lines(found.cells[k].removed, names) if found else [],
-                "changed": bool(found and found.cells[k].changed),
+                "removed": _lines(found.cells[k].removed, names, True) if found else [],
             }
             for k in CELLS
         }
@@ -164,8 +171,8 @@ def day(request, d):
         for k in CELLS:
             ctx = _cell_context(found, k, d)
             ctx.update(
-                members=members, next=request.path, labels=found.cells[k].labels,
-                removed=found.cells[k].removed, changed=found.cells[k].changed,
+                members=members, next=request.path, items=_items(found.cells[k].labels, []),
+                removed_items=_items(found.cells[k].removed, [], True),
             )
             sections.append(ctx)
     swap_options = [

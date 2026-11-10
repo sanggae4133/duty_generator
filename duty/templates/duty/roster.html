@@ -25,9 +25,9 @@
     <tr{% if row.slot %} class="slot"{% endif %}>
       <th scope="row">{{ row.label }}</th>
       {% for c in row.cells %}{% with d=c.d %}
-      <td class="{% if c.changed %}changed{% endif %}{% if d.is_today %} today-col{% endif %}">
+      <td {% if d.is_today %}class="today-col"{% endif %}>
         {% if d.editable %}<a href="{% url 'day' d.date %}#{{ c.key }}" hx-get="{% url 'cell' d.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{% include "duty/_cellbody.html" %}</a>{% else %}{% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}{% endif %}
-        {% for line in c.removed %}<div class="removed">{% include "duty/_labels.html" %}</div>{% endfor %}
+        {% for line in c.removed %}<div>{% include "duty/_labels.html" %}</div>{% endfor %}
       </td>
       {% endwith %}{% endfor %}
     </tr>
@@ -44,11 +44,11 @@
       <td{% if d.is_today %} id="today" class="today-col"{% elif d.other %} class="other"{% endif %}>
         <a href="{% url 'day' d.date %}"><strong>{{ d.date.day }}</strong></a>
         {% if not d.other %}
-        {% for c in d.commute %}<div class="sec{% if c.changed %} changed{% endif %}"><small>{{ c.label }}</small>
+        {% for c in d.commute %}<div class="sec"><small>{{ c.label }}</small>
           {% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}
-          {% for line in c.removed %}<div class="removed">{% include "duty/_labels.html" %}</div>{% endfor %}</div>{% endfor %}
+          {% for line in c.removed %}<div>{% include "duty/_labels.html" %}</div>{% endfor %}</div>{% endfor %}
         <div class="sec slot"><small>관제</small>
-          {% for c in d.duty %}{% if c.lines or c.removed %}<div class="{% if c.changed %}changed{% endif %}">{{ c.time }} {% for line in c.lines %}{% include "duty/_labels.html" %}{% if not forloop.last %}, {% endif %}{% endfor %}{% for line in c.removed %} <span class="removed">{% include "duty/_labels.html" %}</span>{% endfor %}</div>{% endif %}{% endfor %}</div>
+          {% for c in d.duty %}{% if c.lines or c.removed %}<div>{{ c.time }} {% for line in c.lines %}{% include "duty/_labels.html" %}{% if not forloop.last %}, {% endif %}{% endfor %}{% for line in c.removed %} {% include "duty/_labels.html" %}{% endfor %}</div>{% endif %}{% endfor %}</div>
         {% endif %}
       </td>
     {% endfor %}
