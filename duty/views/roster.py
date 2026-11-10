@@ -146,7 +146,7 @@ def roster(request):
 
     days = [[day_info(d) for d in w] for w in weeks]
     ctx = {
-        "view": view, "title": title, "names": names, "date": anchor, "today_link": link(view, today) + "#today",
+        "view": view, "title": title, "names": names, "date": anchor, "today_link": (link(view, today) or f"?view={view}&date={today.isoformat()}") + "#today",
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
         "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs),

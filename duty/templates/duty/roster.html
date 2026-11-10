@@ -15,9 +15,10 @@
   {% endfor %}<button>검색</button></span>
   <fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  <small class="hint">모두 해제하면 전체 표시</small>
   <button type="button" class="outline secondary" id="slot-toggle"></button>
 </form>
-<div class="grid-wrap">
+<div class="grid-wrap roster-scroll">
 <table class="roster month" id="roster">
   <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
   <tbody>

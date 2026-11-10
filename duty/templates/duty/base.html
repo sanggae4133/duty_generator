@@ -36,7 +36,8 @@
     @keyframes blink { 0%, 100% { background: transparent; } 50% { background: #ffcdd2; } }
     .blink { animation: blink .4s 3; }
     @media (max-width: 768px) { .grid-wrap { margin: 0 calc(-1 * var(--pico-spacing, 1rem)); } }
-    .grid-wrap { overflow: auto; max-height: calc(100dvh - 7rem); }
+    .grid-wrap { overflow-x: auto; }
+    .grid-wrap.roster-scroll { overflow: auto; max-height: calc(100dvh - 7rem); }
     table.roster thead th { position: sticky; top: 0; z-index: 2; background: var(--pico-background-color); padding: .2rem .5rem; text-align: center; }
     table.roster { font-size: .8rem; }
     table.roster th { white-space: nowrap; word-break: keep-all; }

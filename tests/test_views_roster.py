@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 import pytest
@@ -232,7 +233,6 @@ def test_dept_carried_through_links_and_popup_url(client, two_depts):
     body = client.get("/?dept=UI&dept=MD").content.decode().replace("&amp;", "&")
     assert "dept=UI&dept=MD" in body.split('class="cal-nav"')[1].split("</div>")[0]
     assert "dept=UI&dept=MD" in body.split("</form>")[1]  # next=… 와 &dept= 가 팝업 URL에 실린다
-    assert "&dept=UI&dept=MD" in body.split("</form>")[1]
 
 
 @pytest.fixture
@@ -260,30 +260,64 @@ def test_type_filter_and_combination(client, mixed, view):
 
 
 def test_type_carried_and_popup_filtered(client, mixed):
-    a, _ = mixed
+    a, c = mixed
     client.force_login(a.user)
     body = client.get("/?type=직원").content.decode().replace("&amp;", "&")
     assert "type=%EC%A7%81%EC%9B%90" in body.split('class="cal-nav"')[1].split("</div>")[0]
     assert "&type=%EC%A7%81%EC%9B%90" in body.split("</form>")[1]
-    popup = client.get(f"/cell/{D}/normal/?type=직원").content.decode().split("<form")[1]
-    assert "라" in popup and "가" not in popup.replace("From", "")
-    assert client.get("/").content.decode().count('name="type"') == 2
+    popup = client.get(f"/cell/{D}/normal/?type=직원").content.decode()
+    assert f'<option value="{c.code}">' in popup and f'<option value="{a.code}">' not in popup
+
+
+def _checked(body: str) -> dict[tuple[str, str], bool]:
+    found = re.findall(r'<input type="checkbox" name="(dept|type)" value="([^"]+)"( checked)?>', body)
+    return {(n, v): bool(c) for n, v, c in found}
 
 
 def test_popup_members_filtered_by_dept(client, two_depts):
-    a, _ = two_depts
+    a, c = two_depts  # 가(MEMS)·라(UI) 모두 정상 칸 소속
     client.force_login(a.user)
-    body = client.get(f"/cell/{D}/normal/?dept=UI").content.decode()
-    assert "라" in body and "가" not in body.split("<form")[1].split("</form>")[0].replace("From", "")
-    assert "가" in client.get(f"/cell/{D}/normal/").content.decode().split("<form")[1]
+    popup = client.get(f"/cell/{D}/normal/?dept=UI").content.decode()
+    assert popup.count(f'<option value="{c.code}">') == 2 and f'<option value="{a.code}">' not in popup  # From, To
+    full = client.get(f"/cell/{D}/normal/").content.decode()
+    assert f'<option value="{a.code}">' in full and f'<option value="{c.code}">' in full
 
 
-def test_dept_checkboxes_all_checked_by_default(client, two_depts):
+@pytest.mark.parametrize("q", ["", "?dept=NOPE&type=외부", "?dept=&type="])
+def test_empty_or_invalid_selection_shows_everyone(client, two_depts, q):
     a, _ = two_depts
     client.force_login(a.user)
-    body = client.get("/").content.decode()
-    assert body.count('name="dept"') == 4 and body.count(" checked>") == 6  # 부서 4 + 유형 2
-    assert client.get("/?dept=UI").content.decode().count(" checked>") == 3
+    body = client.get("/" + q).content.decode()
+    grid = body.split("<tbody>")[1].split("</tbody>")[0]
+    assert "가" in grid and "라" in grid
+    boxes = _checked(body)
+    assert len(boxes) == 6 and all(boxes.values())
+
+
+def test_selected_checkboxes_reflect_params(client, two_depts):
+    a, _ = two_depts
+    client.force_login(a.user)
+    boxes = _checked(client.get("/?dept=UI&type=직원").content.decode())
+    assert [k for k, v in boxes.items() if v] == [("dept", "UI"), ("type", "직원")]
+    assert "모두 해제하면 전체 표시" in client.get("/").content.decode()
+
+
+def test_unknown_values_are_ignored_next_to_valid(client, two_depts):
+    a, _ = two_depts
+    client.force_login(a.user)
+    body = client.get("/?dept=UI&dept=NOPE&type=외부").content.decode()
+    grid = body.split("<tbody>")[1].split("</tbody>")[0]
+    nav = body.split('class="cal-nav"')[1].split("</div>")[0]
+    assert "라" in grid and "가" not in grid and "NOPE" not in nav and "dept=UI" in nav
+    assert _checked(body)[("type", "직원")] and _checked(body)[("dept", "UI")]  # 잘못된 type만 줬으니 유형은 전체
+
+
+def test_removed_label_filtered_by_its_department(client, two_depts):
+    a, c = two_depts
+    client.force_login(a.user)
+    client.post(f"/cell/{D}/normal/", {"before": a.code, "after": ""})  # 가(MEMS) 제거 → 취소선
+    grid = lambda q: client.get(f"/?{q}").content.decode().split("<tbody>")[1].split("</tbody>")[0]
+    assert "<s>가</s>" in grid("dept=MEMS") and "<s>가</s>" not in grid("dept=UI")
 
 
 def test_edge_dates_hide_prev_next(client, world):
@@ -299,3 +333,11 @@ def test_separate_move_and_search_buttons(client, world):
     client.force_login(a.user)
     body = client.get("/").content.decode()
     assert "<button>이동</button>" in body and "<button>검색</button>" in body and "Today" not in body
+
+
+def test_today_link_survives_out_of_range_today(client, world, fixed_today):
+    a, _ = world
+    fixed_today(date(2100, 6, 1))
+    client.force_login(a.user)
+    r = client.get("/")
+    assert r.status_code == 200 and 'href="?view=week&date=2100-06-01#today"' in r.content.decode().replace("&amp;", "&")
