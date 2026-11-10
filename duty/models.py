@@ -1,7 +1,14 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from .shifts import COMMUTE_SHIFTS, DEVELOPER, STAFF, weekdays
+
+
+def validate_member_name(value: str) -> None:
+    # '>', ',', 줄바꿈, 앞 '+'는 라벨(A>B, +B)·CSV 문법이라 이름에 쓰면 깨진다
+    if any(c in value for c in ">,\n\r") or value.startswith("+"):
+        raise ValidationError("이름에 > , 줄바꿈을 쓸 수 없고 +로 시작할 수 없습니다.")
 
 
 class Department(models.Model):
@@ -23,7 +30,7 @@ class Department(models.Model):
 
 class Member(models.Model):
     code = models.CharField("코드", max_length=16, unique=True)
-    name = models.CharField("이름", max_length=32, unique=True)
+    name = models.CharField("이름", max_length=32, unique=True, validators=[validate_member_name])
     department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="members", verbose_name="부서")
     part = models.CharField("파트", max_length=32, blank=True)
     type = models.CharField("구분", max_length=8, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)])

@@ -41,7 +41,7 @@
   {% for week in weeks %}
     <tr>
     {% for d in week %}
-      <td{% if d.is_today %} id="today" class="today-col"{% elif d.other %} class="other"{% endif %}>
+      <td{% if d.other %} class="other"{% elif d.is_today %} id="today" class="today-col"{% endif %}>
         <a href="{% url 'day' d.date %}"><strong>{{ d.date.day }}</strong></a>
         {% if not d.other %}
         {% for c in d.commute %}<div class="sec"><small>{{ c.label }}</small>

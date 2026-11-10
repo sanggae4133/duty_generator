@@ -70,6 +70,8 @@ def roster(request):
     today, admin = perms.today(), perms.is_admin(request.user)
     view = "month" if request.GET.get("view") == "month" else "week"
     anchor = date_param(request, "date") or today
+    if not date(2000, 1, 1) <= anchor <= date(2099, 12, 31):  # 극단 날짜의 overflow 방지
+        anchor = today
 
     def link(v: str, d: date) -> str:
         params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}}
@@ -120,7 +122,6 @@ def roster(request):
         "view": view, "title": title, "names": names, "date": anchor, "today_link": link(view, today) + "#today",
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
-        "carry": [(f"q{i}", n) for i, n in enumerate(names, 1) if n],
     }
     if view == "week":
         ctx["days"] = days[0]

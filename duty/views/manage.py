@@ -3,6 +3,7 @@ from datetime import date
 from django.apps import apps
 from django.contrib import messages
 from django.db import connection
+from django.db.models import CheckConstraint, UniqueConstraint
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -179,11 +180,14 @@ def _column(f) -> dict:
 
 def _model_info(m) -> dict:
     o = m._meta
-    constraints = [
-        {"name": c.name, "kind": "UNIQUE" if hasattr(c, "fields") and not hasattr(c, "check") else type(c).__name__,
-         "fields": ", ".join(getattr(c, "fields", ())), "condition": str(c.condition or "") if hasattr(c, "condition") else ""}
-        for c in o.constraints
-    ]
+    constraints = []
+    for c in o.constraints:
+        if isinstance(c, UniqueConstraint):
+            constraints.append({"name": c.name, "kind": "UNIQUE", "fields": ", ".join(c.fields), "condition": str(c.condition or "")})
+        elif isinstance(c, CheckConstraint):
+            constraints.append({"name": c.name, "kind": "CHECK", "fields": "", "condition": str(getattr(c, "condition", None) or "")})
+        else:
+            constraints.append({"name": c.name, "kind": type(c).__name__, "fields": "", "condition": ""})
     constraints += [{"name": "unique_together", "kind": "UNIQUE", "fields": ", ".join(t), "condition": ""} for t in o.unique_together]
     return {
         "name": m.__name__, "table": o.db_table, "desc": MODEL_DESC.get(m.__name__, ""),

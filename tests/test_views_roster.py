@@ -167,3 +167,33 @@ def test_me(client, world):
     client.force_login(a.user)
     body = client.get("/me/").content.decode()
     assert "정상" in body and "08:30~09:30" in body
+
+
+@pytest.mark.parametrize("view", ["week", "month"])
+@pytest.mark.parametrize("bad", ["9999-12-31", "0001-01-01", "1999-12-31", "2100-01-01"])
+def test_extreme_dates_fall_back_to_today(client, world, view, bad):
+    a, _ = world
+    client.force_login(a.user)
+    r = client.get(f"/?view={view}&date={bad}")
+    assert r.status_code == 200 and "/day/2026-11-10/" in r.content.decode()
+
+
+@pytest.mark.parametrize("date_,view,prev,nxt", [
+    ("2026-12-15", "month", "2026-11-01", "2027-01-01"),
+    ("2026-01-15", "month", "2025-12-01", "2026-02-01"),
+    ("2026-03-31", "month", "2026-02-01", "2026-04-01"),
+    ("2026-03-31", "week", "2026-03-23", "2026-04-06"),
+])
+def test_prev_next_date_math(client, world, date_, view, prev, nxt):
+    a, _ = world
+    client.force_login(a.user)
+    body = client.get(f"/?view={view}&date={date_}").content.decode().replace("&amp;", "&")
+    assert f'href="?view={view}&date={prev}"' in body and f'href="?view={view}&date={nxt}"' in body
+
+
+def test_today_cell_only_in_current_month_view(client, world, fixed_today):
+    a, _ = world
+    fixed_today(date(2026, 11, 30))
+    client.force_login(a.user)
+    assert 'id="today"' not in client.get("/?view=month&date=2026-12-10").content.decode()  # 11/30은 12월 달력의 흐린 칸
+    assert 'id="today"' in client.get("/?view=month&date=2026-11-20").content.decode()
