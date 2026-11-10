@@ -1,6 +1,5 @@
 [Unit]
 Description=duty_generator (Django)
-After=network-online.target
 
 [Service]
 User=duty

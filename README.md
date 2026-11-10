@@ -24,6 +24,8 @@ sudo install -d -o root -g duty -m 750 /etc/duty_generator
 # 코드 배치 후
 cd /opt/duty_generator && python3 -m venv .venv && .venv/bin/pip install .
 sudo install -o root -g duty -m 640 deploy/env.example /etc/duty_generator/env   # 값 채우기 (SECRET_KEY, API 토큰은 python -c "import secrets;print(secrets.token_urlsafe(48))")
+# 주의: /etc/duty_generator/env 값에는 따옴표, 공백, $, #, <> 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
+# DUTY_API_TOKEN 은 비우면 안 된다(빈 값이면 API 가 모두 401). 생성: python3 -c "import secrets;print(secrets.token_urlsafe(48))"
 sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'   # root: /opt 는 duty 쓰기 권한이 없다
 sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py migrate'
 sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
@@ -39,13 +41,15 @@ sudo tailscale funnel --bg --set-path / http://127.0.0.1:8090
 sudo tailscale funnel status
 ```
 
-노티파이어는 Funnel을 거치지 않고 `http://127.0.0.1:8090/api/assignments` 를 `Authorization: Bearer $DUTY_API_TOKEN` 으로 호출한다.
+- `--set-path /` 는 모든 경로를 공개한다. 따라서 `/api/assignments` 도 Funnel 을 통해 외부에서 호출할 수 있다. 이 API 를 막는 것은 `Authorization: Bearer <DUTY_API_TOKEN>` 헤더뿐이다.
+- `DUTY_API_TOKEN` 은 `secrets.token_urlsafe(48)` 로 만들고 비워 두지 않는다. 빈 값이면 앱이 모든 요청을 401 로 거부한다.
+- 노티파이어는 여전히 Funnel 을 거치지 않고 `http://127.0.0.1:8090/api/assignments` 를 직접 호출한다(같은 서버). 같은 토큰을 `Authorization: Bearer $DUTY_API_TOKEN` 으로 보낸다.
 
 ## 처음 한 번: 기존 시트 가져오기
 
 ```bash
-sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; .venv/bin/python manage.py import_sheets --dry-run'
-sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; .venv/bin/python manage.py import_sheets'
+sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py import_sheets --dry-run'
+sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py import_sheets'
 ```
 
 이후 `/<DUTY_ADMIN_PATH>/` 의 멤버 목록에서 멤버를 선택하고 "계정 발급 / 비밀번호 초기화" 액션으로 임시 비밀번호를 발급한다.
