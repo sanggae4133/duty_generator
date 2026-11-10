@@ -23,6 +23,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - DB를 바꾸는 규칙(권한, 지난 날짜, ChangeLog)은 전부 `duty/services/`를 거친다. 뷰에서 모델을 직접 고치지 않는다.
 - "오늘"은 항상 `duty.perms.today()`로 구한다(`from . import perms` 후 `perms.today()`; `from .perms import today` 금지 — 테스트에서 monkeypatch).
 - 시간대 `Asia/Seoul`, `USE_TZ=True`. DB는 SQLite(WAL, `transaction_mode=IMMEDIATE`).
+- 정해진 값만 받는 칸은 `choices`(TextChoices) + DB `CheckConstraint`를 같이 건다(SQLite엔 enum 타입이 없음). 기록을 남겨야 하는 FK는 `PROTECT`.
 - 정적 파일(htmx, Pico.css)은 CDN이 아니라 `duty/static/vendor/`에서 직접 서빙한다.
 
 ## 도메인 기준
