@@ -205,6 +205,7 @@ def check_link(user) -> str:
 
 PUSH_HOSTS = ("fcm.googleapis.com", "updates.push.services.mozilla.com", "push.apple.com")  # WNS는 실제 Edge 검증 전까지 제외
 UNSUPPORTED = "지원하지 않는 푸시 서비스입니다."
+MAX_DEVICES = 20
 
 
 class SubscriptionConflict(DutyError):
@@ -217,7 +218,8 @@ def _b64url(v, lo, hi) -> bool:
 
 def check_endpoint(endpoint) -> None:
     """SSRF 방지: https, userinfo·포트 없음, IP 리터럴 아님, 허용 목록 호스트."""
-    if not isinstance(endpoint, str) or not endpoint or len(endpoint) > 500:
+    # 공백·제어 문자는 urlsplit·requests가 벗겨내므로 미리 막는다(같은 endpoint 중복 등록 방지)
+    if not isinstance(endpoint, str) or len(endpoint) > 500 or not re.fullmatch(r"[\x21-\x7e]+", endpoint):
         raise DutyError("잘못된 푸시 구독입니다.")
     try:
         u = urlsplit(endpoint)
@@ -243,10 +245,13 @@ def ua_label(ua: str) -> str:
                      ("CriOS", "Chrome"), ("Chrome/", "Chrome"), ("Safari/", "Safari")])
     os_ = first([("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"), ("Windows", "Windows"),
                  ("CrOS", "ChromeOS"), ("Mac OS X", "macOS"), ("Linux", "Linux")])
+    if not browser and os_ in ("iPhone", "iPad") and "AppleWebKit" in ua and "Mobile" in ua:
+        browser = "홈 화면 앱"
     return " / ".join(p for p in (browser, os_) if p)[:80] or "알 수 없는 기기"
 
 
-def add_subscription(user, endpoint, p256dh, auth, user_agent: str) -> PushAlarmSubscription:
+def add_subscription(user, endpoint, p256dh, auth, user_agent: str, replaces=None) -> PushAlarmSubscription:
+    """replaces: 이 브라우저가 전에 등록한 endpoint. 내 것이면 같은 트랜잭션에서 지운다(UA로 합치지 않음)."""
     check_endpoint(endpoint)
     if not (_b64url(p256dh, 80, 100) and _b64url(auth, 16, 32)):
         raise DutyError("잘못된 푸시 키입니다.")
@@ -254,6 +259,11 @@ def add_subscription(user, endpoint, p256dh, auth, user_agent: str) -> PushAlarm
         old = PushAlarmSubscription.objects.filter(endpoint=endpoint).first()
         if old and old.user_id != user.id and (old.p256dh, old.auth) != (p256dh, auth):
             raise SubscriptionConflict("다른 사용자가 등록한 기기입니다.")
+        mine = PushAlarmSubscription.objects.filter(user=user)
+        if isinstance(replaces, str) and replaces != endpoint:
+            mine.filter(endpoint=replaces).delete()
+        if not (old and old.user_id == user.id) and mine.count() >= MAX_DEVICES:
+            raise DutyError(f"등록 기기는 최대 {MAX_DEVICES}대입니다. 쓰지 않는 기기를 먼저 해제해 주세요.")
         return PushAlarmSubscription.objects.update_or_create(endpoint=endpoint, defaults=dict(
             user=user, p256dh=p256dh, auth=auth, label=ua_label(user_agent)))[0]
 

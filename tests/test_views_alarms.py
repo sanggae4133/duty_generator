@@ -522,8 +522,9 @@ def vapid(settings):
     return settings
 
 
-def sub_json(client, endpoint=EP, p256dh=P256, auth=AUTH, ua=UA_ANDROID):
-    return client.post("/alarms/push/subscribe/", json.dumps({"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}}),
+def sub_json(client, endpoint=EP, p256dh=P256, auth=AUTH, ua=UA_ANDROID, **extra):
+    body = {"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}, **extra}
+    return client.post("/alarms/push/subscribe/", json.dumps(body),
                        content_type="application/json", HTTP_USER_AGENT=ua)
 
 
@@ -609,6 +610,10 @@ def test_subscribe_ok_and_label(client, me, vapid):
     "https://[bad/x",
     "https://fcm.googleapis.com/" + "a" * 500,
     "",
+    " " + EP,
+    EP + " ",
+    "https://fcm.googleapis\n.com/x",
+    "https://fcm.googleapis.com/x\ty",
 ])
 def test_subscribe_bad_endpoint(client, me, vapid, endpoint):
     r = sub_json(client, endpoint=endpoint)
@@ -703,7 +708,9 @@ def test_push_csrf(me, vapid):
     from django.test import Client
     c = Client(enforce_csrf_checks=True)
     c.force_login(me)
-    for url in ["/alarms/push/subscribe/", "/alarms/push/unsubscribe/", "/alarms/push/delete-all/", "/alarms/push/test/"]:
+    sub = PushAlarmSubscription.objects.create(user=me, endpoint=EP, p256dh=P256, auth=AUTH)
+    for url in ["/alarms/push/subscribe/", "/alarms/push/unsubscribe/", "/alarms/push/delete-all/", "/alarms/push/test/",
+                f"/alarms/push/{sub.pk}/delete/"]:
         assert c.post(url, "{}", content_type="application/json").status_code == 403, url
 
 
@@ -721,6 +728,8 @@ def test_push_help_page(client, me):
     ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0", "Edge / Windows"),
     ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Chrome / macOS"),
     ("", "알 수 없는 기기"),
+    ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", "홈 화면 앱 / iPhone"),
+    ("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", "홈 화면 앱 / iPad"),
 ])
 def test_ua_label(ua, label):
     assert alarm_svc.ua_label(ua) == label
@@ -735,3 +744,49 @@ def test_sw_and_manifest_skip_password_change_redirect(client, make_member):
     assert client.get("/alarms/").status_code == 302
     assert client.get("/sw.js").status_code == 200
     assert client.get("/manifest.webmanifest").status_code == 200
+
+
+def test_sw_and_manifest_skip_inactive_member_redirect(client, make_member):
+    m = make_member("가", user=True, active=False)
+    client.force_login(m.user)
+    for url in ["/sw.js", "/manifest.webmanifest"]:
+        r = client.get(url)
+        assert r.status_code == 200 and "Location" not in r, url
+
+
+def test_sw_and_manifest_cache_headers(client, db):
+    assert client.get("/sw.js")["Cache-Control"] == "no-cache, max-age=0, must-revalidate"
+    assert client.get("/manifest.webmanifest")["Cache-Control"] == "max-age=3600"
+
+
+def test_subscribe_device_cap(client, me, vapid):
+    for i in range(alarm_svc.MAX_DEVICES):
+        PushAlarmSubscription.objects.create(user=me, endpoint=f"{EP}{i}", p256dh=P256, auth=AUTH)
+    r = sub_json(client)
+    assert r.status_code == 400 and "최대 20대" in r.json()["error"]
+    assert sub_json(client, endpoint=f"{EP}0").status_code == 200  # 기존 endpoint 재등록은 가능
+    assert PushAlarmSubscription.objects.filter(user=me).count() == alarm_svc.MAX_DEVICES
+
+
+def test_subscribe_replaces_old_endpoint(client, me, other, vapid):
+    PushAlarmSubscription.objects.create(user=me, endpoint=EP + "old", p256dh=P256, auth=AUTH)
+    PushAlarmSubscription.objects.create(user=me, endpoint=EP + "keep", p256dh=P256, auth=AUTH)
+    PushAlarmSubscription.objects.create(user=other, endpoint=EP + "theirs", p256dh=P256, auth=AUTH)
+    assert sub_json(client, replaces=EP + "old").status_code == 200
+    assert sub_json(client, endpoint=EP + "2", replaces=EP + "theirs").status_code == 200
+    assert sub_json(client, endpoint=EP + "3", replaces=EP + "3").status_code == 200  # 자기 자신은 지우지 않음
+    assert set(PushAlarmSubscription.objects.filter(user=me).values_list("endpoint", flat=True)) == {
+        EP, EP + "keep", EP + "2", EP + "3"}
+    assert PushAlarmSubscription.objects.filter(user=other, endpoint=EP + "theirs").exists()
+
+
+def test_subscribe_replaces_frees_cap(client, me, vapid):
+    for i in range(alarm_svc.MAX_DEVICES):
+        PushAlarmSubscription.objects.create(user=me, endpoint=f"{EP}{i}", p256dh=P256, auth=AUTH)
+    assert sub_json(client, replaces=f"{EP}0").status_code == 200
+    assert PushAlarmSubscription.objects.filter(user=me).count() == alarm_svc.MAX_DEVICES
+
+
+def test_push_area_sends_replaces(client, me, vapid):
+    body = client.get("/alarms/").content.decode()
+    assert "replaces: last()" in body and "localStorage" in body

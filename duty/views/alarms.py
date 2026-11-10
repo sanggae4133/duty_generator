@@ -171,11 +171,14 @@ PUSH_MISSING = "웹 푸시가 설정되지 않았습니다."
 def sw_js(request):
     r = render(request, "duty/sw.js", content_type="application/javascript")
     r["Service-Worker-Allowed"] = "/"
+    r["Cache-Control"] = "no-cache, max-age=0, must-revalidate"  # 배포한 서비스 워커가 바로 반영되게
     return r
 
 
 def manifest(request):
-    return render(request, "duty/manifest.webmanifest", content_type="application/manifest+json")
+    r = render(request, "duty/manifest.webmanifest", content_type="application/manifest+json")
+    r["Cache-Control"] = "max-age=3600"
+    return r
 
 
 def _json_body(request) -> dict:
@@ -197,7 +200,7 @@ def push_subscribe(request):
         if not isinstance(keys, dict):
             raise DutyError("잘못된 푸시 구독입니다.")
         alarms.add_subscription(request.user, data.get("endpoint"), keys.get("p256dh"), keys.get("auth"),
-                                request.META.get("HTTP_USER_AGENT", ""))
+                                request.META.get("HTTP_USER_AGENT", ""), data.get("replaces"))
     except alarms.SubscriptionConflict as e:
         return JsonResponse({"error": str(e)}, status=409)
     except DutyError as e:

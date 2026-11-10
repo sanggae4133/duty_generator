@@ -75,6 +75,13 @@
         document.querySelectorAll(".js-push").forEach(b => b.hidden = true);
         return;
       }
+      // 이 브라우저가 마지막으로 등록한 endpoint: 구독이 바뀌면 서버가 예전 행을 지운다
+      const last = v => {
+        try {
+          if (v === undefined) return localStorage.getItem("duty-push-endpoint") || null;
+          v ? localStorage.setItem("duty-push-endpoint", v) : localStorage.removeItem("duty-push-endpoint");
+        } catch (e) { return null; }
+      };
       const keyBytes = s => {
         const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
         return Uint8Array.from(b, c => c.charCodeAt(0));
@@ -93,7 +100,8 @@
           const reg = await navigator.serviceWorker.register("/sw.js");
           await navigator.serviceWorker.ready;
           const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: keyBytes(KEY)});
-          await send("{% url 'alarm_push_subscribe' %}", sub.toJSON());
+          await send("{% url 'alarm_push_subscribe' %}", {...sub.toJSON(), replaces: last()});
+          last(sub.endpoint);
           location.reload();
         } catch (e) { msg("등록하지 못했습니다: " + e.message); }
       });
@@ -104,6 +112,7 @@
           if (!sub) { msg("이 기기는 등록되어 있지 않습니다."); return; }
           await send("{% url 'alarm_push_unsubscribe' %}", {endpoint: sub.endpoint});
           await sub.unsubscribe();
+          last("");
           location.reload();
         } catch (e) { msg("해제하지 못했습니다: " + e.message); }
       });
