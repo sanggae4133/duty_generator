@@ -7,7 +7,7 @@
 </form>
 <article>
   <p>덮어쓰기 범위: {{ preview.overwrite_from|date:"Y-m-d" }} ~ {{ preview.overwrite_to|date:"Y-m-d" }}</p>
-  <p>시작일 이전의 이 회차 데이터는 버립니다.</p>
+  {% if preview.overwrite_from > period.start_date %}<p>시작일 이전의 이 회차 데이터는 버립니다.</p>{% endif %}
   {% if preview.periods %}<p>덮어쓰는 회차: {{ preview.periods|join:", " }}</p>{% endif %}
   <p>사라지는 근무 변경: {{ preview.discarded_changes }}건 (이력은 남음)</p>
 </article>

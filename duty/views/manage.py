@@ -99,6 +99,9 @@ def period_publish(request, pid):
         start = date.fromisoformat(raw) if raw else default
     except ValueError:
         start = default
+    if request.method == "POST" and (not raw or start is default):
+        messages.error(request, "덮어쓰기 시작일이 올바르지 않습니다.")
+        return redirect("period_detail", pid)
     try:
         if request.method == "POST":
             publishing.publish(period, start)

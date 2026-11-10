@@ -37,7 +37,6 @@ def test_full_flow(admin_client_ok, make_member, fixed_today):
     p.refresh_from_db()
     assert r.status_code == 302 and p.status == Period.Status.GENERATED
     assert "편차" in c.get(f"/periods/{p.pk}/").content.decode()
-    assert "덮어쓰기" in c.get(f"/periods/{p.pk}/publish/?from=2026-11-09").content.decode()
     c.post(f"/periods/{p.pk}/publish/", {"from": "2026-11-09"})
     p.refresh_from_db()
     assert p.status == Period.Status.PUBLISHED
@@ -58,3 +57,76 @@ def test_stats_and_changes_pages(admin_client_ok, make_member):
     ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=m)
     assert "가" in admin_client_ok.get("/stats/").content.decode()
     assert "새벽" in admin_client_ok.get("/changes/?name=가").content.decode()
+
+
+@pytest.mark.parametrize("url", ["/periods/", "/periods/1/", "/periods/1/publish/", "/periods/1/action/open/"])
+def test_anonymous_redirected_to_login(client, url):
+    r = client.get(url)
+    assert r.status_code == 302 and r.url.startswith("/login/")
+
+
+def test_action_get_is_405(admin_client_ok):
+    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9))
+    assert admin_client_ok.get(f"/periods/{p.pk}/action/open/").status_code == 405
+
+
+def _generated(make_member, start=date(2026, 11, 9), end=date(2026, 11, 11)):
+    old = Period.objects.create(name="옛회차", start_date=date(2026, 11, 2), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
+    m = make_member("가")
+    Commute.objects.create(period=old, date=date(2026, 11, 10), member=m, shift="dawn")
+    ChangeLog.objects.create(period=old, date=date(2026, 11, 10), cell="dawn", before=None, after=m)
+    new = Period.objects.create(name="새회차", start_date=start, end_date=end, status=Period.Status.GENERATED)
+    return old, new
+
+
+def test_publish_preview_content(admin_client_ok, make_member):
+    _, p = _generated(make_member)
+    html = admin_client_ok.get(f"/periods/{p.pk}/publish/?from=2026-11-10").content.decode()
+    assert "2026-11-10 ~ 2026-11-11" in html
+    assert "옛회차" in html
+    assert "사라지는 근무 변경: 1건" in html
+    assert "버립니다" in html
+    assert "버립니다" not in admin_client_ok.get(f"/periods/{p.pk}/publish/?from=2026-11-09").content.decode()
+
+
+def test_publish_post_rejects_bad_from(admin_client_ok, make_member):
+    _, p = _generated(make_member)
+    for data in ({}, {"from": "garbage"}, {"from": "2027-01-01"}):
+        r = admin_client_ok.post(f"/periods/{p.pk}/publish/", data, follow=True)
+        p.refresh_from_db()
+        assert p.status == Period.Status.GENERATED
+    r = admin_client_ok.post(f"/periods/{p.pk}/publish/", {"from": "garbage"}, follow=True)
+    assert "덮어쓰기 시작일이 올바르지 않습니다." in r.content.decode()
+    r = admin_client_ok.post(f"/periods/{p.pk}/publish/", {"from": "2027-01-01"}, follow=True)
+    assert "시작일은 회차 기간 안" in r.content.decode()
+
+
+def test_publish_post_past_start_inside_period_ok(admin_client_ok, make_member, fixed_today):
+    fixed_today(date(2026, 11, 11))
+    _, p = _generated(make_member)
+    admin_client_ok.post(f"/periods/{p.pk}/publish/", {"from": "2026-11-10"})
+    p.refresh_from_db()
+    assert p.status == Period.Status.PUBLISHED and p.overwrite_from == date(2026, 11, 10)
+
+
+def test_change_log_filters(admin_client_ok, make_member):
+    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
+    a, b = make_member("가", user=True), make_member("나")
+    ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=a, by=a.user)
+    ChangeLog.objects.create(period=p, date=date(2026, 11, 10), cell="night", before=None, after=b)
+    c = admin_client_ok
+
+    def get(q):
+        r = c.get("/changes/" + q)
+        assert r.status_code == 200
+        return r.content.decode()
+
+    assert "garbage" not in get("?from=garbage") and "새벽" in get("?from=garbage") and "야간" in get("?from=garbage")
+    h = get("?from=2026-11-10")
+    assert "야간" in h and "새벽" not in h
+    h = get("?to=2026-11-09")
+    assert "새벽" in h and "야간" not in h
+    h = get("?name=나")
+    assert "야간" in h and "새벽" not in h
+    h = get(f"?by={a.user.username}")
+    assert "새벽" in h and "야간" not in h

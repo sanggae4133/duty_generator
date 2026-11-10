@@ -14,7 +14,7 @@
 
 <div role="group">
   {% if period.status == S.DRAFT or period.status == S.CLOSED or period.status == S.GENERATED %}
-  <form method="post" action="{% url 'period_action' period.pk 'open' %}">{% csrf_token %}<button class="secondary">{% if period.status == S.DRAFT %}취합 열기{% else %}재오픈 (생성 결과 삭제){% endif %}</button></form>
+  <form method="post" action="{% url 'period_action' period.pk 'open' %}"{% if period.status == S.GENERATED %} onsubmit="return confirm('생성된 당번이 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}<button class="secondary">{% if period.status == S.DRAFT %}취합 열기{% else %}재오픈 (생성 결과 삭제){% endif %}</button></form>
   {% endif %}
   {% if period.status == S.COLLECTING %}
   <form method="post" action="{% url 'period_action' period.pk 'close' %}">{% csrf_token %}<button>취합 마감</button></form>
