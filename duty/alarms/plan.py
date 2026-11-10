@@ -35,13 +35,23 @@ class Due:
     url: str
     expires_at: datetime
     push_text: str
+    destination: str = ""
 
 
 def _empty(d: date) -> Day:
     return Day(d, 0, {}, {c: [] for c in CELLS}, {})
 
 
-def plan(rules, days, info, deliveries, now, dept_names=None, extra_dates=None) -> list[Due]:
+def _hash(prefix: str, text: str) -> str:
+    return f"{prefix}:{hashlib.sha256(text.encode()).hexdigest()[:16]}"
+
+
+def plan(rules, days, info, deliveries, now, destinations=None, dept_names=None, extra_dates=None,
+         today=None) -> list[Due]:
+    """destinations: (rule_id, channel) → 목적지 목록. deliveries: (rule_id, date, cell, channel, destination)
+    → 그 목적지에 마지막으로 성공한 내용 hash(없으면 None)."""
+    today = today or now.date()
+    destinations = destinations or {}
     by_date = {d.date: d for d in days}
     synthetic = {d for d in (extra_dates or ()) if d not in by_date}
     for d in synthetic:
@@ -54,9 +64,10 @@ def plan(rules, days, info, deliveries, now, dept_names=None, extra_dates=None) 
             starts = {c: datetime.combine(day.date, cell_start(c)) for c in cells}
             if r.kind == "personal":
                 if r.member_name:
-                    out += _personal(r, day, cells, starts, deliveries, now)
+                    out += _personal(r, day, cells, starts, deliveries, now, destinations, today)
             elif r.kind == "report":
-                out += _report(r, day, cells, starts, info, deliveries, now, dept_names, day.date in synthetic)
+                out += _report(r, day, cells, starts, info, deliveries, now, dept_names, day.date in synthetic,
+                               destinations)
     return out
 
 
@@ -77,31 +88,36 @@ def _successor(day, cell, name):
     return None
 
 
-def _personal(r, day, cells, starts, deliveries, now):
+def _targets(r, destinations):
+    return [(ch, dest) for ch in r.channels for dest in destinations.get((r.id, ch), ())]
+
+
+def _personal(r, day, cells, starts, deliveries, now, destinations, today):
     out = []
     for c in cells:
         start = starts[c]
         if not send_at(r.timing, r.offset, r.at_minute, day.date, start) <= now < start:
             continue
         inside = r.member_name in day.members.get(c, [])
-        for ch in r.channels:
-            last = deliveries.get((r.id, day.date, c, ch))
-            if inside and last != "in":
-                title, text, h = m.PERSONAL_TITLE, m.personal_text(r.member_name, day.date, c, now.date()), "in"
-            elif not inside and last is not None and (last == "in" or last.startswith("out:")):
-                succ = _successor(day, c, r.member_name)
-                h = f"out:name:{succ}" if succ else "out:none"
-                if last == h:
-                    continue
-                title, text = m.CANCEL_TITLE, m.cancel_text(r.member_name, day.date, c, succ)
-            else:
+        if inside:
+            title, text = m.PERSONAL_TITLE, m.personal_text(r.member_name, day.date, c, today)
+            # 오늘/내일 표기는 hash에서 뺀다(자정이 지났다고 다시 보내지 않게)
+            h = _hash("in", m.personal_text(r.member_name, day.date, c, day.date))
+        else:
+            title = m.CANCEL_TITLE
+            text = m.cancel_text(r.member_name, day.date, c, _successor(day, c, r.member_name))
+            h = _hash("out", text)
+        for ch, dest in _targets(r, destinations):
+            last = deliveries.get((r.id, day.date, c, ch, dest))
+            # 취소는 이 목적지에 무언가 성공적으로 알린 적이 있을 때만
+            if last == h or (not inside and last is None):
                 continue
             out.append(Due(r.id, day.date, c, ch, title, m.clip(text), h, f"/day/{day.date.isoformat()}/",
-                           start, m.clip_bytes(text.replace("\n", " "))))
+                           start, m.clip_bytes(text.replace("\n", " ")), dest))
     return out
 
 
-def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic=False):
+def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations):
     first, last_start = min(starts.values()), max(starts.values())
     if not send_at(r.timing, r.offset, r.at_minute, day.date, first) <= now < last_start:
         return []
@@ -118,12 +134,12 @@ def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic=
     h = hashlib.sha256("\n".join(lines).encode()).hexdigest()[:16]
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
     out = []
-    for ch in r.channels:
-        prev = deliveries.get((r.id, day.date, "report", ch))
+    for ch, dest in _targets(r, destinations):
+        prev = deliveries.get((r.id, day.date, "report", ch, dest))
         if prev == h or (prev is None and synthetic):
             continue
         head = m.report_header(day.date, cond, prev is not None)
         summary = f"{head} · {len(uniq)}명"
         out.append(Due(r.id, day.date, "report", ch, m.REPORT_TITLE, m.clip("\n".join([head, *lines])), h,
-                       f"/day/{day.date.isoformat()}/", last_start, m.clip_bytes(summary)))
+                       f"/day/{day.date.isoformat()}/", last_start, m.clip_bytes(summary), dest))
     return out

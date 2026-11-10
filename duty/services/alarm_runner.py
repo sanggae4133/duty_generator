@@ -1,0 +1,126 @@
+"""알림 발송 1회(tick). 계획(plan)은 순수 계층, 여기서는 조회·발송·기록만 한다."""
+import logging
+import math
+from collections import defaultdict
+from datetime import timedelta
+
+from django.conf import settings
+from django.utils import timezone
+
+from .. import perms
+from ..alarms import messages as m
+from ..alarms import senders
+from ..alarms.plan import RuleSpec, plan
+from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department, Member,
+                      PushAlarmSubscription, TelegramAlarmProfile)
+from .roster import published_days
+
+log = logging.getLogger(__name__)
+HORIZON = timedelta(days=45)
+KEEP = timedelta(days=7)
+
+
+def telegram_text(text: str, url: str) -> str:
+    """SITE_URL이 있으면 마지막 줄에 절대 링크. 링크 자리를 먼저 빼고 본문을 잘라 전체 4000자 이내."""
+    if not settings.SITE_URL:
+        return m.clip(text)
+    link = settings.SITE_URL.rstrip("/") + url
+    return m.clip(text, 4000 - len(link) - 1) + "\n" + link
+
+
+def _destinations(rules):
+    user_ids = {r.user_id for r in rules}
+    tg, push = {}, defaultdict(list)
+    if senders.telegram_enabled():
+        tg = dict(TelegramAlarmProfile.objects.filter(user_id__in=user_ids, verified_at__isnull=False)
+                  .exclude(chat_id="").values_list("user_id", "chat_id"))
+    if senders.push_enabled():
+        for uid, sid in PushAlarmSubscription.objects.filter(user_id__in=user_ids).values_list("user_id", "id"):
+            push[uid].append(f"sub:{sid}")
+    out = {}
+    for r in rules:
+        if r.telegram and r.user_id in tg:
+            out[(r.id, "telegram")] = [tg[r.user_id]]
+        if r.push and push[r.user_id]:
+            out[(r.id, "push")] = push[r.user_id]
+    return out
+
+
+def collect(now):
+    """보낼 (Due, 기존 기록) 목록. 같은 내용의 backoff 중인 것은 뺀다."""
+    if timezone.is_naive(now):
+        raise ValueError("now는 aware datetime이어야 합니다.")
+    today = perms.today()
+    rules = list(AlarmRule.objects.filter(enabled=True, user__is_active=True))
+    names = dict(Member.objects.filter(is_active=True, user__isnull=False).values_list("user_id", "name"))
+    specs = [RuleSpec(r.id, names.get(r.user_id), r.kind, r.timing, r.offset, r.at_minute,
+                      tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
+                      tuple(r.shifts), tuple(r.depts), tuple(r.types)) for r in rules]
+    rows = {(d.rule_id, d.date, d.cell, d.channel, d.destination): d
+            for d in AlarmDelivery.objects.filter(date__gte=today)}
+    info = {n: (dept, typ) for n, dept, typ in Member.objects.values_list("name", "department__code", "type")}
+    dues = plan(specs, published_days(today, today + HORIZON), info,
+                {k: d.last_sent_hash for k, d in rows.items()}, timezone.localtime(now).replace(tzinfo=None),
+                destinations=_destinations(rules), dept_names=dict(Department.objects.values_list("code", "name")),
+                extra_dates={k[1] for k in rows}, today=today)
+    out = []
+    for due in dues:
+        row = rows.get((due.rule_id, due.date, due.cell, due.channel, due.destination))
+        if (row and row.status == AlarmDeliveryStatus.FAILED and row.content_hash == due.content_hash
+                and row.next_attempt_at and row.next_attempt_at > now):
+            continue
+        out.append((due, row))
+    return out
+
+
+def _send(due, now, expires):
+    """성공 True, 구독 없음/Gone은 None. 실패는 예외."""
+    if due.channel == "telegram":
+        senders.telegram_send(due.destination, telegram_text(due.text, due.url))
+        return True
+    sub = PushAlarmSubscription.objects.filter(id=int(due.destination.removeprefix("sub:"))).first()
+    if sub is None:
+        return None
+    try:
+        senders.push_send(sub, due.title, due.push_text, due.url,
+                          max(1, math.ceil((expires - now).total_seconds())))
+    except senders.Gone:
+        sub.delete()
+        return None
+    return True
+
+
+def _next_attempt(err, attempts, now, expires):
+    if isinstance(err, senders.Permanent):
+        return expires
+    if isinstance(err, senders.RetryLater) and err.seconds is not None and err.seconds >= 0:
+        return now + timedelta(seconds=err.seconds)
+    return now + timedelta(minutes=min(2 ** (attempts - 1), 30))
+
+
+def tick(now) -> tuple[int, int, int]:
+    pending = collect(now)
+    sent = failed = 0
+    for due, row in pending:
+        key = dict(rule_id=due.rule_id, date=due.date, cell=due.cell, channel=due.channel, destination=due.destination)
+        expires = timezone.make_aware(due.expires_at)
+        try:
+            ok = _send(due, now, expires)
+        except Exception as e:  # 예기치 않은 예외도 일시 실패로(로그엔 예외 타입만)
+            same = row is not None and row.status == AlarmDeliveryStatus.FAILED and row.content_hash == due.content_hash
+            attempts = row.attempts + 1 if same else 1
+            d, _ = AlarmDelivery.objects.update_or_create(**key, defaults=dict(
+                status=AlarmDeliveryStatus.FAILED, attempts=attempts, content_hash=due.content_hash,
+                next_attempt_at=_next_attempt(e, attempts, now, expires)))
+            failed += 1
+            log.warning("alarm send failed rule=%s channel=%s delivery=%s status=%s attempt=%s",
+                        due.rule_id, due.channel, d.id, f"{type(e).__name__}:{getattr(e, 'status', None)}", attempts)
+            continue
+        if ok:
+            AlarmDelivery.objects.update_or_create(**key, defaults=dict(
+                status=AlarmDeliveryStatus.SENT, attempts=0, next_attempt_at=None,
+                content_hash=due.content_hash, last_sent_hash=due.content_hash))
+            sent += 1
+    AlarmDelivery.objects.filter(date__lt=perms.today() - KEEP).delete()
+    log.info("alarms tick: due=%d sent=%d failed=%d", len(pending), sent, failed)
+    return len(pending), sent, failed

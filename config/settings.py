@@ -20,6 +20,8 @@ TELEGRAM_BOT_TOKEN = env("DUTY_TELEGRAM_BOT_TOKEN", "")
 VAPID_PUBLIC_KEY = env("DUTY_VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = env("DUTY_VAPID_PRIVATE_KEY", "")
 VAPID_SUBJECT = env("DUTY_VAPID_SUBJECT", "mailto:admin@localhost")
+SITE_URL = env("DUTY_SITE_URL", "")  # 텔레그램 알림의 절대 링크용(비면 생략)
+ALARMS_LOCK_PATH = env("DUTY_ALARMS_LOCK", str(BASE_DIR / ".alarms.lock"))
 if not ADMIN_PATH:
     raise ImproperlyConfigured("DUTY_ADMIN_PATH 가 비어 있을 수 없습니다.")
 

@@ -5,3 +5,4 @@ db.sqlite3*
 staticfiles/
 .cache/
 .pytest_cache/
+.alarms.lock

@@ -163,6 +163,8 @@ class AlarmChannel(models.TextChoices):
 class TelegramAlarmProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="telegram_alarm")
     chat_id = models.CharField("텔레그램 chat_id", max_length=32, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    last_test_at = models.DateTimeField(null=True, blank=True)
 
 
 class PushAlarmSubscription(models.Model):
@@ -220,7 +222,8 @@ class AlarmDelivery(models.Model):
     status = models.CharField(max_length=8, choices=AlarmDeliveryStatus.choices)
     attempts = models.IntegerField(default=0)
     next_attempt_at = models.DateTimeField(null=True, blank=True)
-    content_hash = models.CharField(max_length=64)
+    content_hash = models.CharField(max_length=64)  # 마지막 시도 내용
+    last_sent_hash = models.CharField(max_length=64, null=True, blank=True)  # 마지막 성공 내용
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
