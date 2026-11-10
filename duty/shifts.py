@@ -1,6 +1,6 @@
 """근무조와 장중관제 시간대 정의. 바뀔 일이 드물어 코드 상수로 둔다."""
 
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 COMMUTE_SHIFTS: dict[str, str] = {  # 순서 = 화면 표시 순서
     "dawn": "새벽",
@@ -23,6 +23,13 @@ CONTROL_SLOTS: list[tuple[str, tuple[str, ...]]] = [  # (라벨, 자격 출근�
     ("16:30~17:00", _BOTH),
     ("17:00~18:00", ("dinner",)),
 ]
+
+SHIFT_TIMES: dict[str, tuple[str, str]] = {  # duty_notifier config 와 같은 값 (9시=석식교대, 저녁=야간)
+    "dawn": ("06:30", "15:30"),
+    "normal": ("08:00", "17:00"),
+    "dinner": ("09:00", "18:00"),
+    "night": ("13:30", "21:30"),
+}
 
 DEVELOPER = "개발자"
 STAFF = "직원"
@@ -51,6 +58,28 @@ def cell_label(cell: str) -> str:
 
 
 CELL_BY_LABEL = {cell_label(c): c for c in CELLS}
+
+
+def _span(cell: str) -> tuple[str, str]:
+    if is_slot_cell(cell):
+        a, b = CONTROL_SLOTS[slot_index(cell)][0].split("~")
+        return a, b
+    return SHIFT_TIMES[cell]
+
+
+def cell_start(cell: str) -> time:
+    return time.fromisoformat(_span(cell)[0])
+
+
+def cell_end(cell: str) -> time:
+    return time.fromisoformat(_span(cell)[1])
+
+
+def cells_of(keys: list[str]) -> list[str]:
+    """스케줄 키(dawn..night, slots) → 칸 키. 빈 목록 = 전부. CELLS 순서."""
+    if not keys:
+        return list(CELLS)
+    return [c for c in CELLS if (is_slot_cell(c) and "slots" in keys) or c in keys]
 
 
 def weekdays(start: date, end: date) -> list[date]:

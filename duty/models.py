@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from .shifts import CELLS, COMMUTE_SHIFTS, CONTROL_SLOTS, DEVELOPER, STAFF, weekdays
 
@@ -141,3 +142,79 @@ class RosterPref(models.Model):
 
     class Meta:
         constraints = [_one_of("view", ("week", "month"), "rosterpref_view_valid")]
+
+
+class AlarmKind(models.TextChoices):
+    PERSONAL = "personal", "개인"
+    REPORT = "report", "보고서형"
+
+
+class AlarmTiming(models.TextChoices):
+    BEFORE_START = "before_start", "시작 전"
+    DAYS = "days", "일 전"
+    BIZDAYS = "bizdays", "영업일 전"
+
+
+class AlarmChannel(models.TextChoices):
+    TELEGRAM = "telegram", "텔레그램"
+    PUSH = "push", "푸시"
+
+
+class TelegramAlarmProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="telegram_alarm")
+    chat_id = models.CharField("텔레그램 chat_id", max_length=32, blank=True)
+
+
+class PushAlarmSubscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.CharField(max_length=500, unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class AlarmRule(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="alarm_rules")
+    enabled = models.BooleanField("켬", default=True)
+    kind = models.CharField("종류", max_length=8, choices=AlarmKind.choices)
+    timing = models.CharField("기준", max_length=12, choices=AlarmTiming.choices)
+    offset = models.IntegerField("간격")
+    at_minute = models.IntegerField("발송 시각(분)", default=0)
+    telegram = models.BooleanField("텔레그램", default=False)
+    push = models.BooleanField("푸시", default=False)
+    shifts = models.JSONField("스케줄", default=list)
+    depts = models.JSONField("부서", default=list)
+    types = models.JSONField("유형", default=list)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            _one_of("kind", AlarmKind.values, "alarmrule_kind_valid"),
+            _one_of("timing", AlarmTiming.values, "alarmrule_timing_valid"),
+            models.CheckConstraint(name="alarmrule_offset_range", condition=(
+                Q(timing="before_start", offset__gte=1, offset__lte=10080)
+                | Q(timing="days", offset__gte=0, offset__lte=30)
+                | Q(timing="bizdays", offset__gte=1, offset__lte=30))),
+            models.CheckConstraint(name="alarmrule_at_minute_range", condition=Q(at_minute__gte=0, at_minute__lte=1439)),
+            models.CheckConstraint(name="alarmrule_before_start_no_time", condition=~Q(timing="before_start") | Q(at_minute=0)),
+            models.CheckConstraint(name="alarmrule_has_channel", condition=Q(telegram=True) | Q(push=True)),
+            models.CheckConstraint(name="alarmrule_personal_no_filters", condition=Q(kind="report") | Q(depts=[], types=[])),
+            models.UniqueConstraint(name="alarmrule_unique",
+                                    fields=["user", "kind", "timing", "offset", "at_minute", "shifts", "depts", "types"]),
+        ]
+
+
+class AlarmSent(models.Model):
+    rule = models.ForeignKey(AlarmRule, on_delete=models.CASCADE, related_name="sent")
+    date = models.DateField()
+    cell = models.CharField(max_length=8)  # CELLS 또는 "report"
+    channel = models.CharField(max_length=8, choices=AlarmChannel.choices)
+    content_hash = models.CharField(max_length=64)
+    sent_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            _one_of("channel", AlarmChannel.values, "alarmsent_channel_valid"),
+            _one_of("cell", [*CELLS, "report"], "alarmsent_cell_valid"),
+            models.UniqueConstraint(fields=["rule", "date", "cell", "channel"], name="alarmsent_once"),
+        ]
