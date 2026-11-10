@@ -47,4 +47,5 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - `../duty_notifier`(FastAPI 알림봇)가 `/api/assignments`를 읽는다. 응답 형식(`date`, `shift`, `name`, `replaced`)을 바꾸면 노티파이어도 같이 바꿔야 한다.
 
 ## 작업 방식
-- `main`에서 직접 작업하지 않는다. 브랜치를 따서 작업하고 PR로 합친다. push는 사용자가 직접 한다.
+- `main`에서 직접 작업하지 않는다. 브랜치를 따서 작업하고 PR로 합친다. push·PR 생성·머지는 Claude가 직접 해도 된다(2026-11-10 사용자 허용).
+- 계획·구현 각 단계와 최종 리뷰는 Codex(`codex exec`, 읽기 전용) 리뷰를 받고 여러 번 토론해 최종 결정한다. Codex 사용량 한도에 걸리면 재설정 시각까지 기다렸다가 이어서 요청한다. Codex에는 DB 파일·`.superpowers/`를 열지 말라고 지시한다(실명).
