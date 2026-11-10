@@ -21,18 +21,12 @@
     table.roster.month td.other { opacity: .35; }
     table.roster.month .line { white-space: normal; }
     table.roster.month .sec > small { display: block; opacity: .7; }
-    table.roster th[scope=row] { position: sticky; left: 0; background: var(--pico-background-color); z-index: 1; white-space: nowrap; }
     :root { --day-line: #9aa4b1; --duty-line: #dfe3e8; }
     @media (prefers-color-scheme: dark) { :root { --day-line: #7d8896; --duty-line: #3a424d; } }
-    table.roster:not(.month) th[scope=row], table.roster:not(.month) td { border: 1px solid var(--duty-line); }
-    table.roster:not(.month) thead th { border-bottom: 1px solid var(--duty-line); }
-    table.roster:not(.month) thead th + th, table.roster:not(.month) td { border-left: 2px solid var(--day-line); border-right: 2px solid var(--day-line); }
     table.roster.month td { border: 2px solid var(--day-line); }
     table.roster.month .sec { border: 1px solid var(--duty-line); border-radius: .3rem; padding: .15rem .3rem; margin-top: .3rem; }
     /* 오늘 표시는 border-collapse 경합을 피하려고 inset 그림자로 그린다 */
     table.roster .today-col { box-shadow: inset 2px 0 0 #d9534f, inset -2px 0 0 #d9534f; position: relative; }
-    table.roster:not(.month) thead th.today-col { box-shadow: inset 2px 2px 0 #d9534f, inset -2px 0 0 #d9534f; }
-    table.roster:not(.month) tbody tr:last-child td.today-col { box-shadow: inset 2px -2px 0 #d9534f, inset -2px 0 0 #d9534f; }
     table.roster.month td.today-col { box-shadow: inset 0 0 0 3px #d9534f; }
     @keyframes blink { 0%, 100% { background: transparent; } 50% { background: #ffcdd2; } }
     .blink { animation: blink .4s 3; }

@@ -13,28 +13,10 @@
   <input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem">
   {% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
   {% endfor %}
-  <button>이동</button>
+  <button>Today</button>
   <button type="button" class="outline secondary" id="slot-toggle"></button>
 </form>
 <div class="grid-wrap">
-{% if view == "week" %}
-<table class="roster" id="roster">
-  <thead><tr><th></th>{% for d in days %}<th{% if d.is_today %} id="today" class="today-col"{% endif %}><a href="{% url 'day' d.date %}">{{ d.date.month }}/{{ d.date.day }} ({{ d.weekday }})</a></th>{% endfor %}</tr></thead>
-  <tbody>
-  {% for row in rows %}
-    <tr{% if row.slot %} class="slot"{% endif %}>
-      <th scope="row">{{ row.label }}</th>
-      {% for c in row.cells %}{% with d=c.d %}
-      <td {% if d.is_today %}class="today-col"{% endif %}>
-        {% if d.editable %}<a href="{% url 'day' d.date %}#{{ c.key }}" hx-get="{% url 'cell' d.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{% include "duty/_cellbody.html" %}</a>{% else %}{% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}{% endif %}
-        {% for line in c.removed %}<div>{% include "duty/_labels.html" %}</div>{% endfor %}
-      </td>
-      {% endwith %}{% endfor %}
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% else %}
 <table class="roster month" id="roster">
   <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
   <tbody>
@@ -42,21 +24,13 @@
     <tr>
     {% for d in week %}
       <td{% if d.other %} class="other"{% elif d.is_today %} id="today" class="today-col"{% endif %}>
-        <a href="{% url 'day' d.date %}"><strong>{{ d.date.day }}</strong></a>
-        {% if not d.other %}
-        {% for c in d.commute %}<div class="sec"><small>{{ c.label }}</small>
-          {% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}
-          {% for line in c.removed %}<div>{% include "duty/_labels.html" %}</div>{% endfor %}</div>{% endfor %}
-        <div class="sec slot"><small>관제</small>
-          {% for c in d.duty %}{% if c.lines or c.removed %}<div>{{ c.time }} {% for line in c.lines %}{% include "duty/_labels.html" %}{% if not forloop.last %}, {% endif %}{% endfor %}{% for line in c.removed %} {% include "duty/_labels.html" %}{% endfor %}</div>{% endif %}{% endfor %}</div>
-        {% endif %}
+        {% include "duty/_daycell.html" %}
       </td>
     {% endfor %}
     </tr>
   {% endfor %}
   </tbody>
 </table>
-{% endif %}
 </div>
 <script>
   const t = document.getElementById("roster"), b = document.getElementById("slot-toggle"), K = "roster.slotsHidden";

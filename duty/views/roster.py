@@ -109,10 +109,10 @@ def roster(request):
 
     def day_info(d: date) -> dict:
         cells = day_cells(d)
+        other = view == "month" and d.month != anchor.month
         return {
             "date": d, "weekday": DAY_LABELS[d.weekday()], "is_today": d == today,
-            "editable": admin or d >= today, "cells": cells,
-            "other": view == "month" and d.month != anchor.month,
+            "edit": (admin or d >= today) and not other, "cells": cells, "other": other,
             "commute": [cells[k] for k in CELLS if not is_slot_cell(k)],
             "duty": [{"time": cells[k]["label"][:5], **cells[k]} for k in CELLS if is_slot_cell(k)],
         }
@@ -123,13 +123,7 @@ def roster(request):
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
     }
-    if view == "week":
-        ctx["days"] = days[0]
-        ctx["rows"] = [
-            {"label": cell_label(k), "slot": is_slot_cell(k), "cells": [{**dd["cells"][k], "d": dd} for dd in days[0]]} for k in CELLS
-        ]
-    else:
-        ctx["weeks"] = days
+    ctx["weeks"] = days
     return render(request, "duty/roster.html", ctx)
 
 

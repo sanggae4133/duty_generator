@@ -71,8 +71,10 @@ def test_week_view_default(client, world):
     body = client.get("/").content.decode()
     for d in range(9, 14):
         assert f"/day/2026-11-{d:02d}/" in body
-    assert "새벽" in body and "석식교대" in body and "08:30~09:30" in body and 'class="slot"' in body
-    assert 'id="today"' in body and "hx-get" in body
+    assert "새벽" in body and "석식교대" in body and "관제" in body and "08:30" in body and 'class="sec slot"' in body
+    assert "<th scope=" not in body and body.count('class="sec"') == 5 * 4  # 행 라벨 열 없음, 날짜마다 4개 구역
+    assert 'id="today"' in body and "/cell/2026-11-10/normal/" in body and "/cell/2026-11-10/slot0/" in body
+    assert "/cell/2026-11-13/night/" in body  # 미래일도 편집 가능
 
 
 def test_month_view(client, world):
@@ -80,7 +82,11 @@ def test_month_view(client, world):
     client.force_login(a.user)
     body = client.get("/?view=month&date=2026-11-10").content.decode()
     assert "2026년 11월" in body and "/day/2026-11-30/" in body and "/day/2026-11-02/" in body
-    assert "hx-get" not in body and 'id="today"' in body and "08:30 " in body
+    assert 'id="today"' in body and "08:30 " in body
+    assert "/cell/2026-11-10/normal/?next=/%3Fview%3Dmonth" in body and "/cell/2026-11-30/night/" in body
+    assert "/cell/2026-11-02/" not in body  # 지난 날은 일반 멤버 편집 불가
+    dec = client.get("/?view=month&date=2026-12-10").content.decode()
+    assert "/cell/2026-12-01/normal/" in dec and "/cell/2026-11-30/" not in dec  # 흐린 칸은 편집 불가
 
 
 @pytest.mark.parametrize("view,prev,nxt", [("week", "2026-11-02", "2026-11-16"), ("month", "2026-10-01", "2026-12-01")])
@@ -97,7 +103,7 @@ def test_past_cells_not_editable_for_member_in_week(client, world, fixed_today):
     fixed_today(date(2026, 11, 12))
     client.force_login(a.user)
     body = client.get("/?date=2026-11-10").content.decode()
-    assert "/cell/2026-11-10/" not in body and "/cell/2026-11-12/" in body
+    assert "/cell/2026-11-10/" not in body and "/cell/2026-11-12/slot3/" in body
 
 
 def test_invalid_date_falls_back_to_today(client, world):
