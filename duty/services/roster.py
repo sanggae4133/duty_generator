@@ -4,8 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 
-from ..models import ChangeLog, Commute, ControlDuty, Department, Member, Period
-from ..shifts import CELLS, COMMUTE_SHIFTS, DAY_LABELS, DEVELOPER, STAFF, cell_label, slot_cell
+from ..models import ChangeLog, Commute, ControlDuty, Member, Period
+from ..shifts import CELLS, cell_label, slot_cell
 
 Log = tuple[str | None, str | None]
 
@@ -104,34 +104,3 @@ def member_schedule(member: Member, start: date) -> list[tuple[date, list[str]]]
         if labels:
             out.append((day.date, labels))
     return out
-
-
-DEPT_VIEWS: dict[str, tuple[str, list[str]]] = {
-    "it": ("IT운영본부", ["MEMS", "TMCH"]),
-    "md": ("정보분배", ["MD"]),
-    "ui": ("UI", ["UI"]),
-}
-
-
-def department_table(key: str, start: date | None = None, end: date | None = None):
-    title, codes = DEPT_VIEWS[key]
-    depts = [Department.objects.get(code=c) for c in codes]
-    info = {m.name: (m.department_id, m.type) for m in Member.objects.all()}
-    shifts = [s for s in COMMUTE_SHIFTS if any(s in d.shift_keys() for d in depts)]
-    split = len(depts) > 1
-    header = ["날짜", "요일", *(["구분"] if split else [])]
-    header += [f"{COMMUTE_SHIFTS[s]} {d.name}" if split else COMMUTE_SHIFTS[s] for s in shifts for d in depts]
-    rows = []
-    for day in published_days(start, end):
-        for i, t in enumerate([STAFF, DEVELOPER] if split else [None]):
-            row = [day.date.isoformat() if i == 0 else "", DAY_LABELS[day.date.weekday()] if i == 0 else ""]
-            if split:
-                row.append(t)
-            for s in shifts:
-                for d in depts:
-                    row.append(", ".join(
-                        n for n in day.members[s]
-                        if info.get(n, (None, None))[0] == d.code and (t is None or info[n][1] == t)
-                    ))
-            rows.append(row)
-    return title, header, rows

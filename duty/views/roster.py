@@ -11,10 +11,10 @@ from django.views.decorators.http import require_POST
 from .. import perms
 from ..csv_io import split_names
 from ..errors import DutyError
-from ..models import Member
+from ..models import Department, Member
 from ..services import changes
-from ..services.roster import DEPT_VIEWS, department_table, find_day, member_schedule, published_days
-from ..shifts import CELLS, DAY_LABELS, cell_label, is_slot_cell
+from ..services.roster import find_day, member_schedule, published_days
+from ..shifts import CELLS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
 from .common import date_param, safe_next
 
 
@@ -46,16 +46,36 @@ def _member(code: str | None) -> Member | None:
     return m
 
 
-def _active_members():
-    return list(Member.objects.filter(is_active=True).select_related("department").order_by("name"))
+DEPT_ORDER = ["MEMS", "TMCH", "MD", "UI"]
 
 
-def _cell_context(day, cell: str, d):
+def _filters(request) -> tuple[list[str], list[str]]:
+    """?dept=MEMS&dept=UI, ?type=직원 → 유효한 값만. 빈 목록 = 전체."""
+    valid = set(Department.objects.values_list("code", flat=True))
+    pick = lambda name, ok: [c for c in dict.fromkeys(request.GET.getlist(name)) if c in ok]
+    return pick("dept", valid), pick("type", {STAFF, DEVELOPER})
+
+
+def _filtered(qs, depts: list[str], types: list[str]):
+    qs = qs.filter(department_id__in=depts) if depts else qs
+    return qs.filter(type__in=types) if types else qs
+
+
+def _active_members(depts: list[str] | None = None, types: list[str] | None = None):
+    qs = Member.objects.filter(is_active=True).select_related("department").order_by("name")
+    return list(_filtered(qs, depts or [], types or []))
+
+
+def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None):
     current = day.members[cell] if day else []
+    qs = Member.objects.filter(name__in=current).order_by("name")
     return {
         "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
-        "current_members": list(Member.objects.filter(name__in=current).order_by("name")),
+        "current_members": list(_filtered(qs, depts or [], types or [])),
     }
+
+
+LOW, HIGH = date(2000, 1, 1), date(2099, 12, 31)
 
 
 def _month_shift(d: date, step: int) -> date:
@@ -70,12 +90,20 @@ def roster(request):
     today, admin = perms.today(), perms.is_admin(request.user)
     view = "month" if request.GET.get("view") == "month" else "week"
     anchor = date_param(request, "date") or today
-    if not date(2000, 1, 1) <= anchor <= date(2099, 12, 31):  # 극단 날짜의 overflow 방지
+    if not LOW <= anchor <= HIGH:  # 극단 날짜의 overflow 방지
         anchor = today
+    depts, types = _filters(request)
+    info = {n: (d, t) for n, d, t in Member.objects.values_list("name", "department_id", "type")} if depts or types else {}
 
-    def link(v: str, d: date) -> str:
-        params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}}
-        return "?" + urlencode(params)
+    def keep(label: str) -> bool:  # 라벨의 현재(마지막) 사람이 부서·유형 필터를 모두 통과하면 남긴다
+        d, t = info.get(label.split(">")[-1].strip().lstrip("+"), (None, None))
+        return (not depts or d in depts) and (not types or t in types)
+
+    def link(v: str, d: date) -> str | None:
+        if not LOW <= d <= HIGH:
+            return None  # 범위 밖으로 가는 링크는 만들지 않는다
+        params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}, "dept": depts, "type": types}
+        return "?" + urlencode(params, doseq=True)
 
     if view == "week":
         monday = anchor - timedelta(days=anchor.weekday())
@@ -101,8 +129,8 @@ def roster(request):
         return {
             k: {
                 "key": k, "slot": is_slot_cell(k), "label": cell_label(k),
-                "lines": _lines(found.cells[k].labels, names) if found else [],
-                "removed": _lines(found.cells[k].removed, names, True) if found else [],
+                "lines": _lines([x for x in found.cells[k].labels if keep(x)], names) if found else [],
+                "removed": _lines([x for x in found.cells[k].removed if keep(x)], names, True) if found else [],
             }
             for k in CELLS
         }
@@ -111,8 +139,7 @@ def roster(request):
         cells = day_cells(d)
         other = view == "month" and d.month != anchor.month
         return {
-            "date": d, "weekday": DAY_LABELS[d.weekday()], "is_today": d == today,
-            "edit": (admin or d >= today) and not other, "cells": cells, "other": other,
+            "date": d, "is_today": d == today, "edit": (admin or d >= today) and not other, "other": other,
             "commute": [cells[k] for k in CELLS if not is_slot_cell(k)],
             "duty": [{"time": cells[k]["label"][:5], **cells[k]} for k in CELLS if is_slot_cell(k)],
         }
@@ -122,6 +149,12 @@ def roster(request):
         "view": view, "title": title, "names": names, "date": anchor, "today_link": link(view, today) + "#today",
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
+        "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs),
+        "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)],
+        "dept_choices": [
+            {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
+            for d in sorted(Department.objects.all(), key=lambda d: DEPT_ORDER.index(d.code) if d.code in DEPT_ORDER else 99)
+        ],
     }
     ctx["weeks"] = days
     return render(request, "duty/roster.html", ctx)
@@ -144,8 +177,9 @@ def cell(request, d, cell):
             for w in result.warnings:
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
-    ctx = _cell_context(find_day(d), cell, d)
-    ctx.update(members=_active_members(), next=safe_next(request, fallback))
+    depts, types = _filters(request)
+    ctx = _cell_context(find_day(d), cell, d, depts, types)
+    ctx.update(members=_active_members(depts, types), next=safe_next(request, fallback))
     return render(request, "duty/_cell_form.html", ctx)
 
 
@@ -198,17 +232,6 @@ def swap(request, d):
         for w in result.warnings:
             messages.warning(request, w)
     return redirect("day", d)
-
-
-@login_required
-def dept(request, key):
-    if key not in DEPT_VIEWS:
-        raise Http404
-    title, header, rows = department_table(key, date_param(request, "from"), date_param(request, "to"))
-    return render(request, "duty/dept.html", {
-        "key": key, "title": title, "header": header, "rows": rows,
-        "tabs": [(k, v[0]) for k, v in DEPT_VIEWS.items()],
-    })
 
 
 @login_required

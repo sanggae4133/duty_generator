@@ -3,17 +3,18 @@
 <div class="cal-nav">
   <a role="button" class="{% if view != 'week' %}outline {% endif %}secondary" href="{{ week_link }}">주간</a>
   <a role="button" class="{% if view != 'month' %}outline {% endif %}secondary" href="{{ month_link }}">월간</a>
-  <a role="button" class="outline" href="{{ prev }}">◀ 이전</a>
+  {% if prev %}<a role="button" class="outline" href="{{ prev }}">◀ 이전</a>{% endif %}
   <a role="button" class="outline" href="{{ today_link }}">오늘</a>
-  <a role="button" class="outline" href="{{ next }}">다음 ▶</a>
+  {% if next %}<a role="button" class="outline" href="{{ next }}">다음 ▶</a>{% endif %}
   <strong class="cal-title">{{ title }}</strong>
 </div>
 <form method="get" class="search">
   <input type="hidden" name="view" value="{{ view }}">
-  <input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem">
-  {% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
-  {% endfor %}
-  <button>Today</button>
+  <span class="pair"><input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem"><button>이동</button></span>
+  <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
+  {% endfor %}<button>검색</button></span>
+  <fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  <fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <button type="button" class="outline secondary" id="slot-toggle"></button>
 </form>
 <div class="grid-wrap">
@@ -47,11 +48,26 @@
     today.scrollIntoView({block: "nearest", inline: "center"});
     if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
   }
-  // 마지막 보기 기억: view 파라미터 없이 들어오면 저장된 보기로 이동
+  // 마지막 보기·필터 기억: 명시한 URL 파라미터가 항상 우선
+  const form = document.querySelector("form.search");
+  const FILTERS = {dept: "roster.depts", type: "roster.types"};
+  const boxes = n => [...form.querySelectorAll(`input[name=${n}]`)];
+  Object.entries(FILTERS).forEach(([n, key]) => boxes(n).forEach(c => c.onchange = () => {
+    try {
+      const v = boxes(n).filter(x => x.checked).map(x => x.value);
+      localStorage.setItem(key, JSON.stringify(v.length === boxes(n).length ? [] : v));
+    } catch (e) {}
+    form.requestSubmit();
+  }));
   try {
-    const v = new URLSearchParams(location.search).get("view");
-    if (v) localStorage.setItem("roster.view", v);
-    else if (localStorage.getItem("roster.view") === "month") { const u = new URL(location); u.searchParams.set("view", "month"); location.replace(u); }
+    const u = new URL(location), p = u.searchParams;
+    if (p.get("view")) localStorage.setItem("roster.view", p.get("view"));
+    else if (localStorage.getItem("roster.view") === "month") p.set("view", "month");
+    Object.entries(FILTERS).forEach(([n, key]) => {
+      if (p.has(n)) localStorage.setItem(key, JSON.stringify(p.getAll(n)));
+      else JSON.parse(localStorage.getItem(key) || "[]").forEach(v => p.append(n, v));
+    });
+    if (u.search !== location.search) location.replace(u);
   } catch (e) {}
 </script>
 {% endblock %}

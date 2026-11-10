@@ -8,7 +8,12 @@
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
-    form.search input { width: auto; min-width: 9rem; flex: 1 1 9rem; margin: 0; }
+    form.search input:not([type=checkbox]) { width: auto; min-width: 9rem; flex: 1 1 9rem; margin: 0; }
+    form.search .pair { display: flex; align-items: center; gap: .5rem; flex-wrap: nowrap; }
+    form.search .names { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+    form.search fieldset.filter { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem 1rem; margin: 0; padding: .1rem .7rem .3rem; border: 1px solid var(--duty-line); border-radius: .3rem; }
+    form.search fieldset.filter legend { width: auto; margin: 0; padding: 0 .3rem; font-size: .75rem; opacity: .7; }
+    form.search fieldset.filter label { margin: 0; white-space: nowrap; font-size: .9rem; }
     form.search .name { display: flex; align-items: center; gap: .25rem; flex: 1 1 10rem; }
     form.search button { width: auto; margin: 0; white-space: nowrap; }
     nav a, nav button, nav strong, .lb, .hl1, .hl2, .hl3 { white-space: nowrap; }
@@ -18,6 +23,7 @@
     .cal-title { margin-left: .5rem; white-space: nowrap; }
     table.roster.month { table-layout: fixed; min-width: 56rem; }
     table.roster.month td { vertical-align: top; word-break: keep-all; }
+    table.roster td, table.roster th { scroll-margin-top: 2.6rem; }  /* 오늘 칸으로 스크롤해도 고정 헤더에 안 가려지게 */
     table.roster.month td.other { opacity: .35; }
     table.roster.month .line { white-space: normal; }
     table.roster.month .sec > small { display: block; opacity: .7; }
@@ -26,15 +32,14 @@
     table.roster.month td { border: 2px solid var(--day-line); }
     table.roster.month .sec { border: 1px solid var(--duty-line); border-radius: .3rem; padding: .15rem .3rem; margin-top: .3rem; }
     /* 오늘 표시는 border-collapse 경합을 피하려고 inset 그림자로 그린다 */
-    table.roster .today-col { box-shadow: inset 2px 0 0 #d9534f, inset -2px 0 0 #d9534f; position: relative; }
-    table.roster.month td.today-col { box-shadow: inset 0 0 0 3px #d9534f; }
+    table.roster.month td.today-col { box-shadow: inset 0 0 0 3px #d9534f; position: relative; }
     @keyframes blink { 0%, 100% { background: transparent; } 50% { background: #ffcdd2; } }
     .blink { animation: blink .4s 3; }
     @media (max-width: 768px) { .grid-wrap { margin: 0 calc(-1 * var(--pico-spacing, 1rem)); } }
-    .grid-wrap { overflow-x: auto; }
+    .grid-wrap { overflow: auto; max-height: calc(100dvh - 7rem); }
+    table.roster thead th { position: sticky; top: 0; z-index: 2; background: var(--pico-background-color); padding: .2rem .5rem; text-align: center; }
     table.roster { font-size: .8rem; }
     table.roster th { white-space: nowrap; word-break: keep-all; }
-    table.roster .line { white-space: nowrap; word-break: keep-all; }
     table.roster.slots-hidden .slot { display: none; }
     .chg { font-weight: bold; font-style: italic; color: #e91e63; }
     .chg .hl1, .chg .hl2, .chg .hl3 { color: #ad1457; }
@@ -51,7 +56,6 @@
     {% if user.is_authenticated %}
     <ul>
       <li><a href="/">근무표</a></li>
-      <li><a href="/dept/it/">부서별</a></li>
       <li><a href="/me/">내 근무</a></li>
       {% if can_collect %}<li><a href="/collect/">출근표 입력</a></li>{% endif %}
       {% if user.is_staff %}
@@ -59,6 +63,7 @@
       <li><a href="/stats/">통계</a></li>
       <li><a href="/changes/">이력</a></li>
       <li><a href="/schema/">데이터 구조</a></li>
+      {% if user.is_superuser %}<li><a href="{% url 'admin:index' %}">관리</a></li>{% endif %}
       {% endif %}
       <li><form method="post" action="{% url 'logout' %}" style="margin:0">{% csrf_token %}<button class="outline secondary">로그아웃</button></form></li>
     </ul>

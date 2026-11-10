@@ -3,8 +3,7 @@ from datetime import date
 from django.apps import apps
 from django.contrib import messages
 from django.db import connection
-from django.db.models import CheckConstraint, UniqueConstraint
-from django.db.models import Q
+from django.db.models import CheckConstraint, Q, UniqueConstraint
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST

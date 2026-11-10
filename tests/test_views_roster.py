@@ -160,12 +160,11 @@ def test_day_page(client, world):
     assert "08:30~09:30" in body and "맞교환" in body
 
 
-def test_dept_views(client, world):
+def test_dept_page_removed(client, world):
     a, _ = world
     client.force_login(a.user)
-    for key in ["it", "md", "ui"]:
-        assert client.get(f"/dept/{key}/").status_code == 200
-    assert client.get("/dept/nope/").status_code == 404
+    assert client.get("/dept/it/").status_code == 404
+    assert "부서별" not in client.get("/").content.decode()
 
 
 def test_me(client, world):
@@ -203,3 +202,100 @@ def test_today_cell_only_in_current_month_view(client, world, fixed_today):
     client.force_login(a.user)
     assert 'id="today"' not in client.get("/?view=month&date=2026-12-10").content.decode()  # 11/30은 12월 달력의 흐린 칸
     assert 'id="today"' in client.get("/?view=month&date=2026-11-20").content.decode()
+
+
+@pytest.fixture
+def two_depts(world, make_member):
+    a, _ = world
+    from duty.models import Commute, Period
+
+    c = make_member("라", dept="UI")
+    Commute.objects.create(period=Period.objects.get(), date=D, member=c, shift="normal")
+    return a, c
+
+
+@pytest.mark.parametrize("view", ["week", "month"])
+def test_dept_filter_hides_other_departments(client, two_depts, view):
+    a, _ = two_depts
+    client.force_login(a.user)
+
+    def grid(q):
+        return client.get(f"/?view={view}{q}").content.decode().split("<tbody>")[1].split("</tbody>")[0]
+
+    assert "라" in grid("&dept=UI") and "가" not in grid("&dept=UI")
+    assert "라" in grid("") and "가" in grid("")
+
+
+def test_dept_carried_through_links_and_popup_url(client, two_depts):
+    a, _ = two_depts
+    client.force_login(a.user)
+    body = client.get("/?dept=UI&dept=MD").content.decode().replace("&amp;", "&")
+    assert "dept=UI&dept=MD" in body.split('class="cal-nav"')[1].split("</div>")[0]
+    assert "dept=UI&dept=MD" in body.split("</form>")[1]  # next=… 와 &dept= 가 팝업 URL에 실린다
+    assert "&dept=UI&dept=MD" in body.split("</form>")[1]
+
+
+@pytest.fixture
+def mixed(world, make_member):
+    from duty.models import Commute, Period
+
+    a, _ = world
+    c = make_member("라", dept="MEMS", type="직원")
+    Commute.objects.create(period=Period.objects.get(), date=D, member=c, shift="normal")
+    return a, c
+
+
+@pytest.mark.parametrize("view", ["week", "month"])
+def test_type_filter_and_combination(client, mixed, view):
+    a, _ = mixed
+    client.force_login(a.user)
+
+    def grid(q):
+        return client.get(f"/?view={view}{q}").content.decode().split("<tbody>")[1].split("</tbody>")[0]
+
+    assert "라" in grid("&type=직원") and "가" not in grid("&type=직원")
+    assert "가" in grid("&type=개발자") and "라" not in grid("&type=개발자")
+    assert "가" not in grid("&type=직원&dept=UI") and "라" not in grid("&type=직원&dept=UI")  # 둘 다 통과해야 표시
+    assert "라" in grid("&type=직원&dept=MEMS")
+
+
+def test_type_carried_and_popup_filtered(client, mixed):
+    a, _ = mixed
+    client.force_login(a.user)
+    body = client.get("/?type=직원").content.decode().replace("&amp;", "&")
+    assert "type=%EC%A7%81%EC%9B%90" in body.split('class="cal-nav"')[1].split("</div>")[0]
+    assert "&type=%EC%A7%81%EC%9B%90" in body.split("</form>")[1]
+    popup = client.get(f"/cell/{D}/normal/?type=직원").content.decode().split("<form")[1]
+    assert "라" in popup and "가" not in popup.replace("From", "")
+    assert client.get("/").content.decode().count('name="type"') == 2
+
+
+def test_popup_members_filtered_by_dept(client, two_depts):
+    a, _ = two_depts
+    client.force_login(a.user)
+    body = client.get(f"/cell/{D}/normal/?dept=UI").content.decode()
+    assert "라" in body and "가" not in body.split("<form")[1].split("</form>")[0].replace("From", "")
+    assert "가" in client.get(f"/cell/{D}/normal/").content.decode().split("<form")[1]
+
+
+def test_dept_checkboxes_all_checked_by_default(client, two_depts):
+    a, _ = two_depts
+    client.force_login(a.user)
+    body = client.get("/").content.decode()
+    assert body.count('name="dept"') == 4 and body.count(" checked>") == 6  # 부서 4 + 유형 2
+    assert client.get("/?dept=UI").content.decode().count(" checked>") == 3
+
+
+def test_edge_dates_hide_prev_next(client, world):
+    a, _ = world
+    client.force_login(a.user)
+    assert "◀ 이전" not in client.get("/?view=month&date=2000-01-15").content.decode()
+    assert "다음 ▶" not in client.get("/?view=month&date=2099-12-15").content.decode()
+    assert "◀ 이전" in client.get("/?view=month&date=2000-02-15").content.decode()
+
+
+def test_separate_move_and_search_buttons(client, world):
+    a, _ = world
+    client.force_login(a.user)
+    body = client.get("/").content.decode()
+    assert "<button>이동</button>" in body and "<button>검색</button>" in body and "Today" not in body

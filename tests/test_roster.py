@@ -1,7 +1,7 @@
 from datetime import date
 
 from duty.models import ChangeLog, Commute, ControlDuty, Period
-from duty.services.roster import api_assignments, chain, department_table, member_schedule, published_days
+from duty.services.roster import api_assignments, chain, member_schedule, published_days
 
 S = Period.Status
 D = date(2026, 11, 10)
@@ -57,18 +57,6 @@ def test_member_schedule(make_member):
     from duty.models import Member
 
     assert member_schedule(Member.objects.get(name="나"), D) == [(D, ["정상", "08:30~09:30"])]
-
-
-def test_department_table_it_splits_type(make_member):
-    make_published(make_member)
-    title, header, rows = department_table("it")
-    assert title == "IT운영본부"
-    assert header[:3] == ["날짜", "요일", "구분"] and header[3] == "새벽 매칭엔진실"
-    staff_row, dev_row = rows
-    assert staff_row[2] == "직원" and dev_row[2] == "개발자"
-    normal_tmch = header.index("정상 매매지원실")
-    assert dev_row[normal_tmch] == "나"
-    assert staff_row[header.index("정상 매칭엔진실")] == "직원1"
 
 
 def test_chain_replaced_cleared_when_readded():
