@@ -1,3 +1,4 @@
+import urllib.error
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -14,8 +15,8 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true")
 
     def handle(self, *args, **opts):
-        maker = Path(opts["maker_xlsx"]).read_bytes() if opts["maker_xlsx"] else download_xlsx(MAKER_ID)
-        deploy = Path(opts["deploy_xlsx"]).read_bytes() if opts["deploy_xlsx"] else download_xlsx(DEPLOY_ID)
+        maker = self._load(opts["maker_xlsx"], MAKER_ID)
+        deploy = self._load(opts["deploy_xlsx"], DEPLOY_ID)
         r = run_import(maker, deploy, opts["dry_run"])
         for e in r.errors:
             self.stderr.write(e)
@@ -23,3 +24,13 @@ class Command(BaseCommand):
         if r.errors:
             raise CommandError(f"오류 {len(r.errors)}건 — 반영하지 않았습니다.")
         self.stdout.write("dry-run: 반영하지 않았습니다." if opts["dry_run"] else "가져오기 완료")
+
+    def _load(self, path, sheet_id) -> bytes:
+        try:
+            data = Path(path).read_bytes() if path else download_xlsx(sheet_id)
+        except OSError as e:  # URLError, HTTPError, 시간 초과, 파일 없음
+            reason = e.reason if isinstance(e, urllib.error.URLError) else e
+            raise CommandError(f"{path or sheet_id}: 읽지 못했습니다 ({reason})")
+        if not data.startswith(b"PK"):
+            raise CommandError(f"{path or sheet_id}: xlsx가 아닙니다 (시트가 공개 상태인지 확인하세요)")
+        return data

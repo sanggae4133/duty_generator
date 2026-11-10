@@ -3,6 +3,8 @@ from io import BytesIO
 
 import openpyxl
 import pytest
+from django.core.management import call_command
+from django.core.management.base import CommandError
 
 from duty.importer import diff_cell, parse_chains, run_import
 from duty.models import ChangeLog, Commute, ControlDuty, Member, Period
@@ -91,6 +93,7 @@ def test_unknown_name_aborts(db):
 def test_double_commute_aborts(db):
     report = run_import(maker(), deploy({"night": "d1"}), dry_run=False)
     assert any("중복" in e for e in report.errors)
+    assert not Period.objects.exists() and not Member.objects.exists()
 
 
 def test_dry_run_writes_nothing(db):
@@ -109,3 +112,53 @@ def test_missing_column_aborts(db):
 def test_second_import_refused(db):
     run_import(maker(), deploy({}), dry_run=False)
     assert run_import(maker(), deploy({}), dry_run=False).errors
+
+
+def test_non_date_row_is_error(db):
+    wb = openpyxl.load_workbook(BytesIO(deploy({})))
+    wb["근무표"].append(["2026-11-1o", "화"])
+    report = run_import(maker(), _bytes(wb), dry_run=False)
+    assert any("날짜가 아닙니다" in e for e in report.errors) and not Member.objects.exists()
+
+
+def test_missing_sheet_is_error(db):
+    wb = openpyxl.load_workbook(BytesIO(deploy({})))
+    del wb["근무표"]
+    report = run_import(maker(), _bytes(wb), dry_run=False)
+    assert any("근무표" in e for e in report.errors) and not Member.objects.exists()
+
+
+def test_non_xlsx_is_error(db):
+    report = run_import(b"not xlsx", deploy({}), dry_run=False)
+    assert report.errors and not Member.objects.exists()
+
+
+def test_bad_member_rows_are_errors(db):
+    wb = openpyxl.load_workbook(BytesIO(maker()))
+    wb["tb_member"].append(["MEX01", "매칭엔진실", None, "매칭엔진", "개발자", False, True])
+    wb["tb_member"].append(["MEX02", "매칭엔진실", "x", "매칭엔진", "외부", False, True])
+    report = run_import(_bytes(wb), deploy({}), dry_run=True)
+    assert any("비어 있는 값" in e for e in report.errors) and any("구분" in e for e in report.errors)
+
+
+def test_empty_plan_is_error(db):
+    wb = openpyxl.Workbook()
+    wb.active.title = "view_all_combine"
+    wb.active.append(["날짜", "요일", *[cell_label(c) for c in CELLS]])
+    b = wb.create_sheet("근무표")
+    b.append(["검색", "."])
+    b.append(["날짜", "요일", *[cell_label(c) for c in CELLS]])
+    report = run_import(maker(), _bytes(wb), dry_run=False)
+    assert any("가져올 날짜가 없습니다" in e for e in report.errors)
+
+
+def test_command_missing_file_is_command_error(db, tmp_path):
+    with pytest.raises(CommandError, match="읽지 못했습니다"):
+        call_command("import_sheets", maker_xlsx=str(tmp_path / "nope.xlsx"), deploy_xlsx=str(tmp_path / "nope2.xlsx"))
+
+
+def test_command_non_xlsx_is_command_error(db, tmp_path):
+    f = tmp_path / "a.xlsx"
+    f.write_text("<html>")
+    with pytest.raises(CommandError, match="xlsx가 아닙니다"):
+        call_command("import_sheets", maker_xlsx=str(f), deploy_xlsx=str(f))

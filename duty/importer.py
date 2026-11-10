@@ -15,7 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import ChangeLog, Commute, ControlDuty, Department, Member, Period
-from .shifts import CELL_BY_LABEL, CELLS, cell_label, is_slot_cell, slot_index
+from .shifts import CELL_BY_LABEL, CELLS, DEVELOPER, STAFF, cell_label, is_slot_cell, slot_index
 
 MAKER_ID = "1y-T4gWwGb9p8g4Lkla0so1yY7Ox_QnV0N1unRChfYOI"
 DEPLOY_ID = "1RZjmnktNRFNg3KycrNI3No6Sczu8ATnWd1IWAYWxn5w"
@@ -69,28 +69,46 @@ def _as_date(v):
     return v if isinstance(v, date) else None
 
 
-def read_grid(ws, header_row: int) -> dict[date, dict[str, str]]:
+def read_grid(ws, header_row: int) -> tuple[dict[date, dict[str, str]], list[str]]:
     rows = list(ws.iter_rows(min_row=header_row, values_only=True))
+    if not rows:
+        raise ValueError(f"{ws.title}: 비어 있습니다")
     cols = {i: CELL_BY_LABEL[str(h).strip()] for i, h in enumerate(rows[0]) if h is not None and str(h).strip() in CELL_BY_LABEL}
     missing = [cell_label(c) for c in CELLS if c not in cols.values()]
     if missing:  # 열이 빠지면 빈 칸으로 읽혀 전원 제거로 잘못 이관된다
         raise ValueError(f"{ws.title}: 열이 없습니다 — {', '.join(missing)}")
-    grid = {}
-    for r in rows[1:]:
+    grid: dict[date, dict[str, str]] = {}
+    errors: list[str] = []
+    for n, r in enumerate(rows[1:], start=header_row + 1):
         d = _as_date(r[0]) if r else None
+        if not d and r and r[0] is not None and str(r[0]).strip():
+            errors.append(f"{ws.title} {n}행: 날짜가 아닙니다: {r[0]!r}")
         if d:
             if d in grid:
                 raise ValueError(f"{ws.title}: 날짜 중복 {d}")
             grid[d] = {cell: "" if i >= len(r) or r[i] is None else str(r[i]) for i, cell in cols.items()}
-    return grid
+    return grid, errors
 
 
-def read_members(ws) -> list[dict]:
+def read_members(ws) -> tuple[list[dict], list[str]]:
     rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        raise ValueError(f"{ws.title}: 비어 있습니다")
     idx = {str(h).strip(): i for i, h in enumerate(rows[0]) if h is not None}
-    out = []
-    for r in rows[1:]:
-        if not r[idx["id"]]:
+    missing = [c for c in ("id", "department", "name", "part", "type", "is_active") if c not in idx]
+    if missing:
+        raise ValueError(f"{ws.title}: 열이 없습니다 — {', '.join(missing)}")
+    out: list[dict] = []
+    errors: list[str] = []
+    for n, r in enumerate(rows[1:], start=2):
+        if not any(c is not None and str(c).strip() for c in r):
+            continue
+        blank = [c for c in ("id", "department", "name", "type") if r[idx[c]] is None or not str(r[idx[c]]).strip()]
+        if blank:
+            errors.append(f"{ws.title} {n}행: 비어 있는 값 — {', '.join(blank)}")
+            continue
+        if str(r[idx["type"]]).strip() not in (DEVELOPER, STAFF):
+            errors.append(f"{ws.title} {n}행: 알 수 없는 구분 {str(r[idx['type']]).strip()!r}")
             continue
         active = r[idx["is_active"]]
         out.append({
@@ -101,7 +119,7 @@ def read_members(ws) -> list[dict]:
             "type": str(r[idx["type"]]).strip(),
             "is_active": active is True or str(active).upper() == "TRUE",
         })
-    return out
+    return out, errors
 
 
 @dataclass
@@ -119,11 +137,24 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
     if Period.objects.filter(name=IMPORT_PERIOD_NAME).exists():
         report.errors.append("이미 가져온 회차(시트 이관)가 있습니다.")
         return report
-    mk = openpyxl.load_workbook(BytesIO(maker), data_only=True)
-    dp = openpyxl.load_workbook(BytesIO(deploy), data_only=True)
-    members = read_members(mk["tb_member"])
+    try:
+        mk = openpyxl.load_workbook(BytesIO(maker), data_only=True)
+        dp = openpyxl.load_workbook(BytesIO(deploy), data_only=True)
+    except Exception:  # BadZipFile, InvalidFileException 등
+        report.errors.append("xlsx 파일을 읽을 수 없습니다.")
+        return report
+    try:
+        members, errors = read_members(mk["tb_member"])
+        original, e1 = read_grid(dp["view_all_combine"], 1)
+        final, e2 = read_grid(dp["근무표"], 2)
+    except KeyError as e:
+        report.errors.append(f"시트가 없습니다: {e.args[0]}")
+        return report
+    except ValueError as e:
+        report.errors.append(str(e))
+        return report
+    errors += e1 + e2
     dept_codes = {name: code for code, name, _ in DEPARTMENTS}
-    errors: list[str] = []
     names: set[str] = set()
     codes: set[str] = set()
     for m in members:
@@ -136,12 +167,6 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
             errors.append(f"멤버 이름 중복: {m['name']}")
         names.add(m["name"])
 
-    try:
-        original = read_grid(dp["view_all_combine"], 1)
-        final = read_grid(dp["근무표"], 2)
-    except ValueError as e:
-        report.errors.append(str(e))
-        return report
     errors += [f"{d}: view_all_combine에 없는 날짜" for d in sorted(set(final) - set(original))]
     plan: dict[date, dict[str, tuple[list[str], list[Log]]]] = {}
     for d in sorted(original):
@@ -172,6 +197,8 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
             day[cell] = (fin, logs)
         plan[d] = day
 
+    if not plan:
+        errors.append("가져올 날짜가 없습니다")
     report.members, report.dates = len(members), len(plan)
     for day in plan.values():
         for cell, (fin, logs) in day.items():
@@ -181,7 +208,7 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
                 report.commutes += len(fin)
             report.changes += len(logs)
     report.errors = errors
-    if errors or dry_run or not plan:
+    if errors or dry_run:
         return report
     _write(members, plan, dept_codes)
     return report
