@@ -51,9 +51,8 @@ DEPT_ORDER = ["MEMS", "TMCH", "MD", "UI"]
 
 def _filters(request) -> tuple[list[str], list[str]]:
     """?dept=MEMS&dept=UI, ?type=직원 → 유효한 값만. 빈 목록 = 전체."""
-    valid = set(Department.objects.values_list("code", flat=True))
-    pick = lambda name, ok: [c for c in dict.fromkeys(request.GET.getlist(name)) if c in ok]
-    return pick("dept", valid), pick("type", {STAFF, DEVELOPER})
+    d, t, _ = prefs.clean(request.GET.getlist("dept"), request.GET.getlist("type"), [])
+    return d, t
 
 
 def _filtered(qs, depts: list[str], types: list[str]):
@@ -86,7 +85,7 @@ def _filter_ctx(depts, types, shifts) -> dict:
         ],
         "shift_choices": [
             {"code": c, "name": n, "checked": not shifts or c in shifts}
-            for c, n in zip(prefs.SHIFT_KEYS, ("새벽", "정상", "석식교대", "야간", "장중당번"))
+            for c, n in prefs.SHIFT_CHOICES.items()
         ],
     }
 
@@ -230,8 +229,8 @@ def day(request, d):
             )
             sections.append(ctx)
     swap_options = [
-        {"value": f"{s['cell']}|{m.code}", "text": f"{s['label']} · {m.name}"}
-        for s in sections for m in s["current_members"]
+        {"value": f"{k}|{m.code}", "text": f"{cell_label(k)} · {m.name}"}  # 맞교환은 필터와 무관하게 전체
+        for k in (CELLS if found else []) for m in _cell_context(found, k, d)["current_members"]
     ]
     qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
     return render(request, "duty/day.html", {

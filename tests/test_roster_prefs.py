@@ -133,5 +133,38 @@ def test_day_does_not_overwrite_view_but_shares_filters(client, world):
 def test_defaults_without_prefs(client, world):
     client.force_login(world[0].user)
     body = client.get("/").content.decode()
-    assert body.count('type="checkbox"') == 4 + 2 + 5 and "checked" in body
+    assert body.count('type="checkbox"') == 11 and body.count(" checked") == 11
     assert not RosterPref.objects.exists()
+
+
+def _swap_values(client, q=""):
+    import re
+    body = client.get(f"/day/{D}/{q}").content.decode()
+    return re.findall(r'<option value="(\w+\|[^"]+)">', body.split('name="a"')[1].split("</select>")[0])
+
+
+def test_swap_options_unfiltered(client, two_depts):
+    a, c = two_depts
+    client.force_login(a.user)
+    full = _swap_values(client)
+    assert f"slot0|{a.code}" in full and f"normal|{c.code}" in full
+    assert _swap_values(client, "?f=1&shift=normal&dept=UI") == full
+
+
+def test_stale_saved_prefs_fall_back_to_all(client, world):
+    a, _ = world
+    RosterPref.objects.create(user=a.user, depts=["GONE"], types=["외부"], shifts=["bogus"])
+    client.force_login(a.user)
+    body = client.get("/").content.decode()
+    assert "<small>정상</small>" in body and body.count(" checked") == 11
+
+
+def test_unchanged_get_does_not_write(client, world):
+    a, _ = world
+    client.force_login(a.user)
+    client.get("/?view=month&shift=normal")
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    with CaptureQueriesContext(connection) as ctx:
+        client.get("/?view=month&shift=normal")
+    assert not [q for q in ctx.captured_queries if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE"))]
