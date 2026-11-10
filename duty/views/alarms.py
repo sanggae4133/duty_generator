@@ -1,8 +1,10 @@
+import json
 import re
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -10,7 +12,7 @@ from ..alarms import senders
 from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
 from ..errors import DutyError
-from ..models import AlarmRule, Department, TelegramAlarmProfile
+from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile
 from ..services import alarms
 from ..services.prefs import SHIFT_CHOICES
 
@@ -58,6 +60,9 @@ def index(request):
         "tg_token": senders.telegram_enabled(),
         "bot_ready": senders.telegram_enabled() and bool(settings.TELEGRAM_BOT_USERNAME),
         "rules": rules,
+        "push_on": senders.push_enabled(),
+        "vapid_key": settings.VAPID_PUBLIC_KEY,
+        "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
     })
 
 
@@ -156,3 +161,89 @@ def rule_toggle(request, pk):
 def help_telegram(request):
     return render(request, "duty/help_telegram.html", {
         "bot_username": settings.TELEGRAM_BOT_USERNAME, "bot_link": _bot_link()})
+
+
+# ---- 웹 푸시 ----
+
+PUSH_MISSING = "웹 푸시가 설정되지 않았습니다."
+
+
+def sw_js(request):
+    r = render(request, "duty/sw.js", content_type="application/javascript")
+    r["Service-Worker-Allowed"] = "/"
+    return r
+
+
+def manifest(request):
+    return render(request, "duty/manifest.webmanifest", content_type="application/manifest+json")
+
+
+def _json_body(request) -> dict:
+    try:
+        data = json.loads(request.body)
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        raise DutyError("잘못된 요청입니다.")
+    return data
+
+
+@require_POST
+@login_required
+def push_subscribe(request):
+    try:
+        data = _json_body(request)
+        keys = data.get("keys")
+        if not isinstance(keys, dict):
+            raise DutyError("잘못된 푸시 구독입니다.")
+        alarms.add_subscription(request.user, data.get("endpoint"), keys.get("p256dh"), keys.get("auth"),
+                                request.META.get("HTTP_USER_AGENT", ""))
+    except alarms.SubscriptionConflict as e:
+        return JsonResponse({"error": str(e)}, status=409)
+    except DutyError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+@login_required
+def push_unsubscribe(request):
+    try:
+        endpoint = _json_body(request).get("endpoint")
+    except DutyError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    if isinstance(endpoint, str):
+        alarms.remove_subscription(request.user, endpoint)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+@login_required
+def push_delete(request, pk):
+    alarms.delete_subscription(get_object_or_404(PushAlarmSubscription, pk=pk, user=request.user))
+    messages.info(request, "기기를 해제했습니다.")
+    return redirect("alarms")
+
+
+@require_POST
+@login_required
+def push_delete_all(request):
+    alarms.delete_all_subscriptions(request.user)
+    messages.info(request, "모든 기기를 해제했습니다.")
+    return redirect("alarms")
+
+
+@require_POST
+@login_required
+def push_test(request):
+    if not senders.push_enabled():
+        messages.error(request, PUSH_MISSING)
+    else:
+        ok, fail = alarms.test_push(request.user)
+        messages.info(request, f"테스트 푸시: 성공 {ok} / 실패 {fail}")
+    return redirect("alarms")
+
+
+@login_required
+def help_push(request):
+    return render(request, "duty/help_push.html")

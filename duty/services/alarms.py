@@ -1,6 +1,9 @@
 import fcntl
+import ipaddress
+import re
 import secrets
 from datetime import timedelta
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -10,7 +13,7 @@ from django.utils import timezone
 from .. import perms
 from ..alarms import senders
 from ..errors import DutyError
-from ..models import AlarmRule, Department, TelegramAlarmProfile
+from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile
 from ..shifts import DEVELOPER, STAFF
 from .prefs import SHIFT_KEYS
 
@@ -196,3 +199,87 @@ def check_link(user) -> str:
     if p.link_code is None and p.verified_at and p.chat_id:
         return "텔레그램이 연결되었습니다."
     raise DutyError("아직 확인되지 않았습니다. 텔레그램에서 [시작]을 눌렀는지 확인하고 다시 눌러 주세요.")
+
+
+# ---- 웹 푸시 ----
+
+PUSH_HOSTS = ("fcm.googleapis.com", "updates.push.services.mozilla.com", "push.apple.com")  # WNS는 실제 Edge 검증 전까지 제외
+UNSUPPORTED = "지원하지 않는 푸시 서비스입니다."
+
+
+class SubscriptionConflict(DutyError):
+    """다른 사용자의 endpoint인데 키가 다름 → 409"""
+
+
+def _b64url(v, lo, hi) -> bool:
+    return isinstance(v, str) and lo <= len(v) <= hi and re.fullmatch(r"[A-Za-z0-9_-]+={0,2}", v) is not None
+
+
+def check_endpoint(endpoint) -> None:
+    """SSRF 방지: https, userinfo·포트 없음, IP 리터럴 아님, 허용 목록 호스트."""
+    if not isinstance(endpoint, str) or not endpoint or len(endpoint) > 500:
+        raise DutyError("잘못된 푸시 구독입니다.")
+    try:
+        u = urlsplit(endpoint)
+        port = u.port
+    except ValueError:
+        raise DutyError("잘못된 푸시 구독입니다.") from None
+    host = (u.hostname or "").lower()
+    if u.scheme != "https" or "@" in u.netloc or port is not None or ":" in u.netloc or not host:
+        raise DutyError(UNSUPPORTED)
+    try:
+        ipaddress.ip_address(host)
+        raise DutyError(UNSUPPORTED)
+    except ValueError:
+        pass
+    if not any(host == s or host.endswith("." + s) for s in PUSH_HOSTS):
+        raise DutyError(UNSUPPORTED)
+
+
+def ua_label(ua: str) -> str:
+    def first(pairs):
+        return next((name for key, name in pairs if key in ua), "")
+    browser = first([("Edg", "Edge"), ("SamsungBrowser", "삼성 인터넷"), ("Firefox/", "Firefox"), ("FxiOS", "Firefox"),
+                     ("CriOS", "Chrome"), ("Chrome/", "Chrome"), ("Safari/", "Safari")])
+    os_ = first([("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"), ("Windows", "Windows"),
+                 ("CrOS", "ChromeOS"), ("Mac OS X", "macOS"), ("Linux", "Linux")])
+    return " / ".join(p for p in (browser, os_) if p)[:80] or "알 수 없는 기기"
+
+
+def add_subscription(user, endpoint, p256dh, auth, user_agent: str) -> PushAlarmSubscription:
+    check_endpoint(endpoint)
+    if not (_b64url(p256dh, 80, 100) and _b64url(auth, 16, 32)):
+        raise DutyError("잘못된 푸시 키입니다.")
+    with transaction.atomic():
+        old = PushAlarmSubscription.objects.filter(endpoint=endpoint).first()
+        if old and old.user_id != user.id and (old.p256dh, old.auth) != (p256dh, auth):
+            raise SubscriptionConflict("다른 사용자가 등록한 기기입니다.")
+        return PushAlarmSubscription.objects.update_or_create(endpoint=endpoint, defaults=dict(
+            user=user, p256dh=p256dh, auth=auth, label=ua_label(user_agent)))[0]
+
+
+def remove_subscription(user, endpoint) -> None:
+    PushAlarmSubscription.objects.filter(user=user, endpoint=endpoint).delete()
+
+
+def delete_subscription(sub: PushAlarmSubscription) -> None:
+    sub.delete()
+
+
+def delete_all_subscriptions(user) -> None:
+    PushAlarmSubscription.objects.filter(user=user).delete()
+
+
+def test_push(user) -> tuple[int, int]:
+    """내 모든 구독에 테스트 푸시. (성공, 실패). Gone은 삭제하고 실패로 센다."""
+    ok = fail = 0
+    for sub in PushAlarmSubscription.objects.filter(user=user):
+        try:
+            senders.push_send(sub, "[테스트] 당번 알림", "이 기기로 푸시 알림이 옵니다.", "/alarms/", 60)
+            ok += 1
+        except senders.Gone:
+            sub.delete()
+            fail += 1
+        except senders.SendError:
+            fail += 1
+    return ok, fail

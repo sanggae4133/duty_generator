@@ -500,3 +500,238 @@ def test_batch_cap_exact_drain_is_ok(client, me, bot, tgapi, monkeypatch):
     assert tgapi["calls"] == [None, 3, 5]
     assert not any("처리할 메시지" in m for m in msgs(r))
     assert any("연결되었습니다" in m for m in msgs(r))
+
+
+# ---- 웹 푸시 (Task 7) ----
+
+import json  # noqa: E402
+
+from duty.models import PushAlarmSubscription  # noqa: E402
+from duty.services import alarms as alarm_svc  # noqa: E402
+
+EP = "https://fcm.googleapis.com/fcm/send/abc123"
+P256 = "B" + "a" * 86   # 87자 base64url
+AUTH = "c" * 22
+UA_ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36"
+
+
+@pytest.fixture
+def vapid(settings):
+    settings.VAPID_PUBLIC_KEY = "BPub" + "x" * 83
+    settings.VAPID_PRIVATE_KEY = "priv"
+    return settings
+
+
+def sub_json(client, endpoint=EP, p256dh=P256, auth=AUTH, ua=UA_ANDROID):
+    return client.post("/alarms/push/subscribe/", json.dumps({"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}}),
+                       content_type="application/json", HTTP_USER_AGENT=ua)
+
+
+def test_sw_js_anonymous(client, db):
+    r = client.get("/sw.js")
+    assert r.status_code == 200
+    assert r["Content-Type"].startswith("application/javascript") and r["Service-Worker-Allowed"] == "/"
+    body = r.content.decode()
+    for s in ["showNotification", "notificationclick", "openWindow", "navigate", "waitUntil", "notification.close()"]:
+        assert s in body, s
+
+
+def test_manifest_anonymous(client, db):
+    r = client.get("/manifest.webmanifest")
+    assert r.status_code == 200 and r["Content-Type"].startswith("application/manifest+json")
+    m = json.loads(r.content)
+    assert m["name"] == "당번표" and m["start_url"] == "/" and m["display"] == "standalone"
+    assert {i["sizes"] for i in m["icons"]} == {"192x192", "512x512"}
+
+
+def test_icons_exist(client, db):
+    from django.contrib.staticfiles import finders
+    for n in (192, 512):
+        path = finders.find(f"duty/icon-{n}.png")
+        assert path
+        with open(path, "rb") as f:
+            assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+
+
+def test_manifest_link_in_base(client, me):
+    assert 'rel="manifest" href="/manifest.webmanifest"' in client.get("/").content.decode()
+
+
+def test_push_login_required(client, db):
+    for url in ["/help/push/"]:
+        r = client.get(url)
+        assert r.status_code == 302 and r.url.startswith("/login/")
+    for url in ["/alarms/push/subscribe/", "/alarms/push/unsubscribe/", "/alarms/push/1/delete/",
+                "/alarms/push/delete-all/", "/alarms/push/test/"]:
+        r = client.post(url)
+        assert r.status_code == 302 and r.url.startswith("/login/"), url
+
+
+def test_push_not_configured(client, me, settings):
+    settings.VAPID_PUBLIC_KEY = settings.VAPID_PRIVATE_KEY = ""
+    body = client.get("/alarms/").content.decode()
+    assert "웹 푸시가 설정되지 않았습니다." in body and "이 기기에서 푸시 받기" not in body
+    assert 'href="/help/push/"' in body
+
+
+def test_push_area(client, me, vapid):
+    PushAlarmSubscription.objects.create(user=me, endpoint=EP, p256dh=P256, auth=AUTH, label="Chrome / Android")
+    body = client.get("/alarms/").content.decode()
+    for s in ["이 기기에서 푸시 받기", "이 기기 해제", "테스트 푸시", "모든 기기 해제", "Chrome / Android",
+              "로그아웃해도 알림은 계속 오고", "iOS 16.4 이상", "이 브라우저는 푸시를 지원하지 않습니다.",
+              vapid.VAPID_PUBLIC_KEY, 'href="/help/push/"']:
+        assert s in body, s
+    assert "priv" not in body.replace("private", "")
+
+
+def test_subscribe_ok_and_label(client, me, vapid):
+    r = sub_json(client)
+    assert r.status_code == 200
+    s = PushAlarmSubscription.objects.get()
+    assert (s.user, s.endpoint, s.p256dh, s.auth, s.label) == (me, EP, P256, AUTH, "Chrome / Android")
+    # 같은 사용자의 재구독은 키 갱신
+    assert sub_json(client, p256dh="B" + "z" * 86).status_code == 200
+    assert PushAlarmSubscription.objects.get().p256dh == "B" + "z" * 86
+
+
+@pytest.mark.parametrize("endpoint", [
+    "http://fcm.googleapis.com/fcm/send/x",
+    "https://fcm.googleapis.com:443/fcm/send/x",
+    "https://u:p@fcm.googleapis.com/fcm/send/x",
+    "https://@fcm.googleapis.com/fcm/send/x",
+    "https://142.250.1.1/fcm/send/x",
+    "https://[::1]/x",
+    "https://evilfcm.googleapis.com/x",
+    "https://example.com/x",
+    "https://wns2-par02p.notify.windows.com/w/?token=x",
+    "https://fcm.googleapis.com:99999/x",
+    "https://fcm.googleapis.com:abc/x",
+    "https://[bad/x",
+    "https://fcm.googleapis.com/" + "a" * 500,
+    "",
+])
+def test_subscribe_bad_endpoint(client, me, vapid, endpoint):
+    r = sub_json(client, endpoint=endpoint)
+    assert r.status_code == 400 and r.json()["error"]
+    assert not PushAlarmSubscription.objects.exists()
+
+
+def test_subscribe_host_ok(client, me, vapid):
+    for i, ep in enumerate(["https://updates.push.services.mozilla.com/wpush/v2/x",
+                            "https://web.push.apple.com/QGx", "https://FCM.googleapis.com/fcm/send/y"]):
+        assert sub_json(client, endpoint=ep).status_code == 200, ep
+    assert PushAlarmSubscription.objects.count() == 3
+
+
+def test_subscribe_unsupported_message(client, me, vapid):
+    assert sub_json(client, endpoint="https://example.com/x").json()["error"] == "지원하지 않는 푸시 서비스입니다."
+
+
+@pytest.mark.parametrize("p256dh,auth", [
+    ("B" * 79, AUTH), ("B" * 101, AUTH), ("B" * 86 + "+", AUTH), (P256, "c" * 15), (P256, "c" * 33), (P256, "c" * 21 + "/"),
+])
+def test_subscribe_bad_keys(client, me, vapid, p256dh, auth):
+    assert sub_json(client, p256dh=p256dh, auth=auth).status_code == 400
+
+
+@pytest.mark.parametrize("raw", ["not json", "[]", '{"endpoint": 1}', '{"endpoint": "%s", "keys": "x"}' % EP, '{"endpoint": "%s"}' % EP])
+def test_subscribe_bad_body(client, me, vapid, raw):
+    r = client.post("/alarms/push/subscribe/", raw, content_type="application/json")
+    assert r.status_code == 400 and r.json()["error"]
+
+
+def test_subscribe_other_users_endpoint(client, me, other, vapid):
+    PushAlarmSubscription.objects.create(user=other, endpoint=EP, p256dh=P256, auth=AUTH)
+    assert sub_json(client, auth="d" * 22).status_code == 409
+    assert PushAlarmSubscription.objects.get().user == other
+    assert sub_json(client).status_code == 200  # 키가 같으면 이동
+    assert PushAlarmSubscription.objects.get().user == me
+
+
+def test_unsubscribe_own_only(client, me, other, vapid):
+    PushAlarmSubscription.objects.create(user=other, endpoint=EP, p256dh=P256, auth=AUTH)
+    r = client.post("/alarms/push/unsubscribe/", json.dumps({"endpoint": EP}), content_type="application/json")
+    assert r.status_code == 200 and PushAlarmSubscription.objects.exists()
+    PushAlarmSubscription.objects.update(user=me)
+    client.post("/alarms/push/unsubscribe/", json.dumps({"endpoint": EP}), content_type="application/json")
+    assert not PushAlarmSubscription.objects.exists()
+
+
+def test_delete_own_only(client, me, other, vapid):
+    mine = PushAlarmSubscription.objects.create(user=me, endpoint=EP, p256dh=P256, auth=AUTH)
+    theirs = PushAlarmSubscription.objects.create(user=other, endpoint=EP + "2", p256dh=P256, auth=AUTH)
+    assert client.post(f"/alarms/push/{theirs.pk}/delete/").status_code == 404
+    post(client, f"/alarms/push/{mine.pk}/delete/")
+    assert list(PushAlarmSubscription.objects.all()) == [theirs]
+
+
+def test_delete_all_own_only(client, me, other, vapid):
+    for i in range(2):
+        PushAlarmSubscription.objects.create(user=me, endpoint=f"{EP}{i}", p256dh=P256, auth=AUTH)
+    theirs = PushAlarmSubscription.objects.create(user=other, endpoint=EP + "x", p256dh=P256, auth=AUTH)
+    post(client, "/alarms/push/delete-all/")
+    assert list(PushAlarmSubscription.objects.all()) == [theirs]
+
+
+def test_test_push(client, me, other, vapid, monkeypatch):
+    for i in range(3):
+        PushAlarmSubscription.objects.create(user=me, endpoint=f"{EP}{i}", p256dh=P256, auth=AUTH)
+    PushAlarmSubscription.objects.create(user=other, endpoint=EP + "x", p256dh=P256, auth=AUTH)
+    calls = []
+
+    def fake(sub, title, body, url, ttl):
+        calls.append(sub.endpoint)
+        if sub.endpoint.endswith("1"):
+            raise senders.Gone(410)
+        if sub.endpoint.endswith("2"):
+            raise senders.Temporary(500)
+    monkeypatch.setattr(senders, "push_send", fake)
+    r = post(client, "/alarms/push/test/")
+    assert sorted(calls) == [EP + "0", EP + "1", EP + "2"]
+    assert "성공 1 / 실패 2" in " ".join(msgs(r))
+    assert not PushAlarmSubscription.objects.filter(endpoint=EP + "1").exists()
+    assert PushAlarmSubscription.objects.filter(endpoint=EP + "2").exists()
+
+
+def test_test_push_not_configured(client, me, settings, monkeypatch):
+    settings.VAPID_PUBLIC_KEY = settings.VAPID_PRIVATE_KEY = ""
+    monkeypatch.setattr(senders, "push_send", lambda *a: pytest.fail("no send"))
+    assert "웹 푸시가 설정되지 않았습니다." in " ".join(msgs(post(client, "/alarms/push/test/")))
+
+
+def test_push_csrf(me, vapid):
+    from django.test import Client
+    c = Client(enforce_csrf_checks=True)
+    c.force_login(me)
+    for url in ["/alarms/push/subscribe/", "/alarms/push/unsubscribe/", "/alarms/push/delete-all/", "/alarms/push/test/"]:
+        assert c.post(url, "{}", content_type="application/json").status_code == 403, url
+
+
+def test_push_help_page(client, me):
+    body = client.get("/help/push/").content.decode()
+    for s in ["안드로이드", "Chrome", "Firefox", "홈 화면에 추가", "iOS 16.4", "다시 허용", "테스트 푸시"]:
+        assert s in body, s
+    assert "Edge" not in body
+
+
+@pytest.mark.parametrize("ua,label", [
+    (UA_ANDROID, "Chrome / Android"),
+    ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", "Safari / iPhone"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0", "Firefox / Windows"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0", "Edge / Windows"),
+    ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Chrome / macOS"),
+    ("", "알 수 없는 기기"),
+])
+def test_ua_label(ua, label):
+    assert alarm_svc.ua_label(ua) == label
+
+
+def test_sw_and_manifest_skip_password_change_redirect(client, make_member):
+    # 서비스 워커 갱신 요청이 리다이렉트되면 브라우저가 갱신을 실패로 처리한다
+    m = make_member("가", user=True)
+    m.must_change_password = True
+    m.save()
+    client.force_login(m.user)
+    assert client.get("/alarms/").status_code == 302
+    assert client.get("/sw.js").status_code == 200
+    assert client.get("/manifest.webmanifest").status_code == 200
