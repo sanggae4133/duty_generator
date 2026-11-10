@@ -54,7 +54,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
                 if name not in members:
                     errors.append(CsvError(0, col, f"{dept.name}의 재직 멤버가 아닙니다: {name}"))
                 elif name in seen:
-                    errors.append(CsvError(0, col, f"{name}: {COMMUTE_SHIFTS[seen[name]]}와 {COMMUTE_SHIFTS[key]}에 중복"))
+                    errors.append(CsvError(0, col, f"{name}: {COMMUTE_SHIFTS[seen[name]]}·{COMMUTE_SHIFTS[key]}에 중복"))
                 else:
                     seen[name] = key
     if not perms.is_admin(user):

@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.db import transaction
 
 from .accounts import issue_account
 from .errors import DutyError
@@ -22,7 +23,8 @@ class MemberAdmin(admin.ModelAdmin):
     @admin.action(description="계정 발급 / 비밀번호 초기화")
     def issue_accounts(self, request, queryset):
         try:
-            lines = [f"{m.name}({m.code}): {issue_account(m)}" for m in queryset]
+            with transaction.atomic():  # 중간 실패 시 이미 발급된 비밀번호가 사라지지 않도록 전체 롤백
+                lines = [f"{m.name}({m.code}): {issue_account(m)}" for m in queryset]
         except DutyError as e:
             self.message_user(request, str(e), messages.ERROR)
             return

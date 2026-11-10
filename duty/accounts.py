@@ -19,7 +19,7 @@ def issue_account(member: Member) -> str:
     else:
         member.user.set_password(password)
         member.user.save()
-    reset(username=member.code)
+    reset(username=member.user.username)
     member.must_change_password = True
     member.save()
     return password

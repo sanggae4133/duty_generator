@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = os.environ.get
 
@@ -14,6 +16,8 @@ ALLOWED_HOSTS = [h for h in env("DUTY_ALLOWED_HOSTS", "127.0.0.1,localhost").spl
 CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]
 API_TOKEN = env("DUTY_API_TOKEN", "")
 ADMIN_PATH = env("DUTY_ADMIN_PATH", "admin").strip("/")
+if not ADMIN_PATH:
+    raise ImproperlyConfigured("DUTY_ADMIN_PATH 가 비어 있을 수 없습니다.")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

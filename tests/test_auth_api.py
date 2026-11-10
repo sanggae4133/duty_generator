@@ -106,3 +106,40 @@ def test_issue_account_username_conflict(make_member):
     User.objects.create_user(m.code, password="x")
     with pytest.raises(DutyError, match="이미"):
         issue_account(m)
+
+
+def test_issue_accounts_action_rolls_back_on_error(client, admin_user, make_member):
+    a, b = make_member("가", user=True), make_member("나")
+    User.objects.create_user(b.code, password="x")  # b 는 연결 안 된 동명 계정 -> DutyError
+    old = a.user.password
+    admin_user.is_superuser = True
+    admin_user.save()
+    client.force_login(admin_user)
+    r = client.post(
+        reverse("admin:duty_member_changelist"),
+        {"action": "issue_accounts", "_selected_action": [a.pk, b.pk]},
+        follow=True,
+    )
+    assert "이미" in r.content.decode()
+    a.user.refresh_from_db()
+    a.refresh_from_db()
+    assert a.user.password == old and not a.must_change_password
+
+
+def test_inactive_member_is_logged_out(client, make_member):
+    m = make_member("가", user=True, active=False)
+    client.force_login(m.user)
+    r = client.get("/")
+    assert r.status_code == 302 and r["Location"].startswith("/login/")
+    assert "_auth_user_id" not in client.session
+
+
+def test_issue_account_lifts_lockout_by_linked_username(make_member):
+    from unittest import mock
+
+    m = make_member("가", user=True)
+    m.user.username = "custom"
+    m.user.save()
+    with mock.patch("duty.accounts.reset") as r:
+        issue_account(m)
+    r.assert_called_once_with(username="custom")

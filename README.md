@@ -22,7 +22,7 @@ sudo mkdir -p /opt/duty_generator
 sudo install -d -o duty -g duty -m 750 /var/lib/duty_generator /var/backups/duty_generator
 sudo install -d -o root -g duty -m 750 /etc/duty_generator
 # 코드 배치 후
-cd /opt/duty_generator && python3 -m venv .venv && .venv/bin/pip install .
+cd /opt/duty_generator && python3 -m venv .venv && .venv/bin/pip install -e .
 sudo install -o root -g duty -m 640 deploy/env.example /etc/duty_generator/env   # 값 채우기 (SECRET_KEY, API 토큰은 python -c "import secrets;print(secrets.token_urlsafe(48))")
 # 주의: /etc/duty_generator/env 값에는 따옴표, 공백, $, #, <> 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
 # DUTY_API_TOKEN 은 비우면 안 된다(빈 값이면 API 가 모두 401). 생성: python3 -c "import secrets;print(secrets.token_urlsafe(48))"
@@ -58,4 +58,6 @@ sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator &&
 ## 운영 메모
 
 - 로그인 5회 실패 시 그 계정은 15분 잠긴다. Admin의 Axes 메뉴에서 해제할 수 있다.
+  잠금은 아이디 기준이라 멤버 코드를 아는 사람은 그 계정을 15분씩 계속 잠글 수 있다. 이때도 Axes 관리 화면에서 풀면 된다.
+- 퇴사자는 멤버의 "재직"을 끈다. 이제 로그인도 차단된다(스태프 제외).
 - 백업: 매일 03:00 `/var/backups/duty_generator/` 에 최근 30개 보관.

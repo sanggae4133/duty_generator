@@ -192,7 +192,7 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
             else:
                 for n in fin:
                     if n in commute_seen:
-                        errors.append(f"{d}: {n}이(가) {cell_label(commute_seen[n])}와 {cell_label(cell)}에 중복")
+                        errors.append(f"{d}: {n}이(가) {cell_label(commute_seen[n])}·{cell_label(cell)}에 중복")
                     commute_seen[n] = cell
             day[cell] = (fin, logs)
         plan[d] = day
