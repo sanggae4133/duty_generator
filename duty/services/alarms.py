@@ -50,7 +50,7 @@ def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
     shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"])
     new = {**data, "shifts": shifts, "depts": depts, "types": types}
     rule = rule or AlarmRule(user=user)
-    changed = rule.pk is not None and any(getattr(rule, f) != new[f] for f in RULE_FIELDS)
+    changed = rule.pk is not None and _key(rule) != tuple(new[f] for f in RULE_FIELDS)
     try:
         with transaction.atomic():
             for k, v in new.items():
@@ -59,8 +59,20 @@ def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
             if changed:
                 rule.deliveries.filter(date__gte=perms.today()).delete()
     except IntegrityError:
-        raise DutyError("같은 규칙이 이미 있습니다.") from None
+        key = tuple(new[f] for f in RULE_FIELDS)
+        if any(_key(r) == key for r in AlarmRule.objects.filter(user=user).exclude(pk=rule.pk)):
+            raise DutyError("같은 규칙이 이미 있습니다.") from None
+        raise
     return rule
+
+
+def _key(rule: AlarmRule) -> tuple:
+    """정규화한 비교 키. 저장값이 정규화 전 형태(순서·전부 선택)여도 같게 본다."""
+    try:
+        shifts, depts, types = normalize(rule.kind, rule.shifts, rule.depts, rule.types)
+    except DutyError:  # 지금은 없는 부서 등 → 저장값 그대로
+        shifts, depts, types = rule.shifts, rule.depts, rule.types
+    return rule.kind, rule.timing, rule.offset, rule.at_minute, shifts, depts, types
 
 
 def delete_rule(rule: AlarmRule) -> None:
@@ -84,12 +96,13 @@ def _profile(user) -> TelegramAlarmProfile:
 
 def set_telegram(user, chat_id: str, verified: bool) -> None:
     _profile(user)
-    TelegramAlarmProfile.objects.filter(user=user).update(
-        chat_id=chat_id, verified_at=timezone.now() if verified else None)
+    TelegramAlarmProfile.objects.filter(user=user).update(  # 대기 중인 연결 코드도 폐기
+        chat_id=chat_id, verified_at=timezone.now() if verified else None, link_code=None, link_expires_at=None)
 
 
 def clear_telegram(user) -> None:
-    TelegramAlarmProfile.objects.filter(user=user).update(chat_id="", verified_at=None)
+    TelegramAlarmProfile.objects.filter(user=user).update(chat_id="", verified_at=None, link_code=None,
+                                                          link_expires_at=None)
 
 
 def take_cooldown(user) -> bool:
@@ -109,13 +122,17 @@ def new_link_code(user) -> str:
     return code
 
 
-def _link_from_updates(now) -> list[str]:
-    """getUpdates 묶음마다 유효한 /start <코드>를 각 소유자에게 연결하고 offset으로 확인 처리. 연결된 chat_id 목록."""
-    linked, offset = [], None
-    for _ in range(50):  # ponytail: 묶음 100건 × 50, 전용 봇이라 넉넉함
+MAX_BATCHES = 100  # ponytail: 안전 상한(100건 × 100묶음). 전용 봇이라 넘을 일 없음, 넘으면 확인 처리 후 재시도 안내
+
+
+def _link_from_updates(now, linked: list[str]) -> None:
+    """getUpdates 묶음마다 유효한 /start <코드>를 각 소유자에게 연결하고 offset으로 확인 처리, 빈 결과까지.
+    연결된 chat_id는 호출자의 linked에 바로 넣는다(뒤 묶음이 실패해도 완료 메시지를 보내도록)."""
+    offset = None
+    for _ in range(MAX_BATCHES):
         updates = senders.telegram_get_updates(offset=offset, limit=100)
         if not updates:
-            break
+            return
         for u in updates:
             msg = u.get("message") if isinstance(u, dict) else None
             chat = msg.get("chat") if isinstance(msg, dict) else None
@@ -132,9 +149,10 @@ def _link_from_updates(now) -> list[str]:
         last = max((u["update_id"] for u in updates if isinstance(u, dict) and isinstance(u.get("update_id"), int)),
                    default=None)
         if last is None:
-            break
+            return
         offset = last + 1
-    return linked
+    senders.telegram_get_updates(offset=offset, limit=1)  # 마지막 묶음 확인 처리
+    raise DutyError("처리할 메시지가 남았습니다. 잠시 후 다시 시도하세요.")
 
 
 def check_link(user) -> str:
@@ -142,30 +160,37 @@ def check_link(user) -> str:
     if not (settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_BOT_USERNAME):
         raise DutyError("텔레그램 봇이 설정되지 않았습니다.")
     now = timezone.now()
+    expired = "연결 코드가 만료되었습니다. 다시 [텔레그램 연결]을 눌러 주세요."
+    if TelegramAlarmProfile.objects.filter(user=user, link_code__isnull=False, link_expires_at__lte=now).update(
+            link_code=None, link_expires_at=None):
+        raise DutyError(expired)
     TelegramAlarmProfile.objects.filter(link_expires_at__lte=now).update(link_code=None, link_expires_at=None)
     p = _profile(user)
     if p.link_code is None:
-        if p.verified_at and p.chat_id:
-            return "텔레그램이 연결되었습니다."
-        raise DutyError("연결 코드가 만료되었습니다. 다시 [텔레그램 연결]을 눌러 주세요.")
-    with open(settings.TELEGRAM_UPDATES_LOCK_PATH, "a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise DutyError("다른 연결 확인이 진행 중입니다. 잠시 후 다시 시도하세요.") from None
-        if not take_cooldown(user):
-            raise DutyError("잠시 후 다시 시도하세요.")
-        try:
-            linked = _link_from_updates(now)
-        except senders.Permanent:
-            raise DutyError("텔레그램 봇 설정 오류입니다. 관리자에게 알려 주세요.") from None
-        except senders.SendError:
-            raise DutyError("텔레그램 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.") from None
-    for cid in linked:  # DB 반영 후 발송. 실패해도 연결은 유지
-        try:
-            senders.telegram_send(cid, "[연결 완료] 당번 알림이 이 채팅으로 옵니다.")
-        except senders.SendError:
-            pass
+        if p.verified_at and p.chat_id:  # 코드 없이 누름: 방금 남의 확인으로 연결됐거나 이전부터 연결됨
+            return "텔레그램이 연결되었습니다." if now - p.verified_at < LINK_TTL else "이미 연결되어 있습니다(기존 연결 유지)."
+        raise DutyError(expired)
+    linked: list[str] = []
+    try:
+        with open(settings.TELEGRAM_UPDATES_LOCK_PATH, "a") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise DutyError("다른 연결 확인이 진행 중입니다. 잠시 후 다시 시도하세요.") from None
+            if not take_cooldown(user):
+                raise DutyError("잠시 후 다시 시도하세요.")
+            try:
+                _link_from_updates(now, linked)
+            except senders.Permanent:
+                raise DutyError("텔레그램 봇 설정 오류입니다. 관리자에게 알려 주세요.") from None
+            except senders.SendError:
+                raise DutyError("텔레그램 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.") from None
+    finally:
+        for cid in linked:  # DB 반영 후 발송(오류가 나도 이미 연결된 사람에겐). 실패해도 연결은 유지
+            try:
+                senders.telegram_send(cid, "[연결 완료] 당번 알림이 이 채팅으로 옵니다.")
+            except senders.SendError:
+                pass
     p.refresh_from_db()
     if p.link_code is None and p.verified_at and p.chat_id:
         return "텔레그램이 연결되었습니다."

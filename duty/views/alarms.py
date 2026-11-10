@@ -55,6 +55,7 @@ def index(request):
     ]
     return render(request, "duty/alarms.html", {
         "tg": TelegramAlarmProfile.objects.filter(user=request.user).first(),
+        "tg_token": senders.telegram_enabled(),
         "bot_ready": senders.telegram_enabled() and bool(settings.TELEGRAM_BOT_USERNAME),
         "rules": rules,
     })

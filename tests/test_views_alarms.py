@@ -362,3 +362,130 @@ def test_same_day_notice_report(client, me):
     assert not any("발송" in m for m in msgs(r))
     r = post(client, "/alarms/rules/new/", {**data, "at_time": "08:00"})
     assert "현재 선택으로는 보고서가 발송되지 않습니다." in msgs(r)
+
+
+# ---- Fix round 1 ----
+
+def test_csrf_enforced(me):
+    from django.test import Client
+    c = Client(enforce_csrf_checks=True)
+    c.force_login(me)
+    assert c.post("/alarms/telegram/", {"chat_id": ""}).status_code == 403
+
+
+def _other_client(other):
+    from django.test import Client
+    c = Client()
+    c.force_login(other)
+    return c
+
+
+def test_disconnect_invalidates_pending_code(client, me, other, bot, tgapi):
+    code = code_of(me, client)
+    TelegramAlarmProfile.objects.filter(user=me).update(chat_id="9", verified_at=timezone.now())
+    post(client, "/alarms/telegram/", {"chat_id": ""})
+    p = TelegramAlarmProfile.objects.get(user=me)
+    assert (p.chat_id, p.verified_at, p.link_code, p.link_expires_at) == ("", None, None, None)
+    c2 = _other_client(other)
+    code_of(other, c2)
+    tgapi["updates"] = [upd(1, f"/start {code}", 555)]
+    post(c2, "/alarms/telegram/link/check/")
+    assert TelegramAlarmProfile.objects.get(user=me).chat_id == ""
+
+
+def test_direct_entry_invalidates_pending_code(client, me, bot, monkeypatch):
+    code_of(me, client)
+    monkeypatch.setattr(senders, "telegram_check", lambda c: "private")
+    post(client, "/alarms/telegram/", {"chat_id": "77"})
+    p = TelegramAlarmProfile.objects.get(user=me)
+    assert p.chat_id == "77" and p.link_code is None and p.link_expires_at is None
+
+
+def test_expired_relink_for_connected_user(client, me, bot, tgapi):
+    TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now() - timedelta(days=3))
+    code_of(me, client)
+    TelegramAlarmProfile.objects.filter(user=me).update(link_expires_at=timezone.now() - timedelta(seconds=1))
+    r = post(client, "/alarms/telegram/link/check/")
+    assert "연결 코드가 만료되었습니다. 다시 [텔레그램 연결]을 눌러 주세요." in msgs(r)
+    assert tgapi["calls"] == []
+
+
+def test_connected_without_code(client, me, bot, tgapi):
+    TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now() - timedelta(days=3))
+    r = post(client, "/alarms/telegram/link/check/")
+    assert "이미 연결되어 있습니다(기존 연결 유지)." in msgs(r) and tgapi["calls"] == []
+
+
+def test_many_batches_until_empty(client, me, bot, tgapi):
+    code = code_of(me, client)
+    tgapi["updates"] = [upd(i, "hi", 1) for i in range(1, 6)] + [upd(6, f"/start {code}", 42)]
+    post(client, "/alarms/telegram/link/check/")
+    assert tgapi["calls"] == [None, 3, 5, 7]
+    assert TelegramAlarmProfile.objects.get(user=me).chat_id == "42"
+
+
+def test_batch_cap_acks_and_reports(client, me, bot, tgapi, monkeypatch):
+    from duty.services import alarms as svc
+    monkeypatch.setattr(svc, "MAX_BATCHES", 2)
+    code_of(me, client)
+    tgapi["updates"] = [upd(i, "hi", 1) for i in range(1, 10)]
+    r = post(client, "/alarms/telegram/link/check/")
+    assert "처리할 메시지가 남았습니다. 잠시 후 다시 시도하세요." in msgs(r)
+    assert tgapi["calls"] == [None, 3, 5]  # 마지막 묶음까지 확인 처리
+
+
+def test_linked_notified_even_if_later_batch_fails(client, me, bot, tgapi, monkeypatch):
+    code = code_of(me, client)
+    real = senders.telegram_get_updates
+
+    def flaky(offset=None, limit=100):
+        if offset is not None:
+            raise senders.Temporary(502)
+        return real(offset, limit)
+    tgapi["updates"] = [upd(1, f"/start {code}", 42)]
+    monkeypatch.setattr(senders, "telegram_get_updates", flaky)
+    r = post(client, "/alarms/telegram/link/check/")
+    assert "텔레그램 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요." in msgs(r)
+    assert TelegramAlarmProfile.objects.get(user=me).chat_id == "42"
+    assert [c for c, _ in tgapi["sent"]] == ["42"]
+
+
+def test_no_username_still_allows_direct_entry_and_disconnect(client, me, settings):
+    settings.TELEGRAM_BOT_TOKEN, settings.TELEGRAM_BOT_USERNAME = "TOK", ""
+    TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now())
+    body = client.get("/alarms/").content.decode()
+    assert "저장 및 테스트" in body and "연결 해제" in body and "텔레그램 연결</button>" not in body
+    settings.TELEGRAM_BOT_TOKEN = ""
+    body = client.get("/alarms/").content.decode()
+    assert "연결 해제" in body and "저장 및 테스트" not in body
+
+
+def test_reorder_only_keeps_deliveries(client, me):
+    r = rule(me, timing="before_start", offset=150, at_minute=0, shifts=["night", "dawn"])
+    delivery(r, D)
+    post(client, f"/alarms/rules/{r.pk}/", {**RULE_FORM, "shifts": ["dawn", "night"]})
+    assert AlarmDelivery.objects.filter(rule=r).count() == 1
+
+
+def test_all_selected_stored_keeps_deliveries(client, me):
+    r = rule(me, kind="report", timing="before_start", offset=150, at_minute=0,
+             shifts=["dawn", "normal", "dinner", "night", "slots"], depts=["MEMS", "TMCH", "MD", "UI"])
+    delivery(r, D)
+    post(client, f"/alarms/rules/{r.pk}/", {**RULE_FORM, "kind": "report", "push": "on"})
+    assert AlarmDelivery.objects.filter(rule=r).count() == 1
+
+
+def test_integrity_error_other_than_duplicate_reraised(me):
+    from django.db import IntegrityError
+
+    from duty.services import alarms as svc
+    data = dict(enabled=True, kind="personal", timing="before_start", offset=0, at_minute=0,
+                telegram=True, push=False, shifts=[], depts=[], types=[])
+    with pytest.raises(IntegrityError):
+        svc.save_rule(me, data)
+
+
+def test_same_day_notice_collapses_slots():
+    from duty.alarms.schedule import same_day_notice
+    assert same_day_notice("personal", "days", 0, 10 * 60, []) == \
+        "새벽·정상·석식교대·장중당번 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."

@@ -1,7 +1,7 @@
 """알림 발송 시각 계산. ORM 없음, Asia/Seoul naive datetime."""
 from datetime import date, datetime, time, timedelta
 
-from ..shifts import cell_label, cell_start, cells_of
+from ..shifts import cell_end, cell_label, cell_start, cells_of, is_slot_cell
 
 def bizdays_back(d: date, n: int) -> date:
     while n:
@@ -36,4 +36,10 @@ def same_day_notice(kind: str, timing: str, offset: int, at_minute: int, shifts:
         return None
     if len(late) == len(cells):
         return "현재 선택으로는 발송되는 근무가 없습니다."
-    return f"{_topic('·'.join(map(cell_label, late)))} 발송 시각이 근무 시작 이후라 제외됩니다."
+    names = [cell_label(c) for c in late if not is_slot_cell(c)]
+    slots = [c for c in late if is_slot_cell(c)]  # 시작 순서라 항상 앞쪽부터 연속
+    if slots:
+        whole = len(slots) == sum(map(is_slot_cell, cells))
+        names.append("장중당번" if whole else
+                     f"장중당번 {cell_start(slots[0]):%H:%M}~{cell_end(slots[-1]):%H:%M}")
+    return f"{_topic('·'.join(names))} 발송 시각이 근무 시작 이후라 제외됩니다."
