@@ -161,7 +161,7 @@ PWA: `manifest.webmanifest`, 서비스 워커(`/sw.js`, 루트 범위) — `push
 12. **서비스 워커.** `push`·`notificationclick` 모두 `event.waitUntil(...)`, 클릭 시 `notification.close()`. 권한 요청은 버튼 클릭 핸들러 안에서. 실제 수신(Chrome, iOS 홈 화면 앱)은 전환 전에 사람이 확인.
 13. **기기 관리.** 구독에 `label`(User-Agent 요약)·`created_at` 표시, 기기별 삭제와 [모든 기기 해제]. 등록 시 "로그아웃해도 알림은 계속 오고 잠금 화면에 이름이 보일 수 있음" 안내.
 14. **전환 runbook.** `run_alarms --dry-run`(보낼 건수만, 이름 없이), 두 채널 실제 테스트, 매 tick 요약 로그(건수·실패 수), 롤백 = `duty-alarms` 중지 + `duty_notifier` `rules` 복구.
-15. **로그.** `rule_id`, `channel`, `destination` 대신 기록 id, HTTP status, attempt만.
+15. **로그.** `rule`, `channel`, 기록 id(`delivery`), HTTP status, attempt만(이름·본문·토큰·endpoint 금지).
 16. 발송기는 `duty/alarms/senders.py` 하나.
 17. **정리.** tick마다 7일 지난 발송 기록 삭제.
 
