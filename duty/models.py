@@ -2,7 +2,12 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from .shifts import COMMUTE_SHIFTS, DEVELOPER, STAFF, weekdays
+from .shifts import CELLS, COMMUTE_SHIFTS, CONTROL_SLOTS, DEVELOPER, STAFF, weekdays
+
+
+def _one_of(field: str, values, name: str) -> models.CheckConstraint:
+    # SQLite에는 enum 타입이 없어 choices를 DB CHECK로도 강제한다(앱을 거치지 않은 쓰기 방지)
+    return models.CheckConstraint(condition=models.Q(**{f"{field}__in": list(values)}), name=name)
 
 
 def validate_member_name(value: str) -> None:
@@ -41,18 +46,22 @@ class Member(models.Model):
     class Meta:
         verbose_name = verbose_name_plural = "멤버"
         ordering = ["code"]
+        constraints = [_one_of("type", (STAFF, DEVELOPER), "member_type_valid")]
 
     def __str__(self):
         return self.name
 
 
+class PeriodStatus(models.TextChoices):
+    DRAFT = "draft", "작성 중"
+    COLLECTING = "collecting", "취합 중"
+    CLOSED = "closed", "마감"
+    GENERATED = "generated", "생성됨"
+    PUBLISHED = "published", "배포됨"
+
+
 class Period(models.Model):
-    class Status(models.TextChoices):
-        DRAFT = "draft", "작성 중"
-        COLLECTING = "collecting", "취합 중"
-        CLOSED = "closed", "마감"
-        GENERATED = "generated", "생성됨"
-        PUBLISHED = "published", "배포됨"
+    Status = PeriodStatus  # Meta에서 참조하려고 모듈 수준에 둔다
 
     name = models.CharField("이름", max_length=64)
     start_date = models.DateField("시작일")
@@ -65,6 +74,10 @@ class Period(models.Model):
 
     class Meta:
         verbose_name = verbose_name_plural = "회차"
+        constraints = [
+            _one_of("status", PeriodStatus.values, "period_status_valid"),
+            models.CheckConstraint(condition=models.Q(start_date__lte=models.F("end_date")), name="period_dates_ordered"),
+        ]
 
     def __str__(self):
         return self.name
@@ -80,7 +93,10 @@ class Commute(models.Model):
     shift = models.CharField(max_length=8, choices=list(COMMUTE_SHIFTS.items()))
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["period", "date", "member"], name="commute_one_shift_per_day")]
+        constraints = [
+            models.UniqueConstraint(fields=["period", "date", "member"], name="commute_one_shift_per_day"),
+            _one_of("shift", COMMUTE_SHIFTS, "commute_shift_valid"),
+        ]
         indexes = [models.Index(fields=["date"])]
 
 
@@ -93,6 +109,7 @@ class ControlDuty(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["period", "date", "slot"], name="duty_one_member_per_slot"),
+            models.CheckConstraint(condition=models.Q(slot__lt=len(CONTROL_SLOTS)), name="duty_slot_range"),
         ]
         indexes = [models.Index(fields=["date"])]
 
@@ -100,7 +117,7 @@ class ControlDuty(models.Model):
 class ChangeLog(models.Model):
     at = models.DateTimeField(auto_now_add=True)
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = import. 계정은 삭제 대신 비활성화
-    period = models.ForeignKey(Period, on_delete=models.CASCADE)
+    period = models.ForeignKey(Period, on_delete=models.PROTECT)  # 변경 기록은 남긴다: 기록 있는 회차는 삭제 불가
     date = models.DateField()
     cell = models.CharField(max_length=8)  # dawn|normal|dinner|night|slot0..slot9
     before = models.ForeignKey(Member, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
@@ -108,6 +125,10 @@ class ChangeLog(models.Model):
 
     class Meta:
         ordering = ["at", "id"]
+        constraints = [
+            _one_of("cell", CELLS, "changelog_cell_valid"),
+            models.CheckConstraint(condition=models.Q(before__isnull=False) | models.Q(after__isnull=False), name="changelog_not_empty"),
+        ]
 
 
 class RosterPref(models.Model):
@@ -116,4 +137,7 @@ class RosterPref(models.Model):
     depts = models.JSONField(default=list)
     types = models.JSONField(default=list)
     shifts = models.JSONField(default=list)
-    view = models.CharField(max_length=5, default="week")
+    view = models.CharField(max_length=5, choices=[("week", "주간"), ("month", "월간")], default="week")
+
+    class Meta:
+        constraints = [_one_of("view", ("week", "month"), "rosterpref_view_valid")]
