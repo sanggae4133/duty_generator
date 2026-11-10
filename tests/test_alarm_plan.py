@@ -42,15 +42,15 @@ def test_resend_cancel_and_back():
     k = (1, D, "dawn", "telegram")
     assert run([rule()], [day(dawn=["가"])], SUN18, {k: "in"}) == []
     due = run([rule()], [day(dawn=["나"], replaced={("dawn", "나"): "가"})], SUN18, {k: "in"})
-    assert len(due) == 1 and due[0].content_hash == "out:나" and "후임: 나" in due[0].text and due[0].title == "당번 변경"
+    assert len(due) == 1 and due[0].content_hash == "out:name:나" and "후임: 나" in due[0].text and due[0].title == "당번 변경"
     assert run([rule()], [day(dawn=["나"])], SUN18) == []
-    assert len(run([rule()], [day(dawn=["가"])], SUN18, {k: "out"})) == 1
+    assert len(run([rule()], [day(dawn=["가"])], SUN18, {k: "out:none"})) == 1
 
 
 def test_cancel_for_missing_date():
     k = (1, D, "dawn", "telegram")
     due = run([rule()], [], SUN18, {k: "in"}, extra_dates={D})
-    assert len(due) == 1 and due[0].content_hash == "out:-"
+    assert len(due) == 1 and due[0].content_hash == "out:none"
 
 
 def test_channels_and_filters():
@@ -125,17 +125,17 @@ def test_successor_chain_and_updates():
     # A>B>C: 현재 C
     d = day(dawn=["다"], replaced={("dawn", "나"): "가", ("dawn", "다"): "나"})
     due = run(r, [d], SUN18, {k: "in"})
-    assert "후임: 다" in due[0].text and due[0].content_hash == "out:다"
+    assert "후임: 다" in due[0].text and due[0].content_hash == "out:name:다"
     # A>B 후 B 제거: 후임 없음
     d = day(dawn=[], replaced={("dawn", "나"): "가"})
     due = run(r, [d], SUN18, {k: "in"})
-    assert "후임" not in due[0].text and due[0].content_hash == "out:-"
+    assert "후임" not in due[0].text and due[0].content_hash == "out:none"
     # 보낸 뒤 후임이 바뀌면 다시 보냄, 같으면 안 보냄
     d = day(dawn=["다"], replaced={("dawn", "나"): "가", ("dawn", "다"): "나"})
-    assert run(r, [d], SUN18, {k: "out:나"})[0].content_hash == "out:다"
-    assert run(r, [d], SUN18, {k: "out:다"}) == []
+    assert run(r, [d], SUN18, {k: "out:name:나"})[0].content_hash == "out:name:다"
+    assert run(r, [d], SUN18, {k: "out:name:다"}) == []
     # 재진입
-    assert run(r, [day(dawn=["가"])], SUN18, {k: "out:다"})[0].content_hash == "in"
+    assert run(r, [day(dawn=["가"])], SUN18, {k: "out:name:다"})[0].content_hash == "in"
 
 
 def test_report_unique_count():
@@ -163,3 +163,16 @@ def test_personal_multi_slot_and_unknown_info():
     rp = rep(shifts=("dawn",), depts=("MEMS",))
     assert "미상" not in run([rp], [day(dawn=["미상", "가"])], SUN18)[0].text
     assert "미상" in run([rep(shifts=("dawn",))], [day(dawn=["미상", "가"])], SUN18)[0].text
+
+
+def test_successor_reverts_and_dash_name():
+    k = (1, D, "dawn", "telegram")
+    # A>B>A>C: replaced = {B:A, A:B, C:A}
+    d = day(dawn=["다"], replaced={("dawn", "나"): "가", ("dawn", "가"): "나", ("dawn", "다"): "가"})
+    assert run([rule()], [d], SUN18, {k: "in"})[0].content_hash == "out:name:다"
+    # A>B, B 제거, A 다시 추가, A>C
+    d = day(dawn=["다"], replaced={("dawn", "나"): "가", ("dawn", "다"): "가"})
+    assert run([rule()], [d], SUN18, {k: "in"})[0].content_hash == "out:name:다"
+    # 이름이 "-"인 후임은 후임 없음과 구분
+    d = day(dawn=["-"], replaced={("dawn", "-"): "가"})
+    assert run([rule()], [d], SUN18, {k: "out:none"})[0].content_hash == "out:name:-"

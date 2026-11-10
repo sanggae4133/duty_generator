@@ -61,15 +61,20 @@ def plan(rules, days, info, deliveries, now, dept_names=None, extra_dates=None) 
 
 
 def _successor(day, cell, name):
-    """replaced 체인을 따라가 지금 그 칸에 있는 후임. 없으면 None."""
-    cur, seen = name, {name}
-    while True:
-        nxt = next((new for (c, new), old in day.replaced.items() if c == cell and old == cur), None)
-        if nxt is None or nxt in seen:
-            break
-        cur = nxt
-        seen.add(cur)
-    return cur if cur != name and cur in day.members.get(cell, []) else None
+    """replaced 간선을 모두 따라가 도달 가능한 사람 중 지금 칸에 있는 후임(최근 간선 우선)."""
+    edges = [(old, new) for (c, new), old in day.replaced.items() if c == cell]
+    seen, todo = {name}, [name]
+    while todo:
+        cur = todo.pop()
+        for old, new in edges:
+            if old == cur and new not in seen:
+                seen.add(new)
+                todo.append(new)
+    now_in = day.members.get(cell, [])
+    for _, new in reversed(edges):
+        if new != name and new in seen and new in now_in:
+            return new
+    return None
 
 
 def _personal(r, day, cells, starts, deliveries, now):
@@ -83,9 +88,9 @@ def _personal(r, day, cells, starts, deliveries, now):
             last = deliveries.get((r.id, day.date, c, ch))
             if inside and last != "in":
                 title, text, h = m.PERSONAL_TITLE, m.personal_text(r.member_name, day.date, c, now.date()), "in"
-            elif not inside and last is not None and (last == "in" or last.startswith("out")):
+            elif not inside and last is not None and (last == "in" or last.startswith("out:")):
                 succ = _successor(day, c, r.member_name)
-                h = f"out:{succ or '-'}"
+                h = f"out:name:{succ}" if succ else "out:none"
                 if last == h:
                     continue
                 title, text = m.CANCEL_TITLE, m.cancel_text(r.member_name, day.date, c, succ)

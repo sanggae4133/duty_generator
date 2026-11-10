@@ -92,7 +92,8 @@ def push_send(sub, title: str, body: str, url: str, ttl: int) -> None:
             except (TypeError, ValueError):
                 secs = None
             raise RetryLater(secs, code) from None
-        if code is not None and 400 <= code < 500:
+        # 401/403은 VAPID 키·설정 오류일 가능성 → 운영자가 고치면 되므로 재시도
+        if code is not None and 400 <= code < 500 and code not in (401, 403):
             raise Permanent(code) from None
         raise Temporary(code) from None
     except OSError:  # requests 예외 포함(ConnectionError·Timeout)

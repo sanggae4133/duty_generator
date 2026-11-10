@@ -148,6 +148,7 @@ def test_push_send_args(wp):
 
 @pytest.mark.parametrize("code,exc", [(404, senders.Gone), (410, senders.Gone),
                                       (400, senders.Permanent), (413, senders.Permanent),
+                                      (401, senders.Temporary), (403, senders.Temporary),
                                       (500, senders.Temporary), (502, senders.Temporary)])
 def test_push_errors(wp, code, exc):
     _, state = wp
