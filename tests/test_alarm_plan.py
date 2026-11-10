@@ -42,7 +42,7 @@ def test_resend_cancel_and_back():
     k = (1, D, "dawn", "telegram")
     assert run([rule()], [day(dawn=["가"])], SUN18, {k: "in"}) == []
     due = run([rule()], [day(dawn=["나"], replaced={("dawn", "나"): "가"})], SUN18, {k: "in"})
-    assert len(due) == 1 and due[0].content_hash == "out" and "후임: 나" in due[0].text and due[0].title == "당번 변경"
+    assert len(due) == 1 and due[0].content_hash == "out:나" and "후임: 나" in due[0].text and due[0].title == "당번 변경"
     assert run([rule()], [day(dawn=["나"])], SUN18) == []
     assert len(run([rule()], [day(dawn=["가"])], SUN18, {k: "out"})) == 1
 
@@ -50,7 +50,7 @@ def test_resend_cancel_and_back():
 def test_cancel_for_missing_date():
     k = (1, D, "dawn", "telegram")
     due = run([rule()], [], SUN18, {k: "in"}, extra_dates={D})
-    assert len(due) == 1 and due[0].content_hash == "out"
+    assert len(due) == 1 and due[0].content_hash == "out:-"
 
 
 def test_channels_and_filters():
@@ -117,3 +117,49 @@ def test_length_limits():
     assert len(due.push_text.encode()) <= 1000
     p = plan([rule(shifts=("dawn",))], [day(dawn=["가"])], INFO, {}, SUN18)[0]
     assert len(p.push_text.encode()) <= 1000 and "\n" not in p.push_text
+
+
+def test_successor_chain_and_updates():
+    k = (1, D, "dawn", "telegram")
+    r = [rule()]
+    # A>B>C: 현재 C
+    d = day(dawn=["다"], replaced={("dawn", "나"): "가", ("dawn", "다"): "나"})
+    due = run(r, [d], SUN18, {k: "in"})
+    assert "후임: 다" in due[0].text and due[0].content_hash == "out:다"
+    # A>B 후 B 제거: 후임 없음
+    d = day(dawn=[], replaced={("dawn", "나"): "가"})
+    due = run(r, [d], SUN18, {k: "in"})
+    assert "후임" not in due[0].text and due[0].content_hash == "out:-"
+    # 보낸 뒤 후임이 바뀌면 다시 보냄, 같으면 안 보냄
+    d = day(dawn=["다"], replaced={("dawn", "나"): "가", ("dawn", "다"): "나"})
+    assert run(r, [d], SUN18, {k: "out:나"})[0].content_hash == "out:다"
+    assert run(r, [d], SUN18, {k: "out:다"}) == []
+    # 재진입
+    assert run(r, [day(dawn=["가"])], SUN18, {k: "out:다"})[0].content_hash == "in"
+
+
+def test_report_unique_count():
+    r = rep(shifts=("slots",))
+    due = run([r], [day(slot0=["가"], slot1=["가"], slot2=["나"])], SUN18)[0]
+    assert due.push_text.endswith("2명")
+
+
+def test_synthetic_day_no_first_report():
+    r = rep(shifts=("dawn",))
+    assert run([r], [], SUN18, extra_dates={D}) == []
+
+
+def test_unknown_kind_ignored():
+    assert run([rule(kind="weird")], [day(dawn=["가"])], SUN18) == []
+
+
+def test_personal_multi_slot_and_unknown_info():
+    r = rule(shifts=("slots",), timing="before_start", offset=60)
+    due = run([r], [day(slot2=["가"], slot3=["가"])], datetime(2026, 11, 16, 9, 30))
+    assert [x.cell for x in due] == ["slot2"]  # slot3(11:30)은 아직 창 전
+    r = rule(shifts=("slots",), timing="days", offset=1)
+    due = run([r], [day(slot2=["가"], slot3=["가"])], SUN18)
+    assert sorted(x.cell for x in due) == ["slot2", "slot3"]
+    rp = rep(shifts=("dawn",), depts=("MEMS",))
+    assert "미상" not in run([rp], [day(dawn=["미상", "가"])], SUN18)[0].text
+    assert "미상" in run([rep(shifts=("dawn",))], [day(dawn=["미상", "가"])], SUN18)[0].text
