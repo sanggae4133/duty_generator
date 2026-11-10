@@ -16,6 +16,10 @@ ALLOWED_HOSTS = [h for h in env("DUTY_ALLOWED_HOSTS", "127.0.0.1,localhost").spl
 CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]
 API_TOKEN = env("DUTY_API_TOKEN", "")
 ADMIN_PATH = env("DUTY_ADMIN_PATH", "admin").strip("/")
+TELEGRAM_BOT_TOKEN = env("DUTY_TELEGRAM_BOT_TOKEN", "")
+VAPID_PUBLIC_KEY = env("DUTY_VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = env("DUTY_VAPID_PRIVATE_KEY", "")
+VAPID_SUBJECT = env("DUTY_VAPID_SUBJECT", "mailto:admin@localhost")
 if not ADMIN_PATH:
     raise ImproperlyConfigured("DUTY_ADMIN_PATH 가 비어 있을 수 없습니다.")
 
