@@ -170,6 +170,7 @@ class PushAlarmSubscription(models.Model):
     endpoint = models.CharField(max_length=500, unique=True)
     p256dh = models.CharField(max_length=200)
     auth = models.CharField(max_length=100)
+    label = models.CharField(max_length=80, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -204,17 +205,29 @@ class AlarmRule(models.Model):
         ]
 
 
-class AlarmSent(models.Model):
-    rule = models.ForeignKey(AlarmRule, on_delete=models.CASCADE, related_name="sent")
+class AlarmDeliveryStatus(models.TextChoices):
+    SENT = "sent", "성공"
+    FAILED = "failed", "실패"
+
+
+class AlarmDelivery(models.Model):
+    """목적지별 발송 시도 기록. destination = 텔레그램 chat_id 또는 sub:<구독 id>."""
+    rule = models.ForeignKey(AlarmRule, on_delete=models.CASCADE, related_name="deliveries")
     date = models.DateField()
     cell = models.CharField(max_length=8)  # CELLS 또는 "report"
     channel = models.CharField(max_length=8, choices=AlarmChannel.choices)
+    destination = models.CharField(max_length=64)
+    status = models.CharField(max_length=8, choices=AlarmDeliveryStatus.choices)
+    attempts = models.IntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True)
     content_hash = models.CharField(max_length=64)
-    sent_at = models.DateTimeField()
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
-            _one_of("channel", AlarmChannel.values, "alarmsent_channel_valid"),
-            _one_of("cell", [*CELLS, "report"], "alarmsent_cell_valid"),
-            models.UniqueConstraint(fields=["rule", "date", "cell", "channel"], name="alarmsent_once"),
+            _one_of("channel", AlarmChannel.values, "alarmdelivery_channel_valid"),
+            _one_of("cell", [*CELLS, "report"], "alarmdelivery_cell_valid"),
+            _one_of("status", AlarmDeliveryStatus.values, "alarmdelivery_status_valid"),
+            models.CheckConstraint(name="alarmdelivery_attempts_nonneg", condition=Q(attempts__gte=0)),
+            models.UniqueConstraint(fields=["rule", "date", "cell", "channel", "destination"], name="alarmdelivery_once"),
         ]

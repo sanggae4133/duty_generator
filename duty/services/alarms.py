@@ -1,3 +1,4 @@
+from ..errors import DutyError
 from ..models import AlarmRule, Department
 from ..shifts import DEVELOPER, STAFF
 from .prefs import SHIFT_KEYS
@@ -11,6 +12,9 @@ DEFAULT_RULES = [
 def normalize(kind, shifts, depts, types):
     """알려진 값만 남기고 정해진 순서로 정렬. 전부 선택 = [](전체). 개인 규칙은 부서·유형 필터 없음."""
     def pick(vals, order):
+        bad = [v for v in vals if v not in order]
+        if bad:
+            raise DutyError(f"알 수 없는 값: {', '.join(map(str, bad))}")
         got = [v for v in order if v in set(vals)]
         return [] if len(got) == len(order) else got
 

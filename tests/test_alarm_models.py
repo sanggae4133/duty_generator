@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from duty.models import AlarmRule, AlarmSent, PushAlarmSubscription, TelegramAlarmProfile, Department
+from duty.models import AlarmDelivery, AlarmRule, PushAlarmSubscription, TelegramAlarmProfile
+from duty.errors import DutyError
 from duty.services import alarms
 
 BASE = dict(kind="personal", timing="days", offset=1, at_minute=1080, telegram=True, push=False, shifts=["dawn"])
@@ -49,15 +50,22 @@ def test_report_allows_filters(user):
     _rule(user, kind="report", depts=["MEMS"], types=["직원"])
 
 
-def test_sent_constraints(user):
+def _delivery(r, **kw):
+    return AlarmDelivery.objects.create(**{**dict(rule=r, date=date(2026, 11, 9), cell="dawn", channel="telegram",
+                                                  destination="1", status="sent", content_hash="h"), **kw})
+
+
+def test_delivery_constraints(user):
     r = _rule(user)
-    mk = lambda **kw: AlarmSent.objects.create(**{**dict(rule=r, date=date(2026, 11, 9), cell="dawn", channel="telegram",
-                                                         content_hash="h", sent_at=timezone.now()), **kw})
-    mk()
-    _bad(mk)
-    _bad(lambda: mk(channel="sms", cell="normal"))
-    _bad(lambda: mk(cell="lunch"))
-    mk(cell="report")
+    d = _delivery(r)
+    assert d.attempts == 0 and d.next_attempt_at is None and d.updated_at
+    _bad(lambda: _delivery(r))
+    _delivery(r, destination="2")  # 목적지가 다르면 허용
+    _bad(lambda: _delivery(r, channel="sms", cell="normal"))
+    _bad(lambda: _delivery(r, cell="lunch"))
+    _bad(lambda: _delivery(r, cell="normal", status="x"))
+    _bad(lambda: _delivery(r, cell="normal", attempts=-1))
+    _delivery(r, cell="report", status="failed", attempts=1, next_attempt_at=timezone.now())
 
 
 def test_push_endpoint_unique(user):
@@ -69,18 +77,18 @@ def test_cascade(user):
     TelegramAlarmProfile.objects.create(user=user, chat_id="1")
     PushAlarmSubscription.objects.create(user=user, endpoint="e", p256dh="p", auth="a")
     r = _rule(user)
-    AlarmSent.objects.create(rule=r, date=date(2026, 11, 9), cell="dawn", channel="push", content_hash="h", sent_at=timezone.now())
+    _delivery(r, channel="push")
     r.delete()
-    assert AlarmSent.objects.count() == 0
+    assert AlarmDelivery.objects.count() == 0
     r = _rule(user)
-    AlarmSent.objects.create(rule=r, date=date(2026, 11, 9), cell="dawn", channel="push", content_hash="h", sent_at=timezone.now())
+    _delivery(r, channel="push")
     user.delete()
     assert not (TelegramAlarmProfile.objects.exists() or PushAlarmSubscription.objects.exists()
-                or AlarmRule.objects.exists() or AlarmSent.objects.exists())
+                or AlarmRule.objects.exists() or AlarmDelivery.objects.exists())
 
 
 def test_normalize(depts):
-    assert alarms.normalize("report", ["night", "dawn", "x"], ["UI", "MEMS", "ZZ"], ["개발자", "직원"]) == (["dawn", "night"], ["MEMS", "UI"], [])
+    assert alarms.normalize("report", ["night", "dawn"], ["UI", "MEMS"], ["개발자", "직원"]) == (["dawn", "night"], ["MEMS", "UI"], [])
     assert alarms.normalize("report", ["dawn", "normal", "dinner", "night", "slots"], list(depts), []) == ([], [], [])
     assert alarms.normalize("personal", ["dawn"], ["MEMS"], ["직원"]) == (["dawn"], [], [])
 
@@ -94,13 +102,35 @@ def test_new_user_gets_default_rules(db):
     assert AlarmRule.objects.filter(user=u).count() == 2
 
 
-def test_data_migration_only_for_users_without_rules(user):
-    import importlib
-    from django.apps import apps
+@pytest.mark.parametrize("kw", [
+    dict(timing="before_start", offset=1, at_minute=0), dict(timing="before_start", offset=10080, at_minute=0),
+    dict(timing="days", offset=0), dict(timing="days", offset=30),
+    dict(timing="bizdays", offset=1), dict(timing="bizdays", offset=30),
+    dict(at_minute=0), dict(at_minute=1439),
+])
+def test_rule_allowed_boundaries(user, kw):
+    _rule(user, **kw)
+
+
+def test_normalize_rejects_unknown(depts):
+    for args in [(["x"], [], []), ([], ["ZZ"], []), ([], [], ["외계인"])]:
+        with pytest.raises(DutyError, match="알 수 없는 값"):
+            alarms.normalize("report", *args)
+    with pytest.raises(DutyError, match="x"):
+        alarms.normalize("personal", ["x"], [], [])
+
+
+@pytest.mark.django_db(transaction=True)
+def test_data_migration_only_for_users_without_rules():
     from django.db import connection
-    mod = importlib.import_module("duty.migrations.0007_default_alarm_rules")
-    mod.add_defaults(apps, connection.schema_editor())  # user: 규칙 없음 → 2개
-    other = User.objects.create_user("has-rules", password="x")  # 신호로 이미 2개
-    mod.add_defaults(apps, None)
-    assert AlarmRule.objects.filter(user=user).count() == 2
-    assert AlarmRule.objects.filter(user=other).count() == 2
+    from django.db.migrations.executor import MigrationExecutor
+    ex = MigrationExecutor(connection)
+    ex.migrate([("duty", "0006_alarms")])
+    apps = MigrationExecutor(connection).loader.project_state([("duty", "0006_alarms")]).apps
+    U, R = apps.get_model("auth", "User"), apps.get_model("duty", "AlarmRule")
+    none, one = U.objects.create(username="n"), U.objects.create(username="o")
+    R.objects.filter(user__in=[none, one]).delete()  # 신호가 만든 기본 규칙 제거(실제 DB의 기존 사용자 상황)
+    R.objects.create(user=one, **{**BASE, "telegram": True})
+    MigrationExecutor(connection).migrate([("duty", "0007_default_alarm_rules")])
+    assert R.objects.filter(user=none).count() == 2
+    assert R.objects.filter(user=one).count() == 1
