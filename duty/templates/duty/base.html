@@ -13,20 +13,29 @@
     form.search button { width: auto; margin: 0; white-space: nowrap; }
     nav a, nav button { white-space: nowrap; }
     nav ul { flex-wrap: wrap; }
+    .cal-nav { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+    .cal-nav a[role=button] { margin: 0; white-space: nowrap; padding: .4rem .8rem; }
+    .cal-title { margin-left: .5rem; white-space: nowrap; }
+    table.roster.month { table-layout: fixed; min-width: 56rem; }
+    table.roster.month td { vertical-align: top; word-break: keep-all; }
+    table.roster.month td.other { opacity: .35; }
+    table.roster.month .line { white-space: normal; }
+    table.roster.month .sec { margin-top: .25rem; }
+    table.roster.month .sec > small { display: block; opacity: .7; }
+    table.roster th[scope=row] { position: sticky; left: 0; background: var(--pico-background-color); z-index: 1; white-space: nowrap; }
+    .today-col { border-left: 2px solid #d9534f; border-right: 2px solid #d9534f; }
+    @keyframes blink { 0%, 100% { background: transparent; } 50% { background: #ffcdd2; } }
+    .blink { animation: blink .4s 3; }
+    @media (max-width: 768px) { .grid-wrap { margin: 0 calc(-1 * var(--pico-spacing, 1rem)); } }
     .grid-wrap { overflow-x: auto; }
     table.roster { font-size: .8rem; }
     table.roster th { white-space: nowrap; word-break: keep-all; }
     table.roster .line { white-space: nowrap; word-break: keep-all; }
     table.roster.slots-hidden .slot { display: none; }
-    table.roster th:nth-child(-n+2), table.roster td:nth-child(-n+2) {
-      position: sticky; background: var(--pico-background-color); z-index: 1; }
-    table.roster th:nth-child(1), table.roster td:nth-child(1) { left: 0; min-width: 6.5rem; }
-    table.roster th:nth-child(2), table.roster td:nth-child(2) { left: 6.5rem; }
     .changed { background: #fff3cd; }
     .hl1, .hl2, .hl3 { font-weight: bold; padding: 0 .25em; border-radius: .25em; color: #000; }
     .hl1 { background: #ffeb3b; } .hl2 { background: #81d4fa; } .hl3 { background: #aed581; }
     .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: .25em; vertical-align: middle; }
-    tr.today td { border-top: 3px solid #d9534f; }
     .removed { text-decoration: line-through; opacity: .6; }
     @media (prefers-color-scheme: dark) { .changed { background: #4d3f00; } }
   </style>

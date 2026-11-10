@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import date, timedelta
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -49,30 +50,79 @@ def _cell_context(day, cell: str, d):
     }
 
 
+def _month_shift(d: date, step: int) -> date:
+    m = d.month - 1 + step
+    return date(d.year + m // 12, m % 12 + 1, 1)
+
+
 @login_required
 def roster(request):
-    start, end = date_param(request, "from"), date_param(request, "to")
     names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
     today, admin = perms.today(), perms.is_admin(request.user)
-    rows, anchored = [], False
-    for day in published_days(start, end):
-        cells = [
-            {
-                "key": k, "lines": _lines(day.cells[k].labels, names), "removed": _lines(day.cells[k].removed, names),
-                "changed": day.cells[k].changed, "slot": is_slot_cell(k),
+    view = "month" if request.GET.get("view") == "month" else "week"
+    anchor = date_param(request, "date") or today
+
+    def link(v: str, d: date) -> str:
+        params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}}
+        return "?" + urlencode(params)
+
+    if view == "week":
+        monday = anchor - timedelta(days=anchor.weekday())
+        weeks = [[monday + timedelta(days=i) for i in range(5)]]
+        prev_d, next_d = monday - timedelta(days=7), monday + timedelta(days=7)
+        title = f"{monday:%Y-%m-%d} ~ {monday + timedelta(days=4):%m-%d}"
+    else:
+        first = anchor.replace(day=1)
+        cur = first - timedelta(days=first.weekday())
+        weeks = []
+        last = _month_shift(first, 1) - timedelta(days=1)
+        while cur <= last:
+            if cur + timedelta(days=4) >= first:  # 주말만 걸친 앞 주는 건너뜀
+                weeks.append([cur + timedelta(days=i) for i in range(5)])
+            cur += timedelta(days=7)
+        prev_d, next_d = _month_shift(first, -1), _month_shift(first, 1)
+        title = f"{first.year}년 {first.month}월"
+    first_day, last_day = weeks[0][0], weeks[-1][-1]
+    by_date = {d.date: d for d in published_days(first_day, last_day)}
+
+    def day_cells(d: date) -> dict:
+        found = by_date.get(d)
+        return {
+            k: {
+                "key": k, "slot": is_slot_cell(k), "label": cell_label(k),
+                "lines": _lines(found.cells[k].labels, names) if found else [],
+                "removed": _lines(found.cells[k].removed, names) if found else [],
+                "changed": bool(found and found.cells[k].changed),
             }
             for k in CELLS
+        }
+
+    def day_info(d: date) -> dict:
+        cells = day_cells(d)
+        return {
+            "date": d, "weekday": DAY_LABELS[d.weekday()], "is_today": d == today,
+            "editable": admin or d >= today, "cells": cells,
+            "other": view == "month" and d.month != anchor.month,
+            "commute": [cells[k] for k in CELLS if not is_slot_cell(k)],
+            "duty": [{"time": cells[k]["label"][:5], **cells[k]} for k in CELLS if is_slot_cell(k)],
+        }
+
+    days = [[day_info(d) for d in w] for w in weeks]
+    ctx = {
+        "view": view, "title": title, "names": names, "date": anchor, "today_link": link(view, today) + "#today",
+        "prev": link(view, prev_d), "next": link(view, next_d),
+        "week_link": link("week", anchor), "month_link": link("month", anchor),
+        "carry": [(f"q{i}", n) for i, n in enumerate(names, 1) if n],
+    }
+    if view == "week":
+        ctx["days"] = days[0]
+        ctx["rows"] = [
+            {"label": cell_label(k), "slot": is_slot_cell(k), "cells": [{**dd["cells"][k], "d": dd} for dd in days[0]]} for k in CELLS
         ]
-        anchor = not anchored and day.date >= today
-        anchored = anchored or anchor
-        rows.append({
-            "date": day.date, "weekday": DAY_LABELS[day.date.weekday()], "cells": cells,
-            "anchor": anchor, "is_today": day.date == today, "editable": admin or day.date >= today,
-        })
-    return render(request, "duty/roster.html", {
-        "headers": [{"label": cell_label(k), "slot": is_slot_cell(k)} for k in CELLS], "rows": rows, "start": start, "end": end, "names": names,
-    })
+    else:
+        ctx["weeks"] = days
+    return render(request, "duty/roster.html", ctx)
 
 
 @login_required

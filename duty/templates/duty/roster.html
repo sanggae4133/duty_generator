@@ -1,33 +1,62 @@
 {% extends "duty/base.html" %}
 {% block content %}
+<div class="cal-nav">
+  <a role="button" class="{% if view != 'week' %}outline {% endif %}secondary" href="{{ week_link }}">주간</a>
+  <a role="button" class="{% if view != 'month' %}outline {% endif %}secondary" href="{{ month_link }}">월간</a>
+  <a role="button" class="outline" href="{{ prev }}">◀ 이전</a>
+  <a role="button" class="outline" href="{{ today_link }}">오늘</a>
+  <a role="button" class="outline" href="{{ next }}">다음 ▶</a>
+  <strong class="cal-title">{{ title }}</strong>
+</div>
 <form method="get" class="search">
-  <input type="date" name="from" value="{{ start|date:'Y-m-d' }}" aria-label="시작일">
-  <input type="date" name="to" value="{{ end|date:'Y-m-d' }}" aria-label="종료일">
+  <input type="hidden" name="view" value="{{ view }}">
+  <input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem">
   {% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
   {% endfor %}
-  <button>보기</button>
+  <button>이동</button>
+  <button type="button" class="outline secondary" id="slot-toggle"></button>
 </form>
-<button type="button" class="outline secondary" id="slot-toggle"></button>
 <div class="grid-wrap">
+{% if view == "week" %}
 <table class="roster" id="roster">
-  <thead><tr><th>날짜</th><th>요일</th>{% for h in headers %}<th{% if h.slot %} class="slot"{% endif %}>{{ h.label }}</th>{% endfor %}</tr></thead>
+  <thead><tr><th></th>{% for d in days %}<th{% if d.is_today %} id="today" class="today-col"{% endif %}><a href="{% url 'day' d.date %}">{{ d.date.month }}/{{ d.date.day }} ({{ d.weekday }})</a></th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in rows %}
-    <tr{% if row.anchor %} id="today"{% endif %}{% if row.is_today %} class="today"{% endif %}>
-      <td><a href="{% url 'day' row.date %}">{{ row.date|date:"Y-m-d" }}</a></td>
-      <td>{{ row.weekday }}</td>
-      {% for c in row.cells %}
-      <td class="{% if c.changed %}changed{% endif %}{% if c.slot %} slot{% endif %}">
-        {% if row.editable %}<a href="{% url 'day' row.date %}#{{ c.key }}" hx-get="{% url 'cell' row.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{% for line in c.lines %}{% include "duty/_line.html" %}{% empty %}·{% endfor %}</a>{% else %}{% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}{% endif %}
+    <tr{% if row.slot %} class="slot"{% endif %}>
+      <th scope="row">{{ row.label }}</th>
+      {% for c in row.cells %}{% with d=c.d %}
+      <td class="{% if c.changed %}changed{% endif %}{% if d.is_today %} today-col{% endif %}">
+        {% if d.editable %}<a href="{% url 'day' d.date %}#{{ c.key }}" hx-get="{% url 'cell' d.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{% include "duty/_cellbody.html" %}</a>{% else %}{% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}{% endif %}
         {% for line in c.removed %}<div class="removed">{% include "duty/_labels.html" %}</div>{% endfor %}
       </td>
-      {% endfor %}
+      {% endwith %}{% endfor %}
     </tr>
-  {% empty %}
-    <tr><td colspan="16">배포된 근무표가 없습니다.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+{% else %}
+<table class="roster month" id="roster">
+  <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for week in weeks %}
+    <tr>
+    {% for d in week %}
+      <td{% if d.is_today %} id="today" class="today-col"{% elif d.other %} class="other"{% endif %}>
+        <a href="{% url 'day' d.date %}"><strong>{{ d.date.day }}</strong></a>
+        {% if not d.other %}
+        {% for c in d.commute %}<div class="sec{% if c.changed %} changed{% endif %}"><small>{{ c.label }}</small>
+          {% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}
+          {% for line in c.removed %}<div class="removed">{% include "duty/_labels.html" %}</div>{% endfor %}</div>{% endfor %}
+        <div class="sec slot"><small>관제</small>
+          {% for c in d.duty %}{% if c.lines or c.removed %}<div class="{% if c.changed %}changed{% endif %}">{{ c.time }} {% for line in c.lines %}{% include "duty/_labels.html" %}{% if not forloop.last %}, {% endif %}{% endfor %}{% for line in c.removed %} <span class="removed">{% include "duty/_labels.html" %}</span>{% endfor %}</div>{% endif %}{% endfor %}</div>
+        {% endif %}
+      </td>
+    {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 </div>
 <script>
   const t = document.getElementById("roster"), b = document.getElementById("slot-toggle"), K = "roster.slotsHidden";
@@ -39,5 +68,16 @@
     try { localStorage.setItem(K, t.classList.contains("slots-hidden") ? "1" : "0"); } catch (e) {}
     paint();
   };
-  document.getElementById("today")?.scrollIntoView({block: "center"});</script>
+  const today = document.getElementById("today");
+  if (today) {
+    today.scrollIntoView({block: "nearest", inline: "center"});
+    if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
+  }
+  // 마지막 보기 기억: view 파라미터 없이 들어오면 저장된 보기로 이동
+  try {
+    const v = new URLSearchParams(location.search).get("view");
+    if (v) localStorage.setItem("roster.view", v);
+    else if (localStorage.getItem("roster.view") === "month") { const u = new URL(location); u.searchParams.set("view", "month"); location.replace(u); }
+  } catch (e) {}
+</script>
 {% endblock %}
