@@ -27,7 +27,7 @@ DEPARTMENTS = [
     ("UI", "UI", "normal,dinner,night"),
 ]
 
-_ARROW = re.compile(r"\s*-?>\s*")  # duty_notifier cell_parser 와 같은 규칙
+_ARROW = re.compile(r"\s*-?\s*>\s*")  # duty_notifier cell_parser 와 같은 규칙
 _SEP = re.compile(r"[,\n]")
 
 Log = tuple[str | None, str | None]
@@ -43,7 +43,7 @@ def parse_chains(cell) -> list[list[str]]:
     joined = _ARROW.sub(">", str(cell or ""))
     out = []
     for token in _SEP.split(joined):
-        parts = [p.strip() for p in token.split(">") if p.strip()]
+        parts = [p.strip() for p in token.split(">") if p.strip().strip("-")]
         if parts:
             out.append(parts)
     return out
@@ -174,27 +174,32 @@ def run_import(maker: bytes, deploy: bytes, dry_run: bool) -> ImportReport:
             errors.append(f"{d}: 근무표에 없는 날짜")
             continue
         day = {}
-        commute_seen: dict[str, str] = {}
-        duty_seen: set[str] = set()
+        origs = {}
         for cell in CELLS:
-            orig = [n for c in parse_chains(original[d].get(cell)) for n in c]
-            fin, logs = diff_cell(orig, final[d].get(cell))
+            origs[cell] = [n for c in parse_chains(original[d].get(cell)) for n in c]
+            fin, logs = diff_cell(origs[cell], final[d].get(cell))
             for n in sorted({*fin, *(x for pair in logs for x in pair if x)}):
                 if n not in names:
                     errors.append(f"{d} {cell_label(cell)}: 멤버에 없는 이름 '{n}'")
-            if is_slot_cell(cell):
-                if len(fin) != 1:
-                    errors.append(f"{d} {cell_label(cell)}: 관제 칸은 1명이어야 합니다 ({', '.join(fin) or '비어 있음'})")
-                for n in fin:
-                    if n in duty_seen:
-                        errors.append(f"{d}: {n}이(가) 관제 칸에 중복")
-                    duty_seen.add(n)
-            else:
-                for n in fin:
-                    if n in commute_seen:
-                        errors.append(f"{d}: {n}이(가) {cell_label(commute_seen[n])}·{cell_label(cell)}에 중복")
-                    commute_seen[n] = cell
+            if is_slot_cell(cell) and len(fin) != 1:
+                errors.append(f"{d} {cell_label(cell)}: 관제 칸은 1명이어야 합니다 ({', '.join(fin) or '비어 있음'})")
             day[cell] = (fin, logs)
+        # 새로 들어간 출근조가 있으면, 원래 있던 다른 출근조에서는 이동한 것으로 보고 뺀다
+        commute_cells = [c for c in CELLS if not is_slot_cell(c)]
+        for c in commute_cells:
+            for n in day[c][0]:
+                if n in origs[c]:
+                    continue
+                for c2 in commute_cells:
+                    if c2 != c and n in origs[c2] and n in day[c2][0]:
+                        day[c2][0].remove(n)
+                        day[c2][1].append((n, None))
+        commute_seen: dict[str, str] = {}
+        for c in commute_cells:
+            for n in day[c][0]:
+                if n in commute_seen:
+                    errors.append(f"{d}: {n}이(가) {cell_label(commute_seen[n])}·{cell_label(c)}에 중복")
+                commute_seen[n] = c
         plan[d] = day
 
     if not plan:

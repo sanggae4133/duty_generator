@@ -36,9 +36,8 @@ def test_one_member_per_duty_slot(make_member):
         ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=0, member=b)
 
 
-def test_member_once_per_day_in_duty(make_member):
+def test_member_may_hold_several_duty_slots_per_day(make_member):
     p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13))
     a = make_member("가")
     ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=0, member=a)
-    with pytest.raises(IntegrityError):
-        ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=1, member=a)
+    ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=1, member=a)
