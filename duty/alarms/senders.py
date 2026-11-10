@@ -3,6 +3,9 @@
 토큰·endpoint·본문은 예외 메시지에 넣지 않는다(로그 유출 방지).
 """
 import json
+import math
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.request
 
@@ -42,7 +45,32 @@ def push_enabled() -> bool:
     return bool(settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY)
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _retry_after(value) -> int | None:
+    """Retry-After: 정수 초 또는 HTTP-date. 음수·과거·이상값은 None."""
+    if value is None:
+        return None
+    try:
+        n = int(value)
+        return n if n >= 0 else None
+    except (TypeError, ValueError):
+        pass
+    try:
+        when = parsedate_to_datetime(str(value))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        secs = math.ceil((when - _utcnow()).total_seconds())
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+    return secs if secs > 0 else None
+
+
 def telegram_send(chat_id: str, text: str) -> dict:
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise Permanent()
     req = urllib.request.Request(
         f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
         data=json.dumps({"chat_id": chat_id, "text": text}).encode(),
@@ -50,7 +78,10 @@ def telegram_send(chat_id: str, text: str) -> dict:
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())["result"]
+            result = json.loads(r.read())["result"]
+        if not isinstance(result, dict):
+            raise ValueError
+        return result
     except urllib.error.HTTPError as e:
         code = e.code
         try:
@@ -58,17 +89,21 @@ def telegram_send(chat_id: str, text: str) -> dict:
         except Exception:
             body = {}
         if code == 429:
-            ra = (body.get("parameters") or {}).get("retry_after")
-            raise RetryLater(ra if isinstance(ra, int) else None, code) from None
-        if code in (400, 401, 403, 404):
+            params = body.get("parameters") if isinstance(body, dict) else None
+            ra = params.get("retry_after") if isinstance(params, dict) else None
+            raise RetryLater(ra if isinstance(ra, int) and ra >= 0 else None, code) from None
+        if 400 <= code < 500:
             raise Permanent(code) from None
         raise Temporary(code) from None
-    except (OSError, ValueError, KeyError):  # URLError·timeout·깨진 응답
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):  # URLError·timeout·깨진 응답
         raise Temporary() from None
 
 
 def telegram_check(chat_id: str) -> str:
-    return telegram_send(chat_id, "[테스트] 당번 알림 연결 확인")["chat"]["type"]
+    try:
+        return telegram_send(chat_id, "[테스트] 당번 알림 연결 확인")["chat"]["type"]
+    except (KeyError, TypeError):
+        raise Temporary() from None
 
 
 def push_send(sub, title: str, body: str, url: str, ttl: int) -> None:
@@ -87,14 +122,10 @@ def push_send(sub, title: str, body: str, url: str, ttl: int) -> None:
         if code in (404, 410):
             raise Gone(code) from None
         if code in (429, 503):
-            try:
-                secs = int(resp.headers.get("Retry-After"))
-            except (TypeError, ValueError):
-                secs = None
-            raise RetryLater(secs, code) from None
+            raise RetryLater(_retry_after(resp.headers.get("Retry-After")), code) from None
         # 401/403은 VAPID 키·설정 오류일 가능성 → 운영자가 고치면 되므로 재시도
         if code is not None and 400 <= code < 500 and code not in (401, 403):
             raise Permanent(code) from None
         raise Temporary(code) from None
-    except OSError:  # requests 예외 포함(ConnectionError·Timeout)
+    except (OSError, ValueError, TypeError):  # 깨진 VAPID 키 등 / requests 예외 포함(ConnectionError·Timeout)
         raise Temporary() from None

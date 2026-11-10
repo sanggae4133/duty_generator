@@ -178,3 +178,78 @@ def test_push_network_and_noresponse(wp):
         state["raise"] = err
         with pytest.raises(senders.Temporary):
             senders.push_send(SUB, "t", "b", "/u", 60)
+
+
+# --- fix round 1 ---
+@pytest.mark.parametrize("code", [405, 422, 409])
+@override_settings(TELEGRAM_BOT_TOKEN="TOK")
+def test_telegram_other_4xx_permanent(tg, code):
+    _, state = tg
+    state["raise"] = http_error(code, {"ok": False})
+    with pytest.raises(senders.Permanent) as e:
+        senders.telegram_send("1", "x")
+    assert e.value.status == code
+
+
+@pytest.mark.parametrize("body", [[1], "str", {"parameters": "x"}, {"parameters": {"retry_after": "7"}}])
+@override_settings(TELEGRAM_BOT_TOKEN="TOK")
+def test_telegram_429_odd_body(tg, body):
+    _, state = tg
+    state["raise"] = http_error(429, body)
+    with pytest.raises(senders.RetryLater) as e:
+        senders.telegram_send("1", "x")
+    assert e.value.seconds is None
+
+
+@pytest.mark.parametrize("body", [[1], "s", {"ok": True}, {"result": "x"}, {"result": {}}])
+@override_settings(TELEGRAM_BOT_TOKEN="TOK")
+def test_telegram_malformed_success(tg, body):
+    _, state = tg
+    state["result"] = Resp(body)
+    with pytest.raises(senders.Temporary):
+        senders.telegram_check("1")
+
+
+@override_settings(TELEGRAM_BOT_TOKEN="")
+def test_telegram_no_token_no_request(tg):
+    calls, _ = tg
+    with pytest.raises(senders.Permanent) as e:
+        senders.telegram_send("1", "x")
+    assert e.value.status is None and calls == []
+
+
+@pytest.mark.parametrize("code", [429, 503])
+def test_push_no_retry_after(wp, code):
+    _, state = wp
+    state["raise"] = wpe(code)
+    with pytest.raises(senders.RetryLater) as e:
+        senders.push_send(SUB, "t", "b", "/u", 60)
+    assert e.value.seconds is None and e.value.status == code
+
+
+@pytest.mark.parametrize("hdr,expected", [
+    ("Wed, 21 Oct 2026 07:28:00 GMT", 20),        # now 07:27:39.5 -> ceil 21? see below
+    ("Wed, 21 Oct 2026 07:27:00 GMT", None),      # past
+    ("Wed, 21 Oct 2026 07:27:40 GMT", 1),
+    ("-5", None), ("0", 0), ("30", 30), ("abc", None), ("", None),
+    ("Wed, 99 Foo 2026 07:28:00 GMT", None),
+])
+def test_push_retry_after_forms(wp, monkeypatch, hdr, expected):
+    from datetime import datetime, timezone
+    monkeypatch.setattr(senders, "_utcnow", lambda: datetime(2026, 10, 21, 7, 27, 39, 500000, tzinfo=timezone.utc))
+    if hdr.startswith("Wed, 21 Oct 2026 07:28"):
+        expected = 21
+    _, state = wp
+    state["raise"] = wpe(429, {"Retry-After": hdr})
+    with pytest.raises(senders.RetryLater) as e:
+        senders.push_send(SUB, "t", "b", "/u", 60)
+    assert e.value.seconds == expected
+
+
+@pytest.mark.parametrize("err", [ValueError("secret-key"), TypeError("secret-key")])
+def test_push_bad_key_temporary(wp, err):
+    _, state = wp
+    state["raise"] = err
+    with pytest.raises(senders.Temporary) as e:
+        senders.push_send(SUB, "t", "b", "/u", 60)
+    assert e.value.status is None and "secret" not in str(e.value)
