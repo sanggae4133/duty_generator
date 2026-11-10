@@ -281,7 +281,7 @@ def test_telegram_get_updates_409_and_malformed(tg):
 
 def test_push_send_rechecks_endpoint(wp):
     calls, _ = wp
-    with pytest.raises(senders.Permanent):
+    with pytest.raises(senders.Gone):
         senders.push_send(SimpleNamespace(endpoint="https://evil.example\\.fcm.googleapis.com/x", p256dh="P", auth="A"),
                           "t", "b", "/u", 60)
     assert calls == []

@@ -14,6 +14,7 @@ from duty.services import alarm_runner
 D = date(2026, 11, 16)  # 월
 SUN = date(2026, 11, 15)
 NAME = "가상인물"
+REAL_PUSH_SEND = senders.push_send
 
 
 def at(y, mo, d, h=0, mi=0, s=0):
@@ -352,3 +353,14 @@ def test_log_has_no_token_or_endpoint(member, monkeypatch, env, caplog):
     with caplog.at_level(logging.DEBUG):
         assert alarm_runner.tick(SUN18) == (2, 0, 2)
     assert token not in caplog.text and "secret-endpoint" not in caplog.text and NAME not in caplog.text
+
+
+def test_recheck_failure_deletes_subscription(member, fake, monkeypatch):
+    # 저장된 endpoint가 현재 검사에 걸리면 보내지 않고 Gone처럼 구독을 지운다
+    s1, s2 = push_only(member.user)
+    PushAlarmSubscription.objects.filter(id=s1.id).update(endpoint="https://evil.example\\.fcm.googleapis.com/x")
+    monkeypatch.setattr(senders, "push_send", REAL_PUSH_SEND)
+    monkeypatch.setattr(senders, "webpush", lambda **kw: pytest.fail("발송되면 안 됨"))
+    PushAlarmSubscription.objects.filter(id=s2.id).delete()
+    alarm_runner.tick(SUN18)
+    assert not PushAlarmSubscription.objects.filter(id=s1.id).exists()

@@ -618,6 +618,11 @@ def test_subscribe_ok_and_label(client, me, vapid):
     "https://evil.example%5c.fcm.googleapis.com/x",
     "https://evil%2eexample.fcm.googleapis.com/x",
     "https://FCM.googleapis.com/fcm/send/y",
+    "https://.fcm.googleapis.com/x",
+    "https://fcm.googleapis.com./x",
+    "https://evil..fcm.googleapis.com/x",
+    EP + "#a",
+    EP + "#",
 ])
 def test_subscribe_bad_endpoint(client, me, vapid, endpoint):
     r = sub_json(client, endpoint=endpoint)

@@ -228,7 +228,9 @@ def check_endpoint(endpoint) -> None:
         raise DutyError("잘못된 푸시 구독입니다.") from None
     # 정규화 전 netloc을 그대로 호스트로 본다: \, %, @, :, 대문자 등이 섞이면 urlsplit과 requests의 해석이 갈린다
     host = u.netloc
-    if u.scheme != "https" or port is not None or not re.fullmatch(r"[a-z0-9.-]+", host):
+    # 빈 라벨(앞뒤 점, ..)과 fragment(#)는 같은 endpoint를 다른 문자열로 만들 수 있어 거부
+    if (u.scheme != "https" or port is not None or not re.fullmatch(r"[a-z0-9.-]+", host)
+            or "" in host.split(".") or "#" in endpoint):
         raise DutyError(UNSUPPORTED)
     try:
         ipaddress.ip_address(host)
