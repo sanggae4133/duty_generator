@@ -1,0 +1,11500 @@
+{
+ "developers": [
+  "CHD01",
+  "CHD02",
+  "CHD03",
+  "MDD01",
+  "MDD02",
+  "MDD03",
+  "MED01",
+  "MED02",
+  "MED03",
+  "MSD01",
+  "MSD02",
+  "TMD01",
+  "TMD02",
+  "TMD03",
+  "UID01",
+  "UID02",
+  "UID03",
+  "UID04",
+  "UID05"
+ ],
+ "days": {
+  "2026-09-07": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MED01",
+    "MSE02",
+    "MED02",
+    "MEE04",
+    "TME01",
+    "CHE02",
+    "TME03",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2026-09-08": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MED01",
+    "MSE02",
+    "MED02",
+    "MEE04",
+    "TME01",
+    "CHE02",
+    "TME03",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2026-09-09": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MED01",
+    "MSE02",
+    "MED02",
+    "MEE04",
+    "TME01",
+    "CHE02",
+    "TME03",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2026-09-10": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MED01",
+    "MSE02",
+    "MED02",
+    "MEE04",
+    "TME01",
+    "CHE02",
+    "TME03",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2026-09-11": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MED01",
+    "MSE02",
+    "MED02",
+    "MEE04",
+    "TME01",
+    "CHE02",
+    "TME03",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2026-09-14": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MED02",
+    "MSD02",
+    "CHE02",
+    "TME03",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2026-09-15": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MED02",
+    "MSD02",
+    "CHE02",
+    "TME03",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2026-09-16": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MED02",
+    "MSD02",
+    "CHE02",
+    "TME03",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2026-09-17": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MED02",
+    "MSD02",
+    "CHE02",
+    "TME03",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2026-09-18": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MED02",
+    "MSD02",
+    "CHE02",
+    "TME03",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2026-09-21": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MSD02",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2026-09-22": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MSD02",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2026-09-23": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MSD02",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2026-09-24": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MSD02",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2026-09-25": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MEE03",
+    "MEE04",
+    "MSD02",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2026-09-28": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE03",
+    "MEE04",
+    "MSD01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2026-09-29": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE03",
+    "MEE04",
+    "MSD01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2026-09-30": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE03",
+    "MEE04",
+    "MSD01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2026-10-01": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE03",
+    "MEE04",
+    "MSD01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2026-10-02": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE03",
+    "MEE04",
+    "MSD01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2026-10-05": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2026-10-06": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2026-10-07": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2026-10-08": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2026-10-09": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2026-10-12": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MSE02",
+    "MED01",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2026-10-13": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MSE02",
+    "MED01",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2026-10-14": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MSE02",
+    "MED01",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2026-10-15": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MSE02",
+    "MED01",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2026-10-16": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE01",
+    "MSE02",
+    "MED01",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2026-10-19": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2026-10-20": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2026-10-21": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2026-10-22": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2026-10-23": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2026-10-26": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2026-10-27": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2026-10-28": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2026-10-29": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2026-10-30": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2026-11-02": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2026-11-03": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2026-11-04": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2026-11-05": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2026-11-06": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2026-11-09": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2026-11-10": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2026-11-11": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2026-11-12": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2026-11-13": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2026-11-16": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2026-11-17": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2026-11-18": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2026-11-19": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2026-11-20": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2026-11-23": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2026-11-24": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2026-11-25": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2026-11-26": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2026-11-27": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2026-11-30": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "TME01",
+    "CHD03",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2026-12-01": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE01",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2026-12-02": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2026-12-03": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2026-12-04": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "TME01",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "TME04",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "CHE02",
+    "TMD02",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2026-12-07": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "CHE02",
+    "TMD02",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "TME01",
+    "CHD03",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2026-12-08": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME03",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME01",
+    "CHD03",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2026-12-09": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "CHE01",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "TME03",
+    "CHD01",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2026-12-10": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "TME04",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD01",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2026-12-11": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "CHE02",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "TME04",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2026-12-14": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "TME01",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "TME04",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "CHE02",
+    "TMD02",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2026-12-15": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE02",
+    "TMD02",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD03",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2026-12-16": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "TME03",
+    "CHD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "TME04",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "TME01",
+    "CHD03",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2026-12-17": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE01",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "TME04",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME03",
+    "CHD01",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2026-12-18": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "TME03",
+    "CHD01",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "CHE01",
+    "TMD03",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2026-12-21": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "CHE02",
+    "TMD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "CHE01",
+    "TMD03",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2026-12-22": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD02",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2026-12-23": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "CHE02",
+    "TMD02",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2026-12-24": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME03",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2026-12-25": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "CHE01",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "TME04",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "TME03",
+    "CHD01",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2026-12-28": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "TME04",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "TME03",
+    "CHD01",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "CHE01",
+    "TMD03",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2026-12-29": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE02",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE01",
+    "TMD03",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2026-12-30": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "TME01",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "CHE02",
+    "TMD02",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2026-12-31": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD02",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME01",
+    "CHD03",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2027-01-01": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "TME01",
+    "CHD03",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-01-04": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "CHE01",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2027-01-05": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD03",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2027-01-06": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "CHE02",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "CHE01",
+    "TMD03",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2027-01-07": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME01",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "TME04",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE02",
+    "TMD02",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2027-01-08": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "CHE02",
+    "TMD02",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "TME01",
+    "CHD03",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2027-01-11": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "TME03",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "TME01",
+    "CHD03",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-01-12": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE01",
+    "TMD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD01",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2027-01-13": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "TME04",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "TME03",
+    "CHD01",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "CHE01",
+    "TMD03",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2027-01-14": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE02",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD03",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME02",
+    "CHD02",
+    "TME04",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2027-01-15": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "TME01",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "TME04",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "CHE02",
+    "TMD02",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2027-01-18": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "TME04",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "CHE02",
+    "TMD02",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "TME01",
+    "CHD03",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2027-01-19": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME03",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "TME04",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME01",
+    "CHD03",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2027-01-20": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "CHE01",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "TME04",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "TME03",
+    "CHD01",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-01-21": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME02",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD01",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE01",
+    "TMD03",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2027-01-22": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "CHE02",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "TME01",
+    "CHD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "CHE01",
+    "TMD03",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2027-01-25": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "TME03",
+    "CHD01",
+    "CHE01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "TME02",
+    "CHD02",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "CHE02",
+    "TMD02",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2027-01-26": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "CHE01",
+    "TMD03",
+    "TME03",
+    "CHD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE02",
+    "TMD02",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2027-01-27": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "TME03",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "CHE02",
+    "TMD02",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "TME01",
+    "CHD03",
+    "TME04",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2027-01-28": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE01",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHD02",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "TME04",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME03",
+    "CHD01",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2027-01-29": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "TME02",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "TME01",
+    "CHD03",
+    "CHE02",
+    "TMD02",
+    "TME04",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "TME03",
+    "CHD01",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "CHE01",
+    "TMD03",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2027-02-01": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-02-02": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2027-02-03": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2027-02-04": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2027-02-05": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2027-02-08": {
+   "dawn": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD01",
+    "MSD02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2027-02-09": {
+   "dawn": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD01",
+    "MSD02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2027-02-10": {
+   "dawn": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD01",
+    "MSD02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2027-02-11": {
+   "dawn": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD01",
+    "MSD02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2027-02-12": {
+   "dawn": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD01",
+    "MSD02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2027-02-15": {
+   "dawn": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2027-02-16": {
+   "dawn": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-02-17": {
+   "dawn": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2027-02-18": {
+   "dawn": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2027-02-19": {
+   "dawn": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED03",
+    "MSD01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2027-02-22": {
+   "dawn": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED01",
+    "MED03",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2027-02-23": {
+   "dawn": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED01",
+    "MED03",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2027-02-24": {
+   "dawn": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED01",
+    "MED03",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2027-02-25": {
+   "dawn": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED01",
+    "MED03",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-02-26": {
+   "dawn": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED01",
+    "MED03",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID04",
+    "UID05",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED02",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2027-03-01": {
+   "dawn": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED02",
+    "MED01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2027-03-02": {
+   "dawn": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED02",
+    "MED01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2027-03-03": {
+   "dawn": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED02",
+    "MED01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2027-03-04": {
+   "dawn": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED02",
+    "MED01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2027-03-05": {
+   "dawn": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED02",
+    "MED01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD02",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2027-03-08": {
+   "dawn": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2027-03-09": {
+   "dawn": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-03-10": {
+   "dawn": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2027-03-11": {
+   "dawn": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2027-03-12": {
+   "dawn": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD02",
+    "MED02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD01",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2027-03-15": {
+   "dawn": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD01",
+    "MSD02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2027-03-16": {
+   "dawn": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD01",
+    "MSD02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2027-03-17": {
+   "dawn": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD01",
+    "MSD02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2027-03-18": {
+   "dawn": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD01",
+    "MSD02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2027-03-19": {
+   "dawn": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD01",
+    "MSD02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID02",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED03",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2027-03-22": {
+   "dawn": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MSD01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2027-03-23": {
+   "dawn": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MSD01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2027-03-24": {
+   "dawn": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MSD01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-03-25": {
+   "dawn": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MSD01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2027-03-26": {
+   "dawn": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED03",
+    "MSD01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID04",
+    "UID03",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED01",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2027-03-29": {
+   "dawn": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2027-03-30": {
+   "dawn": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2027-03-31": {
+   "dawn": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2027-04-01": {
+   "dawn": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2027-04-02": {
+   "dawn": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED01",
+    "MED03",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED02",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-04-05": {
+   "dawn": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED02",
+    "MED01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2027-04-06": {
+   "dawn": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED02",
+    "MED01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2027-04-07": {
+   "dawn": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED02",
+    "MED01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2027-04-08": {
+   "dawn": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED02",
+    "MED01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2027-04-09": {
+   "dawn": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED02",
+    "MED01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID01",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD02",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2027-04-12": {
+   "dawn": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD02",
+    "MED02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2027-04-13": {
+   "dawn": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD02",
+    "MED02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2027-04-14": {
+   "dawn": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD02",
+    "MED02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-04-15": {
+   "dawn": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD02",
+    "MED02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2027-04-16": {
+   "dawn": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD02",
+    "MED02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE04",
+    "MSD01",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2027-04-19": {
+   "dawn": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2027-04-20": {
+   "dawn": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2027-04-21": {
+   "dawn": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2027-04-22": {
+   "dawn": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2027-04-23": {
+   "dawn": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MSD01",
+    "MSD02",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED03",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2027-04-26": {
+   "dawn": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED03",
+    "MSD01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2027-04-27": {
+   "dawn": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED03",
+    "MSD01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2027-04-28": {
+   "dawn": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED03",
+    "MSD01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2027-04-29": {
+   "dawn": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED03",
+    "MSD01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-04-30": {
+   "dawn": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED03",
+    "MSD01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2027-05-03": {
+   "dawn": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED01",
+    "MED03",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-05-04": {
+   "dawn": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED01",
+    "MED03",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2027-05-05": {
+   "dawn": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED01",
+    "MED03",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2027-05-06": {
+   "dawn": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED01",
+    "MED03",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2027-05-07": {
+   "dawn": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED01",
+    "MED03",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE02",
+    "MED02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2027-05-10": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2027-05-11": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2027-05-12": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2027-05-13": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2027-05-14": {
+   "dawn": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MED02",
+    "MED01",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD02",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2027-05-17": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2027-05-18": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2027-05-19": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2027-05-20": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-05-21": {
+   "dawn": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD02",
+    "MED02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE01",
+    "MSD01",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2027-05-24": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2027-05-25": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2027-05-26": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2027-05-27": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2027-05-28": {
+   "dawn": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MSD01",
+    "MSD02",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED03",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2027-05-31": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2027-06-01": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2027-06-02": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2027-06-03": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2027-06-04": {
+   "dawn": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED03",
+    "MSD01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED01",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-06-07": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2027-06-08": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-06-09": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2027-06-10": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2027-06-11": {
+   "dawn": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED01",
+    "MED03",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MSE02",
+    "MED02",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2027-06-14": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2027-06-15": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2027-06-16": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2027-06-17": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2027-06-18": {
+   "dawn": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MED02",
+    "MED01",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD02",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2027-06-21": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2027-06-22": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2027-06-23": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2027-06-24": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2027-06-25": {
+   "dawn": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD02",
+    "MED02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE03",
+    "MSD01",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-06-28": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2027-06-29": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2027-06-30": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2027-07-01": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID01"
+   ]
+  },
+  "2027-07-02": {
+   "dawn": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MSD01",
+    "MSD02",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED03",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2027-07-05": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-07-06": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2027-07-07": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2027-07-08": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2027-07-09": {
+   "dawn": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED03",
+    "MSD01",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED01",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID01"
+   ],
+   "night": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID02"
+   ]
+  },
+  "2027-07-12": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2027-07-13": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2027-07-14": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-07-15": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2027-07-16": {
+   "dawn": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED01",
+    "MED03",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE01",
+    "MED02",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID02"
+   ],
+   "night": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID03"
+   ]
+  },
+  "2027-07-19": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2027-07-20": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2027-07-21": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2027-07-22": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2027-07-23": {
+   "dawn": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MED02",
+    "MED01",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD02",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID03"
+   ],
+   "night": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE01",
+    "UID04"
+   ]
+  },
+  "2027-07-26": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2027-07-27": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2027-07-28": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2027-07-29": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD01",
+    "UID05"
+   ]
+  },
+  "2027-07-30": {
+   "dawn": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD02"
+   ],
+   "normal": [
+    "MSE02",
+    "MEE01",
+    "MEE04",
+    "MSD02",
+    "MED02",
+    "TME03",
+    "CHE03",
+    "TME01",
+    "CHD02",
+    "TMD01",
+    "CHD01",
+    "MDE02",
+    "MDD03",
+    "MDE04",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MEE02",
+    "MSD01",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID04"
+   ],
+   "night": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID05"
+   ]
+  },
+  "2027-08-02": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE01",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID01"
+   ]
+  },
+  "2027-08-03": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD02",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID01"
+   ]
+  },
+  "2027-08-04": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE02",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID01"
+   ]
+  },
+  "2027-08-05": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDD03",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID01"
+   ]
+  },
+  "2027-08-06": {
+   "dawn": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE02",
+    "MSE02",
+    "MEE01",
+    "MSD01",
+    "MSD02",
+    "CHE03",
+    "TME01",
+    "CHE02",
+    "TMD01",
+    "CHD01",
+    "TMD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID02",
+    "UID03",
+    "UID04"
+   ],
+   "dinner": [
+    "MEE03",
+    "MED03",
+    "TME02",
+    "CHD03",
+    "MDE04",
+    "UID05"
+   ],
+   "night": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD01",
+    "UID01"
+   ]
+  },
+  "2027-08-09": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE01",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID02"
+   ]
+  },
+  "2027-08-10": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD02",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID02"
+   ]
+  },
+  "2027-08-11": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE02",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID02"
+   ]
+  },
+  "2027-08-12": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDD03",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID02"
+   ]
+  },
+  "2027-08-13": {
+   "dawn": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE03",
+    "MEE02",
+    "MSE02",
+    "MED03",
+    "MSD01",
+    "TME01",
+    "CHE02",
+    "TME02",
+    "CHD01",
+    "TMD03",
+    "CHD03",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID03",
+    "UID04",
+    "UID05"
+   ],
+   "dinner": [
+    "MSE01",
+    "MED01",
+    "CHE01",
+    "TMD02",
+    "MDE04",
+    "UID01"
+   ],
+   "night": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD01",
+    "UID02"
+   ]
+  },
+  "2027-08-16": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE02"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE01",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID03"
+   ]
+  },
+  "2027-08-17": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD03"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD02",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID03"
+   ]
+  },
+  "2027-08-18": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE04"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE02",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID03"
+   ]
+  },
+  "2027-08-19": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDD03",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID03"
+   ]
+  },
+  "2027-08-20": {
+   "dawn": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE01"
+   ],
+   "normal": [
+    "MSE01",
+    "MEE03",
+    "MEE02",
+    "MED01",
+    "MED03",
+    "CHE02",
+    "TME02",
+    "CHE01",
+    "TMD03",
+    "CHD03",
+    "TMD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID05",
+    "UID04",
+    "UID01"
+   ],
+   "dinner": [
+    "MEE04",
+    "MED02",
+    "TME03",
+    "CHD02",
+    "MDE04",
+    "UID02"
+   ],
+   "night": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD01",
+    "UID03"
+   ]
+  },
+  "2027-08-23": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE01",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID04"
+   ]
+  },
+  "2027-08-24": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD02",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID04"
+   ]
+  },
+  "2027-08-25": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE02",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID04"
+   ]
+  },
+  "2027-08-26": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDD03",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID04"
+   ]
+  },
+  "2027-08-27": {
+   "dawn": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE04",
+    "MSE01",
+    "MEE03",
+    "MED02",
+    "MED01",
+    "TME02",
+    "CHE01",
+    "TME03",
+    "CHD03",
+    "TMD02",
+    "CHD02",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID05",
+    "UID02"
+   ],
+   "dinner": [
+    "MEE01",
+    "MSD02",
+    "CHE03",
+    "TMD01",
+    "MDE04",
+    "UID03"
+   ],
+   "night": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD01",
+    "UID04"
+   ]
+  },
+  "2027-08-30": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE02"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD03",
+    "MDE04",
+    "MDD01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE01",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD02",
+    "UID05"
+   ]
+  },
+  "2027-08-31": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD03"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE04",
+    "MDD01",
+    "MDE01",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD02",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE02",
+    "UID05"
+   ]
+  },
+  "2027-09-01": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE04"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD01",
+    "MDE01",
+    "MDD02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE02",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD03",
+    "UID05"
+   ]
+  },
+  "2027-09-02": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDD01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDE01",
+    "MDD02",
+    "MDE02",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDD03",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDE04",
+    "UID05"
+   ]
+  },
+  "2027-09-03": {
+   "dawn": [
+    "MEE03",
+    "MED01",
+    "TME02",
+    "CHD03",
+    "MDE01"
+   ],
+   "normal": [
+    "MEE01",
+    "MEE04",
+    "MSE01",
+    "MSD02",
+    "MED02",
+    "CHE01",
+    "TME03",
+    "CHE03",
+    "TMD02",
+    "CHD02",
+    "TMD01",
+    "MDD02",
+    "MDE02",
+    "MDD03",
+    "UID01",
+    "UID02",
+    "UID03"
+   ],
+   "dinner": [
+    "MSE02",
+    "MSD01",
+    "TME01",
+    "CHD01",
+    "MDE04",
+    "UID04"
+   ],
+   "night": [
+    "MEE02",
+    "MED03",
+    "CHE02",
+    "TMD03",
+    "MDD01",
+    "UID05"
+   ]
+  }
+ }
+}
