@@ -86,7 +86,6 @@ class ControlDuty(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["period", "date", "slot"], name="duty_one_member_per_slot"),
-            models.UniqueConstraint(fields=["period", "date", "member"], name="duty_one_slot_per_member"),
         ]
         indexes = [models.Index(fields=["date"])]
 

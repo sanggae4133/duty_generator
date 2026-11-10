@@ -91,9 +91,50 @@ def test_unknown_name_aborts(db):
 
 
 def test_double_commute_aborts(db):
-    report = run_import(maker(), deploy({"night": "d1"}), dry_run=False)
+    # d10 은 두 칸 모두 새로 들어옴 → 이동으로 볼 수 없다
+    report = run_import(maker(), deploy({"dawn": "직원가, d10", "night": "d10"}), dry_run=False)
     assert any("중복" in e for e in report.errors)
     assert not Period.objects.exists() and not Member.objects.exists()
+
+
+def test_commute_move_removes_from_unchanged_cell(db):
+    report = run_import(maker(), deploy({"night": "d1"}), dry_run=False)
+    assert report.errors == []
+    assert list(Commute.objects.filter(member__name="d1").values_list("shift", flat=True)) == ["night"]
+    log = ChangeLog.objects.get(cell="normal")
+    assert log.before.name == "d1" and log.after is None
+    assert ChangeLog.objects.count() == 2  # night 추가 + normal 제거
+
+
+def test_commute_move_with_replacement_log(db):
+    report = run_import(maker(), deploy({"dawn": "직원가>d1"}), dry_run=False)
+    assert report.errors == []
+    assert [(c.cell, c.before.name if c.before else None, c.after.name if c.after else None)
+            for c in ChangeLog.objects.order_by("cell")] == [
+        ("dawn", "직원가", "d1"), ("normal", "d1", None)]
+
+
+def test_same_person_in_several_slots_allowed(db):
+    report = run_import(maker(), deploy({"slot1": "d0"}), dry_run=False)
+    assert report.errors == []
+    assert ControlDuty.objects.filter(member__name="d0").count() == 2
+
+
+def test_dash_tokens_are_not_names():
+    assert parse_chains("-") == [] and parse_chains("--") == []
+    assert parse_chains("가, -") == [["가"]]
+    assert parse_chains("- > 가") == [["가"]]
+    assert parse_chains("가 > -") == [["가"]]
+
+
+def test_arrow_with_space_before_gt():
+    assert parse_chains("가- > 나") == [["가", "나"]]
+    assert parse_chains("가 - > 나") == [["가", "나"]]
+
+
+def test_dash_cell_imports_without_unknown_name(db):
+    report = run_import(maker(), deploy({"dinner": "-"}), dry_run=True)
+    assert report.errors == []
 
 
 def test_dry_run_writes_nothing(db):

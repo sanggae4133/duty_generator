@@ -75,11 +75,13 @@ def change_cell(user, d: date, cell: str, before: Member | None, after: Member |
         row = ControlDuty.objects.filter(period=period, date=d, slot=slot).first()
         if row is None or row.member_id != before.pk:
             raise DutyError(f"{before.name}은(는) 이 칸에 없습니다.")
-        if ControlDuty.objects.filter(period=period, date=d, member=after).exists():
-            raise DutyError(f"{after.name}은(는) 그날 이미 다른 관제 칸에 있습니다. 맞교환을 사용하세요.")
         row.member = after
         row.save()
         warnings = _eligibility_warnings(period, d, slot, after)
+        others = ControlDuty.objects.filter(period=period, date=d, member=after).exclude(slot=slot).order_by("slot")
+        if others:
+            labels = ", ".join(CONTROL_SLOTS[o.slot][0] for o in others)
+            warnings.append(f"{after.name}은(는) 그날 다른 관제 칸({labels})도 맡고 있습니다.")
     else:
         if cell not in COMMUTE_SHIFTS:
             raise DutyError("알 수 없는 칸입니다.")

@@ -72,10 +72,20 @@ def test_duty_only_replace(world):
         changes.change_cell(m["가"].user, D, "slot0", m["가"], None)
 
 
-def test_duty_after_in_other_slot_rejected(world):
-    _, m = world
-    with pytest.raises(DutyError):
-        changes.change_cell(m["가"].user, D, "slot0", m["가"], m["라"])
+def test_duty_replace_into_second_slot_warns(world):
+    p, m = world
+    r = changes.change_cell(m["가"].user, D, "slot0", m["가"], m["라"])
+    assert ControlDuty.objects.filter(period=p, date=D, member=m["라"]).count() == 2
+    assert any("다른 관제 칸" in w and "09:30~10:30" in w for w in r.warnings)
+
+
+def test_swap_duty_when_member_holds_two_slots(world):
+    p, m = world
+    ControlDuty.objects.create(period=p, date=D, slot=2, member=m["나"])
+    changes.change_cell(m["가"].user, D, "slot0", m["가"], m["라"])  # 라: slot0, slot1
+    changes.swap(m["가"].user, D, "slot0", m["라"], "slot2", m["나"])
+    slots = lambda n: set(ControlDuty.objects.filter(period=p, date=D, member=m[n]).values_list("slot", flat=True))
+    assert slots("라") == {1, 2} and slots("나") == {0}
 
 
 def test_swap_commute(world):
