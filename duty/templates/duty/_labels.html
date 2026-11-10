@@ -1,0 +1,1 @@
+{% for l in line %}{% if l.hl %}<span class="hl{{ l.hl }}">{{ l.text }}</span>{% else %}{{ l.text }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}

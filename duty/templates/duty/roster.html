@@ -3,21 +3,23 @@
 <form method="get" role="group">
   <input type="date" name="from" value="{{ start|date:'Y-m-d' }}" aria-label="시작일">
   <input type="date" name="to" value="{{ end|date:'Y-m-d' }}" aria-label="종료일">
-  <input name="q" value="{{ q }}" placeholder="이름 검색 (쉼표로 최대 3명)">
+  {% for n in names %}<span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}">
+  {% endfor %}
   <button>보기</button>
 </form>
+<button type="button" class="outline secondary" id="slot-toggle"></button>
 <div class="grid-wrap">
-<table class="roster">
-  <thead><tr><th>날짜</th><th>요일</th>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<table class="roster" id="roster">
+  <thead><tr><th>날짜</th><th>요일</th>{% for h in headers %}<th{% if h.slot %} class="slot"{% endif %}>{{ h.label }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in rows %}
     <tr{% if row.anchor %} id="today"{% endif %}{% if row.is_today %} class="today"{% endif %}>
       <td><a href="{% url 'day' row.date %}">{{ row.date|date:"Y-m-d" }}</a></td>
       <td>{{ row.weekday }}</td>
       {% for c in row.cells %}
-      <td class="{% if c.changed %}changed{% endif %} {% if c.hl %}hl{% endif %}">
-        {% if row.editable %}<a href="{% url 'day' row.date %}#{{ c.key }}" hx-get="{% url 'cell' row.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{{ c.text|default:"·" }}</a>{% else %}{{ c.text }}{% endif %}
-        {% for r in c.removed %}<div class="removed">{{ r }}</div>{% endfor %}
+      <td class="{% if c.changed %}changed{% endif %}{% if c.slot %} slot{% endif %}">
+        {% if row.editable %}<a href="{% url 'day' row.date %}#{{ c.key }}" hx-get="{% url 'cell' row.date c.key %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">{% for line in c.lines %}{% include "duty/_line.html" %}{% empty %}·{% endfor %}</a>{% else %}{% for line in c.lines %}{% include "duty/_line.html" %}{% endfor %}{% endif %}
+        {% for line in c.removed %}<div class="removed">{% include "duty/_labels.html" %}</div>{% endfor %}
       </td>
       {% endfor %}
     </tr>
@@ -27,5 +29,15 @@
   </tbody>
 </table>
 </div>
-<script>document.getElementById("today")?.scrollIntoView({block: "center"});</script>
+<script>
+  const t = document.getElementById("roster"), b = document.getElementById("slot-toggle"), K = "roster.slotsHidden";
+  const paint = () => b.textContent = t.classList.contains("slots-hidden") ? "장중 당번 펼치기" : "장중 당번 접기";
+  try { t.classList.toggle("slots-hidden", localStorage.getItem(K) === "1"); } catch (e) {}
+  paint();
+  b.onclick = () => {
+    t.classList.toggle("slots-hidden");
+    try { localStorage.setItem(K, t.classList.contains("slots-hidden") ? "1" : "0"); } catch (e) {}
+    paint();
+  };
+  document.getElementById("today")?.scrollIntoView({block: "center"});</script>
 {% endblock %}

@@ -28,7 +28,30 @@ def test_roster_shows_names_and_highlight(client, world):
     client.force_login(a.user)
     r = client.get("/?q=가")
     body = r.content.decode()
-    assert r.status_code == 200 and "가" in body and 'class="today"' in body and "hl" in body
+    assert r.status_code == 200 and 'class="today"' in body and '<span class="hl1">가</span>' in body
+    assert '<span class="hl1">나' not in body
+
+
+def test_second_name_gets_hl2(client, world):
+    a, _ = world
+    client.force_login(a.user)
+    body = client.get("/?q1=가&q2=나").content.decode()
+    assert '<span class="hl1">가</span>' in body and '<span class="hl2">나</span>' in body
+
+
+def test_name_inside_chain_highlights(client, world, make_member):
+    a, _ = world
+    c = make_member("다")
+    client.force_login(a.user)
+    client.post(f"/cell/{D}/normal/", {"before": a.code, "after": c.code})
+    body = client.get("/?q3=다").content.decode()
+    assert '<span class="hl3">가>다</span>' in body.replace("&gt;", ">")
+
+
+def test_cells_use_nowrap_lines(client, world):
+    a, _ = world
+    client.force_login(a.user)
+    assert '<div class="line">' in client.get("/").content.decode()
 
 
 def test_cell_form_partial(client, world):

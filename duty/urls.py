@@ -42,5 +42,6 @@ urlpatterns = [
     path("periods/<int:pid>/publish/", manage_views.period_publish, name="period_publish"),
     path("stats/", manage_views.stats_view, name="stats"),
     path("changes/", manage_views.change_log, name="changes"),
+    path("schema/", manage_views.schema, name="schema"),
     path("api/assignments", api.assignments, name="api_assignments"),
 ]

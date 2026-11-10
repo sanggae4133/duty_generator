@@ -130,3 +130,17 @@ def test_change_log_filters(admin_client_ok, make_member):
     assert "야간" in h and "새벽" not in h
     h = get(f"?by={a.user.username}")
     assert "새벽" in h and "야간" not in h
+
+
+def test_schema_page(admin_client_ok):
+    body = admin_client_ok.get("/schema/").content.decode()
+    assert "duty_commute" in body and "commute_one_shift_per_day" in body and "duty_one_member_per_slot" in body
+    assert "duty_one_slot_per_member" not in body
+
+
+def test_schema_forbidden_for_member(member_client):
+    assert member_client.get("/schema/").status_code == 403
+
+
+def test_schema_anonymous_redirected(client, db):
+    assert client.get("/schema/").status_code == 302

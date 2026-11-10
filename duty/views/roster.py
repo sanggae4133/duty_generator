@@ -17,8 +17,15 @@ from ..shifts import CELLS, DAY_LABELS, cell_label, is_slot_cell
 from .common import date_param, safe_next
 
 
-def _wrap(names: list[str], per_line: int = 3) -> str:
-    return "\n".join(", ".join(names[i:i + per_line]) for i in range(0, len(names), per_line))
+def _hl(label: str, names: list[str]) -> int:
+    """라벨(A, A>B>C, +B)에 속한 이름 중 검색어 번호(1..3, 낮은 쪽 우선). 없으면 0."""
+    parts = [p.strip().lstrip("+") for p in label.split(">")]
+    return next((i for i, n in enumerate(names, 1) if n in parts), 0)
+
+
+def _lines(labels: list[str], names: list[str], per_line: int = 3) -> list[list[dict]]:
+    items = [{"text": lb, "hl": _hl(lb, names)} for lb in labels]
+    return [items[i:i + per_line] for i in range(0, len(items), per_line)]
 
 
 def _member(code: str | None) -> Member | None:
@@ -45,15 +52,15 @@ def _cell_context(day, cell: str, d):
 @login_required
 def roster(request):
     start, end = date_param(request, "from"), date_param(request, "to")
-    q = request.GET.get("q", "")
-    names = split_names(q)[:3]
+    names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
+    names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
     today, admin = perms.today(), perms.is_admin(request.user)
     rows, anchored = [], False
     for day in published_days(start, end):
         cells = [
             {
-                "key": k, "text": _wrap(day.cells[k].labels), "removed": day.cells[k].removed,
-                "changed": day.cells[k].changed, "hl": any(n in day.members[k] for n in names),
+                "key": k, "lines": _lines(day.cells[k].labels, names), "removed": _lines(day.cells[k].removed, names),
+                "changed": day.cells[k].changed, "slot": is_slot_cell(k),
             }
             for k in CELLS
         ]
@@ -64,7 +71,7 @@ def roster(request):
             "anchor": anchor, "is_today": day.date == today, "editable": admin or day.date >= today,
         })
     return render(request, "duty/roster.html", {
-        "headers": [cell_label(k) for k in CELLS], "rows": rows, "start": start, "end": end, "q": q,
+        "headers": [{"label": cell_label(k), "slot": is_slot_cell(k)} for k in CELLS], "rows": rows, "start": start, "end": end, "names": names,
     })
 
 
