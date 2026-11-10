@@ -7,7 +7,7 @@ from django.db.models import Q
 from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, ControlDuty, Member, Period
-from ..shifts import COMMUTE_SHIFTS, CONTROL_SLOTS, DEVELOPER, cell_label, is_slot_cell, slot_index
+from ..shifts import COMMUTE_SHIFTS, CONTROL_SLOTS, CELLS, DEVELOPER, is_slot_cell, slot_index
 
 
 @dataclass
@@ -38,6 +38,22 @@ def _eligibility_warnings(period: Period, d: date, slot: int, m: Member) -> list
     return out
 
 
+def _duty_warnings(period: Period, d: date, members) -> list[str]:
+    """출근조가 바뀐 사람이 관제 칸을 갖고 있으면 자격을 다시 확인한다(경고만)."""
+    out = []
+    for m in members:
+        if m is None:
+            continue
+        for duty in ControlDuty.objects.filter(period=period, date=d, member=m):
+            out += _eligibility_warnings(period, d, duty.slot, m)
+    return out
+
+
+def _check_cell(*cells: str) -> None:
+    if any(c not in CELLS for c in cells):
+        raise DutyError("알 수 없는 칸입니다.")
+
+
 def _check_active(m: Member | None) -> None:
     if m is not None and not m.is_active:
         raise DutyError(f"{m.name}은(는) 재직 중이 아닙니다.")
@@ -47,6 +63,7 @@ def _check_active(m: Member | None) -> None:
 def change_cell(user, d: date, cell: str, before: Member | None, after: Member | None) -> ChangeResult:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
+    _check_cell(cell)
     if (before is None and after is None) or before == after:
         raise DutyError("변경할 내용이 없습니다.")
     _check_active(after)
@@ -75,11 +92,9 @@ def change_cell(user, d: date, cell: str, before: Member | None, after: Member |
             raise DutyError(f"{after.name}은(는) 그날 이미 다른 출근조에 있습니다. 맞교환을 사용하세요.")
         if row is not None:
             row.delete()
-            duty = ControlDuty.objects.filter(period=period, date=d, member=before).first()
-            if duty is not None:
-                warnings.append(f"{before.name}은(는) {CONTROL_SLOTS[duty.slot][0]} 관제 칸에 남아 있습니다.")
         if after is not None:
             Commute.objects.create(period=period, date=d, member=after, shift=cell)
+        warnings = _duty_warnings(period, d, [before, after])
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell, before=before, after=after)
     return ChangeResult(warnings)
 
@@ -88,6 +103,7 @@ def change_cell(user, d: date, cell: str, before: Member | None, after: Member |
 def swap(user, d: date, cell_a: str, a: Member, cell_b: str, b: Member) -> ChangeResult:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
+    _check_cell(cell_a, cell_b)
     if a == b or cell_a == cell_b:
         raise DutyError("서로 다른 두 칸의 서로 다른 사람을 골라 주세요.")
     if is_slot_cell(cell_a) != is_slot_cell(cell_b):
@@ -112,6 +128,7 @@ def swap(user, d: date, cell_a: str, a: Member, cell_b: str, b: Member) -> Chang
         ra.shift, rb.shift = cell_b, cell_a
         ra.save()
         rb.save()
+        warnings = _duty_warnings(period, d, [a, b])
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_a, before=a, after=b)
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_b, before=b, after=a)
     return ChangeResult(warnings)

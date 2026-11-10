@@ -69,3 +69,8 @@ def test_department_table_it_splits_type(make_member):
     normal_tmch = header.index("정상 매매지원실")
     assert dev_row[normal_tmch] == "나"
     assert staff_row[header.index("정상 매칭엔진실")] == "직원1"
+
+
+def test_chain_replaced_cleared_when_readded():
+    _, _, replaced = chain(["X"], [("A", "X"), ("X", None), (None, "X")])
+    assert "X" not in replaced

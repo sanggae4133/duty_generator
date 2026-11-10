@@ -35,6 +35,7 @@ def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], di
         prev = label.pop(before, before) if before else None
         if after:
             label[after] = f"{prev}>{after}" if prev else f"+{after}"
+            replaced.pop(after, None)
             if before:
                 replaced[after] = before
         elif prev:

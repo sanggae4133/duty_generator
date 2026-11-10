@@ -120,3 +120,24 @@ def test_inactive_after_rejected(world):
     m["다"].save()
     with pytest.raises(DutyError):
         changes.change_cell(m["가"].user, D, "dawn", None, m["다"])
+
+
+def test_swap_commute_warns_when_duty_holder_loses_qualifying_shift(world):
+    _, m = world
+    r = changes.swap(m["가"].user, D, "normal", m["가"], "night", m["나"])
+    assert any("가" in w and "관제" in w for w in r.warnings)
+
+
+def test_add_commute_warns_for_duty_holder_without_qualifying_shift(world):
+    p, m = world
+    Commute.objects.filter(member=m["가"]).delete()
+    r = changes.change_cell(m["가"].user, D, "dawn", None, m["가"])
+    assert any("가" in w and "관제" in w for w in r.warnings)
+
+
+def test_malformed_cell_rejected(world):
+    _, m = world
+    with pytest.raises(DutyError):
+        changes.change_cell(m["가"].user, D, "slotx", m["가"], m["다"])
+    with pytest.raises(DutyError):
+        changes.swap(m["가"].user, D, "slotx", m["가"], "slot1", m["라"])
