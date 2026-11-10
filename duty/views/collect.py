@@ -12,6 +12,8 @@ from ..models import Department, Period
 from ..services import collect
 from ..shifts import COMMUTE_SHIFTS, DAY_LABELS
 
+MAX_UPLOAD = 1_000_000
+
 
 @login_required
 def index(request):
@@ -78,6 +80,9 @@ def upload(request, pid, code):
     f = request.FILES.get("file")
     if f is None:
         messages.error(request, "CSV 파일을 선택해 주세요.")
+        return redirect("collect_table", pid, code)
+    if f.size > MAX_UPLOAD:
+        messages.error(request, "파일이 너무 큽니다 (최대 1MB).")
         return redirect("collect_table", pid, code)
     try:
         n = collect.apply_csv(request.user, period, dept, f.read())

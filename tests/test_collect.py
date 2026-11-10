@@ -122,3 +122,16 @@ def test_progress(setup):
     collect.apply_csv(user, p, dept, CSV.encode())
     pr = collect.progress(p)
     assert pr["MEMS"] == (1, 5) and pr["UI"] == (0, 5)
+
+
+def test_unchanged_date_skips_member_check(setup, make_member):
+    p, dept, user = setup
+    collect.apply_csv(user, p, dept, CSV.encode())
+    from duty.models import Member
+    Member.objects.filter(name="가").update(is_active=False)
+    same_plus = 'date,새벽,정상,석식교대,야간\n2026-11-09,가,"나,다",,\n2026-11-10,,나,,\n'.encode()
+    assert collect.apply_csv(user, p, dept, same_plus) == 4
+    changed = 'date,새벽,정상,석식교대,야간\n2026-11-09,가,나,,\n'.encode()
+    with pytest.raises(CsvInvalid) as e:
+        collect.apply_csv(user, p, dept, changed)
+    assert "재직 멤버가 아닙니다" in reasons(e)

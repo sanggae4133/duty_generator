@@ -36,12 +36,15 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     errors: list[CsvError] = []
     valid_dates = set(period.dates())
     shift_keys = dept.shift_keys()
+    existing = load_table(period, dept)
     members = set(Member.objects.filter(department=dept, is_active=True).values_list("name", flat=True))
     for d in sorted(table):
         col = d.isoformat()
         if d not in valid_dates:
             errors.append(CsvError(0, col, "회차 기간의 평일이 아닙니다."))
             continue
+        if _norm(table[d]) == _norm(existing.get(d, {})):
+            continue  # 변경 없는 날짜는 재검증하지 않는다 (퇴사자 이름이 남아 있어도 다른 수정을 막지 않음)
         seen: dict[str, str] = {}
         for key, names in table[d].items():
             if names and key not in shift_keys:
@@ -55,7 +58,6 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
                 else:
                     seen[name] = key
     if not perms.is_admin(user):
-        existing = load_table(period, dept)
         today = perms.today()
         for d in sorted(x for x in set(table) | set(existing) if x < today):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
