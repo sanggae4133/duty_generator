@@ -1,0 +1,12 @@
+{% extends "duty/base.html" %}
+{% block content %}
+<h3>출근표 입력</h3>
+{% for it in items %}
+<article>
+  <strong>{{ it.period.name }}</strong> ({{ it.period.start_date|date:"Y-m-d" }} ~ {{ it.period.end_date|date:"Y-m-d" }})
+  <ul>{% for d, p in it.depts %}
+    <li><a href="{% url 'collect_table' it.period.pk d.code %}">{{ d.name }}</a> — {{ p.0 }} / {{ p.1 }}일</li>
+  {% endfor %}</ul>
+</article>
+{% empty %}<p>취합 중인 회차가 없습니다.</p>{% endfor %}
+{% endblock %}

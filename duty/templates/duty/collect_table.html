@@ -1,0 +1,30 @@
+{% extends "duty/base.html" %}
+{% block content %}
+<h3>{{ period.name }} · {{ dept.name }}</h3>
+{% if not is_open %}<p>취합이 열려 있지 않아 저장할 수 없습니다.</p>{% endif %}
+<div role="group">
+  <form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" role="group">{% csrf_token %}
+    <input type="file" name="file" accept=".csv" required>
+    <button>CSV 업로드 (부서 전체 교체)</button>
+  </form>
+  <a role="button" class="secondary" href="{% url 'collect_export' period.pk dept.code %}">CSV 내려받기</a>
+</div>
+{% if errors %}
+<article>
+  <strong>반영하지 않았습니다. 오류 {{ errors|length }}건</strong>
+  <ul>{% for e in errors %}<li>{% if e.row %}{{ e.row }}행 {% endif %}{{ e.column }}: {{ e.reason }}</li>{% endfor %}</ul>
+</article>
+{% endif %}
+<form method="post">{% csrf_token %}
+<div class="grid-wrap">
+<table class="roster">
+  <thead><tr><th>날짜</th><th>요일</th>{% for s in shift_labels %}<th>{{ s }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for r in rows %}
+    <tr><td>{{ r.date|date:"Y-m-d" }}</td><td>{{ r.weekday }}</td>
+      {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}" {% if r.locked %}readonly{% endif %}></td>{% endfor %}
+    </tr>{% endfor %}</tbody>
+</table>
+</div>
+<button>표 저장</button>
+</form>
+{% endblock %}

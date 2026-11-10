@@ -5,6 +5,7 @@ from django.urls import path, register_converter
 
 from . import api
 from .views import auth as auth_views_local
+from .views import collect as collect_views
 from .views import roster as roster_views
 
 
@@ -30,5 +31,9 @@ urlpatterns = [
     path("swap/<isodate:d>/", roster_views.swap, name="swap"),
     path("dept/<str:key>/", roster_views.dept, name="dept"),
     path("me/", roster_views.me, name="me"),
+    path("collect/", collect_views.index, name="collect_index"),
+    path("collect/<int:pid>/<str:code>/", collect_views.table, name="collect_table"),
+    path("collect/<int:pid>/<str:code>/upload/", collect_views.upload, name="collect_upload"),
+    path("collect/<int:pid>/<str:code>/export.csv", collect_views.export, name="collect_export"),
     path("api/assignments", api.assignments, name="api_assignments"),
 ]
