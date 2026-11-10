@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "duty-generator"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.2,<6",
+    "django-axes>=7.0",
+    "openpyxl>=3.1",
+    "whitenoise>=6.6",
+    "gunicorn>=22",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-django>=4.8"]
+
+[tool.setuptools.packages.find]
+include = ["config*", "duty*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.test_settings"
+testpaths = ["tests"]
