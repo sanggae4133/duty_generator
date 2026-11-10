@@ -151,7 +151,8 @@ def _link_from_updates(now, linked: list[str]) -> None:
         if last is None:
             return
         offset = last + 1
-    senders.telegram_get_updates(offset=offset, limit=1)  # 마지막 묶음 확인 처리
+    if not senders.telegram_get_updates(offset=offset, limit=1):  # 마지막 묶음 확인 처리. 남은 건 처리·확인 안 함
+        return
     raise DutyError("처리할 메시지가 남았습니다. 잠시 후 다시 시도하세요.")
 
 

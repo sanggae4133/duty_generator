@@ -489,3 +489,14 @@ def test_same_day_notice_collapses_slots():
     from duty.alarms.schedule import same_day_notice
     assert same_day_notice("personal", "days", 0, 10 * 60, []) == \
         "새벽·정상·석식교대·장중당번 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."
+
+
+def test_batch_cap_exact_drain_is_ok(client, me, bot, tgapi, monkeypatch):
+    from duty.services import alarms as svc
+    monkeypatch.setattr(svc, "MAX_BATCHES", 2)
+    code = code_of(me, client)
+    tgapi["updates"] = [upd(1, "hi", 1), upd(2, "hi", 1), upd(3, "hi", 1), upd(4, f"/start {code}", 42)]
+    r = post(client, "/alarms/telegram/link/check/")
+    assert tgapi["calls"] == [None, 3, 5]
+    assert not any("처리할 메시지" in m for m in msgs(r))
+    assert any("연결되었습니다" in m for m in msgs(r))
