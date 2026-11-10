@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from duty.generator import GenerationError, SlotFailure, generate_control_duty
-from duty.shifts import CONTROL_SLOTS, weekdays
+from duty.shifts import CONTROL_SLOTS, TARGET_SPREAD, weekdays
 
 DATES = weekdays(date(2026, 11, 9), date(2026, 11, 27))  # 15일
 NORMAL = [f"N{i}" for i in range(7)]
@@ -55,3 +55,50 @@ def test_failure_lists_slots_without_candidates():
     with pytest.raises(GenerationError) as e:
         generate_control_duty(DATES, c, DEVS, seed=1)
     assert SlotFailure(DATES[0], 0, 0) in e.value.failures
+
+
+def test_most_constrained_slot_first_keeps_dinner_slot_fillable():
+    d = DATES[0]
+    normal = {f"N{i}" for i in range(8)}
+    dinner = {"D0", "D1"}
+    c = {d: {"normal": normal, "dinner": dinner}}
+    for seed in range(20):
+        out = generate_control_duty([d], c, normal | dinner, seed=seed)
+        assert out.assignments[d][9] in dinner
+
+
+# greedy 단독이면 spread 3, swap 후 2가 되는 층 (seed 38, 11명, 5일)
+SWAP_DATES = [date(2026, 11, k) for k in range(9, 14)]
+SWAP_DEVS = {f"P{i}" for i in range(11)}
+SWAP_COMMUTES = {
+    SWAP_DATES[0]: {
+        "normal": {"P0", "P1", "P2", "P3", "P4", "P5", "P7", "P8", "P10"},
+        "dinner": {"P0", "P1", "P2", "P3", "P5", "P6", "P7", "P8", "P9", "P10"},
+    },
+    SWAP_DATES[1]: {
+        "normal": {"P0", "P2", "P3", "P5", "P7", "P8", "P10"},
+        "dinner": {"P0", "P1", "P2", "P3", "P4", "P5", "P7", "P8", "P9", "P10"},
+    },
+    SWAP_DATES[2]: {
+        "normal": {"P0", "P2", "P3", "P5", "P7", "P8", "P9"},
+        "dinner": {"P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"},
+    },
+    SWAP_DATES[3]: {
+        "normal": {"P0", "P1", "P2", "P3", "P4", "P5", "P7", "P8", "P9", "P10"},
+        "dinner": {"P1", "P2", "P3", "P4", "P5", "P7", "P8", "P9"},
+    },
+    SWAP_DATES[4]: {
+        "normal": {"P0", "P1", "P2", "P3", "P5", "P6", "P8", "P10"},
+        "dinner": {"P0", "P1", "P2", "P3", "P4", "P5", "P7", "P8", "P10"},
+    },
+}
+
+
+def test_swap_phase_brings_spread_within_target():
+    out = generate_control_duty(SWAP_DATES, SWAP_COMMUTES, SWAP_DEVS, seed=38)
+    assert out.reached and out.spread <= TARGET_SPREAD
+    for d, picked in out.assignments.items():
+        assert len(picked) == 10 and len(set(picked)) == 10
+        for i, m in enumerate(picked):
+            allowed = set().union(*(SWAP_COMMUTES[d][s] for s in CONTROL_SLOTS[i][1]))
+            assert m in allowed
