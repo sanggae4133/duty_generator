@@ -29,8 +29,11 @@
     table.roster:not(.month) thead th + th, table.roster:not(.month) td { border-left: 2px solid var(--day-line); border-right: 2px solid var(--day-line); }
     table.roster.month td { border: 2px solid var(--day-line); }
     table.roster.month .sec { border: 1px solid var(--duty-line); border-radius: .3rem; padding: .15rem .3rem; margin-top: .3rem; }
-    table.roster .today-col { border-left: 2px solid #d9534f; border-right: 2px solid #d9534f; }
-    table.roster.month td.today-col { border: 2px solid #d9534f; }
+    /* 오늘 표시는 border-collapse 경합을 피하려고 inset 그림자로 그린다 */
+    table.roster .today-col { box-shadow: inset 2px 0 0 #d9534f, inset -2px 0 0 #d9534f; position: relative; }
+    table.roster:not(.month) thead th.today-col { box-shadow: inset 2px 2px 0 #d9534f, inset -2px 0 0 #d9534f; }
+    table.roster:not(.month) tbody tr:last-child td.today-col { box-shadow: inset 2px -2px 0 #d9534f, inset -2px 0 0 #d9534f; }
+    table.roster.month td.today-col { box-shadow: inset 0 0 0 3px #d9534f; }
     @keyframes blink { 0%, 100% { background: transparent; } 50% { background: #ffcdd2; } }
     .blink { animation: blink .4s 3; }
     @media (max-width: 768px) { .grid-wrap { margin: 0 calc(-1 * var(--pico-spacing, 1rem)); } }
