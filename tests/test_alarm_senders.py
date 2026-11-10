@@ -253,3 +253,27 @@ def test_push_bad_key_temporary(wp, err):
     with pytest.raises(senders.Temporary) as e:
         senders.push_send(SUB, "t", "b", "/u", 60)
     assert e.value.status is None and "secret" not in str(e.value)
+
+
+@override_settings(TELEGRAM_BOT_TOKEN="TOK")
+def test_telegram_get_updates(tg):
+    calls, state = tg
+    state["result"] = Resp({"ok": True, "result": [{"update_id": 5}]})
+    assert senders.telegram_get_updates() == [{"update_id": 5}]
+    assert senders.telegram_get_updates(offset=6, limit=50) == [{"update_id": 5}]
+    assert calls[0][0].full_url == "https://api.telegram.org/botTOK/getUpdates"
+    assert json.loads(calls[0][0].data) == {"limit": 100, "allowed_updates": ["message"]}
+    assert json.loads(calls[1][0].data) == {"offset": 6, "limit": 50, "allowed_updates": ["message"]}
+
+
+@override_settings(TELEGRAM_BOT_TOKEN="TOK")
+def test_telegram_get_updates_409_and_malformed(tg):
+    _, state = tg
+    state["raise"] = http_error(409, {"ok": False})
+    with pytest.raises(senders.Permanent) as e:
+        senders.telegram_get_updates()
+    assert e.value.status == 409
+    state["raise"] = None
+    state["result"] = Resp({"ok": True, "result": {"not": "list"}})
+    with pytest.raises(senders.Temporary):
+        senders.telegram_get_updates()

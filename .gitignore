@@ -6,3 +6,4 @@ staticfiles/
 .cache/
 .pytest_cache/
 .alarms.lock
+.telegram-updates.lock

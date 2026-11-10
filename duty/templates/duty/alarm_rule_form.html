@@ -1,0 +1,54 @@
+{% extends "duty/base.html" %}
+{% block title %}알림 규칙 · IT 당번표{% endblock %}
+{% block content %}
+<h3>{% if rule %}알림 규칙 수정{% else %}알림 규칙 추가{% endif %}</h3>
+<form method="post" id="rule-form">{% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="err">{{ e }}</p>{% endfor %}
+  {% for f in form %}{% for e in f.errors %}<p class="err">{{ f.label }}: {{ e }}</p>{% endfor %}{% endfor %}
+  <label>{{ form.enabled }} 켬</label>
+  <fieldset class="filter"><legend>종류</legend>{{ form.kind }}
+    <small>개인: 내 근무만 알림 / 보고서형: 조건에 맞는 근무 전체 표</small></fieldset>
+  <fieldset class="filter"><legend>기준</legend>{{ form.timing }}</fieldset>
+  <fieldset class="filter" data-timing="before_start"><legend>근무 시작 몇 분 전</legend>
+    <div class="pair"><input type="number" name="hours" value="{{ form.hours.value|default_if_none:'' }}" min="0" max="168"> 시간
+      <input type="number" name="minutes" value="{{ form.minutes.value|default_if_none:'' }}" min="0" max="59"> 분 전</div></fieldset>
+  <fieldset class="filter" data-timing="days bizdays"><legend>며칠 전 몇 시</legend>
+    <div class="pair"><input type="number" name="days" value="{{ form.days.value|default_if_none:'' }}" min="0" max="30">
+      <span id="days-unit">일 전</span> {{ form.at_time }}</div>
+    <small>0일 전 = 근무 당일</small></fieldset>
+  <fieldset class="filter"><legend>채널</legend><label>{{ form.telegram }} 텔레그램</label><label>{{ form.push }} 푸시</label></fieldset>
+  <fieldset class="filter"><legend>스케줄</legend>{{ form.shifts }}</fieldset>
+  <fieldset class="filter" data-kind="report"><legend>부서</legend>{{ form.depts }}</fieldset>
+  <fieldset class="filter" data-kind="report"><legend>유형</legend>{{ form.types }}</fieldset>
+  <small>모두 해제하면 전부</small>
+  <div class="row-btns"><button>저장</button><a href="{% url 'alarms' %}" role="button" class="secondary">취소</a></div>
+</form>
+<style>
+  #rule-form fieldset.filter { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1rem; padding: .3rem .8rem .5rem;
+    border: 1px solid var(--duty-line); border-radius: .3rem; margin-bottom: .8rem; }
+  #rule-form fieldset.filter legend { width: auto; padding: 0 .3rem; font-size: .8rem; opacity: .7; }
+  #rule-form fieldset.filter > div:not(.pair) { display: flex; flex-wrap: wrap; gap: .2rem 1rem; }
+  #rule-form fieldset.filter label { margin: 0; white-space: nowrap; }
+  #rule-form fieldset.filter small { flex-basis: 100%; }
+  #rule-form .pair { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  #rule-form .pair input { width: 5.5rem; margin: 0; }
+  #rule-form .pair input[type=time] { width: 10rem; }
+  #rule-form .err { color: #d9534f; margin: .3rem 0; }
+  .row-btns { display: flex; gap: .5rem; margin-top: 1rem; }
+  .row-btns button, .row-btns a { width: auto; margin: 0; }
+</style>
+<script>
+  (() => {
+    const f = document.getElementById("rule-form");
+    const val = n => (f.querySelector(`input[name=${n}]:checked`) || {}).value;
+    const sync = () => {
+      const kind = val("kind"), timing = val("timing");
+      f.querySelectorAll("[data-kind]").forEach(el => el.hidden = el.dataset.kind !== kind);
+      f.querySelectorAll("[data-timing]").forEach(el => el.hidden = !el.dataset.timing.split(" ").includes(timing));
+      document.getElementById("days-unit").textContent = timing === "bizdays" ? "영업일 전" : "일 전";
+    };
+    f.addEventListener("change", sync);
+    sync();
+  })();
+</script>
+{% endblock %}

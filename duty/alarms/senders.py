@@ -68,20 +68,17 @@ def _retry_after(value) -> int | None:
     return secs if secs > 0 else None
 
 
-def telegram_send(chat_id: str, text: str) -> dict:
+def _telegram_call(method: str, payload: dict):
     if not settings.TELEGRAM_BOT_TOKEN:
         raise Permanent()
     req = urllib.request.Request(
-        f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
-        data=json.dumps({"chat_id": chat_id, "text": text}).encode(),
+        f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/{method}",
+        data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
-            result = json.loads(r.read())["result"]
-        if not isinstance(result, dict):
-            raise ValueError
-        return result
+            return json.loads(r.read())["result"]
     except urllib.error.HTTPError as e:
         code = e.code
         try:
@@ -93,10 +90,27 @@ def telegram_send(chat_id: str, text: str) -> dict:
             ra = params.get("retry_after") if isinstance(params, dict) else None
             raise RetryLater(ra if isinstance(ra, int) and ra >= 0 else None, code) from None
         if 400 <= code < 500:
-            raise Permanent(code) from None
+            raise Permanent(code) from None  # 409 = webhook 설정됨 등 봇 설정 오류
         raise Temporary(code) from None
     except (OSError, ValueError, KeyError, TypeError, AttributeError):  # URLError·timeout·깨진 응답
         raise Temporary() from None
+
+
+def telegram_send(chat_id: str, text: str) -> dict:
+    result = _telegram_call("sendMessage", {"chat_id": chat_id, "text": text})
+    if not isinstance(result, dict):
+        raise Temporary()
+    return result
+
+
+def telegram_get_updates(offset: int | None = None, limit: int = 100) -> list[dict]:
+    payload = {"limit": limit, "allowed_updates": ["message"]}
+    if offset is not None:
+        payload = {"offset": offset, **payload}
+    result = _telegram_call("getUpdates", payload)
+    if not isinstance(result, list):
+        raise Temporary()
+    return result
 
 
 def telegram_check(chat_id: str) -> str:

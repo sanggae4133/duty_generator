@@ -165,6 +165,8 @@ class TelegramAlarmProfile(models.Model):
     chat_id = models.CharField("텔레그램 chat_id", max_length=32, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     last_test_at = models.DateTimeField(null=True, blank=True)
+    link_code = models.CharField(max_length=32, null=True, blank=True, unique=True)  # 텔레그램 자동 연결 일회용 코드
+    link_expires_at = models.DateTimeField(null=True, blank=True)
 
 
 class PushAlarmSubscription(models.Model):
