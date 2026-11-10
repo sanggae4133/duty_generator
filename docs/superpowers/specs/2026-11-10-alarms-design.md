@@ -142,3 +142,25 @@ PWA: `manifest.webmanifest`, 서비스 워커(`/sw.js`, 루트 범위) — `push
 - 화면: 남의 규칙 접근 404, 중복 규칙 오류, 기본 규칙 생성(신규·기존).
 - 발송기: 텔레그램·푸시 클라이언트는 가짜로 바꿔 끼워 검증(외부 호출 없음). 410이면 구독 삭제.
 - 브라우저: 설정 화면 1400/390px, 실제 푸시 수신은 수동 확인.
+
+## 개정 1 — Codex 계획 리뷰 반영 (2026-11-10)
+
+아래가 위 본문보다 우선한다.
+
+1. **발송 기록 = 목적지별 시도 기록.** `AlarmSent` → `AlarmDelivery(rule, date, cell, channel, destination, status[sent|failed], attempts, next_attempt_at, content_hash, updated_at)`, UNIQUE `(rule, date, cell, channel, destination)`. destination = 텔레그램 chat_id 또는 `sub:<구독 id>`. **보낸 뒤에 기록**한다: 성공 → `sent`, 실패 → `failed` + 재시도 시각(1·2·4·8…분, 최대 30분, 429/503은 `Retry-After`). 발송 창(근무 시작 전) 안에서만 재시도. 404/410은 구독 삭제, 그 밖의 4xx는 재시도 안 함. 워커는 하나만: systemd `ExecStart`를 `flock -n`으로 감싼다. 발송 직후·기록 직전에 프로세스가 죽으면 드물게 중복될 수 있음을 감수한다.
+2. **푸시 endpoint 검증(SSRF 방지).** `https`, 포트·userinfo 없음, IP 리터럴 금지, 호스트가 허용 목록 접미사(`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `push.apple.com`, `notify.windows.com`) 중 하나. `p256dh`·`auth`는 base64url·길이 검사. 다른 사용자의 endpoint를 옮길 때는 키가 같아야 하고 다르면 409.
+3. **시간.** `tick(now)`는 aware datetime만 받는다. 순수 계층에는 Asia/Seoul naive로 바꿔 넘기고, DB에는 aware로 저장. 조회 기준 날짜는 `perms.today()`.
+4. **사라진 날짜.** 계획 대상 날짜 = 배포 근무표 날짜 ∪ 오늘 이후 발송 기록 날짜. 기록만 남은 날짜는 빈 근무로 보고 개인 취소·보고서 변경을 계산한다.
+5. **보고서 마감.** 보고서형 발송 창 끝 = 선택 칸 중 **가장 늦은** 시작(첫 발송 시각 계산은 그대로 가장 이른 시작 기준). 개인은 칸별 그대로. 발송 시각이 이미 칸 시작 이후인 칸은 그 규칙으로는 알림이 없다(화면에 안내).
+6. **푸시 옵션.** `timeout=10`, `ttl` = 근무 시작까지 남은 초(최소 60).
+7. **길이.** 푸시 본문은 요약 한 줄(보고서형: 날짜·조건·인원수) + 링크, 1000바이트 이내. 텔레그램 본문은 4000자에서 자르고 "…(이하 생략, 웹에서 확인)".
+8. **변경 문구.** 개인 취소에 후임이 있으면 표시(`Day.replaced` 역참조). 보고서 변경은 차이 대신 `[출근표 변경]` + 전체 표 재전송.
+9. **텔레그램.** chat_id는 양수(개인 채팅)만. [테스트 발송] 응답의 `chat.type == "private"` 확인. 웹앱 전용 봇을 새로 만들기를 권장(기존 `duty_notifier` 봇은 polling 중이라 `getUpdates` 안내와 충돌) — README에 명시.
+10. **규칙 수정.** 기준·간격·시각·스케줄·부서·유형이 바뀌면 그 규칙의 오늘 이후 발송 기록을 지운다(새 조건으로 다시 발송). 켬/끔·채널만 바뀌면 유지.
+11. **필터 값 검증.** 서비스에서 알 수 없는 스케줄·부서·유형 값이 있으면 `DutyError`. "전체"는 빈 목록(또는 전부 체크)으로만.
+12. **서비스 워커.** `push`·`notificationclick` 모두 `event.waitUntil(...)`, 클릭 시 `notification.close()`. 권한 요청은 버튼 클릭 핸들러 안에서. 실제 수신(Chrome, iOS 홈 화면 앱)은 전환 전에 사람이 확인.
+13. **기기 관리.** 구독에 `label`(User-Agent 요약)·`created_at` 표시, 기기별 삭제와 [모든 기기 해제]. 등록 시 "로그아웃해도 알림은 계속 오고 잠금 화면에 이름이 보일 수 있음" 안내.
+14. **전환 runbook.** `run_alarms --dry-run`(보낼 건수만, 이름 없이), 두 채널 실제 테스트, 매 tick 요약 로그(건수·실패 수), 롤백 = `duty-alarms` 중지 + `duty_notifier` `rules` 복구.
+15. **로그.** `rule_id`, `channel`, `destination` 대신 기록 id, HTTP status, attempt만.
+16. 발송기는 `duty/alarms/senders.py` 하나.
+17. **정리.** tick마다 7일 지난 발송 기록 삭제.
