@@ -164,3 +164,19 @@ PWA: `manifest.webmanifest`, 서비스 워커(`/sw.js`, 루트 범위) — `push
 15. **로그.** `rule_id`, `channel`, `destination` 대신 기록 id, HTTP status, attempt만.
 16. 발송기는 `duty/alarms/senders.py` 하나.
 17. **정리.** tick마다 7일 지난 발송 기록 삭제.
+
+## 개정 2 — Codex 토론 반영 (2026-11-10)
+
+개정 1보다 우선. 계획의 Task 5~8 "최종" 절이 이 내용을 구현한다.
+
+1. 계획·기록을 **목적지 단위**로: `plan()`이 목적지 목록을 받고 `Due.destination`을 낸다. 판정은 목적지별 마지막 **성공** 내용(`AlarmDelivery.last_sent_hash`) 기준. `content_hash`는 마지막 시도 내용. 첫 알림이 실패한 채 배정이 빠지면 취소를 보내지 않는다.
+2. backoff는 같은 내용 재시도에만. 내용이 바뀌면 즉시 시도. `Retry-After`는 그대로 따르되 근무 시작을 넘으면 포기. 푸시 401/403은 설정 오류로 보고 일시 실패로 재시도.
+3. 개인 hash = `in:`/`out:` + 렌더링된 본문 hash(후임·이름 변화 반영).
+4. 푸시 ttl = `max(1, ceil(남은 초))`(`total_seconds`).
+5. 기록 정리는 **근무일** 기준 7일.
+6. 단일 워커: 명령 내부 `fcntl.flock`(systemd `flock` 대신; 수동 `--once`도 보호).
+7. 허용 호스트 비교는 `host == s or host.endswith("." + s)`, 소문자화, 잘못된 포트는 400. Windows WNS는 실제 검증 전까지 제외.
+8. 텔레그램은 **[저장 및 테스트]** 하나: private 확인된 chat_id만 저장(`verified_at`), 범위 `1..2^63-1`, 사용자별 30초 쿨다운. 발송은 검증된 chat_id에만.
+9. 잘린 텔레그램 본문엔 `DUTY_SITE_URL` 절대 링크.
+10. 규칙 수정 시 기록 삭제 조건에 `kind` 포함, 정규화 값 비교, 같은 트랜잭션.
+11. 당일 규칙에서 제외되는 칸은 저장 후 구체 안내(일부/전부).
