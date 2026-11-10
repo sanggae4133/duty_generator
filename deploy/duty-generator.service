@@ -1,0 +1,13 @@
+[Unit]
+Description=duty_generator (Django)
+After=network-online.target
+
+[Service]
+User=duty
+WorkingDirectory=/opt/duty_generator
+EnvironmentFile=/etc/duty_generator/env
+ExecStart=/opt/duty_generator/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8090 --workers 2
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

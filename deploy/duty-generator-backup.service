@@ -1,0 +1,8 @@
+[Unit]
+Description=duty_generator SQLite 백업
+
+[Service]
+Type=oneshot
+User=duty
+EnvironmentFile=/etc/duty_generator/env
+ExecStart=/bin/sh -c 'sqlite3 "$DUTY_DB_PATH" ".backup /var/backups/duty_generator/db-$(date +%%Y%%m%%d).sqlite3" && ls -1t /var/backups/duty_generator/db-*.sqlite3 | tail -n +31 | xargs -r rm --'
