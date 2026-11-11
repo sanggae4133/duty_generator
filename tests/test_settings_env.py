@@ -34,7 +34,7 @@ def test_load_env_file_missing_is_ok(monkeypatch, tmp_path):
 def test_settings_read_env_file(monkeypatch, tmp_path):
     f = tmp_path / ".env"
     f.write_text("DUTY_ADMIN_PATH=from-file\nDUTY_DEBUG=1\n", encoding="utf-8")
-    monkeypatch.setattr(os, "environ", {"DUTY_ENV_FILE": str(f)})
+    monkeypatch.setattr(os, "environ", {"DUTY_ENV_FILE": str(f), "DUTY_DATA_DIR": os.environ["DUTY_DATA_DIR"]})
     try:
         importlib.reload(cs)
         assert cs.ADMIN_PATH == "from-file"
@@ -63,7 +63,8 @@ def test_env_example_lists_every_setting():
 
 
 def reload_with(monkeypatch, **env):
-    monkeypatch.setattr(os, "environ", {"DUTY_ENV_FILE": "", "DUTY_DEBUG": "1", **env})
+    base = {"DUTY_ENV_FILE": "", "DUTY_DEBUG": "1", "DUTY_DATA_DIR": os.environ["DUTY_DATA_DIR"]}  # 테스트용 임시 폴더
+    monkeypatch.setattr(os, "environ", {k: v for k, v in {**base, **env}.items() if v is not None})
     importlib.reload(cs)
     return cs
 
@@ -76,7 +77,8 @@ def restore_settings(monkeypatch):
 
 
 def test_data_dir_default(monkeypatch, restore_settings):
-    s = reload_with(monkeypatch)
+    monkeypatch.setattr(cs.Path, "mkdir", lambda *a, **k: None)  # 저장소 data/ 를 만들지 않게
+    s = reload_with(monkeypatch, DUTY_DATA_DIR=None)
     d = ROOT / "data"
     assert s.DATA_DIR == d and s.DATABASES["default"]["NAME"] == d / "db.sqlite3"
     assert (s.BACKUP_DIR, s.LOG_DIR) == (d / "backups", d / "logs")
@@ -88,11 +90,13 @@ def test_data_dir_override(monkeypatch, tmp_path, restore_settings):
     s = reload_with(monkeypatch, DUTY_DATA_DIR=str(tmp_path / "d"))
     assert s.DATA_DIR == tmp_path / "d" and s.DB_PATH == tmp_path / "d/db.sqlite3"
     assert s.DATA_DIR.is_dir()  # 없으면 만든다
+    monkeypatch.setattr(cs.Path, "mkdir", lambda *a, **k: None)
     assert reload_with(monkeypatch, DUTY_DATA_DIR="").DATA_DIR == ROOT / "data"  # 빈 값 = 기본
 
 
 def test_data_dir_relative_is_project_root(monkeypatch, restore_settings):
     monkeypatch.chdir("/")
+    monkeypatch.setattr(cs.Path, "mkdir", lambda *a, **k: None)
     s = reload_with(monkeypatch, DUTY_DATA_DIR="data")
     assert s.DATA_DIR == ROOT / "data"
 

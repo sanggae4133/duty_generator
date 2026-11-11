@@ -58,11 +58,24 @@ def data(settings, tmp_path):
 # ---- 백업 ----
 
 def test_daily_backup_after_hour_once(data):
+    data.BACKUP_DIR.mkdir()
+    (data.BACKUP_DIR / "db-20261110.sqlite3").write_text("x")  # 방금 만든(26시간 안) 백업이 있으면 시각을 기다린다
     assert backup.daily(at(2026, 11, 11, 2, 59)) is None
     p = backup.daily(at(2026, 11, 11, 3, 0))
     assert p == data.BACKUP_DIR / "db-20261111.sqlite3" and rows(p) == ["a"]
     assert backup.daily(at(2026, 11, 11, 3, 1)) is None  # 하루 한 번
     assert not list(data.BACKUP_DIR.glob("*.tmp"))
+
+
+def test_daily_backup_right_away_without_recent_backup(data):
+    """새로 설치했거나 오래 꺼져 있었으면 시각과 상관없이 바로 만든다(상태 점검이 '백업 없음'으로 시작하지 않게)."""
+    data.BACKUP_DIR.mkdir()
+    old = data.BACKUP_DIR / "db-20261101.sqlite3"
+    old.write_text("x")
+    t = time.time() - 27 * 3600
+    os.utime(old, (t, t))
+    assert backup.daily(at(2026, 11, 11, 1, 0)).name == "db-20261111.sqlite3"
+    assert backup.daily(at(2026, 11, 11, 2, 0)) is None
 
 
 def test_daily_backup_catches_up_late_start(data):
@@ -158,6 +171,34 @@ def test_restore_refuses_other_migrations(data, tmp_path):
     with pytest.raises(CommandError, match="마이그레이션"):
         call_command("restore", str(src))
     assert rows(data.DB_PATH) == ["a"] and not data.BACKUP_DIR.exists()
+
+
+def test_restore_refused_while_worker_runs(data, tmp_path):
+    src = migrated(tmp_path / "old.sqlite3")
+    with open(data.ALARMS_LOCK_PATH, "a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        with pytest.raises(CommandError, match="작업자가 돌고 있습니다"):
+            call_command("restore", str(src))
+    assert rows(data.DB_PATH) == ["a"] and not data.BACKUP_DIR.exists()
+
+
+def test_restore_holds_worker_lock(data, tmp_path, monkeypatch):
+    """복원하는 동안 작업자가 뜨지 못한다."""
+    src = migrated(tmp_path / "old.sqlite3")
+    real = backup.copy_db
+    seen = []
+
+    def spy(a, b):
+        with open(data.ALARMS_LOCK_PATH, "a") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                seen.append("free")
+            except BlockingIOError:
+                seen.append("held")
+        real(a, b)
+    monkeypatch.setattr(backup, "copy_db", spy)
+    backup.restore(src, NOW)
+    assert seen == ["held", "held"]
 
 
 def test_restore_refuses_missing_or_same(data, tmp_path):
@@ -332,26 +373,59 @@ def test_once_refused_while_worker_runs(jobs, data):
     assert jobs == []
 
 
-def test_dry_run_works_while_worker_runs(jobs, data, monkeypatch, capsys):
-    monkeypatch.setattr(alarm_runner, "collect", lambda now: [])
+def test_dry_run_works_while_worker_runs(jobs, data, capsys):
     with open(data.ALARMS_LOCK_PATH, "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
         call_command("run_worker", "--dry-run")
     assert "telegram=0 push=0" in capsys.readouterr().out and jobs == []
+    assert not AlarmSettings.objects.exists()  # 읽기만 한다(설정 행도 만들지 않음)
+
+
+class Stop(Exception):
+    pass
+
+
+def test_loop_skips_health_on_first_round(jobs, data, monkeypatch):
+    """막 켜졌을 때(재부팅·업그레이드) 아직 뜨는 중인 웹을 '응답 없음'으로 보지 않게 첫 바퀴는 점검을 건너뛴다."""
+    from duty.management.commands import run_worker
+    monkeypatch.setattr(timezone, "now", lambda: NOW)  # 5의 배수 분
+    sleeps = []
+
+    def sleep(sec):
+        sleeps.append(sec)
+        if len(sleeps) == 2:
+            raise Stop
+    monkeypatch.setattr(run_worker.time, "sleep", sleep)
+    root = logging.getLogger()
+    before = list(root.handlers)
+    try:
+        with pytest.raises(Stop):
+            call_command("run_worker")
+    finally:
+        for h in root.handlers[:]:
+            if h not in before:
+                root.removeHandler(h)
+                h.close()
+    assert [n for n, _ in jobs] == ["alarms", "backup", "alarms", "backup", "health"]
 
 
 # ---- 파일 로그 ----
 
-def test_log_to_file_format_and_redaction(settings, tmp_path):
-    settings.LOG_DIR = tmp_path / "logs"
+def test_tests_never_use_repo_data_dir(settings):
+    assert settings.DATA_DIR != settings.BASE_DIR / "data"
+    assert "duty-test-" in settings.DATA_DIR.name
+
+
+def test_log_to_file_format_and_redaction(settings):
     code = ("import django, logging; django.setup(); from duty.logging import log_to_file; log_to_file('web'); "
             "log_to_file('web'); logging.getLogger('duty.x').info('hello'); "
             "from types import SimpleNamespace as N; logging.getLogger('django.request').warning("
             "'Not Found: %s', '/calendar/SECRETTOKEN.ics', extra={'request': N(path='/calendar/SECRETTOKEN.ics'), "
-            "'status_code': 404})")
-    subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=settings.BASE_DIR,
-                   env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings", "DUTY_DATA_DIR": str(tmp_path)})
-    lines = (tmp_path / "logs/web.log").read_text(encoding="utf-8").splitlines()
+            "'status_code': 404}); [h.flush() for h in logging.getLogger().handlers]; "
+            "from django.conf import settings as s; print((s.LOG_DIR / 'web.log').read_text(encoding='utf-8'), end='')")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=settings.BASE_DIR,
+                       env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"})
+    lines = r.stdout.splitlines()
     assert len(lines) == 2  # 핸들러는 한 번만 붙는다
     assert lines[0].endswith(" INFO duty.x hello") and lines[0][:4].isdigit()
     assert "SECRETTOKEN" not in lines[1] and "calendar feed" in lines[1]

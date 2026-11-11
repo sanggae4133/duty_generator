@@ -9,7 +9,8 @@ log = logging.getLogger(__name__)
 
 
 def current() -> AlarmSettings:
-    return AlarmSettings.objects.get_or_create(pk=1)[0]
+    """읽기만 한다. 행이 없으면 저장하지 않은 기본값(pk=1)을 돌려준다(save() 하면 그 행이 된다)."""
+    return AlarmSettings.objects.filter(pk=1).first() or AlarmSettings(pk=1)
 
 
 def _new_push_keys() -> tuple[str, str]:
@@ -33,7 +34,7 @@ def ensure_push_keys() -> AlarmSettings:
         log.exception("push key generation failed")
         return s
     with transaction.atomic():  # IMMEDIATE: 다시 읽어 그사이 다른 요청이 만든 키가 있으면 그것을 쓴다
-        s = AlarmSettings.objects.get(pk=1)
+        s = AlarmSettings.objects.get_or_create(pk=1)[0]
         if not s.push_on:
             s.vapid_public_key, s.vapid_private_key = pub, priv
             s.save(update_fields=["vapid_public_key", "vapid_private_key", "updated_at"])

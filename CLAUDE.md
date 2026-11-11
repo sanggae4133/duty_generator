@@ -34,11 +34,11 @@ DUTY_DEBUG=1 .venv/bin/python manage.py run_worker   # 작업자(알림·백업�
 - 푸시 키는 비어 있으면 `alarm_settings.ensure_push_keys()`가 만든다. 봇이 바뀌면 `alarm_settings.save()`가 모든 텔레그램 확인을 비운다.
 - 발송은 작업자 `manage.py run_worker`가 한다(1분마다 한 바퀴: 알림 `alarm_runner.tick` 매분, 백업 `services.backup.daily` 하루 한 번, 상태 점검 `services.health.check` 5분마다. 작업마다 예외를 따로 잡아 하나가 실패해도 나머지는 돈다). 작업 함수는 `now`를 받아 테스트에서 시각을 정한다.
 - `run_worker`는 `settings.ALARMS_LOCK_PATH`(data/.alarms.lock) fcntl 잠금으로 한 프로세스만 돈다(`--once`는 잠금이 있으면 바로 실패, `--dry-run`은 잠금 없이 건수만). 텔레그램 [연결 확인]은 `TELEGRAM_UPDATES_LOCK_PATH`로 `getUpdates`를 직렬화한다.
+- 캘린더 구독: `CalendarFeed`엔 토큰 SHA-256 해시만 저장(원문은 발급 응답에 1회만, 리다이렉트·messages·세션 금지). 피드 `/calendar/<토큰>.ics`는 로그인·CSRF 예외이고 `django.request`·`django.server` 로그에서 경로를 지운다(`duty/logging.py`). `duty/ics.py`는 ORM 없는 순수 모듈.
 
 ## 운영
-- 실행 중 생기는 파일은 전부 `DUTY_DATA_DIR`(기본 저장소 루트 `data/`, gitignore): `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`. 경로는 `settings.DATA_DIR`·`DB_PATH`·`BACKUP_DIR`·`LOG_DIR`에서만 얻는다.
+- 실행 중 생기는 파일은 전부 `DUTY_DATA_DIR`(기본 저장소 루트 `data/`, gitignore, 테스트는 임시 폴더): `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`. 경로는 `settings.DATA_DIR`·`DB_PATH`·`BACKUP_DIR`·`LOG_DIR`에서만 얻는다.
 - 서버는 systemd 유닛 두 개(`deploy/duty-web.service` gunicorn `--workers 1 --threads 4`, `deploy/duty-worker.service`)뿐이다. 개발·운영 차이는 `.env` 값으로만 둔다. 업그레이드·롤백·복원은 README 의 명령 목록(`manage.py backup`/`restore`)으로 한다 — 셸 스크립트·타이머를 새로 만들지 않는다.
-- 캘린더 구독: `CalendarFeed`엔 토큰 SHA-256 해시만 저장(원문은 발급 응답에 1회만, 리다이렉트·messages·세션 금지). 피드 `/calendar/<토큰>.ics`는 로그인·CSRF 예외이고 `django.request`·`django.server` 로그에서 경로를 지운다(`duty/logging.py`). `duty/ics.py`는 ORM 없는 순수 모듈.
 
 ## 도메인 기준
 - 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·알림이 같은 키를 쓴다.

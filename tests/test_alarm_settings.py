@@ -16,11 +16,18 @@ TOKEN = "1234567890:" + "FAKE" + "x" * 31  # 가짜(비밀 탐지기에 걸리�
 TOKEN2 = "1234567891:" + "FAKE" + "y" * 31
 
 
-def test_current_creates_single_row(db):
+def test_current_reads_without_creating(db):
     s = alarm_settings.current()
-    assert s.pk == 1 and s.telegram_bot_token == "" and s.vapid_subject == "mailto:admin@localhost"
-    assert alarm_settings.current().pk == 1 and AlarmSettings.objects.count() == 1
+    assert s.telegram_bot_token == "" and s.vapid_subject == "mailto:admin@localhost"
     assert not s.telegram_on and not s.bot_ready and not s.push_on
+    assert not AlarmSettings.objects.exists()  # 읽기만(run_worker --dry-run 도 쓰지 않게)
+    AlarmSettings.objects.create(pk=1, telegram_bot_token="t")
+    assert alarm_settings.current().telegram_bot_token == "t"
+
+
+def test_push_keys_create_the_row(db):
+    s = alarm_settings.ensure_push_keys()
+    assert s.pk == 1 and AlarmSettings.objects.get().push_on
 
 
 def test_only_pk_1(db):
@@ -158,7 +165,7 @@ def form(**kw):
 
 def test_admin_superuser_only(client, admin_user):
     client.force_login(admin_user)  # 스태프지만 슈퍼유저 아님
-    alarm_settings.current()
+    alarm_settings.current().save()  # 행을 만들어 둔다
     assert client.get(change_url()).status_code == 403
 
 
@@ -201,14 +208,14 @@ def test_admin_blank_keeps_new_replaces_clear_empties(su, linked):
     (dict(ops_chat_id="0"), "1"),
 ])
 def test_admin_validation(su, data, err):
-    alarm_settings.current()
+    alarm_settings.current().save()  # 행을 만들어 둔다
     r = su.post(change_url(), form(**data))
     body = r.content.decode()
     assert r.status_code == 200 and "errornote" in body and err in body
 
 
 def test_admin_username_strips_at(su):
-    alarm_settings.current()
+    alarm_settings.current().save()  # 행을 만들어 둔다
     su.post(change_url(), form(telegram_bot_username="@duty_bot2"))
     assert AlarmSettings.objects.get().telegram_bot_username == "duty_bot2"
 
@@ -223,7 +230,7 @@ def test_admin_regenerate_push_keys(su, make_member):
 
 
 def test_admin_save_logs_no_token(su, caplog):
-    alarm_settings.current()
+    alarm_settings.current().save()  # 행을 만들어 둔다
     with caplog.at_level(logging.DEBUG):
         su.post(change_url(), form(telegram_bot_token=TOKEN))
     assert TOKEN not in caplog.text

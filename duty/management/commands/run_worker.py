@@ -21,9 +21,9 @@ log = logging.getLogger("duty.worker")
 HEALTH_EVERY = 5  # 분
 
 
-def run_round(now, everything=False) -> None:
+def run_round(now, everything=False, skip_health=False) -> None:
     jobs = [("alarms", alarm_runner.tick), ("backup", backup.daily)]
-    if everything or timezone.localtime(now).minute % HEALTH_EVERY == 0:
+    if everything or (not skip_health and timezone.localtime(now).minute % HEALTH_EVERY == 0):
         jobs.append(("health", health.check))
     for name, job in jobs:
         try:
@@ -55,7 +55,10 @@ class Command(BaseCommand):
                 run_round(timezone.now(), everything=True)
                 return
             log.info("worker started")
+            first = True
             while True:
-                run_round(timezone.now())
+                # 첫 바퀴는 점검을 건너뛴다: 재부팅·업그레이드 직후 아직 뜨는 중인 웹을 "응답 없음"으로 알리지 않게
+                run_round(timezone.now(), skip_health=first)
+                first = False
                 now = timezone.now()
                 time.sleep(60 - now.second - now.microsecond / 1e6)

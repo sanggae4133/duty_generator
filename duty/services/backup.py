@@ -4,8 +4,10 @@
 - 손으로: manage.py backup → db-YYYYMMDD-HHMMSS.sqlite3 (같은 보관 규칙)
 - 복원: manage.py restore <파일> → 지금 DB 를 before-restore-*.sqlite3 로 남기고 교체(이 파일들은 지우지 않는다)
 """
+import fcntl
 import logging
 import os
+import time
 import re
 import sqlite3
 from datetime import date, datetime, timedelta
@@ -54,11 +56,24 @@ def backup_now(now) -> Path:
     return dest
 
 
+RECENT = 26 * 3600  # 상태 점검의 "최근 백업" 기준과 같다
+
+
+def has_recent() -> bool:
+    """RECENT 안에 만든 db-* 백업이 있는가(파일 수정 시각 기준)."""
+    cutoff = time.time() - RECENT
+    try:
+        return any(p.stat().st_mtime >= cutoff for p in Path(settings.BACKUP_DIR).glob("db-*.sqlite3"))
+    except OSError:
+        return False
+
+
 def daily(now) -> Path | None:
-    """오늘 백업이 없고 BACKUP_HOUR 시가 지났으면 만든다(늦게 켜져도 그날 안에 따라잡음)."""
+    """오늘 백업이 없고 BACKUP_HOUR 시가 지났으면 만든다(늦게 켜져도 그날 안에 따라잡음).
+    최근(26시간 안) 백업이 하나도 없으면(새 설치·오래 꺼져 있었음) 시각과 상관없이 바로 만든다."""
     local = timezone.localtime(now)
     dest = settings.BACKUP_DIR / f"db-{local:%Y%m%d}.sqlite3"
-    if local.hour < settings.BACKUP_HOUR or dest.exists():
+    if dest.exists() or (local.hour < settings.BACKUP_HOUR and has_recent()):
         return None
     copy_db(settings.DB_PATH, dest)
     prune(local.date())
@@ -100,14 +115,19 @@ def restore(src: Path, now) -> Path | None:
     """검사 → 지금 DB 를 before-restore-*.sqlite3 로 → -wal/-shm 삭제 → 교체. 서비스는 멈춘 상태여야 한다.
     돌려주는 값: 복원 직전 DB 백업 경로(지금 DB 가 없었으면 None)."""
     src = Path(src)
-    check(src)
-    connection.close()
-    db = Path(settings.DB_PATH)
-    before = None
-    if db.exists():
-        before = settings.BACKUP_DIR / f"before-restore-{timezone.localtime(now):%Y%m%d-%H%M%S}.sqlite3"
-        copy_db(db, before)
-    for suffix in ("-wal", "-shm"):  # 남은 WAL 이 새 파일에 덮어써지지 않게
-        Path(f"{db}{suffix}").unlink(missing_ok=True)
-    copy_db(src, db)
-    return before
+    with open(settings.ALARMS_LOCK_PATH, "a") as lock:  # 끝날 때까지 잡고 있어 그동안 작업자가 뜨지 못한다
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise DutyError("작업자가 돌고 있습니다. sudo systemctl stop duty-web duty-worker 후 다시 하세요.") from None
+        check(src)
+        connection.close()
+        db = Path(settings.DB_PATH)
+        before = None
+        if db.exists():
+            before = settings.BACKUP_DIR / f"before-restore-{timezone.localtime(now):%Y%m%d-%H%M%S}.sqlite3"
+            copy_db(db, before)
+        for suffix in ("-wal", "-shm"):  # 남은 WAL 이 새 파일에 덮어써지지 않게
+            Path(f"{db}{suffix}").unlink(missing_ok=True)
+        copy_db(src, db)
+        return before

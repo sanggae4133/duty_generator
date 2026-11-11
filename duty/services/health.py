@@ -5,18 +5,16 @@
 import logging
 import shutil
 import socket
-import time
 import urllib.request
 from pathlib import Path
 
 from django.conf import settings
 
 from ..alarms import senders
-from . import alarm_settings
+from . import alarm_settings, backup
 
 log = logging.getLogger(__name__)
 WEB_URL = "http://127.0.0.1:8090/login/"  # deploy/duty-web.service 의 --bind 와 같아야 한다
-BACKUP_MAX_AGE = 26 * 3600
 DISK_LIMIT = 90
 
 
@@ -25,14 +23,6 @@ def _web_ok() -> bool:
         with urllib.request.urlopen(WEB_URL, timeout=10):
             return True
     except (OSError, ValueError):  # URLError·HTTPError(4xx/5xx)·timeout
-        return False
-
-
-def _recent_backup() -> bool:
-    cutoff = time.time() - BACKUP_MAX_AGE
-    try:
-        return any(p.stat().st_mtime >= cutoff for p in Path(settings.BACKUP_DIR).glob("db-*.sqlite3"))
-    except OSError:
         return False
 
 
@@ -49,7 +39,7 @@ def problems() -> str:
     out = []
     if not _web_ok():
         out.append("웹 응답 없음")
-    if not _recent_backup():
+    if not backup.has_recent():
         out.append("26시간 안에 만든 백업 없음")
     use = _disk_percent(settings.DATA_DIR)
     if use is None:

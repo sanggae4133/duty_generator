@@ -48,7 +48,7 @@ IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관�
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock -r requirements-dev.txt
-cp .env.example .env   # DUTY_DEBUG=1 로 바꾸고 나머지는 파일 안 "개발:" 값으로(대부분 비우면 된다)
+cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 .venv/bin/pytest -W error   # 테스트는 .env 를 읽지 않는다
 .venv/bin/python manage.py migrate   # data/db.sqlite3 를 만든다
 .venv/bin/python manage.py createsuperuser
@@ -71,7 +71,7 @@ sudo install -d -o duty -g duty -m 750 data data/backups data/logs
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -r requirements.lock
 sudo install -o root -g duty -m 640 .env.example .env
-sudoedit .env   # 값 채우기: 항목마다 설명과 "서버:" 예시 값이 있다
+sudoedit .env   # 견본은 개발 PC 값이다. 여섯 줄을 "서버:" 값으로: DUTY_DEBUG=0, DUTY_SECRET_KEY, DUTY_ALLOWED_HOSTS, DUTY_CSRF_ORIGINS, DUTY_SITE_URL, DUTY_ADMIN_PATH
 # manage.py 를 duty 사용자로 부르는 함수(이 셸에서만 유효). 아래 절차들이 이걸 쓴다.
 dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }
 sudo .venv/bin/python manage.py collectstatic --noinput   # root 로: 코드 폴더는 duty 가 쓸 수 없다
@@ -87,7 +87,8 @@ sudo systemctl enable --now duty-web duty-worker
 - `.env` 를 고친 뒤에는 `sudo systemctl restart duty-web duty-worker`.
 - `dm` 은 `/opt/duty_generator` 밖에서도 돌므로 파일 인자는 절대 경로로 준다.
 - 서버 시계: 알림이 분 단위로 돈다. `timedatectl` 에서 `System clock synchronized: yes`. 시간대와 상관없이 앱은 Asia/Seoul 로 계산한다.
-- 작업자는 켜자마자 그날 백업이 없으면 바로 하나 만든다(그래서 상태 점검이 "백업 없음"으로 시작하지 않는다).
+- 작업자는 켜질 때 26시간 안에 만든 백업이 없으면(새 설치·오래 꺼져 있었음) 시각과 상관없이 바로 하나 만든다. 그래서 상태 점검이 "백업 없음"으로 시작하지 않는다.
+- `dm check --deploy` 가 `DEBUG`·`SECRET_KEY` 경고를 내면 `.env` 의 여섯 줄을 덜 바꾼 것이다.
 - 알림은 관리 화면 → 알림 설정에 봇 토큰을 넣어야 나간다(아래 "알림 켜기").
 
 ## 서비스 두 개 (`deploy/`)
@@ -155,7 +156,7 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 
 ## 백업·복원
 
-- 자동: 작업자가 매일 `DUTY_BACKUP_HOUR` 시(기본 3시) 이후 처음 돌 때 `data/backups/db-YYYYMMDD.sqlite3` 를 만들고, `DUTY_BACKUP_KEEP_DAYS` 일(기본 30)보다 오래된 `db-*` 를 지운다. 작업자가 꺼져 있었으면 다시 켜질 때 그날 것을 만든다.
+- 자동: 작업자가 매일 `DUTY_BACKUP_HOUR` 시(기본 3시) 이후 처음 돌 때 `data/backups/db-YYYYMMDD.sqlite3` 를 만들고, `DUTY_BACKUP_KEEP_DAYS` 일(기본 30)보다 오래된 `db-*` 를 지운다. 작업자가 꺼져 있었으면 다시 켜질 때 그날 것을 만든다(26시간 안 백업이 없으면 그 시각 전이라도 바로).
 - 수동: `dm backup` → `data/backups/db-YYYYMMDD-HHMMSS.sqlite3`. 서비스가 도는 중에도 된다. **DB 파일을 `cp` 로 복사하지 말 것**(WAL 모드라 최근 변경이 빠지거나 깨진 사본이 될 수 있다). 백업은 SQLite 백업 기능으로 떠서 일관된 파일 하나가 된다.
 - 백업에는 실명과 텔레그램 봇 토큰·푸시 키가 들어 있다. 서버 밖에 보관하려면 내려받되 공유 폴더에 두지 않는다.
 - 복원:
@@ -165,6 +166,7 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
   dm migrate
   sudo systemctl start duty-web duty-worker
   ```
+  - 작업자가 돌고 있으면(`data/.alarms.lock` 이 잡혀 있으면) 아무것도 바꾸지 않고 멈춘다. 복원하는 동안은 이 잠금을 잡고 있어 작업자가 뜨지 못한다. 웹은 검사하지 않으니 직접 멈춘다.
   - 복원 전에 검사한다. `quick_check` 가 `ok` 가 아니거나 백업의 마이그레이션이 지금 코드와 다르면 아무것도 바꾸지 않고 멈춘다(다르면 그 백업을 만든 버전의 코드로 먼저 바꾼다).
   - 지금 DB 는 `data/backups/before-restore-YYYYMMDD-HHMMSS.sqlite3` 로 남긴다(자동으로 지우지 않는다). 남은 `-wal`·`-shm` 은 지운다.
 
@@ -187,6 +189,7 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 
 - 웹이 응답하지 않음(`http://127.0.0.1:8090/login/`) / 26시간 안에 만든 `db-*` 백업이 없음 / `data/` 디스크 사용 90% 이상
 - 보내는 봇은 알림용 텔레그램 봇, 받는 사람은 관리 화면 → 알림 설정의 "장애 알림 받을 chat_id"(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `worker.log` 에만 남는다.
+- 작업자가 켜진 직후 첫 바퀴는 점검을 건너뛴다(재부팅·업그레이드 때 아직 뜨는 중인 웹을 "응답 없음"으로 알리지 않게). 첫 점검은 다음 5분 단위 시각이다.
 - 첫 점검이 정상이면 `health: 정상(점검 시작)` 한 줄만 남기고 알리지 않는다. 마지막 상태는 `data/.health.state` 에 있다.
 - 발송에 실패하면 상태를 저장하지 않아 다음 점검(5분 뒤)에 다시 보낸다.
 - 웹 점검이 `127.0.0.1` 로 부르므로 `DUTY_ALLOWED_HOSTS` 에 `127.0.0.1` 이 있어야 한다.

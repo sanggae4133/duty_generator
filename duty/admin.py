@@ -168,7 +168,7 @@ class AlarmSettingsAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         if not self.has_view_or_change_permission(request):
             return super().changelist_view(request, extra_context)  # 권한 없음 처리는 Django 에 맡긴다
-        return redirect(reverse("admin:duty_alarmsettings_change", args=[alarm_settings.current().pk]))
+        return redirect(reverse("admin:duty_alarmsettings_change", args=[AlarmSettings.objects.get_or_create(pk=1)[0].pk]))
 
     def save_model(self, request, obj, form, change):
         n = alarm_settings.save(obj, regenerate_push_keys=form.cleaned_data.get("regenerate_push_keys", False))
