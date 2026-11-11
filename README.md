@@ -89,6 +89,28 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 - 업그레이드에서 DB 구조가 바뀌었으면(`migrate` 가 무언가 적용) 롤백 후 DB 도 그때의 `before-upgrade-*` 로 "복원"한다.
 - `before-upgrade-*` 백업은 자동으로 지워지지 않는다. 디스크가 작으면 가끔 오래된 것을 지운다.
 
+## 기존 DB 옮기기 (멤버·계정 통합 전 DB, 1회)
+
+멤버·계정 통합 버전은 마이그레이션을 새 `0001_v2` 하나로 새로 만들었다. 그 전 버전(duty 마이그레이션 0001~0009)으로 데이터를 넣은 DB(개발 PC, 시험 설치 서버)는 `migrate` 로 올라가지 않으니(일부러 실패한다) 아래처럼 한 번 옮긴다. DB 폴더에서(개발 PC 는 저장소 루트, 서버는 `/var/lib/duty_generator`, 서버에서는 `sudo -u duty` 로·manage.py 는 위의 `dm` 으로) 실행한다.
+
+```bash
+# 0. 서비스(또는 runserver)를 멈춘다. 서버: sudo systemctl stop duty-alarms duty-generator
+sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"     # WAL 까지 담긴 일관된 단일 파일
+sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"     # ok 가 나와야 한다
+mkdir -p old && mv db.sqlite3 old/                     # 롤백용으로 옮겨 둔다
+for f in db.sqlite3-wal db.sqlite3-shm; do [ -e "$f" ] && mv "$f" old/; done   # 있는 것만
+git checkout <v2 버전> && 설치(개발 PC: .venv/bin/pip install -e '.[dev]')
+manage.py migrate                                      # 빈 새 DB
+manage.py convert_v1 db.sqlite3-v1.sqlite3             # 옮기기
+# 서비스 다시 시작
+```
+
+- `convert_v1` 은 예전 백업을 읽기 전용으로 열고, 먼저 전부 검사한다(원본 `quick_check`·`foreign_key_check`·마이그레이션 0001~0009, 지금 DB 가 `0001_v2` 만 적용된 빈 DB인지, 아이디·이름 규칙과 중복, 그룹·직접 권한 행 없음). 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
+- 멤버마다 사용자 1명(id = 예전 멤버 id, 아이디 = 멤버 코드)을 만들고 연결된 계정의 비밀번호·권한·로그인 시각을 옮긴다. 재직 = 멤버 재직 AND 계정 활성. 멤버와 연결되지 않은 계정(어드민 전용 등)은 부서 없는 사용자로, 이름 = 아이디. 나머지 표는 id 그대로 옮긴다. 세션·로그인 실패 기록·관리 화면 기록은 버리고(다시 로그인해야 한다), 텔레그램 연결 대기 코드는 비운다.
+- 출력은 표별 건수뿐이다(이름·비밀값 없음).
+- 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다.
+- 예전 DB 에 새 코드로 `migrate` 를 돌리면 실패하고 DB 는 그대로다. 서버에서 `upgrade.sh` 로 이 버전에 올리면 `migrate` 단계에서 멈추니, 서버는 위 절차를 손으로 따른다.
+
 ## 백업·복원
 
 - 자동: 매일 03:00 `/var/backups/duty_generator/db-YYYYMMDD.sqlite3`, 최근 30개 보관.
