@@ -27,7 +27,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py run_worker   # 작업자(알림·백업�
 - 경로는 `settings.DATA_DIR`·`DB_PATH`·`BACKUP_DIR`·`LOG_DIR`에서만. 개발·운영 차이는 `.env` 값으로만. 셸 스크립트·타이머·새 deploy 파일을 만들지 않는다.
 - 정적 파일(htmx, Pico.css)은 CDN 말고 `duty/static/vendor/`.
 - 테스트에서 텔레그램·푸시 실제 호출 금지(`senders` monkeypatch). 진짜처럼 보이는 비밀값 문자열을 테스트에 쓰지 않는다(런타임에 조립).
-- 마이그레이션 파일은 지우지 않는다. 새 칼럼은 `services/convert_v1.py`의 `ADDED`에도 넣는다.
+- 마이그레이션 파일은 지우지 않는다(운영 DB를 올리는 유일한 길).
 
 ## 보안·개인정보
 - 실명 데이터를 커밋하지 않는다. 테스트·fixture는 가상의 이름이나 멤버 코드만 쓴다. 보고서·로그에 실명을 옮길 때는 `***`로 가린다.

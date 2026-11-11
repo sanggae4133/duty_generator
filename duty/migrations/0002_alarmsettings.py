@@ -1,26 +1,5 @@
-import os
-
 import django.core.validators
 from django.db import migrations, models
-
-OLD_ENV = ("DUTY_TELEGRAM_BOT_TOKEN", "DUTY_TELEGRAM_BOT_USERNAME", "DUTY_VAPID_PUBLIC_KEY", "DUTY_VAPID_PRIVATE_KEY",
-           "DUTY_VAPID_SUBJECT", "DUTY_OPS_CHAT_ID")
-
-
-def seed_from_env(apps, schema_editor):
-    """예전에 환경변수(.env)로 주던 알림 설정이 있으면 그 값으로 행을 만든다(시험 서버 이전용, 1회)."""
-    env = {k: os.environ.get(k, "").strip() for k in OLD_ENV}
-    if not any(env.values()):
-        return
-    chat = env["DUTY_OPS_CHAT_ID"]
-    apps.get_model("duty", "AlarmSettings").objects.update_or_create(pk=1, defaults=dict(
-        telegram_bot_token=env["DUTY_TELEGRAM_BOT_TOKEN"],
-        telegram_bot_username=env["DUTY_TELEGRAM_BOT_USERNAME"].lstrip("@"),
-        vapid_public_key=env["DUTY_VAPID_PUBLIC_KEY"],
-        vapid_private_key=env["DUTY_VAPID_PRIVATE_KEY"],
-        vapid_subject=env["DUTY_VAPID_SUBJECT"] or "mailto:admin@localhost",
-        ops_chat_id=int(chat) if chat.isascii() and chat.isdigit() and 1 <= int(chat) <= 2**63 - 1 else None,
-    ))
 
 
 class Migration(migrations.Migration):
@@ -48,5 +27,4 @@ class Migration(migrations.Migration):
                 'constraints': [models.CheckConstraint(condition=models.Q(('pk', 1)), name='alarmsettings_single_row')],
             },
         ),
-        migrations.RunPython(seed_from_env, migrations.RunPython.noop),
     ]

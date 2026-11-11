@@ -29,7 +29,7 @@
 | `duty/perms.py` | 오늘 날짜, 어드민 여부, 부서 담당, 지난 날짜 수정 검사 | |
 | `duty/services/` | **DB를 바꾸는 규칙은 전부 여기**. 뷰·관리 명령은 서비스만 부른다 | O |
 | `duty/views/` | 화면. 요청을 읽고 서비스를 부르고 템플릿을 그린다 | 읽기만 |
-| `duty/management/commands/` | `run_worker`, `backup`, `restore`, `convert_v1` | |
+| `duty/management/commands/` | `run_worker`, `backup`, `restore` | |
 | `duty/admin.py` | Django 관리 화면(사용자·부서·계정 발급·알림 설정) | |
 | `deploy/` | systemd 유닛 두 개 | |
 
@@ -114,6 +114,13 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 - 실행 중 생기는 파일은 전부 `data/`: `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`.
 - 개발·운영 차이는 `.env` 값뿐이다. 셸 스크립트·타이머·logrotate는 없다. 업그레이드·롤백·복원은 README의 명령으로 한다.
 
+## DB를 바꾸려면 (SQLite → MySQL 등)
+
+코드는 ORM만 쓰므로 모델·서비스·화면은 그대로다. SQLite에 묶인 곳은 두 군데다.
+- `services/backup.py`(백업·복원·검사): SQLite 파일 전용. DB 쪽 덤프·자동 백업으로 바꾸고, `health.py`의 "최근 백업" 점검을 맞춘다.
+- 동시 수정: 지금은 `transaction_mode=IMMEDIATE`로 쓰기가 줄을 서서 `transaction.atomic()` 안의 "읽고 확인 → 쓰기"가 안전하다. 다른 DB에서는 서비스의 atomic 블록마다 읽는 행을 `select_for_update()`로 잠가야 한다(근무 변경, 출근표 입력, 생성·배포·배포 취소, 알림 기록 등).
+- 작업자 한 개 보장은 파일 잠금이라 서버가 한 대일 때만 맞다.
+
 ## 보안·개인정보
 
 - 로그인 5회 실패 시 그 아이디가 15분 잠긴다(django-axes).
@@ -123,5 +130,5 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 ## 바꿀 때
 
 - 테스트 먼저(`.venv/bin/pytest -W error`, 경고 0개). 화면은 PC 1400px·모바일 390px에서 직접 본다.
-- 모델을 바꾸면 `makemigrations`로 마이그레이션 파일이 하나 생긴다. 지우지 않는다(운영 DB를 올리는 유일한 길). 새 칼럼이 생기면 `services/convert_v1.py`의 `ADDED`에도 기본값을 넣는다.
+- 모델을 바꾸면 `makemigrations`로 마이그레이션 파일이 하나 생긴다. 지우지 않는다(운영 DB를 올리는 유일한 길).
 - 지난 설계·구현 계획 문서는 git 기록에 있다(`git log -- docs/superpowers`).
