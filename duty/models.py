@@ -144,6 +144,13 @@ class RosterPref(models.Model):
         constraints = [_one_of("view", ("week", "month"), "rosterpref_view_valid")]
 
 
+class CalendarFeed(models.Model):
+    """사용자별 캘린더 구독 주소. 토큰 원문은 저장하지 않고 sha256 만 둔다."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="calendar_feed")
+    token_hash = models.CharField(max_length=64, unique=True)
+    issued_at = models.DateTimeField()
+
+
 class AlarmKind(models.TextChoices):
     PERSONAL = "personal", "개인"
     REPORT = "report", "보고서형"

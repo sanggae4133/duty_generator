@@ -6,6 +6,7 @@ from django.urls import path, register_converter
 from . import api
 from .views import alarms as alarm_views
 from .views import auth as auth_views_local
+from .views import calendar as calendar_views
 from .views import collect as collect_views
 from .views import manage as manage_views
 from .views import roster as roster_views
@@ -60,5 +61,6 @@ urlpatterns = [
     path("sw.js", alarm_views.sw_js, name="sw_js"),
     path("manifest.webmanifest", alarm_views.manifest, name="manifest"),
     path("help/telegram/", alarm_views.help_telegram, name="help_telegram"),
+    path("calendar/<str:token>.ics", calendar_views.feed, name="calendar_feed"),
     path("api/assignments", api.assignments, name="api_assignments"),
 ]
