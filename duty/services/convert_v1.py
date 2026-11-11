@@ -21,6 +21,7 @@ V1_MIGRATIONS = {
     "0004_roster_pref", "0005_db_constraints", "0006_alarms", "0007_default_alarm_rules",
     "0008_telegram_link_code", "0009_calendarfeed",
 }
+ADDED = {"duty_period": {"publish_undo": None}}  # v1 뒤에 생긴 칼럼: 이 값으로 채운다(null = 배포 취소 정보 없음)
 KEEP_TARGET = {"duty_alarmsettings"}  # migrate 가 예전 환경변수로 채워 둘 수 있는 표(0002 데이터 이전)
 
 # (표, {새 칼럼: 예전 칼럼}, 예전 auth_user.id → 새 User id 로 바꿀 칼럼, 비울 칼럼). FK 순서
@@ -104,7 +105,7 @@ def _check_source(old):
     need = {"django_migrations": {"app", "name"}, "duty_member": set(MEMBER_COLS), "auth_user": set(ACCOUNT_COLS),
             **{t: set() for ts in DISCARD.values() for t in ts}, **{t: set() for t in NO_ROWS}}
     for table, renames, *_ in COPY:  # 대상 표의 칼럼 전부가 원본에 있어야 한다
-        need[table] = {renames.get(c, c) for c in _columns(connection, table)}
+        need[table] = {renames.get(c, c) for c in _columns(connection, table)} - set(ADDED.get(table, ()))
     missing = sorted(t for t, cols in need.items() if not (have := _columns(old, t)) or not cols <= have)
     if missing:
         raise ConvertError(f"원본에 필요한 표·칼럼이 없습니다: {', '.join(missing)}")
@@ -186,6 +187,7 @@ def _insert(table, cols, rows):
 def _copy(old, table, renames, remap, blank, user_map):
     rows = _rows(old, f'SELECT * FROM "{table}" ORDER BY rowid')
     for r in rows:
+        r.update(ADDED.get(table, {}))
         for new, was in renames.items():
             r[new] = r.pop(was)
         for c in remap:

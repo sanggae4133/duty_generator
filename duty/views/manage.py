@@ -33,7 +33,7 @@ def _form_period(post, period: Period | None = None) -> Period:
 def period_list(request):
     if request.method == "POST":
         try:
-            p = periods.save_draft(_form_period(request.POST))
+            p = periods.save_draft(_form_period(request.POST), by=request.user)
         except (KeyError, ValueError):
             messages.error(request, "이름과 기간을 확인해 주세요.")
         except DutyError as e:
@@ -48,6 +48,10 @@ def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
     return render(request, "duty/period_detail.html", {
         "period": period, "S": Period.Status,
+        "steps": Period.Status.choices, "movable": [] if period.status == Period.Status.PUBLISHED
+        else [(s, Period.Status(s).label) for s in periods.MOVABLE if s != period.status],
+        "events": period.events.select_related("by"),
+        "undo": publishing.unpublish_info(period) if period.status == Period.Status.PUBLISHED else None,
         "progress": collect.progress(period), "missing": periods.missing_dates(period),
         "counts": counts, "spread": spread, "reached": reached,
         "failures": [{"date": f.date, "slot": CONTROL_SLOTS[f.slot][0], "candidates": f.candidates} for f in failures],
@@ -75,20 +79,34 @@ def period_detail(request, pid):
 def period_action(request, pid, action):
     period = get_object_or_404(Period, pk=pid)
     actions = {
-        "open": periods.open_collecting,
-        "close": periods.close_collecting,
-        "generate": generate.run_generation,
+        "open": lambda p, by: periods.move(p, Period.Status.COLLECTING, by),
+        "close": lambda p, by: periods.move(p, Period.Status.CLOSED, by),
+        "generate": lambda p, by: generate.run_generation(p, by=by),
+        "unpublish": publishing.unpublish,
     }
     if action not in actions:
         raise Http404
     try:
-        actions[action](period)
+        actions[action](period, by=request.user)
     except GenerationError as e:
         return _render_detail(request, period, e.failures)
     except DutyError as e:
         messages.error(request, str(e))
     else:
         messages.success(request, "완료했습니다.")
+    return redirect("period_detail", pid)
+
+
+@admin_required
+@require_POST
+def period_move(request, pid):
+    period = get_object_or_404(Period, pk=pid)
+    try:
+        periods.move(period, request.POST.get("to", ""), by=request.user)
+    except DutyError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, "상태를 바꿨습니다.")
     return redirect("period_detail", pid)
 
 
@@ -106,7 +124,7 @@ def period_publish(request, pid):
         return redirect("period_detail", pid)
     try:
         if request.method == "POST":
-            publishing.publish(period, start)
+            publishing.publish(period, start, by=request.user)
             messages.success(request, "배포했습니다.")
             return redirect("period_detail", pid)
         preview = publishing.preview_publish(period, start)

@@ -87,6 +87,8 @@ class Period(models.Model):
     generated_at = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
     overwrite_from = models.DateField(null=True, blank=True)
+    # 배포가 지운 행 [[모델 c|k, 회차 id, 날짜, 멤버 id, 출근조|칸]]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
+    publish_undo = models.JSONField(null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = verbose_name_plural = "회차"
@@ -100,6 +102,23 @@ class Period(models.Model):
 
     def dates(self):
         return weekdays(self.start_date, self.end_date)
+
+
+class PeriodEvent(models.Model):
+    """회차 상태 변경 기록. from_status '' = 새로 만듦."""
+    period = models.ForeignKey(Period, on_delete=models.CASCADE, related_name="events")
+    at = models.DateTimeField(auto_now_add=True)
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    from_status = models.CharField(max_length=16, blank=True, choices=PeriodStatus.choices)
+    to_status = models.CharField(max_length=16, choices=PeriodStatus.choices)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["at", "id"]
+        constraints = [
+            _one_of("from_status", ["", *PeriodStatus.values], "periodevent_from_valid"),
+            _one_of("to_status", PeriodStatus.values, "periodevent_to_valid"),
+        ]
 
 
 class Commute(models.Model):
