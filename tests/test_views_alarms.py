@@ -702,6 +702,18 @@ def test_delete_all_own_only(client, me, other, vapid):
     assert list(PushAlarmSubscription.objects.all()) == [theirs]
 
 
+def test_test_push_broken_subject_no_500(client, me, monkeypatch):
+    """연락처(subject) 형식이 틀린 채 저장돼 있어도 [테스트 푸시]는 500 이 아니라 실패 건수로 끝난다(실제 서명 단계)."""
+    import pywebpush
+    monkeypatch.setattr(pywebpush.requests, "post", lambda *a, **k: pytest.fail("네트워크 호출 금지"))
+    s = alarm_settings.ensure_push_keys()
+    s.vapid_subject = "admin"
+    s.save()
+    PushAlarmSubscription.objects.create(user=me, endpoint=EP, p256dh=P256, auth=AUTH)
+    r = post(client, "/alarms/push/test/")
+    assert r.status_code == 200 and "성공 0 / 실패 1" in " ".join(msgs(r))
+
+
 def test_test_push(client, me, other, vapid, monkeypatch):
     for i in range(3):
         PushAlarmSubscription.objects.create(user=me, endpoint=f"{EP}{i}", p256dh=P256, auth=AUTH)

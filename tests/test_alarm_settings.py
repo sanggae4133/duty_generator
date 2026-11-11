@@ -206,12 +206,21 @@ def test_admin_blank_keeps_new_replaces_clear_empties(su, linked):
     (dict(telegram_bot_token="not a token"), "봇 토큰 형식이 아닙니다"),
     (dict(telegram_bot_username="bad name!"), "봇 사용자명은 영문·숫자·_ 5~32자입니다."),
     (dict(ops_chat_id="0"), "1"),
+    (dict(vapid_subject="admin@example.com"), "mailto:"),
+    (dict(vapid_subject="mailto:admin"), "mailto:"),
 ])
 def test_admin_validation(su, data, err):
     alarm_settings.current().save()  # 행을 만들어 둔다
     r = su.post(change_url(), form(**data))
     body = r.content.decode()
     assert r.status_code == 200 and "errornote" in body and err in body
+
+
+@pytest.mark.parametrize("subject", ["mailto:ops@example.com", "https://duty.example.ts.net"])
+def test_admin_vapid_subject_ok(su, subject):
+    alarm_settings.current().save()
+    assert su.post(change_url(), form(vapid_subject=subject)).status_code == 302
+    assert AlarmSettings.objects.get().vapid_subject == subject
 
 
 def test_admin_username_strips_at(su):

@@ -1,8 +1,8 @@
 """작업자: 웹과 따로 도는 프로세스 하나(deploy/duty-worker.service). 1분마다 한 바퀴.
 
-- 알림 발송: 매분(alarm_runner.tick)
 - DB 백업: 하루 한 번, BACKUP_HOUR 시 이후(backup.daily)
 - 상태 점검: 5분마다(health.check)
+- 알림 발송: 매분(alarm_runner.tick)
 한 작업이 실패해도 로그만 남기고 다른 작업과 다음 바퀴는 계속 돈다.
 """
 import fcntl
@@ -22,9 +22,11 @@ HEALTH_EVERY = 5  # 분
 
 
 def run_round(now, everything=False, skip_health=False) -> None:
-    jobs = [("alarms", alarm_runner.tick), ("backup", backup.daily)]
+    # 백업·점검을 먼저: 알림 발송은 건마다 최대 10초라 네트워크가 느리면 오래 걸린다(그동안 백업·점검이 밀리지 않게)
+    jobs = [("backup", backup.daily)]
     if everything or (not skip_health and timezone.localtime(now).minute % HEALTH_EVERY == 0):
         jobs.append(("health", health.check))
+    jobs.append(("alarms", alarm_runner.tick))
     for name, job in jobs:
         try:
             job(now)

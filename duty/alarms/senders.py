@@ -11,6 +11,7 @@ from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.request
 
+from py_vapid import VapidException
 from pywebpush import WebPushException, webpush
 
 
@@ -147,5 +148,5 @@ def push_send(cfg: Config, sub, title: str, body: str, url: str, ttl: int) -> No
         if code is not None and 400 <= code < 500 and code not in (401, 403):
             raise Permanent(code) from None
         raise Temporary(code) from None
-    except (OSError, ValueError, TypeError):  # 깨진 VAPID 키 등 / requests 예외 포함(ConnectionError·Timeout)
+    except (OSError, ValueError, TypeError, VapidException):  # 깨진 VAPID 키·subject 등 / requests 예외(ConnectionError·Timeout)
         raise Temporary() from None
