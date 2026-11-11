@@ -21,7 +21,9 @@ main() {
   sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py migrate'
   systemctl start duty-generator
   [ "$alarms_on" = 1 ] && systemctl start duty-alarms
-  systemctl enable -q --now duty-health.timer 2>/dev/null || true
+  sleep 3
+  systemctl is-active -q duty-generator || { echo "!! 웹이 뜨지 않음:"; tail -n 30 /var/log/duty_generator/web.log; exit 1; }
+  systemctl enable -q --now duty-health.timer
   echo "== 복원 완료: $src (복원 직전 DB 는 before-restore-*.sqlite3)"
 }
 
