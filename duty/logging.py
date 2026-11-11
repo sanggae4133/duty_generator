@@ -2,8 +2,11 @@
 
 import logging
 import re
+from urllib.parse import unquote
 
 FEED_PREFIX = "/calendar/"
+# 요청 줄('GET /calendar/...', "Bad request syntax ('GET /calendar/...")에서 경로가 /calendar/로 시작할 때만
+FEED_LINE = re.compile(r"\b[A-Z]+ (?:[a-z][a-z0-9+.-]*://[^/\s]*)?/calendar/")
 
 
 class RedactCalendarFeed(logging.Filter):
@@ -14,7 +17,7 @@ class RedactCalendarFeed(logging.Filter):
         hit = isinstance(path, str) and path.startswith(FEED_PREFIX)
         if not hit:
             try:
-                hit = FEED_PREFIX in record.getMessage()
+                hit = bool(FEED_LINE.search(unquote(record.getMessage())))
             except Exception:  # 형식이 깨진 레코드는 그대로 둔다
                 hit = False
         if hit:

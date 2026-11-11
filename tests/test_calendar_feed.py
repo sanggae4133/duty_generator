@@ -368,3 +368,45 @@ def test_site_url_http_in_debug():
     validate_site_url("http://127.0.0.1:8000", debug=True)
     with pytest.raises(ImproperlyConfigured):
         validate_site_url("ftp://duty.example", debug=True)
+
+
+# --- Fix round 2 ---
+
+def test_changelog_on_date_without_rows_keeps_feed_200(client, me):
+    p = period(end=D + timedelta(days=1))
+    commute(p, me)  # D+1 에는 행 없음
+    ChangeLog.objects.create(period=p, date=D + timedelta(days=1), cell="dawn", before=me, after=None)
+    ChangeLog.objects.update(at=datetime(2026, 11, 5, tzinfo=dt_tz.utc))
+    _, token = issue(me.user)
+    r = feed(client, token)
+    assert r.status_code == 200
+    assert vevents(r)[0]["DTSTAMP"] == "20261101T030000Z"
+
+
+def server_record(line, status="200"):
+    rec = logging.LogRecord("django.server", logging.INFO, __file__, 1, '"%s" %s %s', (line, status, "10"), None)
+    rec.request, rec.status_code = object(), int(status)
+    return rec
+
+
+@pytest.mark.parametrize("line", ["POST /alarms/calendar/issue/ HTTP/1.1", "GET /help/calendar/ HTTP/1.1"])
+def test_filter_keeps_non_feed_calendar_paths(line):
+    rec = server_record(line)
+    RedactCalendarFeed().filter(rec)
+    assert rec.getMessage() == f'"{line}" 200 10'
+
+
+def test_filter_keeps_non_feed_request_path():
+    req = RequestFactory().get("/alarms/calendar/issue/")
+    rec = logging.LogRecord("django.request", logging.WARNING, __file__, 1, "Method Not Allowed: %s",
+                            ("/alarms/calendar/issue/",), None)
+    rec.request, rec.status_code = req, 405
+    RedactCalendarFeed().filter(rec)
+    assert rec.getMessage() == "Method Not Allowed: /alarms/calendar/issue/" and rec.request is req
+
+
+def test_filter_redacts_percent_encoded_feed_path():
+    rec = server_record(f"GET /%63alendar/{TOKEN}.ics HTTP/1.1")
+    RedactCalendarFeed().filter(rec)
+    assert rec.getMessage() == "calendar feed 200"
+    assert not leaks(rec)
