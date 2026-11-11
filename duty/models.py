@@ -192,7 +192,7 @@ class AlarmSettings(models.Model):
         validators=[RegexValidator(r"^@?[A-Za-z0-9_]{5,32}$", "봇 사용자명은 영문·숫자·_ 5~32자입니다.")])
     ops_chat_id = models.PositiveBigIntegerField(
         "장애 알림 받을 chat_id", null=True, blank=True, validators=[MinValueValidator(1)],
-        help_text="관리자 개인 텔레그램 chat_id(숫자). 비우면 장애 알림은 health.log 에만 남는다.")
+        help_text="관리자 개인 텔레그램 chat_id(숫자). 비우면 장애 알림은 worker.log 에만 남는다.")
     vapid_public_key = models.CharField("웹 푸시 공개키", max_length=200, blank=True)
     vapid_private_key = models.CharField("웹 푸시 개인키", max_length=200, blank=True)
     vapid_subject = models.CharField(

@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('telegram_bot_token', models.CharField(blank=True, max_length=200, validators=[django.core.validators.RegexValidator('^\\d+:[A-Za-z0-9_-]+$', '봇 토큰 형식이 아닙니다(숫자:영문·숫자).')], verbose_name='텔레그램 봇 토큰')),
                 ('telegram_bot_username', models.CharField(blank=True, help_text='@ 없이(붙여도 저장할 때 뗀다).', max_length=33, validators=[django.core.validators.RegexValidator('^@?[A-Za-z0-9_]{5,32}$', '봇 사용자명은 영문·숫자·_ 5~32자입니다.')], verbose_name='텔레그램 봇 사용자명')),
-                ('ops_chat_id', models.PositiveBigIntegerField(blank=True, help_text='관리자 개인 텔레그램 chat_id(숫자). 비우면 장애 알림은 health.log 에만 남는다.', null=True, validators=[django.core.validators.MinValueValidator(1)], verbose_name='장애 알림 받을 chat_id')),
+                ('ops_chat_id', models.PositiveBigIntegerField(blank=True, help_text='관리자 개인 텔레그램 chat_id(숫자). 비우면 장애 알림은 worker.log 에만 남는다.', null=True, validators=[django.core.validators.MinValueValidator(1)], verbose_name='장애 알림 받을 chat_id')),
                 ('vapid_public_key', models.CharField(blank=True, max_length=200, verbose_name='웹 푸시 공개키')),
                 ('vapid_private_key', models.CharField(blank=True, max_length=200, verbose_name='웹 푸시 개인키')),
                 ('vapid_subject', models.CharField(default='mailto:admin@localhost', help_text='mailto:주소 형식. 푸시 서비스가 문제 시 연락하는 주소.', max_length=200, verbose_name='웹 푸시 연락처')),

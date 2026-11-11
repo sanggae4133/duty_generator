@@ -1,0 +1,3 @@
+# 개발 PC 전용(테스트). 설치: .venv/bin/pip install -r requirements.lock -r requirements-dev.txt
+pytest==9.2.0
+pytest-django==4.14.0

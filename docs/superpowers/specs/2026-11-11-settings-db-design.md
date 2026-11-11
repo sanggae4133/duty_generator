@@ -43,3 +43,43 @@
 - `AlarmSettings` 한 행 제약, 0002 데이터 이전(환경변수 있음/없음), VAPID 자동 생성(한 번만, 이후 같은 값), 토큰 변경 시 텔레그램 확인 초기화, 푸시 키 재생성 시 구독 삭제, 관리 화면(슈퍼유저만, 토큰 미노출·비우면 유지), `/alarms/` 안내 문구, 발송·연결 확인이 DB 값을 씀, 로그에 토큰 없음.
 - `health` 명령: 상태 변화 때만 발송, 첫 정상 기록만, 발송 실패 시 상태 미저장, df 실패.
 - 기존 테스트 전체 `-W error`. 화면 확인 1400·390(관리 화면 알림 설정, `/alarms/`).
+
+## 개정 1 (사용자 요청, 2026-11-11)
+
+사용자: "프로젝트 구조가 지저분하다. 개발·운영 차이는 괜찮지만 낯선 deploy 파일 여러 개가 아니라 설정값으로 다뤄야 한다. 새로 온 사람이 하루 만에 이해할 수 있어야 한다." 위 1·3·4 절의 운영 부분을 아래로 바꾼다(`.env`, `AlarmSettings` DB 는 그대로).
+
+### 실행 데이터 폴더 하나: `data/`
+- 설정 하나 `DUTY_DATA_DIR`(기본 저장소 루트 `data/`, 상대 경로는 저장소 루트 기준, 없으면 만든다). 여기서 경로를 모두 얻는다: `db.sqlite3`, `backups/`, `logs/`, `.alarms.lock`, `.telegram-updates.lock`, `.health.state`.
+- `DUTY_DB_PATH`, `DUTY_ALARMS_LOCK`, `DUTY_TELEGRAM_LOCK` 는 없앤다. `/etc/duty_generator`, `/var/lib|backups|log/duty_generator` 도 쓰지 않는다. 서버는 `/opt/duty_generator/data`(duty 소유 750)이고, 코드는 root 소유다. `.gitignore` 에 `data/`, `.env`.
+
+### 설치 없이 실행
+- `pip install -e .` 를 쓰지 않는다. `pyproject.toml` 에는 `[tool.pytest.ini_options]`(+`pythonpath=["."]`)만 남긴다.
+- 의존성은 `requirements.in`(직접 쓰는 것, 범위) → `requirements.lock`(고정), 개발용은 `requirements-dev.txt`(pytest·pytest-django 고정). 서버는 `pip install -r requirements.lock`, 개발은 `-r requirements-dev.txt` 를 더 붙인다.
+
+### 서비스 두 개 + 관리 명령
+- `deploy/` 에는 주석을 자세히 단 `duty-web.service`(gunicorn `--workers 1 --threads 4`)와 `duty-worker.service`(`manage.py run_worker`)만 둔다. 나머지 유닛·타이머·logrotate·`upgrade.sh`·`restore.sh`·`duty-health.sh` 는 삭제한다. 유닛에는 `EnvironmentFile` 이 없다.
+- `manage.py run_worker`: 1분마다 한 바퀴.
+  - 알림 발송: 매분.
+  - DB 백업: `DUTY_BACKUP_HOUR`(기본 3) 시 이후 그날 백업이 없으면 `data/backups/db-YYYYMMDD.sqlite3` 를 SQLite 백업 API 로 만든다(임시 파일 → 이름 바꾸기). 그 뒤 `DUTY_BACKUP_KEEP_DAYS`(기본 30)일보다 오래된 `db-*` 를 지운다.
+  - 상태 점검: 5분마다. 웹 `/login/` 응답, 26시간 안에 만든 백업, 디스크 90%를 본다. 상태가 바뀔 때만 `ops_chat_id` 로 보내고, 첫 정상은 기록만 하고, 발송에 실패하면 상태를 저장하지 않는다.
+  - 작업마다 예외를 따로 잡는다.
+  - `data/.alarms.lock` 으로 한 프로세스만 돈다. `--once` 는 모든 작업을 한 번 돌리고, `--dry-run` 은 잠금 없이 알림 건수만 출력한다. `run_alarms` 와 `health` 명령은 없앤다(별도 알림 서비스가 없으므로).
+- `manage.py backup`: `data/backups/db-YYYYMMDD-HHMMSS.sqlite3` 를 만든다.
+- `manage.py restore <파일>` 은 아래를 검사하고 하나라도 걸리면 아무것도 바꾸지 않는다.
+  - `quick_check` 가 `ok` 인지.
+  - 백업의 `django_migrations` 가 지금 코드로 migrate 한 결과와 같은지.
+  - 지금 DB 파일 자체가 아닌지.
+  - 통과하면 지금 DB 를 `before-restore-*.sqlite3` 로 남기고, `-wal`·`-shm` 을 지운 뒤 교체한다. 서비스 중지와 `migrate` 는 README 절차로 한다.
+- 로그:
+  - 웹(`config/wsgi.py`)과 작업자가 시작할 때 루트 로거에 `data/logs/web.log`·`worker.log` 핸들러를 붙인다(`TimedRotatingFileHandler`, 자정, `DUTY_LOG_KEEP_DAYS` 기본 14). 형식과 캘린더 토큰 지우기는 그대로다.
+  - stdout/stderr 는 journald 로 간다. gunicorn 은 프로세스 하나라 한 파일을 한 프로세스만 쓴다.
+- 업그레이드·롤백·옛 배치에서 옮기기는 README 의 짧은 명령 목록으로 한다(정지 → `backup` → `git pull`/`checkout` → `pip install -r requirements.lock` → `collectstatic` → `migrate`, 롤백 땐 필요하면 `restore` → 시작).
+- 위 2절의 `upgrade.sh` "빠진 설정/안 쓰는 설정" 안내와 3절의 `manage.py health`·`duty-health.service` 는 이 개정으로 대체된다.
+
+### 문서
+- README:
+  - 폴더 구조 표(코드 / deploy·docs / `.env` / `data/`).
+  - "개발 vs 운영 차이는 `.env` 값으로만" 표.
+  - 유닛 두 개를 줄마다 설명.
+  - 업그레이드·롤백, 백업·복원, 로그, 장애 알림, 옛 배치에서 옮기기(+`convert_v1`).
+- `.env.example` 은 모든 설정을 개발·서버 예시 값과 함께 적는다. CLAUDE.md 는 알림 구조와 운영 줄을 고친다.

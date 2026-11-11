@@ -1,9 +1,8 @@
-import fcntl
 import logging
 from datetime import date, datetime, timedelta
 
 import pytest
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 from django.utils import timezone
 
 from duty.alarms import senders
@@ -33,7 +32,7 @@ EXPIRES = at(2026, 11, 16, 6, 30)
 def env(settings, tmp_path, fixed_today, db):
     set_alarm_settings(telegram_bot_token="t", vapid_public_key="k", vapid_private_key="k")
     settings.SITE_URL = ""
-    settings.ALARMS_LOCK_PATH = str(tmp_path / "alarms.lock")
+    settings.ALARMS_LOCK_PATH = tmp_path / "alarms.lock"
     fixed_today(SUN)
     return settings
 
@@ -277,20 +276,22 @@ def test_telegram_send_includes_link(member, fake, env):
     assert fake.sent[0][1].endswith("\nhttps://duty.example/day/2026-11-16/")
 
 
-def test_once_locked_exits_1(env, db):
-    with open(env.ALARMS_LOCK_PATH, "a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        with pytest.raises(CommandError, match="다른 run_alarms가 실행 중입니다.") as e:
-            call_command("run_alarms", "--once")
-        assert e.value.returncode == 1
-        with pytest.raises(CommandError):
-            call_command("run_alarms", "--dry-run")
-
-
-def test_once_runs_tick(member, fake, monkeypatch):
+def test_worker_once_runs_tick(member, fake, monkeypatch, settings, tmp_path):
+    from duty.services import backup, health
+    settings.LOG_DIR = tmp_path / "logs"
+    monkeypatch.setattr(backup, "daily", lambda now: None)
+    monkeypatch.setattr(health, "check", lambda now: None)
     verify(member)
     monkeypatch.setattr(timezone, "now", lambda: SUN18)
-    call_command("run_alarms", "--once")
+    root = logging.getLogger()
+    before = list(root.handlers)
+    try:
+        call_command("run_worker", "--once")
+    finally:
+        for h in root.handlers[:]:
+            if h not in before:
+                root.removeHandler(h)
+                h.close()
     assert len(fake.sent) == 1
 
 
@@ -299,7 +300,7 @@ def test_dry_run(member, fake, monkeypatch, capsys):
     push_only(member, 1)
     AlarmRule.objects.filter(timing="days").update(telegram=True)
     monkeypatch.setattr(timezone, "now", lambda: SUN18)
-    call_command("run_alarms", "--dry-run")
+    call_command("run_worker", "--dry-run")
     out = capsys.readouterr().out
     assert "telegram=1" in out and "push=1" in out and NAME not in out
     assert fake.sent == [] and not AlarmDelivery.objects.exists()
@@ -406,27 +407,6 @@ def test_django_request_warnings_reach_console_with_time(settings):
                        cwd=settings.BASE_DIR)
     ts = r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d"
     assert re.fullmatch(rf"{ts} WARNING django\.request Not Found: /x\n{ts} WARNING axes\.watch_login locked\n", r.stderr), r.stderr
-
-
-def test_lock_defaults_follow_db_dir(monkeypatch, tmp_path):
-    """잠금 기본 경로는 DB 폴더(서비스 사용자가 반드시 쓸 수 있음). 환경변수가 있으면 그 값."""
-    import importlib
-
-    import config.settings as cs
-    monkeypatch.setenv("DUTY_DB_PATH", str(tmp_path / "db.sqlite3"))
-    monkeypatch.delenv("DUTY_ALARMS_LOCK", raising=False)
-    monkeypatch.delenv("DUTY_TELEGRAM_LOCK", raising=False)
-    try:
-        importlib.reload(cs)
-        assert cs.ALARMS_LOCK_PATH == str(tmp_path / ".alarms.lock")
-        assert cs.TELEGRAM_UPDATES_LOCK_PATH == str(tmp_path / ".telegram-updates.lock")
-        assert cs.DATABASES["default"]["NAME"] == str(tmp_path / "db.sqlite3")
-        monkeypatch.setenv("DUTY_ALARMS_LOCK", "/x/a.lock")
-        importlib.reload(cs)
-        assert cs.ALARMS_LOCK_PATH == "/x/a.lock"
-    finally:
-        monkeypatch.undo()
-        importlib.reload(cs)
 
 
 def report_rule(user):

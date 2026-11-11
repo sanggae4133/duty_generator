@@ -5,6 +5,5 @@ db.sqlite3*
 staticfiles/
 .cache/
 .pytest_cache/
-.alarms.lock
-.telegram-updates.lock
 .env
+data/
