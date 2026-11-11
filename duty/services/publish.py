@@ -5,7 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, ControlDuty, Period
+from ..models import ChangeLog, Commute, ControlDuty, Period, User
+from .periods import record
 
 S = Period.Status
 
@@ -44,11 +45,62 @@ def preview_publish(period: Period, overwrite_from: date) -> PublishPreview:
     return PublishPreview(overwrite_from, period.end_date, sorted(names), discarded)
 
 
+_MODELS = {"c": (Commute, "shift"), "k": (ControlDuty, "slot")}
+
+
 @transaction.atomic
-def publish(period: Period, overwrite_from: date) -> None:
+def publish(period: Period, overwrite_from: date, by=None) -> None:
     _validate(period, overwrite_from)
-    for model in (Commute, ControlDuty):
-        model.objects.filter(period__in=_others(period), date__gte=overwrite_from, date__lte=period.end_date).delete()
-        model.objects.filter(period=period, date__lt=overwrite_from).delete()
+    undo = []
+    for key, (model, field) in _MODELS.items():
+        doomed = (
+            model.objects.filter(period__in=_others(period), date__gte=overwrite_from, date__lte=period.end_date)
+            | model.objects.filter(period=period, date__lt=overwrite_from)
+        )
+        undo += [[key, p, d.isoformat(), m, v] for p, d, m, v in doomed.values_list("period_id", "date", "member_id", field)]
+        doomed.delete()
     period.status, period.overwrite_from, period.published_at = S.PUBLISHED, overwrite_from, timezone.now()
+    period.publish_undo = undo
     period.save()
+    record(period, S.GENERATED, by, f"덮어쓰기 시작일 {overwrite_from.isoformat()}")
+
+
+@dataclass(frozen=True)
+class UnpublishInfo:
+    blocker: str | None  # 있으면 취소할 수 없는 이유
+    restored_rows: int
+    later_changes: int  # 배포 뒤 이 회차에서 바뀐 근무(근무표에서는 빠지고 회차 데이터에는 남음)
+
+
+def unpublish_info(period: Period) -> UnpublishInfo:
+    def blocked(msg):
+        return UnpublishInfo(msg, 0, 0)
+
+    if period.status != S.PUBLISHED:
+        return blocked("배포된 회차가 아닙니다.")
+    if period.publish_undo is None:
+        return blocked("이 기능 전에 배포된 회차라 되돌릴 정보가 없습니다.")
+    later = _others(period).filter(published_at__gt=period.published_at).order_by("-published_at").first()
+    if later:
+        return blocked(f"나중에 배포된 회차({later.name})부터 배포 취소해야 합니다.")
+    return UnpublishInfo(None, len(period.publish_undo), ChangeLog.objects.filter(period=period, at__gte=period.published_at).count())
+
+
+@transaction.atomic
+def unpublish(period: Period, by=None) -> None:
+    """가장 최근 배포를 되돌린다: 배포가 지운 행을 되살리고 회차는 생성됨으로. 배포 뒤 수정은 회차 데이터에 남는다."""
+    period = Period.objects.select_for_update().get(pk=period.pk)
+    info = unpublish_info(period)
+    if info.blocker:
+        raise DutyError(info.blocker)
+    undo = period.publish_undo
+    if User.objects.filter(pk__in={r[3] for r in undo}).count() != len({r[3] for r in undo}):
+        raise DutyError("되살릴 근무의 사용자가 삭제되어 배포를 취소할 수 없습니다.")
+    for key, (model, field) in _MODELS.items():
+        model.objects.bulk_create(
+            model(period_id=p, date=date.fromisoformat(d), member_id=m, **{field: v})
+            for k, p, d, m, v in undo if k == key
+        )
+    period.status, period.overwrite_from, period.published_at, period.publish_undo = S.GENERATED, None, None, None
+    period.save()
+    record(period, S.PUBLISHED, by, "배포 취소")

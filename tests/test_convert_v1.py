@@ -183,6 +183,8 @@ def test_convert_copies_everything(old, db):
                         row[k] = USER_MAP[row[k]]
                 if t == "duty_telegramalarmprofile":
                     row["link_code"] = row["link_expires_at"] = None
+                if t == "duty_period":
+                    row["publish_undo"] = None  # v1 뒤에 생긴 칼럼
             got = dump(cur, t)
             assert got == expected, t
             assert len(got) > 0, t

@@ -8,12 +8,12 @@ from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
 from ..models import Commute, ControlDuty, Period, User
 from ..shifts import DEVELOPER
-from .periods import missing_dates
+from .periods import missing_dates, record
 
 S = Period.Status
 
 
-def run_generation(period: Period, seed: int | None = None) -> GenerationOutput:
+def run_generation(period: Period, seed: int | None = None, by=None) -> GenerationOutput:
     if period.status not in {S.CLOSED, S.GENERATED}:
         raise DutyError("마감된 회차만 생성할 수 있습니다.")
     missing = missing_dates(period)
@@ -37,6 +37,8 @@ def run_generation(period: Period, seed: int | None = None) -> GenerationOutput:
             for d, picked in out.assignments.items()
             for i, code in enumerate(picked)
         )
+        old = period.status
         period.status, period.seed, period.generated_at = S.GENERATED, seed, timezone.now()
         period.save()
+        record(period, old, by, "재생성" if old == S.GENERATED else "")
     return out

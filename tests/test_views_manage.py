@@ -163,3 +163,28 @@ def test_generate_has_detail_dialog(admin_client_ok):
     body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
     assert 'id="gen-help"' in body and "showModal()" in body
     assert "자격자가 적은 칸부터" in body and "편차" in body
+
+
+def test_lifecycle_move_and_unpublish_views(admin_client_ok, make_member):
+    from duty.models import ControlDuty, PeriodEvent
+    m = make_member("가")
+    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13), status=Period.Status.GENERATED)
+    for x in p.dates():
+        Commute.objects.create(period=p, date=x, member=m, shift="normal")
+        ControlDuty.objects.create(period=p, date=x, slot=0, member=m)
+    c = admin_client_ok
+    body = c.get(f"/periods/{p.pk}/").content.decode()
+    assert 'class="lifecycle"' in body and 'name="to"' in body
+    c.post(f"/periods/{p.pk}/publish/", {"from": "2026-11-09"})
+    body = c.get(f"/periods/{p.pk}/").content.decode()
+    assert "배포 취소" in body and "생성됨 → 배포됨" in body
+    r = c.post(f"/periods/{p.pk}/action/unpublish/")
+    p.refresh_from_db()
+    assert r.status_code == 302 and p.status == Period.Status.GENERATED
+    c.post(f"/periods/{p.pk}/move/", {"to": "draft"})
+    p.refresh_from_db()
+    assert p.status == Period.Status.DRAFT
+    assert PeriodEvent.objects.filter(period=p).count() == 3
+    assert c.post(f"/periods/{p.pk}/move/", {"to": "published"}).status_code == 302
+    p.refresh_from_db()
+    assert p.status == Period.Status.DRAFT

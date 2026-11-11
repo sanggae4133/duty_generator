@@ -1,6 +1,7 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>{{ period.name }} <small>({{ period.get_status_display }})</small></h3>
+<ol class="lifecycle">{% for code, label in steps %}<li><span{% if code == period.status %} class="now"{% endif %}>{{ label }}</span></li>{% endfor %}</ol>
 {% if period.status == S.DRAFT %}
 <form method="post" role="group">{% csrf_token %}
   <input name="name" value="{{ period.name }}" required>
@@ -12,7 +13,7 @@
 <p>{{ period.start_date|date:"Y-m-d" }} ~ {{ period.end_date|date:"Y-m-d" }}</p>
 {% endif %}
 
-<div role="group">
+<div class="actions">
   {% if period.status == S.DRAFT or period.status == S.CLOSED or period.status == S.GENERATED %}
   <form method="post" action="{% url 'period_action' period.pk 'open' %}"{% if period.status == S.GENERATED %} onsubmit="return confirm('생성된 당번이 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}<button class="secondary">{% if period.status == S.DRAFT %}취합 열기{% else %}재오픈 (생성 결과 삭제){% endif %}</button></form>
   {% endif %}
@@ -27,6 +28,25 @@
   <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
   {% endif %}
 </div>
+
+{% if movable %}
+<form method="post" action="{% url 'period_move' period.pk %}" class="move"{% if period.status == S.GENERATED %} onsubmit="return confirm('생성된 장중관제가 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}
+  <label for="move-to">상태 바꾸기</label>
+  <select id="move-to" name="to">{% for code, label in movable %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
+  <button class="outline">바꾸기</button>
+  <small>출근표는 그대로 남습니다. 생성됨에서 나가면 장중관제 생성 결과만 지웁니다.</small>
+</form>
+{% endif %}
+{% if undo %}
+<article>
+  {% if undo.blocker %}<small>배포 취소 불가: {{ undo.blocker }}</small>{% else %}
+  <form method="post" action="{% url 'period_action' period.pk 'unpublish' %}" onsubmit="return confirm('배포를 취소하고 이 회차를 생성됨으로 되돌릴까요?')">{% csrf_token %}
+    <button class="secondary">배포 취소</button>
+    <small>{% if undo.restored_rows %}배포 때 덮어쓴 근무 {{ undo.restored_rows }}칸을 되살리고 {% endif %}이 회차는 생성됨으로 돌아갑니다(근무표에서 빠집니다).
+      {% if undo.later_changes %}배포 뒤 바뀐 근무 {{ undo.later_changes }}건은 근무표에서 빠지고 이 회차 데이터에만 남습니다(다시 배포하면 보입니다).{% endif %}</small>
+  </form>{% endif %}
+</article>
+{% endif %}
 
 <h4>부서별 입력 현황</h4>
 <ul>{% for code, p in progress.items %}<li>{{ code }}: {{ p.0 }} / {{ p.1 }}일
@@ -43,6 +63,27 @@
 <h4>장중관제 배정 횟수 — 편차 {{ spread }} {% if reached %}(목표 2 이하 도달){% else %}(목표 2 미도달){% endif %}</h4>
 <table><tbody>{% for name, n in counts %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table>
 {% endif %}
+{% if events %}
+<h4>상태 기록</h4>
+<div class="grid-wrap"><table><thead><tr><th>시각</th><th>누가</th><th>변경</th><th>메모</th></tr></thead>
+<tbody>{% for e in events %}<tr><td class="nw">{{ e.at|date:"Y-m-d H:i" }}</td><td class="nw">{{ e.by.name|default:e.by.username|default:"-" }}</td>
+  <td class="nw">{% if e.from_status %}{{ e.get_from_status_display }} → {% endif %}{{ e.get_to_status_display }}</td><td>{{ e.note }}</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
+
+<style>
+  ol.lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; padding: 0; margin: 0 0 1rem; }
+  ol.lifecycle li { list-style: none; margin: 0; font-size: .85rem; }
+  ol.lifecycle li:not(:last-child)::after { content: "→"; margin-left: .3rem; opacity: .4; }
+  ol.lifecycle span { display: inline-block; padding: .2rem .7rem; border: 1px solid var(--duty-line); border-radius: 1rem; opacity: .6; }
+  ol.lifecycle span.now { opacity: 1; font-weight: bold; border-color: var(--pico-primary); color: var(--pico-primary); }
+  .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .actions form, .actions button, .actions [role=button] { width: auto; margin: 0; }
+  article small { display: block; margin-top: .4rem; }
+  td.nw { white-space: nowrap; }
+  form.move { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+  form.move select, form.move button, form.move label { width: auto; margin: 0; }
+  form.move small { flex-basis: 100%; opacity: .7; }
+</style>
 <dialog id="gen-help"><article>
   <h4>장중관제 생성 방식</h4>
   <p>취합된 출근조를 보고 날짜마다 장중관제 10칸(08:30~18:00)에 개발자를 한 명씩 배정합니다.</p>

@@ -44,28 +44,22 @@ def test_dates_editable_only_in_draft(db):
 
 def test_open_close_and_reopen_deletes_duties(make_member):
     p = Period.objects.create(name="a", start_date=d(11, 9), end_date=d(11, 13))
-    periods.open_collecting(p)
+    periods.move(p, S.COLLECTING)
     assert p.status == S.COLLECTING
-    periods.close_collecting(p)
+    periods.move(p, S.CLOSED)
     assert p.status == S.CLOSED
     p.status, p.seed = S.GENERATED, 1
     p.save()
     ControlDuty.objects.create(period=p, date=d(11, 9), slot=0, member=make_member("가"))
-    periods.open_collecting(p)
+    periods.move(p, S.COLLECTING)
     assert p.status == S.COLLECTING and p.seed is None
     assert not ControlDuty.objects.filter(period=p).exists()
-
-
-def test_close_requires_collecting(db):
-    p = Period.objects.create(name="a", start_date=d(11, 9), end_date=d(11, 13))
-    with pytest.raises(DutyError):
-        periods.close_collecting(p)
 
 
 def test_open_rejected_when_published(db):
     p = Period.objects.create(name="a", start_date=d(11, 9), end_date=d(11, 13), status=S.PUBLISHED)
     with pytest.raises(DutyError):
-        periods.open_collecting(p)
+        periods.move(p, S.COLLECTING)
 
 
 def test_missing_dates(make_member):
