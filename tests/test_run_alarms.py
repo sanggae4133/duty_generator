@@ -364,3 +364,10 @@ def test_recheck_failure_deletes_subscription(member, fake, monkeypatch):
     PushAlarmSubscription.objects.filter(id=s2.id).delete()
     alarm_runner.tick(SUN18)
     assert not PushAlarmSubscription.objects.filter(id=s1.id).exists()
+
+
+def test_duty_info_logs_reach_console():
+    """운영(journalctl)에서 'alarms tick:' INFO 줄이 보여야 한다(기본 last-resort 핸들러는 WARNING 이상만)."""
+    lg = logging.getLogger("duty")
+    assert lg.getEffectiveLevel() <= logging.INFO
+    assert any(isinstance(h, logging.StreamHandler) for h in lg.handlers)

@@ -26,6 +26,12 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - 정해진 값만 받는 칸은 `choices`(TextChoices) + DB `CheckConstraint`를 같이 건다(SQLite엔 enum 타입이 없음). 기록을 남겨야 하는 FK는 `PROTECT`.
 - 정적 파일(htmx, Pico.css)은 CDN이 아니라 `duty/static/vendor/`에서 직접 서빙한다.
 
+## 알림 구조
+- `duty/alarms/`는 ORM 없는 순수 계층(`schedule`·`plan`·`messages`·`forms`)과 외부 발송기(`senders`: 텔레그램·웹 푸시, 실패를 `Gone`/`Permanent`/`Temporary`/`RetryLater`로 분류). `duty/services/alarm_runner.py`가 조회→`plan`→발송→기록을 한다.
+- 기록은 목적지별 `AlarmDelivery`(규칙·날짜·칸·채널·목적지)이고 **보낸 뒤에** 남긴다(같은 내용 재발송 방지는 `last_sent_hash`, 실패는 백오프).
+- 테스트에서 텔레그램·푸시 실제 호출 금지(`senders`를 monkeypatch).
+- `run_alarms`는 `DUTY_ALARMS_LOCK` fcntl 잠금으로 한 프로세스만 돈다(`--once`·`--dry-run`은 잠금이 있으면 바로 실패). 텔레그램 [연결 확인]은 `DUTY_TELEGRAM_LOCK`으로 `getUpdates`를 직렬화한다.
+
 ## 도메인 기준
 - 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·API가 같은 키를 쓴다.
 - 대상 날짜는 회차 기간의 월~금(휴장일 처리 없음).
