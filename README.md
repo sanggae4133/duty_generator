@@ -106,11 +106,12 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 ```bash
 sudo /opt/duty_generator/deploy/upgrade.sh <v2 버전>        # migrate 에서 멈춘다
 sudo systemctl stop duty-health.timer duty-alarms duty-generator   # 이미 멈춰 있다(확인용)
-cd /var/lib/duty_generator
-sudo -u duty sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"   # WAL 까지 담긴 일관된 단일 파일
-sudo -u duty sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"   # ok 가 나와야 한다
-sudo -u duty mkdir -p old && sudo -u duty mv db.sqlite3 old/      # 롤백용으로 옮겨 둔다
-for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then sudo -u duty mv "$f" old/; fi; done   # 있는 것만
+# DB 폴더는 duty 만 들어갈 수 있으므로 파일 작업은 duty 셸 하나에서 한다
+sudo -u duty sh -c 'set -e; cd /var/lib/duty_generator
+  sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"            # WAL 까지 담긴 일관된 단일 파일
+  [ "$(sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check")" = ok ] || { echo "백업 검사 실패"; exit 1; }
+  mkdir -p old && mv db.sqlite3 old/                              # 롤백용으로 옮겨 둔다
+  for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then mv "$f" old/; fi; done   # 있는 것만'
 dm migrate                                                   # 빈 새 DB
 dm convert_v1 /var/lib/duty_generator/db.sqlite3-v1.sqlite3   # 옮기기(dm 은 /opt 에서 돌므로 절대 경로)
 cd /opt/duty_generator   # upgrade.sh 가 migrate 뒤에 하려던 일
@@ -158,7 +159,12 @@ DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 db.sqlite3-v1.sqlite3
 - 변환 뒤 활성 슈퍼유저가 없으면 경고를 출력한다. 그때는 어드민이 관리 화면에 들어갈 수 없으니, 둘 중 하나로 복구한다.
   - `dm createsuperuser` 로 새로 만든다.
   - `dm shell` 에서 기존 계정의 `is_active` 를 켠 뒤 `dm changepassword <아이디>` 로 비밀번호를 정한다.
-- 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다. 서버는 서비스를 멈추고 `old/` 의 파일을 먼저 제자리로 옮긴 다음 `sudo deploy/upgrade.sh <예전 버전>` 을 실행한다. 예전 DB 라 `migrate` 가 할 일은 없다.
+- 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다. 서버는 아래 순서로 한다. 예전 DB 라 `migrate` 가 할 일은 없다.
+  ```bash
+  sudo systemctl stop duty-health.timer duty-alarms duty-generator
+  sudo -u duty sh -c 'cd /var/lib/duty_generator && rm -f db.sqlite3 db.sqlite3-wal db.sqlite3-shm && mv old/* . && rmdir old'
+  sudo /opt/duty_generator/deploy/upgrade.sh <예전 버전>
+  ```
 
 ## 백업·복원
 
