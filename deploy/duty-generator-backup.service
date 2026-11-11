@@ -6,5 +6,6 @@ StandardOutput=append:/var/log/duty_generator/backup.log
 StandardError=append:/var/log/duty_generator/backup.log
 Type=oneshot
 User=duty
-EnvironmentFile=/etc/duty_generator/env
+# 아래 셸 명령이 $DUTY_DB_PATH 를 쓰므로 .env 를 환경변수로 읽는다
+EnvironmentFile=/opt/duty_generator/.env
 ExecStart=/bin/sh -c 'sqlite3 "$DUTY_DB_PATH" ".backup /var/backups/duty_generator/db-$(date +%%Y%%m%%d).sqlite3" && ls -1t /var/backups/duty_generator/db-*.sqlite3 | tail -n +31 | xargs -r rm --'

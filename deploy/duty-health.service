@@ -4,7 +4,8 @@ Description=duty_generator 상태 점검(문제 생기면 텔레그램)
 [Service]
 Type=oneshot
 User=duty
-EnvironmentFile=/etc/duty_generator/env
+# duty-health.sh 가 $DUTY_DB_PATH 등을 쓰므로 .env 를 환경변수로 읽는다
+EnvironmentFile=/opt/duty_generator/.env
 ExecStart=/opt/duty_generator/deploy/duty-health.sh
 StandardOutput=append:/var/log/duty_generator/health.log
 StandardError=append:/var/log/duty_generator/health.log

@@ -7,3 +7,4 @@ staticfiles/
 .pytest_cache/
 .alarms.lock
 .telegram-updates.lock
+.env

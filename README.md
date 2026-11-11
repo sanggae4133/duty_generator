@@ -3,15 +3,47 @@
 IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관제 당번을 생성·배포하고, 근무 변경을 기록한다.
 설계: `docs/superpowers/specs/2026-11-09-duty-generator-design.md`
 
+## 폴더 구조
+
+| 위치 | 내용 |
+|---|---|
+| `.env.example` | 설정 파일 견본. 저장소 루트에 `.env` 로 복사해 값을 채운다(항목마다 설명·개발/서버 예시 값). `.env` 는 git 에 올라가지 않는다. |
+| `config/` | Django 프로젝트 코드(설정 `settings.py`, URL, WSGI). 설정**값**은 여기서 고치지 않고 `.env` 가 정한다. |
+| `duty/` | 앱 본체: 모델·화면·서비스·관리 명령·템플릿·정적 파일. |
+| `deploy/` | 서버 설치 파일(systemd 유닛, logrotate, 업그레이드·복원 스크립트). 아래 표. |
+| `tests/` | pytest 테스트(`.venv/bin/pytest -W error`). |
+| `docs/` | 설계·구현 계획 문서. |
+| `manage.py`, `pyproject.toml`, `requirements.lock` | Django 명령 입구, 패키지 정의, 운영용 고정 버전. |
+
+### `deploy/` 파일
+
+설치 때 한 번 복사하고, 이후에는 `upgrade.sh` 가 매번 다시 복사한다(손으로 고친 서버 쪽 사본은 업그레이드 때 덮어써진다 — 바꿀 일이 있으면 저장소 파일을 고친다).
+
+| 파일 | 무엇 | 언제 돌고 | 어디로 복사 |
+|---|---|---|---|
+| `duty-generator.service` | 웹(gunicorn, `127.0.0.1:8090`). 로그 `web.log` | 항상(부팅 시 자동) | `/etc/systemd/system/` |
+| `duty-alarms.service` | 개인 알림 발송(`manage.py run_alarms`, 1분마다). 로그 `alarms.log` | 항상. 단 "알림 켜기" 뒤에만 enable | `/etc/systemd/system/` |
+| `duty-generator-backup.service` | DB 백업 1회(`sqlite3 .backup`, 최근 30개 보관). 로그 `backup.log` | 아래 타이머가 부른다 | `/etc/systemd/system/` |
+| `duty-generator-backup.timer` | 위 백업을 매일 03:00 에 부른다(꺼져 있던 시간도 부팅 후 따라잡음) | 항상 | `/etc/systemd/system/` |
+| `duty-health.service` | 상태 점검 1회(웹·알림 서비스·백업·디스크, 바뀌면 관리자 텔레그램). 로그 `health.log` | 아래 타이머가 부른다 | `/etc/systemd/system/` |
+| `duty-health.timer` | 위 점검을 5분마다 부른다 | 항상 | `/etc/systemd/system/` |
+| `duty-health.sh` | 상태 점검 본체(`duty-health.service` 가 실행) | — | 복사 안 함(저장소에서 바로 실행) |
+| `duty_generator.logrotate` | `/var/log/duty_generator/*.log` 를 매일 돌리고 7일 보관 | 시스템 logrotate 가 매일 | `/etc/logrotate.d/duty_generator` |
+| `upgrade.sh` | 업그레이드·롤백(아래 "업그레이드·롤백") | 사람이 `sudo` 로 실행 | 복사 안 함 |
+| `restore.sh` | 백업 파일로 DB 복원(아래 "백업·복원") | 사람이 `sudo` 로 실행 | 복사 안 함 |
+
 ## 개발
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
-.venv/bin/pytest
-DUTY_DEBUG=1 .venv/bin/python manage.py migrate
-DUTY_DEBUG=1 .venv/bin/python manage.py createsuperuser
-DUTY_DEBUG=1 .venv/bin/python manage.py runserver
+cp .env.example .env   # 그리고 DUTY_DEBUG=1, 나머지는 파일 안 "개발:" 값으로(비워도 된다)
+.venv/bin/pytest -W error   # 테스트는 .env 를 읽지 않는다
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py createsuperuser
+.venv/bin/python manage.py runserver
 ```
+
+`.env` 없이 `DUTY_DEBUG=1 .venv/bin/python manage.py runserver` 처럼 앞에 환경변수를 붙여도 된다(환경변수가 `.env` 보다 이긴다).
 
 ## 설치 (사내 서버)
 
@@ -20,7 +52,7 @@ Ubuntu 24.04 (Python 3.12) 기준. 위치 정리:
 | 무엇 | 어디 | 소유·권한 |
 |---|---|---|
 | 코드·venv | `/opt/duty_generator` | root (duty 는 읽기만) |
-| 설정(비밀값) | `/etc/duty_generator/env` | root:duty 640 |
+| 설정 | `/opt/duty_generator/.env` | root:duty 640 |
 | DB·잠금 파일 | `/var/lib/duty_generator/` | duty 750 |
 | 자동 백업 | `/var/backups/duty_generator/` | duty 750 |
 | 로그 | `/var/log/duty_generator/*.log` | 폴더 root:adm 750(파일은 systemd 가 root 로 만든다) |
@@ -30,16 +62,15 @@ sudo apt install -y python3-venv sqlite3 git curl   # 백업·업그레이드가
 sudo useradd -r -s /usr/sbin/nologin duty
 sudo git clone https://github.com/sanggae4133/duty_generator.git /opt/duty_generator
 sudo install -d -o duty -g duty -m 750 /var/lib/duty_generator /var/backups/duty_generator
-sudo install -d -o root -g duty -m 750 /etc/duty_generator
 sudo install -d -o root -g adm -m 750 /var/log/duty_generator
 cd /opt/duty_generator
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -r requirements.lock && sudo .venv/bin/pip install --no-deps -e .
-sudo install -o root -g duty -m 640 deploy/env.example /etc/duty_generator/env
-sudoedit /etc/duty_generator/env   # 값 채우기(아래 주의)
-# manage.py 를 duty 사용자·운영 설정으로 부르는 함수(이 셸에서만 유효). 아래 절차들이 이걸 쓴다.
-dm() { sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py "$@"' sh "$@"; }
-sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'   # root: /opt 는 duty 쓰기 권한이 없다
+sudo install -o root -g duty -m 640 .env.example .env
+sudoedit /opt/duty_generator/.env   # 값 채우기: 항목마다 설명과 "서버:" 예시 값이 있다(아래 주의)
+# manage.py 를 duty 사용자로 부르는 함수(이 셸에서만 유효). 설정은 앱이 .env 에서 직접 읽는다. 아래 절차들이 이걸 쓴다.
+dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }
+sudo .venv/bin/python manage.py collectstatic --noinput   # root 로: /opt 는 duty 쓰기 권한이 없다
 dm migrate
 dm createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
 dm check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
@@ -50,8 +81,10 @@ sudo systemctl enable --now duty-generator duty-generator-backup.timer duty-heal
 sudo systemctl start duty-generator-backup   # 첫 백업(없으면 상태 점검이 "백업 없음"을 알린다)
 ```
 
-- env 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
+- `.env` 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. 앱 말고 백업·상태 점검 유닛(systemd `EnvironmentFile`)도 이 파일을 읽는다.
 - `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
+- 설정을 바꾼 뒤에는 `sudo systemctl restart duty-generator`(알림을 켰으면 `duty-alarms` 도).
+- `dm` 은 `/opt` 에서 돌지 않으므로 파일 인자는 절대 경로로 준다.
 - 서버 시계: 알림이 분 단위로 돈다. `timedatectl` 에서 `System clock synchronized: yes`, 시간대와 상관없이 앱은 Asia/Seoul 로 계산한다.
 - `duty-alarms.service` 도 함께 복사되지만 여기서는 켜지 않는다. 아래 "알림 → 알림 켜기" 순서대로 켠다.
 
@@ -80,17 +113,18 @@ sudo /opt/duty_generator/deploy/upgrade.sh            # 최신 버전으로
 sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되돌리기(롤백)
 ```
 
-스크립트가 하는 일: 지금 버전 출력 → DB 백업(`before-upgrade-*.sqlite3`) → 웹·알림 중지 → 코드 갱신 → 고정 버전 설치 → 정적 파일·`migrate` → 서비스 파일·logrotate 복사 → 다시 시작 → env 에 빠진 설정 이름 알림. 어느 단계든 실패하면 멈추고(서비스는 꺼진 채) 메시지를 남긴다. 고친 뒤 다시 실행하면 된다.
+스크립트가 하는 일: 지금 버전 출력 → DB 백업(`before-upgrade-*.sqlite3`) → 웹·알림 중지 → 코드 갱신 → 고정 버전 설치 → 정적 파일·`migrate` → 서비스 파일·logrotate 복사 → 다시 시작 → `.env` 에 빠진 설정·더는 안 쓰는 설정 이름 알림. 어느 단계든 실패하면 멈추고(서비스는 꺼진 채) 메시지를 남긴다. 고친 뒤 다시 실행하면 된다.
 
 - 이 스크립트가 없던 예전 버전에서 처음 올릴 때만: `cd /opt/duty_generator && sudo git log -1 --format=%h` 로 지금 버전을 적어 두고 `sudo git pull && sudo deploy/upgrade.sh`. 이 스크립트가 들어오기 전 버전으로는 스크립트로 되돌릴 수 없다(스크립트가 거부한다). 그때는 손으로:
   ```bash
   sudo systemctl disable --now duty-health.timer; sudo systemctl stop duty-alarms duty-generator
   cd /opt/duty_generator && sudo git checkout <적어 둔 버전> && sudo .venv/bin/pip install -e .
-  sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'
+  sudo .venv/bin/python manage.py collectstatic --noinput
   # DB 구조가 바뀌었으면: sudo -u duty cp <upgrade.sh 가 만든 before-upgrade 백업> /var/lib/duty_generator/db.sqlite3 && sudo -u duty rm -f /var/lib/duty_generator/db.sqlite3-wal /var/lib/duty_generator/db.sqlite3-shm
   sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl start duty-generator   # 로그는 다시 journalctl 로 간다
   systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
   ``` git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator` 후 다시 한다.
+- **설정 파일을 `/etc/duty_generator/env` 에서 `.env` 로 옮기는 업그레이드(시험 서버, 1회)**: 업그레이드 **전에** `sudo install -o root -g duty -m 640 /etc/duty_generator/env /opt/duty_generator/.env` 로 복사해 두고 평소처럼 `upgrade.sh` 를 돌린다. 새 버전이 잘 도는 걸 확인한 뒤 `sudo rm -r /etc/duty_generator`(그 전 버전으로 롤백할 일이 있으면 그때까지 남겨 둔다 — 예전 버전은 `/etc/duty_generator/env` 를 읽는다).
 - 롤백할 버전은 업그레이드 때 처음 찍힌 `지금 버전` 값이다(`cd /opt/duty_generator && sudo git log --oneline` 에서도 볼 수 있다).
 - 업그레이드에서 DB 구조가 바뀌었으면(`migrate` 가 무언가 적용) 롤백 후 DB 도 그때의 `before-upgrade-*` 로 "복원"한다.
 - `before-upgrade-*` 백업은 자동으로 지워지지 않는다. 디스크가 작으면 가끔 오래된 것을 지운다.
@@ -101,7 +135,7 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 
 ### 서버
 
-`upgrade.sh` 를 먼저 돌린다. 백업, 정지(웹·알림·상태 점검 `duty-health.timer`), 체크아웃, 설치, 정적 파일까지 하고 `migrate` 에서 **멈춘다**(예상된 실패). 그다음 아래 명령으로 손으로 이어 간다. `dm` 은 "설치" 절의 함수다. DB 경로는 env 의 `DUTY_DB_PATH`(기본 `/var/lib/duty_generator/db.sqlite3`)다.
+`upgrade.sh` 를 먼저 돌린다. 백업, 정지(웹·알림·상태 점검 `duty-health.timer`), 체크아웃, 설치, 정적 파일까지 하고 `migrate` 에서 **멈춘다**(예상된 실패). 그다음 아래 명령으로 손으로 이어 간다. `dm` 은 "설치" 절의 함수다. DB 경로는 `.env` 의 `DUTY_DB_PATH`(기본 `/var/lib/duty_generator/db.sqlite3`)다.
 
 ```bash
 sudo /opt/duty_generator/deploy/upgrade.sh <v2 버전>        # migrate 에서 멈춘다
@@ -195,7 +229,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 db.sqlite3-v1.sqlite3
 `duty-health.timer` 가 5분마다 아래를 보고, **상태가 바뀔 때만** 관리자 텔레그램으로 알린다(문제가 생겼을 때 한 번, 정상으로 돌아왔을 때 한 번).
 
 - 웹이 응답하지 않음 / 알림 서비스(`duty-alarms`, 켜 둔 경우만)가 멈춤 / 26시간 안에 만든 자동 백업이 없음 / DB 디스크 사용 90% 이상
-- 보내는 봇은 알림용 `DUTY_TELEGRAM_BOT_TOKEN`, 받는 사람은 env 의 `DUTY_OPS_CHAT_ID`(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `health.log` 에만 남는다.
+- 보내는 봇은 알림용 `DUTY_TELEGRAM_BOT_TOKEN`, 받는 사람은 `.env` 의 `DUTY_OPS_CHAT_ID`(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `health.log` 에만 남는다.
 - 처음 실행이 정상이면 `health.log` 에 "정상" 한 줄만 남기고 알리지 않는다.
 - 웹 점검은 `http://127.0.0.1:8090/login/` 을 부르므로 `DUTY_ALLOWED_HOSTS` 에 `127.0.0.1` 이 있어야 한다.
 - 시험: `sudo systemctl stop duty-generator` → 5분 안에 알림 → `sudo systemctl start duty-generator` → 복구 알림.
@@ -215,7 +249,7 @@ rm -rf /tmp/lockvenv
 
 사용자가 `/alarms/` 에서 규칙을 만들면 `duty-alarms` 서비스(`manage.py run_alarms`, 1분마다)가 보낸다. 웹(gunicorn)과 별도 프로세스다.
 
-### 설정값 (`/etc/duty_generator/env`)
+### 설정값 (`/opt/duty_generator/.env`)
 
 | 변수 | 내용 |
 |---|---|
@@ -229,11 +263,11 @@ rm -rf /tmp/lockvenv
 
 잠금 경로를 직접 정할 때는 `duty` 사용자가 쓸 수 있는 곳이어야 한다(`/opt/duty_generator` 는 안 된다). 쓸 수 없으면 `run_alarms` 가 시작하지 못하고 [연결 확인]이 500 오류가 난다. 기본값(DB 폴더)은 SQLite 가 쓰는 곳이라 항상 쓸 수 있다.
 
-**기존 서버에 알림 기능을 처음 올릴 때**: 위 "업그레이드·롤백"으로 올리고, 스크립트가 알려 주는 빠진 설정(`# --- 개인 알림` 아래 변수들)을 env 에 추가한 뒤, 아래 "알림 켜기" 1번부터 진행한다.
+**기존 서버에 알림 기능을 처음 올릴 때**: 위 "업그레이드·롤백"으로 올리고, 스크립트가 알려 주는 빠진 설정(`# --- 개인 알림` 아래 변수들)을 `.env` 에 추가한 뒤, 아래 "알림 켜기" 1번부터 진행한다.
 
 ### VAPID 키 만들기
 
-키는 반드시 아래 명령으로 만든다(형식이 다르거나 깨진 개인키는 설정 단계에서 걸러지지 않고, 발송할 때마다 실패 로그 `status=Temporary:None` 로만 드러난다). 출력 두 줄을 env 파일에 붙이고, 화면 기록 외에 파일로 남기지 않는다. 키를 바꾸면 기존 기기 구독은 모두 다시 해야 한다.
+키는 반드시 아래 명령으로 만든다(형식이 다르거나 깨진 개인키는 설정 단계에서 걸러지지 않고, 발송할 때마다 실패 로그 `status=Temporary:None` 로만 드러난다). 출력 두 줄을 `.env` 에 붙이고, 화면 기록 외에 파일로 남기지 않는다. 키를 바꾸면 기존 기기 구독은 모두 다시 해야 한다.
 
 ```bash
 cd /opt/duty_generator && .venv/bin/python -c "
@@ -250,9 +284,9 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 봇은 이 웹앱만 써야 한다. 다른 프로그램(예: 예전 `duty_notifier`)이 같은 봇으로 polling 중이면 서로의 업데이트를 가로챈다(409 충돌). 예전 봇을 다시 쓰려면 그 프로그램을 먼저 끈다.
 
 1. 텔레그램 `@BotFather` 에서 `/newbot` → 토큰과 사용자명을 `DUTY_TELEGRAM_BOT_TOKEN`, `DUTY_TELEGRAM_BOT_USERNAME` 에 넣는다.
-2. 토큰을 셸 기록에 남기지 않도록 env 파일에서 읽어 부르는 함수를 만든다(이 셸에서만 유효).
+2. 토큰을 셸 기록에 남기지 않도록 `.env` 에서 읽어 부르는 함수를 만든다(이 셸에서만 유효).
    ```bash
-   tg() { sudo sh -c '. /etc/duty_generator/env; curl --fail-with-body --silent --show-error "https://api.telegram.org/bot$DUTY_TELEGRAM_BOT_TOKEN/$1"; echo' sh "$1"; }
+   tg() { sudo sh -c '. /opt/duty_generator/.env; curl --fail-with-body --silent --show-error "https://api.telegram.org/bot$DUTY_TELEGRAM_BOT_TOKEN/$1"; echo' sh "$1"; }
    ```
 3. webhook 이 걸려 있지 않은지 확인한다. `tg getWebhookInfo` 의 `"ok":true` 이고 `result.url` 이 `""` 이어야 한다.
    `url` 이 비어 있지 않으면 한 번만 `tg 'deleteWebhook?drop_pending_updates=false'` (응답 `"ok":true,"result":true` 확인) 후 `tg getWebhookInfo` 를 다시 실행해 `url` 이 `""` 인지 확인한다.
@@ -282,7 +316,7 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 
 ### 알림 켜기
 
-1. env 값을 채우고 `sudo systemctl restart duty-generator` 후 `dm run_alarms --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
+1. `.env` 값을 채우고 `sudo systemctl restart duty-generator` 후 `dm run_alarms --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
 2. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다.
 3. PC Chrome 과 아이폰 홈 화면 앱에서 테스트 푸시가 오는지, 알림을 누르면 해당 화면이 열리는지 확인한다.
 4. 예전 `duty_notifier` 가 이 서버에서 아직 돌고 있으면 먼저 끈다(같은 알림이 두 번 가지 않게): `sudo systemctl disable --now duty-notifier`

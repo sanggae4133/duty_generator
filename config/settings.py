@@ -8,12 +8,31 @@ from django.utils.log import DEFAULT_LOGGING
 from .site_url import validate_site_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def load_env_file(path) -> None:
+    """KEY=VALUE 줄을 환경변수로. 빈 줄·# 주석은 건너뛰고 값 앞뒤 공백을 지운다(따옴표 처리 없음).
+    이미 있는 환경변수가 이긴다. 파일이 없으면 아무것도 안 한다."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        key, sep, value = line.strip().partition("=")
+        if sep and key and not key.startswith("#"):
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+# 설정값은 저장소 루트의 .env(.env.example 참고). DUTY_ENV_FILE="" 이면 읽지 않는다(테스트).
+_env_file = os.environ.get("DUTY_ENV_FILE", str(BASE_DIR / ".env"))
+if _env_file:
+    load_env_file(_env_file)
 env = os.environ.get
 
 DEBUG = env("DUTY_DEBUG", "0") == "1"
 SECRET_KEY = env("DUTY_SECRET_KEY") or ("dev-insecure-key" if DEBUG else "")
 if not SECRET_KEY:
-    raise RuntimeError("DUTY_SECRET_KEY 환경변수가 필요합니다.")
+    raise RuntimeError("DUTY_SECRET_KEY 가 필요합니다(.env).")
 
 ALLOWED_HOSTS = [h for h in env("DUTY_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h]
 CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]

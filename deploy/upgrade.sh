@@ -7,9 +7,10 @@ set -euo pipefail
 main() {  # 함수로 감싸 전체를 먼저 읽는다(git checkout 이 실행 중인 이 파일을 바꿔도 안전)
   [ "$(id -u)" = 0 ] || { echo "sudo 로 실행하세요."; exit 1; }
   cd /opt/duty_generator
-  local env=/etc/duty_generator/env db alarms_on backup
-  db=$(sh -c ". $env; echo \"\$DUTY_DB_PATH\"")
-  dm() { sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py "$@"' sh "$@"; }
+  [ -f .env ] || { echo "!! /opt/duty_generator/.env 가 없습니다(README \"설치\" 참고)."; exit 1; }
+  local db alarms_on backup
+  db=$(.venv/bin/python -c 'import config.settings as s; print(s.DB_PATH)')   # .env 의 DUTY_DB_PATH(없으면 기본값)
+  dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }
 
   echo "== 지금 버전: $(git log -1 --format=%h) (롤백할 때 이 값을 쓴다)"
   backup=/var/backups/duty_generator/before-upgrade-$(date +%Y%m%d-%H%M%S).sqlite3
@@ -30,7 +31,7 @@ main() {  # 함수로 감싸 전체를 먼저 읽는다(git checkout 이 실행 
 
   .venv/bin/pip install -q -r requirements.lock
   .venv/bin/pip install -q --no-deps -e .
-  sh -c "set -a; . $env; exec .venv/bin/python manage.py collectstatic --noinput -v0"
+  .venv/bin/python manage.py collectstatic --noinput -v0   # root: /opt 는 duty 쓰기 권한이 없다
   dm migrate
 
   install -d -o root -g adm -m 750 /var/log/duty_generator
@@ -41,9 +42,13 @@ main() {  # 함수로 감싸 전체를 먼저 읽는다(git checkout 이 실행 
   systemctl start duty-generator
   [ "$alarms_on" = 1 ] && systemctl start duty-alarms
 
-  local missing
-  missing=$(comm -23 <(grep -oE '^[A-Z_]+=' deploy/env.example | sort -u) <(grep -oE '^[A-Z_]+=' "$env" | sort -u) | tr -d = | tr '\n' ' ')
-  [ -z "$missing" ] || echo "!! env 에 없는 설정: $missing— deploy/env.example 을 보고 sudoedit $env 로 추가한 뒤 서비스를 재시작"
+  if [ -f .env.example ]; then   # .env.example 의 필수 줄(주석 아님)이 .env 에 없거나, .env 에 더는 안 쓰는 이름이 있으면 알린다
+    local missing unused
+    missing=$(comm -23 <(grep -oE '^DUTY_[A-Z_]+=' .env.example | sort -u) <(grep -oE '^DUTY_[A-Z_]+=' .env | sort -u) | tr -d = | tr '\n' ' ')
+    unused=$(comm -13 <(grep -oE '^(# )?DUTY_[A-Z_]+=' .env.example | sed 's/^# //' | sort -u) <(grep -oE '^DUTY_[A-Z_]+=' .env | sort -u) | tr -d = | tr '\n' ' ')
+    [ -z "$missing" ] || echo "!! .env 에 없는 설정: $missing— .env.example 설명을 보고 sudoedit /opt/duty_generator/.env 로 추가한 뒤 서비스를 재시작"
+    [ -z "$unused" ] || echo "!! .env 에 더는 쓰지 않는 설정: $unused— 지워도 된다(sudoedit /opt/duty_generator/.env)"
+  fi
 
   sleep 3
   systemctl is-active -q duty-generator || { echo "!! 웹이 뜨지 않음:"; tail -n 30 /var/log/duty_generator/web.log; exit 1; }

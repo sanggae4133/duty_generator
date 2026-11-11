@@ -7,7 +7,7 @@ main() {
   [ "$(id -u)" = 0 ] || { echo "sudo 로 실행하세요."; exit 1; }
   [ $# = 1 ] && [ -f "$1" ] || { echo "사용: sudo $0 <백업 파일>"; exit 1; }
   local src=$1 db check alarms_on
-  db=$(sh -c '. /etc/duty_generator/env; echo "$DUTY_DB_PATH"')
+  db=$(cd /opt/duty_generator && .venv/bin/python -c 'import config.settings as s; print(s.DB_PATH)')   # .env 의 DUTY_DB_PATH
   check=$(sudo -u duty sqlite3 "$src" "PRAGMA quick_check")
   [ "$check" = ok ] || { echo "!! 백업 파일 검사 실패: $check"; exit 1; }
 
@@ -18,7 +18,7 @@ main() {
   sudo -u duty cp "$src" "$db"
   sudo -u duty rm -f "$db-wal" "$db-shm"
   # 지금 코드보다 오래된 백업이면 구조를 맞춘다
-  sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py migrate'
+  sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py migrate
   systemctl start duty-generator
   [ "$alarms_on" = 1 ] && systemctl start duty-alarms
   sleep 3
