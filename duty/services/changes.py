@@ -6,7 +6,7 @@ from django.db.models import Q
 
 from .. import perms
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, ControlDuty, Member, Period
+from ..models import ChangeLog, Commute, ControlDuty, Period, User
 from ..shifts import COMMUTE_SHIFTS, CONTROL_SLOTS, CELLS, DEVELOPER, is_slot_cell, slot_index
 
 
@@ -27,7 +27,7 @@ def _owner(d: date) -> Period:
     return p
 
 
-def _eligibility_warnings(period: Period, d: date, slot: int, m: Member) -> list[str]:
+def _eligibility_warnings(period: Period, d: date, slot: int, m: User) -> list[str]:
     label, allowed = CONTROL_SLOTS[slot]
     out = []
     if m.type != DEVELOPER:
@@ -54,19 +54,26 @@ def _check_cell(*cells: str) -> None:
         raise DutyError("알 수 없는 칸입니다.")
 
 
-def _check_active(m: Member | None) -> None:
+def _check_active(m: User | None) -> None:
     if m is not None and not m.is_active:
         raise DutyError(f"{m.name}은(는) 재직 중이 아닙니다.")
 
 
+def _check_candidate(m: User | None) -> None:
+    """새로 들이는 사람은 roster() 대상(재직 + 부서 있음)만."""
+    _check_active(m)
+    if m is not None and m.department_id is None:
+        raise DutyError(f"{m.name}은(는) 근무표 대상이 아닙니다.")
+
+
 @transaction.atomic
-def change_cell(user, d: date, cell: str, before: Member | None, after: Member | None) -> ChangeResult:
+def change_cell(user, d: date, cell: str, before: User | None, after: User | None) -> ChangeResult:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
     _check_cell(cell)
     if (before is None and after is None) or before == after:
         raise DutyError("변경할 내용이 없습니다.")
-    _check_active(after)
+    _check_candidate(after)
     warnings: list[str] = []
     if is_slot_cell(cell):
         slot = slot_index(cell)
@@ -102,10 +109,12 @@ def change_cell(user, d: date, cell: str, before: Member | None, after: Member |
 
 
 @transaction.atomic
-def swap(user, d: date, cell_a: str, a: Member, cell_b: str, b: Member) -> ChangeResult:
+def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> ChangeResult:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
     _check_cell(cell_a, cell_b)
+    _check_candidate(a)  # 퇴사자·부서 없는 사람을 다른 칸으로 옮기는 것도 새 배정이다
+    _check_candidate(b)
     if a == b or cell_a == cell_b:
         raise DutyError("서로 다른 두 칸의 서로 다른 사람을 골라 주세요.")
     if is_slot_cell(cell_a) != is_slot_cell(cell_b):

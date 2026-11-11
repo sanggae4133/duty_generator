@@ -2,13 +2,13 @@ from datetime import date
 
 import pytest
 
-from duty.models import ChangeLog, Commute, Period
+from duty.models import ChangeLog, Commute, Period, User
 
 
 @pytest.fixture
 def member_client(client, make_member):
     m = make_member("가", user=True)
-    client.force_login(m.user)
+    client.force_login(m)
     return client
 
 
@@ -112,7 +112,7 @@ def test_publish_post_past_start_inside_period_ok(admin_client_ok, make_member, 
 def test_change_log_filters(admin_client_ok, make_member):
     p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
     a, b = make_member("가", user=True), make_member("나")
-    ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=a, by=a.user)
+    ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=a, by=a)
     ChangeLog.objects.create(period=p, date=date(2026, 11, 10), cell="night", before=None, after=b)
     c = admin_client_ok
 
@@ -128,7 +128,7 @@ def test_change_log_filters(admin_client_ok, make_member):
     assert "새벽" in h and "야간" not in h
     h = get("?name=나")
     assert "야간" in h and "새벽" not in h
-    h = get(f"?by={a.user.username}")
+    h = get(f"?by={a.username}")
     assert "새벽" in h and "야간" not in h
 
 
@@ -147,13 +147,11 @@ def test_schema_anonymous_redirected(client, db):
 
 
 def test_admin_nav_link_superuser_only(client, admin_user, make_member):
-    from django.contrib.auth.models import User
-
     link = '<a href="/admin/">관리</a>'
-    root = User.objects.create_superuser("root", password="unused-Pw-123")
+    root = User.objects.create_superuser("root", password="unused-Pw-123", name="루트")
     client.force_login(root)
     assert link in client.get("/").content.decode()
     client.force_login(admin_user)  # staff only
     assert "관리</a>" not in client.get("/").content.decode()
-    client.force_login(make_member("가", user=True).user)
+    client.force_login(make_member("가", user=True))
     assert "관리</a>" not in client.get("/").content.decode()

@@ -1,7 +1,7 @@
 from datetime import date
 
 from duty.models import ChangeLog, Commute, ControlDuty, Period
-from duty.services.roster import api_assignments, chain, member_schedule, published_days
+from duty.services.roster import chain, member_schedule, published_days
 
 S = Period.Status
 D = date(2026, 11, 10)
@@ -44,19 +44,11 @@ def test_unpublished_is_hidden(make_member):
     assert published_days() == []
 
 
-def test_api_assignments(make_member):
-    make_published(make_member)
-    rows = api_assignments(None, None)
-    assert {"date": "2026-11-10", "shift": "정상", "name": "나", "replaced": "가"} in rows
-    assert {"date": "2026-11-10", "shift": "08:30~09:30", "name": "나", "replaced": None} in rows
-    assert {"date": "2026-11-10", "shift": "새벽", "name": "다", "replaced": None} in rows
-
-
 def test_member_schedule(make_member):
     make_published(make_member)
-    from duty.models import Member
+    from duty.models import User
 
-    assert member_schedule(Member.objects.get(name="나"), D) == [(D, ["정상", "08:30~09:30"])]
+    assert member_schedule(User.objects.get(name="나"), D) == [(D, ["정상", "08:30~09:30"])]
 
 
 def test_chain_replaced_cleared_when_readded():

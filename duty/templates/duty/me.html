@@ -1,7 +1,7 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>내 근무</h3>
-{% if not member %}<p>멤버와 연결된 계정이 아닙니다.</p>{% endif %}
+{% if not member %}<p>근무표 대상 계정이 아닙니다.</p>{% endif %}
 {% for it in items %}
 <article><a href="{% url 'day' it.date %}"><strong>{{ it.date|date:"Y-m-d" }} ({{ it.weekday }})</strong></a>
   <p>{{ it.labels|join:", " }}</p></article>

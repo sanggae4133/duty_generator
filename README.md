@@ -41,6 +41,7 @@ sudoedit /etc/duty_generator/env   # 값 채우기(아래 주의)
 dm() { sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py "$@"' sh "$@"; }
 sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'   # root: /opt 는 duty 쓰기 권한이 없다
 dm migrate
+dm createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
 dm check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
 sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
 sudo cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
@@ -50,7 +51,7 @@ sudo systemctl start duty-generator-backup   # 첫 백업(없으면 상태 점�
 ```
 
 - env 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
-- `DUTY_SECRET_KEY`·`DUTY_API_TOKEN` 은 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다. `DUTY_API_TOKEN` 은 비우면 안 된다(빈 값이면 API 가 모두 401).
+- `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
 - 서버 시계: 알림이 분 단위로 돈다. `timedatectl` 에서 `System clock synchronized: yes`, 시간대와 상관없이 앱은 Asia/Seoul 로 계산한다.
 - `duty-alarms.service` 도 함께 복사되지만 여기서는 켜지 않는다. 아래 "알림 → 알림 켜기" 순서대로 켠다.
 
@@ -62,18 +63,15 @@ sudo tailscale funnel --bg --set-path / http://127.0.0.1:8090
 sudo tailscale funnel status
 ```
 
-- `--set-path /` 는 모든 경로를 공개한다. 따라서 `/api/assignments` 도 Funnel 을 통해 외부에서 호출할 수 있다. 이 API 를 막는 것은 `Authorization: Bearer <DUTY_API_TOKEN>` 헤더뿐이다.
-- `DUTY_API_TOKEN` 은 `secrets.token_urlsafe(48)` 로 만들고 비워 두지 않는다. 빈 값이면 앱이 모든 요청을 401 로 거부한다.
+## 처음 한 번: 계정 만들기
 
-## 처음 한 번: 기존 시트 가져오기
-
-```bash
-dm import_sheets --dry-run
-dm import_sheets
-```
-
-이후 `/<DUTY_ADMIN_PATH>/` 의 멤버 목록에서 멤버를 선택하고 "계정 발급 / 비밀번호 초기화" 액션으로 임시 비밀번호를 발급한다.
-부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다. 어드민은 사용자 화면에서 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(멤버·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
+`/<DUTY_ADMIN_PATH>/` 의 "사용자" 화면이 멤버이자 로그인 계정이다(아이디 = 멤버 코드).
+- 첫 어드민은 설치 때 `dm createsuperuser` 로 만든다. 아이디·비밀번호 말고 **이름**도 묻는다. 이 계정은 부서가 없어 근무표 대상이 아닌 어드민 전용 계정이고, "스태프 권한"도 켜져 있다. 기본 알림 규칙은 생기지 않는다(필요하면 알림 화면에서 추가).
+- 새 사람: [사용자 추가]에서 아이디·이름·부서·파트·구분을 넣는다(비밀번호 없이 만들어지고 아직 로그인할 수 없다).
+- 계정 발급: 목록에서 선택 → "계정 발급 / 비밀번호 초기화" 액션 → 화면에 한 번만 보이는 임시 비밀번호를 전달한다. 첫 발급 때 기본 알림 규칙이 생기고, 첫 로그인에서 비밀번호를 바꾸게 한다.
+- 어드민 전용 계정(근무표에 안 들어감)은 부서를 비워 둔다. 어드민은 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(사용자·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
+- 부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다.
+- 비밀번호는 항상 [계정 발급] 액션으로 준다. 사용자 편집 화면의 비밀번호 칸에서 Django 기본 "비밀번호 설정/변경" 화면으로 정하면 발급을 거치지 않는다. 그러면 첫 로그인 비밀번호 변경이 걸리지 않고, 기본 알림 규칙도 생기지 않는다. 그 뒤 [계정 발급]을 해도 최초 발급으로 치지 않는다.
 
 ## 업그레이드·롤백
 
@@ -96,6 +94,77 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 - 롤백할 버전은 업그레이드 때 처음 찍힌 `지금 버전` 값이다(`cd /opt/duty_generator && sudo git log --oneline` 에서도 볼 수 있다).
 - 업그레이드에서 DB 구조가 바뀌었으면(`migrate` 가 무언가 적용) 롤백 후 DB 도 그때의 `before-upgrade-*` 로 "복원"한다.
 - `before-upgrade-*` 백업은 자동으로 지워지지 않는다. 디스크가 작으면 가끔 오래된 것을 지운다.
+
+## 기존 DB 옮기기 (멤버·계정 통합 전 DB, 1회)
+
+멤버·계정 통합 버전은 마이그레이션을 새 `0001_v2` 하나로 새로 만들었다. 그 전 버전(duty 마이그레이션 0001~0009)으로 데이터를 넣은 DB(개발 PC, 시험 설치 서버)는 `migrate` 로 올라가지 않는다(일부러 실패하고 DB 는 그대로다). 그래서 아래처럼 한 번 옮긴다.
+
+### 서버
+
+`upgrade.sh` 를 먼저 돌린다. 백업, 정지(웹·알림·상태 점검 `duty-health.timer`), 체크아웃, 설치, 정적 파일까지 하고 `migrate` 에서 **멈춘다**(예상된 실패). 그다음 아래 명령으로 손으로 이어 간다. `dm` 은 "설치" 절의 함수다. DB 경로는 env 의 `DUTY_DB_PATH`(기본 `/var/lib/duty_generator/db.sqlite3`)다.
+
+```bash
+sudo /opt/duty_generator/deploy/upgrade.sh <v2 버전>        # migrate 에서 멈춘다
+sudo systemctl stop duty-health.timer duty-alarms duty-generator   # 이미 멈춰 있다(확인용)
+# DB 폴더는 duty 만 들어갈 수 있으므로 파일 작업은 duty 셸 하나에서 한다
+sudo -u duty sh -c 'set -e; cd /var/lib/duty_generator
+  sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"            # WAL 까지 담긴 일관된 단일 파일
+  [ "$(sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check")" = ok ] || { echo "백업 검사 실패"; exit 1; }
+  mkdir -p old && mv db.sqlite3 old/                              # 롤백용으로 옮겨 둔다
+  for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then mv "$f" old/; fi; done   # 있는 것만'
+dm migrate                                                   # 빈 새 DB
+dm convert_v1 /var/lib/duty_generator/db.sqlite3-v1.sqlite3   # 옮기기(dm 은 /opt 에서 돌므로 절대 경로)
+cd /opt/duty_generator   # upgrade.sh 가 migrate 뒤에 하려던 일
+sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
+sudo cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
+sudo systemctl daemon-reload
+sudo systemctl start duty-generator
+systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms   # 알림을 켜 둔 서버만
+sudo systemctl enable --now duty-health.timer
+```
+
+### 개발 PC
+
+저장소 루트에서 실행한다.
+
+```bash
+# runserver·run_alarms 를 멈춘다
+sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"
+sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"     # ok
+mkdir -p old && mv db.sqlite3 old/
+for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then mv "$f" old/; fi; done
+git checkout <v2 버전> && .venv/bin/pip install -e '.[dev]'
+DUTY_DEBUG=1 .venv/bin/python manage.py migrate
+DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 db.sqlite3-v1.sqlite3
+```
+
+### 동작
+
+- `convert_v1` 은 `.backup` 으로 만든 단일 파일만 받는다(옆에 내용 있는 `-wal` 이 있으면 거부한다).
+- 예전 백업은 읽기 전용으로 열고, 쓰기 전에 아래를 전부 검사한다.
+  - 원본: `quick_check`, `foreign_key_check`, duty 마이그레이션이 0001~0009인지.
+  - 지금 DB: `0001_v2` 만 적용된 빈 DB인지.
+  - 아이디·이름 규칙과 중복.
+  - 그룹·직접 권한 행이 없는지.
+- 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
+- 멤버마다 사용자 1명을 만든다(id = 예전 멤버 id, 아이디 = 멤버 코드). 연결된 계정의 비밀번호·권한·로그인 시각을 옮긴다.
+- 재직 = 멤버 재직 AND 계정 활성.
+- 멤버와 연결되지 않은 계정(어드민 전용 등)은 부서 없는 사용자가 되고, 이름은 아이디와 같다.
+- 나머지 표는 id 그대로 옮긴다.
+- 세션·로그인 실패 기록·관리 화면 기록은 버린다(다시 로그인해야 한다). 텔레그램 연결 대기 코드는 비운다.
+- 출력에는 건수만 나온다(이름·비밀값 없음). 표별 건수와 함께 재직 AND 로 상태가 바뀐 연결 계정 수도 출력한다.
+  - "재직이었지만 계정 비활성이라 재직 끔 N": 이 사람들은 근무표 후보에서 빠진다.
+  - "퇴사였지만 계정 활성이라 로그인 차단 N (그중 스태프 M)": 예전엔 퇴사 스태프도 로그인됐지만 이제는 막힌다.
+  - 바로잡을 사람은 관리 화면에서 "재직"을 고친다.
+- 변환 뒤 활성 슈퍼유저가 없으면 경고를 출력한다. 그때는 어드민이 관리 화면에 들어갈 수 없으니, 둘 중 하나로 복구한다.
+  - `dm createsuperuser` 로 새로 만든다.
+  - `dm shell` 에서 기존 계정의 `is_active` 를 켠 뒤 `dm changepassword <아이디>` 로 비밀번호를 정한다.
+- 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다. 서버는 아래 순서로 한다. 예전 DB 라 `migrate` 가 할 일은 없다.
+  ```bash
+  sudo systemctl stop duty-health.timer duty-alarms duty-generator
+  sudo -u duty sh -c 'cd /var/lib/duty_generator && rm -f db.sqlite3 db.sqlite3-wal db.sqlite3-shm && mv old/* . && rmdir old'
+  sudo /opt/duty_generator/deploy/upgrade.sh <예전 버전>
+  ```
 
 ## 백업·복원
 
@@ -223,7 +292,7 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 ## 캘린더 구독 (ICS)
 
 - 각자 [알림·캘린더] 화면에서 [구독 주소 만들기]로 개인 구독 주소(`/calendar/<토큰>.ics`)를 받아 Google 캘린더·아이폰·Outlook에 구독한다. 사용 방법은 `/help/calendar/`.
-- 피드에는 배포된 회차의 본인 출근조·관제 일정만, 오늘 기준 지난 90일부터 나온다. 퇴사(재직 끔)·계정 비활성·멤버 연결 해제면 빈 캘린더가 된다.
+- 피드에는 배포된 회차의 본인 출근조·관제 일정만, 오늘 기준 지난 90일부터 나온다. 퇴사(재직 끔)면 빈 캘린더가 된다. 부서 없는 계정은 구독 주소를 만들 수 없다.
 - 갱신 시점은 캘린더 앱이 정한다(Google은 몇 시간 이상 걸리기도 함). 즉시 알아야 하는 변경은 텔레그램·푸시 알림이 맡는다.
 - DB에는 토큰의 SHA-256 해시만 남고 주소는 발급 화면에 한 번만 보인다. 주소가 유출되면 본인이 [주소 재발급](기존 주소 즉시 무효) 또는 [구독 끄기]를 누른다. 피드 경로는 앱 로그(`django.request`·`django.server`)에서 `calendar feed <상태코드>`로 바뀌어 남는다.
 - `DUTY_SITE_URL`이 비어 있으면 주소를 발급할 수 없다. 값은 경로 없이 `https://호스트[:포트]` 형식만 허용(DEBUG에서만 `http`), 경로·공백·제어문자·`?`·`#`·`user@`·잘못된 포트가 있으면 서버가 시작하지 않는다.
@@ -233,4 +302,4 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 
 - 로그인 5회 실패 시 그 계정은 15분 잠긴다. 슈퍼유저가 Admin의 Axes 메뉴에서 해제할 수 있다.
   잠금은 아이디 기준이라 멤버 코드를 아는 사람은 그 계정을 15분씩 계속 잠글 수 있다. 이때도 슈퍼유저가 Axes 관리 화면에서 풀면 된다.
-- 퇴사자는 멤버의 "재직"을 끈다. 이제 로그인도 차단된다(스태프 제외).
+- 퇴사자는 사용자의 "재직"을 끈다. 근무표 후보에서 빠지고 로그인도 막힌다(어드민도 예외 없음). 지난 근무·기록·통계에는 그대로 남는다.

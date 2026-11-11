@@ -1,12 +1,11 @@
 from datetime import date, timedelta
 
 import pytest
-from django.contrib.auth.models import User
 from django.test import override_settings
 from django.utils import timezone
 
 from duty.alarms import senders
-from duty.models import AlarmDelivery, AlarmRule, TelegramAlarmProfile
+from duty.models import AlarmDelivery, AlarmRule, TelegramAlarmProfile, User
 
 D = date(2026, 11, 10)
 BOT = dict(TELEGRAM_BOT_TOKEN="TOK", TELEGRAM_BOT_USERNAME="duty_test_bot")
@@ -15,15 +14,14 @@ BOT = dict(TELEGRAM_BOT_TOKEN="TOK", TELEGRAM_BOT_USERNAME="duty_test_bot")
 @pytest.fixture
 def me(db, depts, client, fixed_today):
     fixed_today(D)
-    u = User.objects.create_user("u1", password="unused-Pw-123")
-    AlarmRule.objects.filter(user=u).delete()  # 기본 규칙 제거
+    u = User.objects.create_user("u1", password="unused-Pw-123", name="유1")
     client.force_login(u)
     return u
 
 
 @pytest.fixture
 def other(db):
-    return User.objects.create_user("u2", password="unused-Pw-123")
+    return User.objects.create_user("u2", password="unused-Pw-123", name="유2")
 
 
 @pytest.fixture
@@ -750,7 +748,7 @@ def test_sw_and_manifest_skip_password_change_redirect(client, make_member):
     m = make_member("가", user=True)
     m.must_change_password = True
     m.save()
-    client.force_login(m.user)
+    client.force_login(m)
     assert client.get("/alarms/").status_code == 302
     assert client.get("/sw.js").status_code == 200
     assert client.get("/manifest.webmanifest").status_code == 200
@@ -758,7 +756,7 @@ def test_sw_and_manifest_skip_password_change_redirect(client, make_member):
 
 def test_sw_and_manifest_skip_inactive_member_redirect(client, make_member):
     m = make_member("가", user=True, active=False)
-    client.force_login(m.user)
+    client.force_login(m)
     for url in ["/sw.js", "/manifest.webmanifest"]:
         r = client.get(url)
         assert r.status_code == 200 and "Location" not in r, url

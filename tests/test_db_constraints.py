@@ -2,11 +2,10 @@
 from datetime import date
 
 import pytest
-from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 
-from duty.models import ChangeLog, Commute, ControlDuty, Member, Period, RosterPref
+from duty.models import ChangeLog, Commute, ControlDuty, Period, RosterPref, User
 
 D = date(2026, 11, 9)
 
@@ -22,7 +21,7 @@ def _bad(fn):
 
 
 def test_member_type(depts):
-    _bad(lambda: Member.objects.create(code="X1", name="가", department=depts["MEMS"], type="외주"))
+    _bad(lambda: User.objects.create(username="X1", name="가", department=depts["MEMS"], type="외주"))
 
 
 def test_period_status_and_dates(db):
@@ -50,7 +49,7 @@ def test_changelog_cell_and_nonempty(period, make_member):
 
 
 def test_rosterpref_view(db):
-    u = User.objects.create_user("u", password="unused-Pw-123")
+    u = User.objects.create_user("u", password="unused-Pw-123", name="유")
     _bad(lambda: RosterPref.objects.create(user=u, view="year"))
 
 

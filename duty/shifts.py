@@ -24,7 +24,7 @@ CONTROL_SLOTS: list[tuple[str, tuple[str, ...]]] = [  # (라벨, 자격 출근�
     ("17:00~18:00", ("dinner",)),
 ]
 
-SHIFT_TIMES: dict[str, tuple[str, str]] = {  # duty_notifier config 와 같은 값 (9시=석식교대, 저녁=야간)
+SHIFT_TIMES: dict[str, tuple[str, str]] = {  # 9시=석식교대, 저녁=야간
     "dawn": ("06:30", "15:30"),
     "normal": ("08:00", "17:00"),
     "dinner": ("09:00", "18:00"),

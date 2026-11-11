@@ -2,10 +2,9 @@ import hashlib
 import re
 
 import pytest
-from django.contrib.auth.models import User
 from django.test import Client
 
-from duty.models import CalendarFeed
+from duty.models import CalendarFeed, User
 from duty.services import calendar
 
 SITE = "https://duty.example"
@@ -19,7 +18,7 @@ def me(settings, make_member, client, fixed_today):
     fixed_today(date(2026, 11, 11))
     settings.SITE_URL = SITE
     m = make_member("가상일", user=True)
-    client.force_login(m.user)
+    client.force_login(m)
     return m
 
 
@@ -37,7 +36,7 @@ def test_issue_shows_url_once(client, me):
     assert r["Cache-Control"] == "private, no-store" and r["Referrer-Policy"] == "no-referrer"
     assert f'value="{SITE}/calendar/{token}.ics"' in body and "readonly" in body and "복사" in body
     assert not re.search(r'<a [^>]*href="[^"]*' + re.escape(token), body)
-    row = CalendarFeed.objects.get(user=me.user)
+    row = CalendarFeed.objects.get(user=me)
     assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
     assert token not in str(dict(client.session))
     assert not list(r.context["messages"])
@@ -77,9 +76,9 @@ def test_revoke(client, me):
     assert client.get(f"/calendar/{token}.ics").status_code == 404
 
 
-def test_unlinked_member(client, me):
+def test_department_removed(client, me):
     issue(client)
-    me.user = None
+    me.department, me.type = None, ""
     me.save()
     body = client.get("/alarms/").content.decode()
     assert calendar.NO_MEMBER in body and "구독 주소 만들기" not in body and "구독 끄기" in body
@@ -89,9 +88,9 @@ def test_unlinked_member(client, me):
     assert not CalendarFeed.objects.exists()
 
 
-def test_never_linked_user_rejected(client, db, settings):
+def test_no_department_user_rejected(client, db, settings):
     settings.SITE_URL = SITE
-    u = User.objects.create_user("x1", password="unused-Pw-123")
+    u = User.objects.create_user("x1", password="unused-Pw-123", name="관리2")
     client.force_login(u)
     body = client.get("/alarms/").content.decode()
     assert calendar.NO_MEMBER in body and "구독 끄기" not in body
@@ -103,7 +102,7 @@ def test_auth_method_csrf(client, me):
     assert client.get("/alarms/calendar/issue/").status_code == 405
     assert client.get("/alarms/calendar/revoke/").status_code == 405
     c = Client(enforce_csrf_checks=True)
-    c.force_login(me.user)
+    c.force_login(me)
     assert c.post("/alarms/calendar/issue/").status_code == 403
     assert c.post("/alarms/calendar/revoke/").status_code == 403
     anon = Client()

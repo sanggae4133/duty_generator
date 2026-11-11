@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from .. import perms
 from ..csv_io import split_names
 from ..errors import DutyError
-from ..models import Department, Member
+from ..models import Department, User
 from ..services import changes, prefs
 from ..services.roster import find_day, member_schedule, published_days
 from ..shifts import CELLS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
@@ -37,10 +37,10 @@ def _lines(labels: list[str], names: list[str], removed: bool = False, per_line:
     return [items[i:i + per_line] for i in range(0, len(items), per_line)]
 
 
-def _member(code: str | None) -> Member | None:
-    if not code:
+def _member(username: str | None) -> User | None:
+    if not username:
         return None
-    m = Member.objects.filter(code=code).first()
+    m = User.objects.filter(username=username).first()
     if m is None:
         raise DutyError("없는 멤버입니다.")  # 조작된 코드가 '삭제'로 해석되지 않게
     return m
@@ -62,7 +62,7 @@ def _filtered(qs, depts: list[str], types: list[str]):
 
 def _keeper(depts: list[str], types: list[str]):
     """라벨의 현재(마지막) 사람이 부서·유형 필터를 모두 통과하면 True인 함수."""
-    info = {n: (d, t) for n, d, t in Member.objects.values_list("name", "department_id", "type")} if depts or types else {}
+    info = {n: (d, t) for n, d, t in User.objects.values_list("name", "department_id", "type")} if depts or types else {}
 
     def keep(label: str) -> bool:
         d, t = info.get(label.split(">")[-1].strip().lstrip("+"), (None, None))
@@ -91,13 +91,13 @@ def _filter_ctx(depts, types, shifts) -> dict:
 
 
 def _active_members(depts: list[str] | None = None, types: list[str] | None = None):
-    qs = Member.objects.filter(is_active=True).select_related("department").order_by("name")
+    qs = User.objects.roster().select_related("department").order_by("name")
     return list(_filtered(qs, depts or [], types or []))
 
 
 def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None):
     current = day.members[cell] if day else []
-    qs = Member.objects.filter(name__in=current).order_by("name")
+    qs = User.objects.filter(name__in=current).order_by("name")
     return {
         "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
         "current_members": list(_filtered(qs, depts or [], types or [])),
@@ -229,7 +229,7 @@ def day(request, d):
             )
             sections.append(ctx)
     swap_options = [
-        {"value": f"{k}|{m.code}", "text": f"{cell_label(k)} · {m.name}"}  # 맞교환은 필터와 무관하게 전체
+        {"value": f"{k}|{m.username}", "text": f"{cell_label(k)} · {m.name}"}  # 맞교환은 필터와 무관하게 전체
         for k in (CELLS if found else []) for m in _cell_context(found, k, d)["current_members"]
     ]
     qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
@@ -244,12 +244,12 @@ def day(request, d):
 @require_POST
 def swap(request, d):
     try:
-        cell_a, code_a = request.POST["a"].split("|")
-        cell_b, code_b = request.POST["b"].split("|")
+        cell_a, username_a = request.POST["a"].split("|")
+        cell_b, username_b = request.POST["b"].split("|")
         result = changes.swap(
-            request.user, d, cell_a, Member.objects.get(code=code_a), cell_b, Member.objects.get(code=code_b)
+            request.user, d, cell_a, User.objects.get(username=username_a), cell_b, User.objects.get(username=username_b)
         )
-    except (KeyError, ValueError, Member.DoesNotExist):
+    except (KeyError, ValueError, User.DoesNotExist):
         messages.error(request, "맞교환할 두 사람을 골라 주세요.")
     except DutyError as e:
         messages.error(request, str(e))
@@ -262,7 +262,7 @@ def swap(request, d):
 
 @login_required
 def me(request):
-    member = perms.member_of(request.user)
+    member = request.user if request.user.department_id else None
     items = member_schedule(member, perms.today()) if member else []
     return render(request, "duty/me.html", {
         "member": member,

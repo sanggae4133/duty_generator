@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -21,7 +22,7 @@ class Department(models.Model):
     code = models.CharField("코드", max_length=8, primary_key=True)
     name = models.CharField("이름", max_length=32, unique=True)
     shifts = models.CharField("가능한 출근조", max_length=64, help_text="쉼표 구분: dawn,normal,dinner,night")
-    managers = models.ManyToManyField("Member", blank=True, related_name="managed_departments", verbose_name="입력 담당자")
+    managers = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="managed_departments", verbose_name="입력 담당자")
 
     class Meta:
         verbose_name = verbose_name_plural = "부서"
@@ -34,20 +35,33 @@ class Department(models.Model):
         return [s for s in self.shifts.split(",") if s]
 
 
-class Member(models.Model):
-    code = models.CharField("코드", max_length=16, unique=True)
+class UserManager(DjangoUserManager):
+    def roster(self):
+        """근무표 후보: 재직 중이고 부서가 있는 계정. 역사·표시에는 쓰지 않는다(퇴사자·부서 없는 계정도 보여야 함)."""
+        return self.filter(department__isnull=False, is_active=True)
+
+
+class User(AbstractUser):
+    """로그인 계정 겸 근무표 멤버. username = 멤버 코드, department 없음 = 근무표 대상 아님(어드민 전용)."""
     name = models.CharField("이름", max_length=32, unique=True, validators=[validate_member_name])
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="members", verbose_name="부서")
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True,
+                                   related_name="members", verbose_name="부서")
     part = models.CharField("파트", max_length=32, blank=True)
-    type = models.CharField("구분", max_length=8, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)])
-    is_active = models.BooleanField("재직", default=True)
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="member")
+    type = models.CharField("구분", max_length=8, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)], blank=True)
+    is_active = models.BooleanField("재직", default=True, help_text="끄면 로그인할 수 없고 근무표 후보에서 빠집니다.")
     must_change_password = models.BooleanField("첫 로그인 비번 변경 필요", default=False)
 
+    objects = UserManager()
+    REQUIRED_FIELDS = ["name"]  # createsuperuser 가 이름을 묻는다
+
     class Meta:
-        verbose_name = verbose_name_plural = "멤버"
-        ordering = ["code"]
-        constraints = [_one_of("type", (STAFF, DEVELOPER), "member_type_valid")]
+        verbose_name = verbose_name_plural = "사용자"
+        ordering = ["username"]
+        constraints = [models.CheckConstraint(
+            name="user_type_matches_department",
+            condition=Q(department__isnull=False, type__in=[STAFF, DEVELOPER]) | Q(department__isnull=True, type=""),
+            violation_error_message="부서가 있으면 구분(직원·개발자)을 고르고, 부서가 없으면 구분을 비워 두세요.",
+        )]
 
     def __str__(self):
         return self.name
@@ -90,7 +104,7 @@ class Period(models.Model):
 class Commute(models.Model):
     period = models.ForeignKey(Period, on_delete=models.CASCADE)
     date = models.DateField()
-    member = models.ForeignKey(Member, on_delete=models.PROTECT)
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     shift = models.CharField(max_length=8, choices=list(COMMUTE_SHIFTS.items()))
 
     class Meta:
@@ -105,7 +119,7 @@ class ControlDuty(models.Model):
     period = models.ForeignKey(Period, on_delete=models.CASCADE)
     date = models.DateField()
     slot = models.PositiveSmallIntegerField()
-    member = models.ForeignKey(Member, on_delete=models.PROTECT)
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
         constraints = [
@@ -117,12 +131,12 @@ class ControlDuty(models.Model):
 
 class ChangeLog(models.Model):
     at = models.DateTimeField(auto_now_add=True)
-    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = import. 계정은 삭제 대신 비활성화
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = 예전 시트 가져오기 기록. 계정은 삭제 대신 비활성화
     period = models.ForeignKey(Period, on_delete=models.PROTECT)  # 변경 기록은 남긴다: 기록 있는 회차는 삭제 불가
     date = models.DateField()
     cell = models.CharField(max_length=8)  # dawn|normal|dinner|night|slot0..slot9
-    before = models.ForeignKey(Member, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
-    after = models.ForeignKey(Member, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    before = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    after = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         ordering = ["at", "id"]

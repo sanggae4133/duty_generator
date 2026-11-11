@@ -2,7 +2,7 @@ import statistics
 from dataclasses import dataclass
 from datetime import date
 
-from ..models import Commute, ControlDuty, Member, Period
+from ..models import Commute, ControlDuty, Period, User
 from ..shifts import CONTROL_SLOTS, DEVELOPER, TARGET_SPREAD, is_slot_cell
 from .roster import published_days
 
@@ -35,7 +35,7 @@ def _summary(values: list[int]) -> Summary | None:
 
 def member_stats(start: date | None, end: date | None):
     days = published_days(start, end)
-    stats = {n: MemberStat(n) for n in Member.objects.filter(type=DEVELOPER, is_active=True).values_list("name", flat=True)}
+    stats = {n: MemberStat(n) for n in User.objects.roster().filter(type=DEVELOPER).values_list("name", flat=True)}
     for day in days:
         for cell, names in day.members.items():
             if is_slot_cell(cell):

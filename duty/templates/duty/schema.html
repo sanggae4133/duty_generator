@@ -1,7 +1,7 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h2>데이터 구조</h2>
-<p><code>auth_user</code> — Django 로그인 계정 (Member.user, ChangeLog.by가 참조)</p>
+<p><code>duty_user</code> — 로그인 계정 겸 근무표 멤버(AUTH_USER_MODEL). 부서가 없으면 근무표 대상이 아닌 계정(어드민 전용). 배정·변경 기록·알림·캘린더·화면 설정이 참조한다. 근무표 후보 = 재직 중이고 부서가 있는 계정.</p>
 {% for m in models %}
 <article>
   <h3><code>{{ m.table }}</code> <small>{{ m.desc }}</small></h3>

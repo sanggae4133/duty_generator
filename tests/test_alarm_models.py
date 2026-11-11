@@ -1,10 +1,9 @@
 import pytest
 from datetime import date
-from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from duty.models import AlarmDelivery, AlarmRule, PushAlarmSubscription, TelegramAlarmProfile
+from duty.models import AlarmDelivery, AlarmRule, PushAlarmSubscription, TelegramAlarmProfile, User
 from duty.errors import DutyError
 from duty.services import alarms
 
@@ -13,9 +12,7 @@ BASE = dict(kind="personal", timing="days", offset=1, at_minute=1080, telegram=T
 
 @pytest.fixture
 def user(db):
-    u = User.objects.create_user("alarm-u", password="x")
-    AlarmRule.objects.filter(user=u).delete()
-    return u
+    return User.objects.create_user("alarm-u", password="x", name="알림")
 
 
 def _bad(fn):
@@ -93,8 +90,10 @@ def test_normalize(depts):
     assert alarms.normalize("personal", ["dawn"], ["MEMS"], ["직원"]) == (["dawn"], [], [])
 
 
-def test_new_user_gets_default_rules(db):
-    u = User.objects.create_user("fresh", password="x")
+def test_create_defaults(db):
+    u = User.objects.create_user("fresh", password="x", name="새")
+    assert not AlarmRule.objects.exists()  # 계정 생성만으로는 안 생긴다(최초 발급 때 issue_account 가 만든다)
+    alarms.create_defaults(u)
     rules = list(AlarmRule.objects.filter(user=u))
     assert [(r.timing, r.offset, r.at_minute) for r in rules] == [("days", 1, 1080), ("before_start", 120, 0)]
     assert all(r.telegram and not r.push and r.shifts == ["dawn", "dinner", "night"] for r in rules)
@@ -119,24 +118,3 @@ def test_normalize_rejects_unknown(depts):
     for args in [(["x"], [], []), (["dawn"], ["UNKNOWN"], []), (["dawn"], [], ["UNKNOWN"])]:
         with pytest.raises(DutyError, match="알 수 없는 값"):
             alarms.normalize("personal", *args)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_data_migration_only_for_users_without_rules():
-    from django.db import connection
-    from django.db.migrations.executor import MigrationExecutor
-    ex = MigrationExecutor(connection)
-    leaves = ex.loader.graph.leaf_nodes()
-    try:
-        ex.migrate([("duty", "0006_alarms")])
-        apps = MigrationExecutor(connection).loader.project_state([("duty", "0006_alarms")]).apps
-        U, R = apps.get_model("auth", "User"), apps.get_model("duty", "AlarmRule")
-        none, one = U.objects.create(username="n"), U.objects.create(username="o")
-        R.objects.filter(user__in=[none, one]).delete()  # 기존 사용자 상황 재현(과거 상태 모델은 실제 post_save 수신기를 타지 않아 보통 비어 있다)
-        R.objects.create(user=one, **{**BASE, "telegram": True})
-        MigrationExecutor(connection).migrate([("duty", "0007_default_alarm_rules")])
-        assert R.objects.filter(user=none).count() == 2
-        assert R.objects.filter(user=one).count() == 1
-    finally:
-        MigrationExecutor(connection).migrate(leaves)  # 이후 테스트가 최신 스키마를 받게
-        assert not MigrationExecutor(connection).migration_plan(leaves)
