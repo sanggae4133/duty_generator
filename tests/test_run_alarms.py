@@ -367,7 +367,32 @@ def test_recheck_failure_deletes_subscription(member, fake, monkeypatch):
 
 
 def test_duty_info_logs_reach_console():
-    """운영(journalctl)에서 'alarms tick:' INFO 줄이 보여야 한다(기본 last-resort 핸들러는 WARNING 이상만)."""
-    lg = logging.getLogger("duty")
-    assert lg.getEffectiveLevel() <= logging.INFO
-    assert any(isinstance(h, logging.StreamHandler) for h in lg.handlers)
+    """운영(journalctl)에서 'alarms tick:' INFO 줄이 레벨과 함께 stderr에 정확히 한 번 찍혀야 한다."""
+    import os
+    import subprocess
+    import sys
+    code = "import django, logging; django.setup(); logging.getLogger('duty.x').info('hello')"
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
+                       env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"})
+    assert r.stderr == "INFO duty.x hello\n"
+
+
+def test_lock_defaults_follow_db_dir(monkeypatch, tmp_path):
+    """잠금 기본 경로는 DB 폴더(서비스 사용자가 반드시 쓸 수 있음). 환경변수가 있으면 그 값."""
+    import importlib
+
+    import config.settings as cs
+    monkeypatch.setenv("DUTY_DB_PATH", str(tmp_path / "db.sqlite3"))
+    monkeypatch.delenv("DUTY_ALARMS_LOCK", raising=False)
+    monkeypatch.delenv("DUTY_TELEGRAM_LOCK", raising=False)
+    try:
+        importlib.reload(cs)
+        assert cs.ALARMS_LOCK_PATH == str(tmp_path / ".alarms.lock")
+        assert cs.TELEGRAM_UPDATES_LOCK_PATH == str(tmp_path / ".telegram-updates.lock")
+        assert cs.DATABASES["default"]["NAME"] == str(tmp_path / "db.sqlite3")
+        monkeypatch.setenv("DUTY_ALARMS_LOCK", "/x/a.lock")
+        importlib.reload(cs)
+        assert cs.ALARMS_LOCK_PATH == "/x/a.lock"
+    finally:
+        monkeypatch.undo()
+        importlib.reload(cs)
