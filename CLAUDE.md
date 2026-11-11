@@ -31,6 +31,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - 기록은 목적지별 `AlarmDelivery`(규칙·날짜·칸·채널·목적지)이고 **보낸 뒤에** 남긴다(같은 내용 재발송 방지는 `last_sent_hash`, 실패는 백오프).
 - 테스트에서 텔레그램·푸시 실제 호출 금지(`senders`를 monkeypatch).
 - `run_alarms`는 `DUTY_ALARMS_LOCK` fcntl 잠금으로 한 프로세스만 돈다(`--once`·`--dry-run`은 잠금이 있으면 바로 실패). 텔레그램 [연결 확인]은 `DUTY_TELEGRAM_LOCK`으로 `getUpdates`를 직렬화한다.
+- 캘린더 구독: `CalendarFeed`엔 토큰 SHA-256 해시만 저장(원문은 발급 응답에 1회만, 리다이렉트·messages·세션 금지). 피드 `/calendar/<토큰>.ics`는 로그인·CSRF 예외이고 `django.request`·`django.server` 로그에서 경로를 지운다(`duty/logging.py`). `duty/ics.py`는 ORM 없는 순수 모듈.
 
 ## 도메인 기준
 - 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·API가 같은 키를 쓴다.
