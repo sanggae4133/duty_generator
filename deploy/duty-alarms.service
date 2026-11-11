@@ -1,0 +1,16 @@
+[Unit]
+Description=duty_generator 개인 알림 발송(run_alarms)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=duty
+WorkingDirectory=/opt/duty_generator
+EnvironmentFile=/etc/duty_generator/env
+# 중복 실행 방지는 명령 내부 fcntl 잠금(DUTY_ALARMS_LOCK, duty 가 쓸 수 있는 경로)
+ExecStart=/opt/duty_generator/.venv/bin/python manage.py run_alarms
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

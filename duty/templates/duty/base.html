@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}IT 당번표{% endblock %}</title>
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="{% static 'vendor/pico.min.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
@@ -57,6 +58,7 @@
     <ul>
       <li><a href="/">근무표</a></li>
       <li><a href="/me/">내 근무</a></li>
+      <li><a href="/alarms/">알림 설정</a></li>
       {% if can_collect %}<li><a href="/collect/">출근표 입력</a></li>{% endif %}
       {% if user.is_staff %}
       <li><a href="/periods/">회차</a></li>

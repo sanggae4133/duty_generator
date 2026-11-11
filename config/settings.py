@@ -16,6 +16,16 @@ ALLOWED_HOSTS = [h for h in env("DUTY_ALLOWED_HOSTS", "127.0.0.1,localhost").spl
 CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]
 API_TOKEN = env("DUTY_API_TOKEN", "")
 ADMIN_PATH = env("DUTY_ADMIN_PATH", "admin").strip("/")
+TELEGRAM_BOT_TOKEN = env("DUTY_TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_USERNAME = env("DUTY_TELEGRAM_BOT_USERNAME", "").lstrip("@")
+DB_PATH = env("DUTY_DB_PATH", str(BASE_DIR / "db.sqlite3"))
+LOCK_DIR = Path(DB_PATH).parent  # SQLite WAL 때문에 서비스 사용자가 반드시 쓸 수 있는 폴더
+TELEGRAM_UPDATES_LOCK_PATH = env("DUTY_TELEGRAM_LOCK", str(LOCK_DIR / ".telegram-updates.lock"))
+VAPID_PUBLIC_KEY = env("DUTY_VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = env("DUTY_VAPID_PRIVATE_KEY", "")
+VAPID_SUBJECT = env("DUTY_VAPID_SUBJECT", "mailto:admin@localhost")
+SITE_URL = env("DUTY_SITE_URL", "")  # 텔레그램 알림의 절대 링크용(비면 생략)
+ALARMS_LOCK_PATH = env("DUTY_ALARMS_LOCK", str(LOCK_DIR / ".alarms.lock"))
 if not ADMIN_PATH:
     raise ImproperlyConfigured("DUTY_ADMIN_PATH 가 비어 있을 수 없습니다.")
 
@@ -64,7 +74,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": env("DUTY_DB_PATH", str(BASE_DIR / "db.sqlite3")),
+        "NAME": DB_PATH,
         "OPTIONS": {"init_command": "PRAGMA journal_mode=WAL;", "transaction_mode": "IMMEDIATE"},
     }
 }
@@ -104,3 +114,12 @@ AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = "duty/locked.html"
 SILENCED_SYSTEM_CHECKS = ["axes.W006"]  # 잠금은 의도적으로 username 만 기준(IP 는 Funnel 뒤에서 전원 동일)
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 임시 비밀번호가 쿠키에 실리지 않게
+# duty.* INFO 로그(예: "alarms tick:")를 stderr로 → systemd journal. 기본 설정은 WARNING 이상만 찍는다.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(levelname)s %(name)s %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    # ponytail: propagate 유지(pytest caplog가 루트에서 받음). 루트에 핸들러를 달면 줄이 두 번 찍힌다
+    "loggers": {"duty": {"handlers": ["console"], "level": "INFO"}},
+}

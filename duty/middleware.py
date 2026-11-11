@@ -11,6 +11,9 @@ class ForcePasswordChangeMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # 공개 PWA 파일은 회원 상태와 무관하게 그대로 준다(리다이렉트되면 서비스 워커 갱신이 실패한다)
+        if request.path in {reverse("sw_js"), reverse("manifest")}:
+            return self.get_response(request)
         member = perms.member_of(request.user)
         if member and not member.is_active and not request.user.is_staff:
             logout(request)

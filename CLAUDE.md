@@ -26,6 +26,12 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - 정해진 값만 받는 칸은 `choices`(TextChoices) + DB `CheckConstraint`를 같이 건다(SQLite엔 enum 타입이 없음). 기록을 남겨야 하는 FK는 `PROTECT`.
 - 정적 파일(htmx, Pico.css)은 CDN이 아니라 `duty/static/vendor/`에서 직접 서빙한다.
 
+## 알림 구조
+- `duty/alarms/`는 ORM 없는 순수 계층(`schedule`·`plan`·`messages`·`forms`)과 외부 발송기(`senders`: 텔레그램·웹 푸시, 실패를 `Gone`/`Permanent`/`Temporary`/`RetryLater`로 분류). `duty/services/alarm_runner.py`가 조회→`plan`→발송→기록을 한다.
+- 기록은 목적지별 `AlarmDelivery`(규칙·날짜·칸·채널·목적지)이고 **보낸 뒤에** 남긴다(같은 내용 재발송 방지는 `last_sent_hash`, 실패는 백오프).
+- 테스트에서 텔레그램·푸시 실제 호출 금지(`senders`를 monkeypatch).
+- `run_alarms`는 `DUTY_ALARMS_LOCK` fcntl 잠금으로 한 프로세스만 돈다(`--once`·`--dry-run`은 잠금이 있으면 바로 실패). 텔레그램 [연결 확인]은 `DUTY_TELEGRAM_LOCK`으로 `getUpdates`를 직렬화한다.
+
 ## 도메인 기준
 - 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·API가 같은 키를 쓴다.
 - 대상 날짜는 회차 기간의 월~금(휴장일 처리 없음).
@@ -47,4 +53,5 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - `../duty_notifier`(FastAPI 알림봇)가 `/api/assignments`를 읽는다. 응답 형식(`date`, `shift`, `name`, `replaced`)을 바꾸면 노티파이어도 같이 바꿔야 한다.
 
 ## 작업 방식
-- `main`에서 직접 작업하지 않는다. 브랜치를 따서 작업하고 PR로 합친다. push는 사용자가 직접 한다.
+- `main`에서 직접 작업하지 않는다. 브랜치를 따서 작업하고 PR로 합친다. push·PR 생성·머지는 Claude가 직접 해도 된다(2026-11-10 사용자 허용).
+- 계획·구현 각 단계와 최종 리뷰는 Codex(`codex exec`, 읽기 전용) 리뷰를 받고 여러 번 토론해 최종 결정한다. Codex 사용량 한도에 걸리면 재설정 시각까지 기다렸다가 이어서 요청한다. Codex에는 DB 파일·`.superpowers/`를 열지 말라고 지시한다(실명).

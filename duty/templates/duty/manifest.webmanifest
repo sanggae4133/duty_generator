@@ -1,0 +1,13 @@
+{% load static %}{
+  "name": "당번표",
+  "short_name": "당번표",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d6fa5",
+  "icons": [
+    {"src": "{% static 'duty/icon-192.png' %}", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "{% static 'duty/icon-512.png' %}", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}

@@ -4,6 +4,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, register_converter
 
 from . import api
+from .views import alarms as alarm_views
 from .views import auth as auth_views_local
 from .views import collect as collect_views
 from .views import manage as manage_views
@@ -42,5 +43,22 @@ urlpatterns = [
     path("stats/", manage_views.stats_view, name="stats"),
     path("changes/", manage_views.change_log, name="changes"),
     path("schema/", manage_views.schema, name="schema"),
+    path("alarms/", alarm_views.index, name="alarms"),
+    path("alarms/telegram/", alarm_views.telegram_save, name="alarm_telegram"),
+    path("alarms/telegram/link/", alarm_views.telegram_link, name="alarm_telegram_link"),
+    path("alarms/telegram/link/check/", alarm_views.telegram_link_check, name="alarm_telegram_check"),
+    path("alarms/rules/new/", alarm_views.rule_new, name="alarm_rule_new"),
+    path("alarms/rules/<int:pk>/", alarm_views.rule_edit, name="alarm_rule_edit"),
+    path("alarms/rules/<int:pk>/delete/", alarm_views.rule_delete, name="alarm_rule_delete"),
+    path("alarms/rules/<int:pk>/toggle/", alarm_views.rule_toggle, name="alarm_rule_toggle"),
+    path("alarms/push/subscribe/", alarm_views.push_subscribe, name="alarm_push_subscribe"),
+    path("alarms/push/unsubscribe/", alarm_views.push_unsubscribe, name="alarm_push_unsubscribe"),
+    path("alarms/push/<int:pk>/delete/", alarm_views.push_delete, name="alarm_push_delete"),
+    path("alarms/push/delete-all/", alarm_views.push_delete_all, name="alarm_push_delete_all"),
+    path("alarms/push/test/", alarm_views.push_test, name="alarm_push_test"),
+    path("help/push/", alarm_views.help_push, name="help_push"),
+    path("sw.js", alarm_views.sw_js, name="sw_js"),
+    path("manifest.webmanifest", alarm_views.manifest, name="manifest"),
+    path("help/telegram/", alarm_views.help_telegram, name="help_telegram"),
     path("api/assignments", api.assignments, name="api_assignments"),
 ]
