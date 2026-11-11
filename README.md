@@ -41,6 +41,7 @@ sudoedit /etc/duty_generator/env   # 값 채우기(아래 주의)
 dm() { sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py "$@"' sh "$@"; }
 sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'   # root: /opt 는 duty 쓰기 권한이 없다
 dm migrate
+dm createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
 dm check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
 sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
 sudo cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
@@ -65,10 +66,12 @@ sudo tailscale funnel status
 ## 처음 한 번: 계정 만들기
 
 `/<DUTY_ADMIN_PATH>/` 의 "사용자" 화면이 멤버이자 로그인 계정이다(아이디 = 멤버 코드).
+- 첫 어드민은 설치 때 `dm createsuperuser` 로 만든다. 아이디·비밀번호 말고 **이름**도 묻는다. 이 계정은 부서가 없어 근무표 대상이 아닌 어드민 전용 계정이고, "스태프 권한"도 켜져 있다. 기본 알림 규칙은 생기지 않는다(필요하면 알림 화면에서 추가).
 - 새 사람: [사용자 추가]에서 아이디·이름·부서·파트·구분을 넣는다(비밀번호 없이 만들어지고 아직 로그인할 수 없다).
 - 계정 발급: 목록에서 선택 → "계정 발급 / 비밀번호 초기화" 액션 → 화면에 한 번만 보이는 임시 비밀번호를 전달한다. 첫 발급 때 기본 알림 규칙이 생기고, 첫 로그인에서 비밀번호를 바꾸게 한다.
 - 어드민 전용 계정(근무표에 안 들어감)은 부서를 비워 둔다. 어드민은 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(사용자·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
 - 부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다.
+- 비밀번호는 항상 [계정 발급] 액션으로 준다. 사용자 편집 화면의 비밀번호 칸에서 Django 기본 "비밀번호 설정/변경" 화면으로 정하면 발급을 거치지 않는다. 그러면 첫 로그인 비밀번호 변경이 걸리지 않고, 기본 알림 규칙도 생기지 않는다. 그 뒤 [계정 발급]을 해도 최초 발급으로 치지 않는다.
 
 ## 업그레이드·롤백
 
@@ -94,25 +97,68 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 
 ## 기존 DB 옮기기 (멤버·계정 통합 전 DB, 1회)
 
-멤버·계정 통합 버전은 마이그레이션을 새 `0001_v2` 하나로 새로 만들었다. 그 전 버전(duty 마이그레이션 0001~0009)으로 데이터를 넣은 DB(개발 PC, 시험 설치 서버)는 `migrate` 로 올라가지 않으니(일부러 실패한다) 아래처럼 한 번 옮긴다. DB 폴더에서(개발 PC 는 저장소 루트, 서버는 `/var/lib/duty_generator`, 서버에서는 `sudo -u duty` 로·manage.py 는 위의 `dm` 으로) 실행한다.
+멤버·계정 통합 버전은 마이그레이션을 새 `0001_v2` 하나로 새로 만들었다. 그 전 버전(duty 마이그레이션 0001~0009)으로 데이터를 넣은 DB(개발 PC, 시험 설치 서버)는 `migrate` 로 올라가지 않는다(일부러 실패하고 DB 는 그대로다). 그래서 아래처럼 한 번 옮긴다.
+
+### 서버
+
+`upgrade.sh` 를 먼저 돌린다. 백업, 정지(웹·알림·상태 점검 `duty-health.timer`), 체크아웃, 설치, 정적 파일까지 하고 `migrate` 에서 **멈춘다**(예상된 실패). 그다음 아래 명령으로 손으로 이어 간다. `dm` 은 "설치" 절의 함수다. DB 경로는 env 의 `DUTY_DB_PATH`(기본 `/var/lib/duty_generator/db.sqlite3`)다.
 
 ```bash
-# 0. 서비스(또는 runserver)를 멈춘다. 서버: sudo systemctl stop duty-alarms duty-generator
-sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"     # WAL 까지 담긴 일관된 단일 파일
-sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"     # ok 가 나와야 한다
-mkdir -p old && mv db.sqlite3 old/                     # 롤백용으로 옮겨 둔다
-for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then mv "$f" old/; fi; done   # 있는 것만
-git checkout <v2 버전> && 설치(개발 PC: .venv/bin/pip install -e '.[dev]')
-manage.py migrate                                      # 빈 새 DB
-manage.py convert_v1 db.sqlite3-v1.sqlite3             # 옮기기
-# 서비스 다시 시작
+sudo /opt/duty_generator/deploy/upgrade.sh <v2 버전>        # migrate 에서 멈춘다
+sudo systemctl stop duty-health.timer duty-alarms duty-generator   # 이미 멈춰 있다(확인용)
+cd /var/lib/duty_generator
+sudo -u duty sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"   # WAL 까지 담긴 일관된 단일 파일
+sudo -u duty sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"   # ok 가 나와야 한다
+sudo -u duty mkdir -p old && sudo -u duty mv db.sqlite3 old/      # 롤백용으로 옮겨 둔다
+for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then sudo -u duty mv "$f" old/; fi; done   # 있는 것만
+dm migrate                                                   # 빈 새 DB
+dm convert_v1 /var/lib/duty_generator/db.sqlite3-v1.sqlite3   # 옮기기(dm 은 /opt 에서 돌므로 절대 경로)
+cd /opt/duty_generator   # upgrade.sh 가 migrate 뒤에 하려던 일
+sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
+sudo cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
+sudo systemctl daemon-reload
+sudo systemctl start duty-generator
+systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms   # 알림을 켜 둔 서버만
+sudo systemctl enable --now duty-health.timer
 ```
 
-- `convert_v1` 은 `.backup` 으로 만든 단일 파일만 받는다(옆에 내용 있는 `-wal` 이 있으면 거부). 예전 백업을 읽기 전용으로 열고, 먼저 전부 검사한다(원본 `quick_check`·`foreign_key_check`·마이그레이션 0001~0009, 지금 DB 가 `0001_v2` 만 적용된 빈 DB인지, 아이디·이름 규칙과 중복, 그룹·직접 권한 행 없음). 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
-- 멤버마다 사용자 1명(id = 예전 멤버 id, 아이디 = 멤버 코드)을 만들고 연결된 계정의 비밀번호·권한·로그인 시각을 옮긴다. 재직 = 멤버 재직 AND 계정 활성. 멤버와 연결되지 않은 계정(어드민 전용 등)은 부서 없는 사용자로, 이름 = 아이디. 나머지 표는 id 그대로 옮긴다. 세션·로그인 실패 기록·관리 화면 기록은 버리고(다시 로그인해야 한다), 텔레그램 연결 대기 코드는 비운다.
-- 출력은 표별 건수뿐이다(이름·비밀값 없음).
-- 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다.
-- 예전 DB 에 새 코드로 `migrate` 를 돌리면 실패하고 DB 는 그대로다. 서버에서 `upgrade.sh` 로 이 버전에 올리면 `migrate` 단계에서 멈추니, 서버는 위 절차를 손으로 따른다.
+### 개발 PC
+
+저장소 루트에서 실행한다.
+
+```bash
+# runserver·run_alarms 를 멈춘다
+sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"
+sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"     # ok
+mkdir -p old && mv db.sqlite3 old/
+for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then mv "$f" old/; fi; done
+git checkout <v2 버전> && .venv/bin/pip install -e '.[dev]'
+DUTY_DEBUG=1 .venv/bin/python manage.py migrate
+DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 db.sqlite3-v1.sqlite3
+```
+
+### 동작
+
+- `convert_v1` 은 `.backup` 으로 만든 단일 파일만 받는다(옆에 내용 있는 `-wal` 이 있으면 거부한다).
+- 예전 백업은 읽기 전용으로 열고, 쓰기 전에 아래를 전부 검사한다.
+  - 원본: `quick_check`, `foreign_key_check`, duty 마이그레이션이 0001~0009인지.
+  - 지금 DB: `0001_v2` 만 적용된 빈 DB인지.
+  - 아이디·이름 규칙과 중복.
+  - 그룹·직접 권한 행이 없는지.
+- 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
+- 멤버마다 사용자 1명을 만든다(id = 예전 멤버 id, 아이디 = 멤버 코드). 연결된 계정의 비밀번호·권한·로그인 시각을 옮긴다.
+- 재직 = 멤버 재직 AND 계정 활성.
+- 멤버와 연결되지 않은 계정(어드민 전용 등)은 부서 없는 사용자가 되고, 이름은 아이디와 같다.
+- 나머지 표는 id 그대로 옮긴다.
+- 세션·로그인 실패 기록·관리 화면 기록은 버린다(다시 로그인해야 한다). 텔레그램 연결 대기 코드는 비운다.
+- 출력에는 건수만 나온다(이름·비밀값 없음). 표별 건수와 함께 재직 AND 로 상태가 바뀐 연결 계정 수도 출력한다.
+  - "재직이었지만 계정 비활성이라 재직 끔 N": 이 사람들은 근무표 후보에서 빠진다.
+  - "퇴사였지만 계정 활성이라 로그인 차단 N (그중 스태프 M)": 예전엔 퇴사 스태프도 로그인됐지만 이제는 막힌다.
+  - 바로잡을 사람은 관리 화면에서 "재직"을 고친다.
+- 변환 뒤 활성 슈퍼유저가 없으면 경고를 출력한다. 그때는 어드민이 관리 화면에 들어갈 수 없으니, 둘 중 하나로 복구한다.
+  - `dm createsuperuser` 로 새로 만든다.
+  - `dm shell` 에서 기존 계정의 `is_active` 를 켠 뒤 `dm changepassword <아이디>` 로 비밀번호를 정한다.
+- 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다. 서버는 서비스를 멈추고 `old/` 의 파일을 먼저 제자리로 옮긴 다음 `sudo deploy/upgrade.sh <예전 버전>` 을 실행한다. 예전 DB 라 `migrate` 가 할 일은 없다.
 
 ## 백업·복원
 

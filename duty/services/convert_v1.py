@@ -89,8 +89,8 @@ def convert(source: str, write) -> None:
             except sqlite3.DatabaseError:
                 raise ConvertError("원본을 읽을 수 없습니다(손상되었거나 SQLite DB가 아님).") from None
             _check_target()
-            users, user_map, renamed = _build_users(old)
-            _write(old, users, user_map, renamed, write)
+            users, user_map, notes = _build_users(old)
+            _write(old, users, user_map, notes, write)
     except (DatabaseError, sqlite3.DatabaseError) as e:  # 사전 검사 뒤 오류: 롤백된 뒤라 대상은 그대로
         raise ConvertError(f"옮기는 중 DB 오류({type(e).__name__})로 멈췄습니다. 전체를 되돌렸습니다.") from None
     finally:
@@ -124,11 +124,11 @@ def _check_target():
 
 
 def _build_users(old):
-    """만들 User 행, 예전 auth_user.id → 새 id 대응표, 아이디가 코드로 바뀐 계정 수."""
+    """만들 User 행, 예전 auth_user.id → 새 id 대응표, 출력용 건수(코드로 바뀐 아이디, 재직 AND로 바뀐 상태)."""
     members = _rows(old, "SELECT * FROM duty_member ORDER BY id")
     accounts = {a["id"]: a for a in _rows(old, "SELECT * FROM auth_user ORDER BY id")}
     now = connection.ops.adapt_datetimefield_value(timezone.now())
-    users, user_map, renamed = [], {}, 0
+    users, user_map, notes = [], {}, Counter()
     for m in members:
         u = {"id": m["id"], "username": m["code"], "name": m["name"], "department_id": m["department_id"],
              "part": m["part"], "type": m["type"], "must_change_password": m["must_change_password"]}
@@ -137,7 +137,11 @@ def _build_users(old):
                                     "first_name", "last_name", "email")}
             u["is_active"] = int(bool(m["is_active"] and a["is_active"]))
             user_map[a["id"]] = m["id"]
-            renamed += a["username"] != m["code"]
+            notes["renamed"] += a["username"] != m["code"]
+            notes["active_off"] += bool(m["is_active"] and not a["is_active"])
+            if a["is_active"] and not m["is_active"]:  # 예전엔 퇴사 스태프도 로그인됐다
+                notes["login_off"] += 1
+                notes["login_off_staff"] += bool(a["is_staff"] or a["is_superuser"])
         else:
             u |= {"password": make_password(None), "is_staff": 0, "is_superuser": 0, "last_login": None,
                   "date_joined": now, "first_name": "", "last_name": "", "email": "", "is_active": m["is_active"]}
@@ -164,7 +168,7 @@ def _build_users(old):
     for f, label in (("username", "아이디 중복"), ("name", "이름 중복")):
         if dup := sum(n - 1 for n in Counter(u[f] for u in users).values() if n > 1):
             raise ConvertError(f"{label} {dup}건: 멤버 코드·이름과 연결 없는 계정 아이디가 겹칩니다.")
-    return users, user_map, renamed
+    return users, user_map, notes
 
 
 def _insert(table, cols, rows):
@@ -188,11 +192,16 @@ def _copy(old, table, renames, remap, blank, user_map):
     return len(rows)
 
 
-def _write(old, users, user_map, renamed, write):
+def _write(old, users, user_map, notes, write):
     _insert("duty_user", USER_COLS, users)
     n_members = _count(old, "duty_member")
     write(f"duty_user: 멤버 {n_members} + 연결 없는 계정 {len(users) - n_members} → 새 {_count(connection, 'duty_user')}")
-    write(f"아이디가 멤버 코드와 달라 코드로 바꾼 계정 {renamed}")
+    write(f"아이디가 멤버 코드와 달라 코드로 바꾼 계정 {notes['renamed']}")
+    write(f"재직이었지만 계정 비활성이라 재직 끔 {notes['active_off']}")
+    write(f"퇴사였지만 계정 활성이라 로그인 차단 {notes['login_off']} (그중 스태프 {notes['login_off_staff']})")
+    if not any(u["is_superuser"] and u["is_active"] for u in users):
+        write("경고: 활성 슈퍼유저가 없습니다. 관리 화면에 들어가려면 `manage.py createsuperuser`로 새로 만들거나, "
+              "`manage.py shell`에서 기존 계정의 is_active를 켠 뒤 `manage.py changepassword <아이디>`로 비밀번호를 정하세요.")
     for table, renames, remap, blank in COPY:
         n = _copy(old, table, renames, remap, blank, user_map)
         write(f"{table}: 예전 {n} → 새 {_count(connection, table)}")

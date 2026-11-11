@@ -211,6 +211,26 @@ def test_convert_copies_everything(old, db):
         assert secret not in output
 
 
+def test_status_changes_by_and_rule_are_counted(old, db):
+    path, con = old
+    seed(con)
+    output = run(path)
+    assert "재직이었지만 계정 비활성이라 재직 끔 1" in output  # 가상이
+    assert "퇴사였지만 계정 활성이라 로그인 차단 1 (그중 스태프 0)" in output  # 가상삼
+    assert "활성 슈퍼유저가 없습니다" not in output
+
+
+def test_staff_lockout_and_no_superuser_warning(old, db):
+    path, con = old
+    seed(con)
+    con.execute("UPDATE auth_user SET is_staff=1 WHERE id=4")  # 퇴사 멤버의 스태프 계정(예전엔 로그인 가능)
+    con.execute("UPDATE auth_user SET is_active=0 WHERE id=1")  # 유일한 슈퍼유저 비활성
+    con.commit()
+    output = run(path)
+    assert "퇴사였지만 계정 활성이라 로그인 차단 1 (그중 스태프 1)" in output
+    assert "활성 슈퍼유저가 없습니다" in output and "changepassword" in output
+
+
 def dump_one(table, pk):
     with connection.cursor() as cur:
         return next(r for r in dump(cur, table) if r["id"] == pk)

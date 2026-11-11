@@ -61,3 +61,11 @@ def test_username_label(su_client, make_member):
                 reverse("admin:duty_user_change", args=[m.pk])):
         body = su_client.get(url).content.decode()
         assert "아이디" in body and "사용자 이름" not in body, url
+
+
+def test_add_rejects_username_differing_only_in_case(su_client, make_member):
+    m = make_member("가")  # MEMS001
+    r = su_client.post(reverse("admin:duty_user_add"), {
+        "username": m.username.lower(), "name": "새사람", "department": "MD", "part": "", "type": "개발자"})
+    assert r.status_code == 200 and "같은 아이디가 이미 있습니다" in r.content.decode()
+    assert User.objects.count() == 2  # 관리자 + 가

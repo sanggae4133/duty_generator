@@ -131,7 +131,7 @@ class ControlDuty(models.Model):
 
 class ChangeLog(models.Model):
     at = models.DateTimeField(auto_now_add=True)
-    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = import. 계정은 삭제 대신 비활성화
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = 예전 시트 가져오기 기록. 계정은 삭제 대신 비활성화
     period = models.ForeignKey(Period, on_delete=models.PROTECT)  # 변경 기록은 남긴다: 기록 있는 회차는 삭제 불가
     date = models.DateField()
     cell = models.CharField(max_length=8)  # dawn|normal|dinner|night|slot0..slot9

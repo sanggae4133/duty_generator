@@ -62,6 +62,12 @@ class UserAddForm(forms.ModelForm):
         model = User
         fields = ["username", "name", "department", "part", "type"]
 
+    def clean_username(self):
+        v = self.cleaned_data["username"]
+        if User.objects.filter(username__iexact=v).exists():  # 대소문자만 다른 아이디는 로그인·잠금에서 헷갈린다
+            raise forms.ValidationError("같은 아이디가 이미 있습니다(대소문자 구분 없음).")
+        return v
+
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_unusable_password()
