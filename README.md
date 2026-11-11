@@ -50,7 +50,7 @@ sudo systemctl start duty-generator-backup   # 첫 백업(없으면 상태 점�
 ```
 
 - env 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
-- `DUTY_SECRET_KEY`·`DUTY_API_TOKEN` 은 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다. `DUTY_API_TOKEN` 은 비우면 안 된다(빈 값이면 API 가 모두 401).
+- `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
 - 서버 시계: 알림이 분 단위로 돈다. `timedatectl` 에서 `System clock synchronized: yes`, 시간대와 상관없이 앱은 Asia/Seoul 로 계산한다.
 - `duty-alarms.service` 도 함께 복사되지만 여기서는 켜지 않는다. 아래 "알림 → 알림 켜기" 순서대로 켠다.
 
@@ -62,17 +62,9 @@ sudo tailscale funnel --bg --set-path / http://127.0.0.1:8090
 sudo tailscale funnel status
 ```
 
-- `--set-path /` 는 모든 경로를 공개한다. 따라서 `/api/assignments` 도 Funnel 을 통해 외부에서 호출할 수 있다. 이 API 를 막는 것은 `Authorization: Bearer <DUTY_API_TOKEN>` 헤더뿐이다.
-- `DUTY_API_TOKEN` 은 `secrets.token_urlsafe(48)` 로 만들고 비워 두지 않는다. 빈 값이면 앱이 모든 요청을 401 로 거부한다.
+## 처음 한 번: 계정 만들기
 
-## 처음 한 번: 기존 시트 가져오기
-
-```bash
-dm import_sheets --dry-run
-dm import_sheets
-```
-
-이후 `/<DUTY_ADMIN_PATH>/` 의 멤버 목록에서 멤버를 선택하고 "계정 발급 / 비밀번호 초기화" 액션으로 임시 비밀번호를 발급한다.
+`/<DUTY_ADMIN_PATH>/` 의 멤버 목록에서 멤버를 선택하고 "계정 발급 / 비밀번호 초기화" 액션으로 임시 비밀번호를 발급한다.
 부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다. 어드민은 사용자 화면에서 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(멤버·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
 
 ## 업그레이드·롤백

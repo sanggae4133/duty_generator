@@ -17,7 +17,6 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [h for h in env("DUTY_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h]
 CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]
-API_TOKEN = env("DUTY_API_TOKEN", "")
 ADMIN_PATH = env("DUTY_ADMIN_PATH", "admin").strip("/")
 TELEGRAM_BOT_TOKEN = env("DUTY_TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_USERNAME = env("DUTY_TELEGRAM_BOT_USERNAME", "").lstrip("@")

@@ -88,15 +88,6 @@ def find_day(d: date) -> Day | None:
     return days[0] if days else None
 
 
-def api_assignments(start: date | None, end: date | None) -> list[dict]:
-    return [
-        {"date": day.date.isoformat(), "shift": cell_label(cell), "name": name, "replaced": day.replaced.get((cell, name))}
-        for day in published_days(start, end)
-        for cell in CELLS
-        for name in day.members[cell]
-    ]
-
-
 def member_schedule(member: Member, start: date) -> list[tuple[date, list[str]]]:
     out = []
     for day in published_days(start, None):

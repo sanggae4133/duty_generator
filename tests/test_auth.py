@@ -58,27 +58,8 @@ def test_login_success_redirects_home(client, db):
     assert r.status_code == 302 and r.url == "/"
 
 
-@pytest.fixture
-def published(make_member):
-    p = Period.objects.create(name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
-    Commute.objects.create(period=p, date=D, member=make_member("가"), shift="dawn")
-    return p
-
-
-def test_api_requires_token(client, published):
-    assert client.get("/api/assignments").status_code == 401
-    assert client.get("/api/assignments", HTTP_AUTHORIZATION="Bearer nope").status_code == 401
-
-
-def test_api_returns_assignments(client, published):
-    r = client.get("/api/assignments?from=2026-11-10&to=2026-11-10", HTTP_AUTHORIZATION="Bearer test-token")
-    assert r.status_code == 200
-    assert r.json() == [{"date": "2026-11-10", "shift": "새벽", "name": "가", "replaced": None}]
-
-
-def test_api_bad_date(client, published):
-    r = client.get("/api/assignments?from=nope", HTTP_AUTHORIZATION="Bearer test-token")
-    assert r.status_code == 400
+def test_api_removed(client, db):
+    assert client.get("/api/assignments").status_code == 404
 
 
 def test_password_change_rejects_same_password(client, make_member):

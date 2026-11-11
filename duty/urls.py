@@ -3,7 +3,6 @@ from datetime import date
 from django.contrib.auth import views as auth_views
 from django.urls import path, register_converter
 
-from . import api
 from .views import alarms as alarm_views
 from .views import auth as auth_views_local
 from .views import calendar as calendar_views
@@ -65,5 +64,4 @@ urlpatterns = [
     path("alarms/calendar/revoke/", alarm_views.calendar_revoke, name="alarm_calendar_revoke"),
     path("help/calendar/", alarm_views.help_calendar, name="help_calendar"),
     path("calendar/<str:token>.ics", calendar_views.feed, name="calendar_feed"),
-    path("api/assignments", api.assignments, name="api_assignments"),
 ]
