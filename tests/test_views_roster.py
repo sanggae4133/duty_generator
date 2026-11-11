@@ -356,3 +356,13 @@ def test_candidates_exclude_departed_and_no_department(client, world, make_membe
         assert f'value="{u.username}"' not in to
     assert f'value="{a.username}"' in to
     assert '<span class="hl1">나</span>' in client.get("/?q1=나").content.decode()  # 근무표 조회엔 그대로
+
+
+def test_me_shift_filter(client, world):
+    a, _ = world
+    client.force_login(a)
+    body = client.get("/me/?shift=slots").content.decode()
+    assert "<p>08:30~09:30</p>" in body
+    assert re.search(r'value="slots" checked', body) and not re.search(r'value="normal" checked', body)
+    assert "예정된 근무가 없습니다" in client.get("/me/?shift=dinner").content.decode()
+    assert "<p>정상, 08:30~09:30</p>" in client.get("/me/").content.decode()

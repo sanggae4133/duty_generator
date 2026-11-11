@@ -21,6 +21,7 @@
   {% endif %}
   {% if period.status == S.CLOSED or period.status == S.GENERATED %}
   <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>{% if period.status == S.GENERATED %}재생성{% else %}생성{% endif %}</button></form>
+  <button type="button" class="outline secondary" onclick="document.getElementById('gen-help').showModal()">자세히</button>
   {% endif %}
   {% if period.status == S.GENERATED %}
   <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
@@ -42,4 +43,21 @@
 <h4>장중관제 배정 횟수 — 편차 {{ spread }} {% if reached %}(목표 2 이하 도달){% else %}(목표 2 미도달){% endif %}</h4>
 <table><tbody>{% for name, n in counts %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table>
 {% endif %}
+<dialog id="gen-help"><article>
+  <h4>장중관제 생성 방식</h4>
+  <p>취합된 출근조를 보고 날짜마다 장중관제 10칸(08:30~18:00)에 개발자를 한 명씩 배정합니다.</p>
+  <ol>
+    <li><strong>자격</strong> — 개발자이고 그날 그 칸의 출근조에 있어야 합니다.
+      08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다.</li>
+    <li><strong>1단계 배정</strong> — 날짜마다 자격자가 적은 칸부터 채웁니다.
+      그날 아직 배정되지 않은 자격자 중 지금까지 배정 횟수가 가장 적은 사람을 고르고, 같으면 무작위로 정합니다.
+      한 사람은 하루에 한 칸만 받습니다.</li>
+    <li><strong>2단계 고르기</strong> — 가장 많이 받은 사람과 가장 적게 받은 사람의 차이(편차)가 2 이하가 될 때까지,
+      많이 받은 사람의 칸 하나를 그 칸 자격이 있고 그날 비어 있는 적게 받은 사람에게 넘깁니다. 더 넘길 칸이 없으면 멈춥니다.</li>
+  </ol>
+  <p><small>횟수는 기간 중 한 번이라도 자격이 있었던 개발자끼리만 비교합니다.
+    자격자가 모자라 채울 수 없는 칸이 있으면 생성하지 않고 그 날짜·시간대를 보여 줍니다.
+    재생성하면 무작위 순서가 달라져 결과가 바뀔 수 있습니다.</small></p>
+  <footer><button class="secondary" onclick="this.closest('dialog').close()">닫기</button></footer>
+</article></dialog>
 {% endblock %}

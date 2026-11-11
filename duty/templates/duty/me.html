@@ -1,7 +1,16 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>내 근무</h3>
-{% if not member %}<p>근무표 대상 계정이 아닙니다.</p>{% endif %}
+{% if not member %}<p>근무표 대상 계정이 아닙니다.</p>{% else %}
+<form method="get" class="search">
+  <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  <small class="hint">모두 해제하면 전체 표시</small>
+</form>
+<script>
+  const form = document.querySelector("form.search");
+  form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
+</script>
+{% endif %}
 {% for it in items %}
 <article><a href="{% url 'day' it.date %}"><strong>{{ it.date|date:"Y-m-d" }} ({{ it.weekday }})</strong></a>
   <p>{{ it.labels|join:", " }}</p></article>
