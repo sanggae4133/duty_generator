@@ -144,9 +144,10 @@
     });
     // 뒤로 가기 캐시(BFCache)에 주소가 남지 않게 한다
     addEventListener("pagehide", () => {
-      document.getElementById("cal-url").value = "";
-      document.getElementById("cal-url-box").remove();
-    });
+      const input = document.getElementById("cal-url"), box = document.getElementById("cal-url-box");
+      if (input) input.value = "";
+      if (box) box.remove();
+    }, { once: true });
     addEventListener("pageshow", (e) => { if (e.persisted) location.replace("{% url 'alarms' %}"); });
     </script>
   {% endif %}
