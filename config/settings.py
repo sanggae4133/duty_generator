@@ -132,9 +132,11 @@ LOGGING = {
         "console": {"class": "logging.StreamHandler", "formatter": "plain"},
         "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
     },
-    # ponytail: propagate 유지(pytest caplog가 루트에서 받음). 루트에 핸들러를 달면 줄이 두 번 찍힌다
+    # 핸들러는 루트에만 단다: duty INFO 와 django.request·axes 경고가 모두 시각과 함께 한 번씩 찍힌다(caplog 도 루트에서 받음)
+    "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
-        "duty": {"handlers": ["console"], "level": "INFO"},
+        "duty": {"level": "INFO"},
+        "django": {"handlers": [], "level": "INFO"},  # Django 기본 console(DEBUG 전용)·mail_admins 대신 루트 하나로
         "django.request": {"filters": ["redact_calendar"]},
         "django.server": {**DEFAULT_LOGGING["loggers"]["django.server"], "filters": ["redact_calendar"]},
     },

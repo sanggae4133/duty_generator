@@ -15,7 +15,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 
 ## 설치 (사내 서버)
 
-위치 정리:
+Ubuntu 24.04 (Python 3.12) 기준. 위치 정리:
 
 | 무엇 | 어디 | 소유·권한 |
 |---|---|---|
@@ -23,10 +23,10 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 | 설정(비밀값) | `/etc/duty_generator/env` | root:duty 640 |
 | DB·잠금 파일 | `/var/lib/duty_generator/` | duty 750 |
 | 자동 백업 | `/var/backups/duty_generator/` | duty 750 |
-| 로그 | `/var/log/duty_generator/*.log` | root:adm 750 |
+| 로그 | `/var/log/duty_generator/*.log` | 폴더 root:adm 750(파일은 systemd 가 root 로 만든다) |
 
 ```bash
-sudo apt install -y sqlite3 git curl   # 백업 타이머가 sqlite3 CLI를 쓴다
+sudo apt install -y python3-venv sqlite3 git curl   # 백업·업그레이드가 sqlite3 CLI를 쓴다. python3 --version 이 3.12 이상이어야 한다
 sudo useradd -r -s /usr/sbin/nologin duty
 sudo git clone https://github.com/sanggae4133/duty_generator.git /opt/duty_generator
 sudo install -d -o duty -g duty -m 750 /var/lib/duty_generator /var/backups/duty_generator
@@ -75,41 +75,19 @@ dm import_sheets
 이후 `/<DUTY_ADMIN_PATH>/` 의 멤버 목록에서 멤버를 선택하고 "계정 발급 / 비밀번호 초기화" 액션으로 임시 비밀번호를 발급한다.
 부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다. 어드민은 사용자 화면에서 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(멤버·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
 
-## 업그레이드
-
-새 버전을 올릴 때는 항상 이 순서로 한다(`dm` 함수는 "설치" 참고).
+## 업그레이드·롤백
 
 ```bash
-cd /opt/duty_generator
-sudo systemctl start duty-generator-backup && ls -1t /var/backups/duty_generator | head -n 1   # 1. 백업 먼저(실패하면 멈춘다)
-sudo git log -1 --format=%h               # 2. 지금 버전 기록(롤백 때 씀)
-sudo git pull                             # 3. 코드 갱신
-sudo .venv/bin/pip install -r requirements.lock && sudo .venv/bin/pip install --no-deps -e .
-sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'
-dm migrate
-diff deploy/env.example /etc/duty_generator/env | grep '^<'   # 4. 새로 생긴 설정 변수가 있으면 sudoedit 로 추가
-sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/ && sudo cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
-sudo systemctl daemon-reload && sudo systemctl restart duty-generator
-systemctl is-enabled -q duty-alarms && sudo systemctl restart duty-alarms
-sudo tail -n 20 /var/log/duty_generator/web.log   # 5. 오류 없는지
+sudo /opt/duty_generator/deploy/upgrade.sh            # 최신 버전으로
+sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되돌리기(롤백)
 ```
 
-(4번의 diff 는 값이 다른 줄도 나온다. 변수 이름이 env 에 아예 없는 줄만 추가하면 된다.)
+스크립트가 하는 일: 지금 버전 출력 → DB 백업(`before-upgrade-*.sqlite3`) → 웹·알림 중지 → 코드 갱신 → 고정 버전 설치 → 정적 파일·`migrate` → 서비스 파일·logrotate 복사 → 다시 시작 → env 에 빠진 설정 이름 알림. 어느 단계든 실패하면 멈추고(서비스는 꺼진 채) 메시지를 남긴다. 고친 뒤 다시 실행하면 된다.
 
-## 롤백
-
-```bash
-cd /opt/duty_generator
-sudo systemctl stop duty-alarms duty-generator
-sudo git checkout <업그레이드 2번에서 기록한 버전>
-sudo .venv/bin/pip install -r requirements.lock && sudo .venv/bin/pip install --no-deps -e .
-sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'
-# 업그레이드에서 migrate 가 무언가 적용했다면 DB 도 업그레이드 1번 백업으로 되돌린다(아래 "복원")
-sudo systemctl start duty-generator
-systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
-```
-
-롤백 뒤 다시 최신으로 갈 때는 `sudo git checkout main` 후 "업그레이드"를 처음부터 한다.
+- 이 스크립트가 없던 예전 버전에서 처음 올릴 때만: `cd /opt/duty_generator && sudo git pull && sudo deploy/upgrade.sh`. git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator` 후 다시 한다.
+- 롤백할 버전은 업그레이드 때 처음 찍힌 `지금 버전` 값이다(`cd /opt/duty_generator && sudo git log --oneline` 에서도 볼 수 있다).
+- 업그레이드에서 DB 구조가 바뀌었으면(`migrate` 가 무언가 적용) 롤백 후 DB 도 그때의 `before-upgrade-*` 로 "복원"한다.
+- `before-upgrade-*` 백업은 자동으로 지워지지 않는다. 디스크가 작으면 가끔 오래된 것을 지운다.
 
 ## 백업·복원
 
@@ -122,8 +100,10 @@ systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
 - 복원:
   ```bash
   sudo systemctl stop duty-alarms duty-generator
+  sudo -u duty sqlite3 /var/backups/duty_generator/<백업 파일> "PRAGMA quick_check"   # ok 가 나와야 한다
   sudo -u duty cp /var/backups/duty_generator/<백업 파일> /var/lib/duty_generator/db.sqlite3
   sudo -u duty rm -f /var/lib/duty_generator/db.sqlite3-wal /var/lib/duty_generator/db.sqlite3-shm
+  dm migrate   # 지금 코드보다 오래된 백업이면 구조를 맞춘다(dm 은 "설치" 참고)
   sudo systemctl start duty-generator
   systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
   ```
@@ -137,7 +117,7 @@ systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
 | `/var/log/duty_generator/backup.log` | 백업 실패 메시지(성공 시 비어 있음) |
 | `/var/log/duty_generator/health.log` | 상태 점검 결과가 바뀔 때마다 한 줄 |
 
-- 읽기: `sudo tail -f /var/log/duty_generator/alarms.log`, 경고·오류만: `sudo grep -E ' (WARNING|ERROR) ' /var/log/duty_generator/*.log`. 지난 날짜는 `web.log.1`, `web.log.2.gz` … (`sudo zgrep`).
+- 읽기: `sudo tail -f /var/log/duty_generator/alarms.log`, 경고·오류만: `sudo sh -c "grep -E ' (WARNING|ERROR) ' /var/log/duty_generator/*.log"`. 지난 날짜는 `web.log.1`, `web.log.2.gz` … (`sudo zgrep`).
 - **보관 기간**: `/etc/logrotate.d/duty_generator` 의 `rotate 7`(일) 숫자를 바꾼다. 하루에 `maxsize 50M` 을 넘은 파일은 그날 회전할 때 넘긴다. 저장소의 `deploy/duty_generator.logrotate` 도 같이 바꿔 두면 업그레이드 때 덮어써도 유지된다.
 - 접근 로그(요청마다 한 줄)는 남기지 않는다. 캘린더 구독 주소에 비밀 토큰이 들어 있어서다(gunicorn `--access-logfile` 을 켜지 말 것).
 
@@ -147,6 +127,7 @@ systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
 
 - 웹이 응답하지 않음 / 알림 서비스(`duty-alarms`, 켜 둔 경우만)가 멈춤 / 26시간 안에 만든 자동 백업이 없음 / DB 디스크 사용 90% 이상
 - 보내는 봇은 알림용 `DUTY_TELEGRAM_BOT_TOKEN`, 받는 사람은 env 의 `DUTY_OPS_CHAT_ID`(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `health.log` 에만 남는다.
+- 처음 실행이 정상이면 `health.log` 에 "정상" 한 줄만 남기고 알리지 않는다.
 - 웹 점검은 `http://127.0.0.1:8090/login/` 을 부르므로 `DUTY_ALLOWED_HOSTS` 에 `127.0.0.1` 이 있어야 한다.
 - 시험: `sudo systemctl stop duty-generator` → 5분 안에 알림 → `sudo systemctl start duty-generator` → 복구 알림.
 
@@ -179,7 +160,7 @@ rm -rf /tmp/lockvenv
 
 잠금 경로를 직접 정할 때는 `duty` 사용자가 쓸 수 있는 곳이어야 한다(`/opt/duty_generator` 는 안 된다). 쓸 수 없으면 `run_alarms` 가 시작하지 못하고 [연결 확인]이 500 오류가 난다. 기본값(DB 폴더)은 SQLite 가 쓰는 곳이라 항상 쓸 수 있다.
 
-**기존 서버에 알림 기능을 처음 올릴 때**: 위 "업그레이드"를 하고(4번에서 `# --- 개인 알림` 아래 변수들을 env 에 추가), 아래 "전환" ①부터 진행한다. `duty-alarms` 는 전환 ④에서 켠다.
+**기존 서버에 알림 기능을 처음 올릴 때**: 위 "업그레이드·롤백"으로 올리고, 스크립트가 알려 주는 빠진 설정(`# --- 개인 알림` 아래 변수들)을 env 에 추가한 뒤, 아래 "알림 켜기" 1번부터 진행한다.
 
 ### VAPID 키 만들기
 
