@@ -280,6 +280,7 @@ def corrupt_page(con):
     (add_old("DELETE FROM django_migrations WHERE name='0009_calendarfeed';"), "0001~0009"),
     (add_old("INSERT INTO django_migrations(app,name,applied) VALUES('duty','0010_x','2026-11-11');"), "0001~0009"),
     (add_old("INSERT INTO auth_user VALUES(11,'x',NULL,0,'MEMS003','','',0,1,'2026-10-01','');"), "아이디 중복"),
+    (add_old("INSERT INTO auth_user VALUES(11,'x',NULL,0,'mems003','','',0,1,'2026-10-01','');"), "아이디 중복"),  # 대소문자만 다름
     (add_old("INSERT INTO auth_user VALUES(11,'x',NULL,0,'가상일','','',0,1,'2026-10-01','');"), "이름 중복"),
     (add_old("INSERT INTO auth_user VALUES(11,'x',NULL,0,'bad name','','',0,1,'2026-10-01','');"), "규칙"),
     (add_old("UPDATE duty_member SET name='가상>칠' WHERE id=7;"), "규칙"),

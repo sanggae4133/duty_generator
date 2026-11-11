@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import redirect
 from django.urls import reverse
+from py_vapid import _check_sub
 
 from .accounts import issue_account
 from .models import AlarmSettings, Department, User
@@ -128,6 +129,13 @@ class AlarmSettingsForm(forms.ModelForm):
         model = AlarmSettings
         fields = ["telegram_bot_token", "clear_token", "telegram_bot_username", "ops_chat_id", "vapid_subject",
                   "regenerate_push_keys"]
+
+    def clean_vapid_subject(self):
+        v = self.cleaned_data["vapid_subject"].strip()
+        # 발송 때 py_vapid 가 쓰는 검사와 같은 것으로(여기서 통과하면 서명 단계에서 걸리지 않는다)
+        if not v or any(c.isspace() for c in v) or not _check_sub(v):
+            raise forms.ValidationError("mailto:주소@도메인 또는 https://호스트 형식이어야 합니다(예: mailto:admin@example.com).")
+        return v
 
     def clean_telegram_bot_token(self):
         v = self.cleaned_data["telegram_bot_token"]

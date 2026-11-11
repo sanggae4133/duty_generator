@@ -125,6 +125,15 @@ def wpe(code, headers=None):
     return WebPushException("boom", response=SimpleNamespace(status_code=code, headers=headers or {}))
 
 
+def test_push_bad_vapid_is_temporary(wp):
+    from py_vapid import VapidException
+    _, state = wp
+    state["raise"] = VapidException("Missing 'sub' from claims.")
+    with pytest.raises(senders.Temporary) as e:
+        senders.push_send(CFG, SUB, "t", "b", "/u", 60)
+    assert e.value.status is None
+
+
 def test_push_send_args(wp):
     calls, _ = wp
     senders.push_send(CFG, SUB, "제목", "본문", "/u", 300)

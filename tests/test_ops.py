@@ -16,6 +16,7 @@ from django.db.migrations.loader import MigrationLoader
 from django.utils import timezone
 
 from duty.alarms import senders
+from duty.errors import DutyError
 from duty.models import AlarmSettings
 from duty.services import alarm_runner, backup, health
 
@@ -171,6 +172,30 @@ def test_restore_refuses_other_migrations(data, tmp_path):
     with pytest.raises(CommandError, match="마이그레이션"):
         call_command("restore", str(src))
     assert rows(data.DB_PATH) == ["a"] and not data.BACKUP_DIR.exists()
+
+
+def test_real_migrated_db_passes_check_and_restore(data, tmp_path, settings):
+    """합성한 목록이 아니라 실제 migrate 한 DB 가 복원 검사를 통과한다(검사의 기대 목록 계산이 틀리면 여기서 걸린다)."""
+    real = tmp_path / "real.sqlite3"
+    code = ("import sys, django; from pathlib import Path; django.setup(); "
+            "from django.core.management import call_command; call_command('migrate', verbosity=0); "
+            "from django.conf import settings; from duty.services.backup import copy_db; "
+            "copy_db(settings.DB_PATH, Path(sys.argv[1]))")
+    subprocess.run([sys.executable, "-c", code, str(real)], capture_output=True, text=True, check=True,
+                   cwd=settings.BASE_DIR, env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"})
+    backup.check(real)
+    backup.restore(real, NOW)
+    con = sqlite3.connect(data.DB_PATH)
+    try:
+        assert con.execute("SELECT count(*) FROM django_migrations WHERE app='duty'").fetchone()[0] >= 2
+    finally:
+        con.close()
+    con = sqlite3.connect(real)
+    con.execute("DELETE FROM django_migrations WHERE app='duty' AND name='0002_alarmsettings'")
+    con.commit()
+    con.close()
+    with pytest.raises(DutyError, match="마이그레이션"):
+        backup.check(real)
 
 
 def test_restore_refused_while_worker_runs(data, tmp_path):
@@ -337,7 +362,8 @@ def jobs(monkeypatch, db, data):
 def test_round_isolates_failures(jobs, caplog):
     from duty.management.commands import run_worker
     run_worker.run_round(NOW)
-    assert [n for n, _ in jobs] == ["alarms", "backup", "health"] and all(t == NOW for _, t in jobs)
+    # 백업·점검이 먼저: 알림 발송이 네트워크 타임아웃으로 오래 걸려도 백업·점검이 밀리지 않게
+    assert [n for n, _ in jobs] == ["backup", "health", "alarms"] and all(t == NOW for _, t in jobs)
     assert "worker job failed: alarms" in caplog.text
 
 
@@ -360,7 +386,7 @@ def test_once_runs_all_jobs_and_logs_to_file(jobs, data, monkeypatch):
             if h not in before:
                 root.removeHandler(h)
                 h.close()
-    assert [n for n, _ in jobs] == ["alarms", "backup", "health"]  # --once 는 시각과 상관없이 전부
+    assert [n for n, _ in jobs] == ["backup", "health", "alarms"]  # --once 는 시각과 상관없이 전부
     assert "worker job failed: alarms" in (data.LOG_DIR / "worker.log").read_text(encoding="utf-8")
 
 
@@ -406,7 +432,7 @@ def test_loop_skips_health_on_first_round(jobs, data, monkeypatch):
             if h not in before:
                 root.removeHandler(h)
                 h.close()
-    assert [n for n, _ in jobs] == ["alarms", "backup", "alarms", "backup", "health"]
+    assert [n for n, _ in jobs] == ["backup", "alarms", "backup", "health", "alarms"]
 
 
 # ---- 파일 로그 ----

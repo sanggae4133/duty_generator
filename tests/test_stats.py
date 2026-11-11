@@ -49,3 +49,14 @@ def test_departed_member_history_stays_in_stats(make_member):
     User.objects.filter(name="나").update(is_active=False)
     by = {r.name: r for r in member_stats(None, None)[0]}
     assert by["나"].duty == 2
+
+
+def test_departed_developer_with_only_dawn_night_stays_in_stats(make_member):
+    p = setup_period(make_member)
+    c = make_member("다")
+    Commute.objects.create(period=p, date=D1, member=c, shift="dawn")
+    Commute.objects.create(period=p, date=D2, member=c, shift="night")
+    from duty.models import User
+    User.objects.filter(name="다").update(is_active=False)
+    by = {r.name: r for r in member_stats(None, None)[0]}
+    assert (by["다"].duty, by["다"].dawn, by["다"].night) == (0, 1, 1)
