@@ -10,7 +10,7 @@ from pathlib import Path
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from django.db import connection, transaction
+from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
 
 from duty.models import User
@@ -77,6 +77,9 @@ def convert(source: str, write) -> None:
         raise ConvertError("원본 파일이 없습니다.")
     if src == dst or (dst.exists() and src.samefile(dst)):
         raise ConvertError("원본이 현재 DB와 같은 파일입니다. 예전 DB 백업 파일을 지정하세요.")
+    wal = Path(f"{src}-wal")
+    if wal.exists() and wal.stat().st_size > 0:  # immutable 은 -wal 을 무시하므로 최근 변경이 조용히 빠진다
+        raise ConvertError("원본 옆에 -wal 파일이 있습니다. sqlite3 .backup 으로 만든 단일 파일을 지정하세요.")
     # immutable: 정적 백업 파일. WAL 모드 백업도 -shm 을 만들지 않으므로 읽기 전용 폴더에서도 열린다
     old = sqlite3.connect(src.as_uri() + "?mode=ro&immutable=1", uri=True)
     try:
@@ -88,6 +91,8 @@ def convert(source: str, write) -> None:
             _check_target()
             users, user_map, renamed = _build_users(old)
             _write(old, users, user_map, renamed, write)
+    except (DatabaseError, sqlite3.DatabaseError) as e:  # 사전 검사 뒤 오류: 롤백된 뒤라 대상은 그대로
+        raise ConvertError(f"옮기는 중 DB 오류({type(e).__name__})로 멈췄습니다. 전체를 되돌렸습니다.") from None
     finally:
         old.close()
 

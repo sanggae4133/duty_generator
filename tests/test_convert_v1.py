@@ -1,4 +1,5 @@
 """convert_v1: 예전(0001~0009) DB 백업 → 새 스키마(0001_v2) 빈 DB. 데이터는 전부 가상."""
+import datetime as dt
 import functools
 import json
 import sqlite3
@@ -8,9 +9,11 @@ from pathlib import Path
 import pytest
 from django.contrib.auth.hashers import make_password
 from django.core.management import CommandError, call_command
-from django.db import connection
+from django.db import IntegrityError, connection
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from duty.models import ChangeLog, Department, User
 from duty.services import convert_v1
@@ -165,6 +168,9 @@ def test_convert_copies_everything(old, db):
         for uid in (7, 8):  # 계정 없던 멤버: 사용할 수 없는 비밀번호
             assert users[uid]["password"].startswith("!") and users[uid]["password"] != h
             assert users[uid]["last_login"] is None
+            assert users[uid]["email"] == users[uid]["first_name"] == users[uid]["last_name"] == ""
+            joined = parse_datetime(users[uid]["date_joined"]).replace(tzinfo=dt.UTC)  # 변환 시각(UTC 저장)
+            assert abs(timezone.now() - joined) < dt.timedelta(minutes=5)
 
         # 나머지 표: PK·FK·시각·JSON·null·해시가 원본과 같다(계정 FK만 대응표로 바뀜, 텔레그램 연결 대기 칸은 비움)
         for t in COPIED:
@@ -331,6 +337,33 @@ def test_wal_backup_in_read_only_dir(old, ro_dir, db):
     output = run(backup)
     assert "duty_commute: 예전 3 → 새 3" in output
     assert sorted(p.name for p in ro_dir.iterdir()) == ["old-v1.sqlite3"]  # -wal·-shm 안 만듦
+
+
+def test_source_with_live_wal_refused(old, db):
+    """immutable=1 은 옆의 -wal 을 무시하므로, 체크포인트 안 된 -wal 이 있으면 거부(.backup 파일을 쓰라고)."""
+    path, con = old
+    seed(con)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA wal_autocheckpoint=0")
+    con.execute("INSERT INTO duty_department VALUES('WAL','가상실W','normal')")
+    con.commit()  # con 을 열어 둔 채라 -wal 에 남는다
+    assert Path(f"{path}-wal").stat().st_size > 0
+    with pytest.raises(CommandError, match="-wal"):
+        run(path)
+    assert set(target_rows().values()) == {0}
+
+
+def test_db_error_after_prechecks_is_korean_and_rolled_back(old, db, monkeypatch):
+    path, con = old
+    seed(con)
+
+    def boom(*a):
+        raise IntegrityError("FOREIGN KEY constraint failed")
+
+    monkeypatch.setattr(convert_v1, "_copy", boom)
+    with pytest.raises(CommandError, match="아무것도 쓰지 않음"):
+        run(path)
+    assert set(target_rows().values()) == {0}
 
 
 def test_failure_midway_rolls_back_everything(old, db, monkeypatch):

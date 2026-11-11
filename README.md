@@ -98,14 +98,14 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 sqlite3 db.sqlite3 ".backup db.sqlite3-v1.sqlite3"     # WAL 까지 담긴 일관된 단일 파일
 sqlite3 db.sqlite3-v1.sqlite3 "PRAGMA quick_check"     # ok 가 나와야 한다
 mkdir -p old && mv db.sqlite3 old/                     # 롤백용으로 옮겨 둔다
-for f in db.sqlite3-wal db.sqlite3-shm; do [ -e "$f" ] && mv "$f" old/; done   # 있는 것만
+for f in db.sqlite3-wal db.sqlite3-shm; do if [ -e "$f" ]; then mv "$f" old/; fi; done   # 있는 것만
 git checkout <v2 버전> && 설치(개발 PC: .venv/bin/pip install -e '.[dev]')
 manage.py migrate                                      # 빈 새 DB
 manage.py convert_v1 db.sqlite3-v1.sqlite3             # 옮기기
 # 서비스 다시 시작
 ```
 
-- `convert_v1` 은 예전 백업을 읽기 전용으로 열고, 먼저 전부 검사한다(원본 `quick_check`·`foreign_key_check`·마이그레이션 0001~0009, 지금 DB 가 `0001_v2` 만 적용된 빈 DB인지, 아이디·이름 규칙과 중복, 그룹·직접 권한 행 없음). 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
+- `convert_v1` 은 `.backup` 으로 만든 단일 파일만 받는다(옆에 내용 있는 `-wal` 이 있으면 거부). 예전 백업을 읽기 전용으로 열고, 먼저 전부 검사한다(원본 `quick_check`·`foreign_key_check`·마이그레이션 0001~0009, 지금 DB 가 `0001_v2` 만 적용된 빈 DB인지, 아이디·이름 규칙과 중복, 그룹·직접 권한 행 없음). 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
 - 멤버마다 사용자 1명(id = 예전 멤버 id, 아이디 = 멤버 코드)을 만들고 연결된 계정의 비밀번호·권한·로그인 시각을 옮긴다. 재직 = 멤버 재직 AND 계정 활성. 멤버와 연결되지 않은 계정(어드민 전용 등)은 부서 없는 사용자로, 이름 = 아이디. 나머지 표는 id 그대로 옮긴다. 세션·로그인 실패 기록·관리 화면 기록은 버리고(다시 로그인해야 한다), 텔레그램 연결 대기 코드는 비운다.
 - 출력은 표별 건수뿐이다(이름·비밀값 없음).
 - 롤백: 새 `db.sqlite3`(와 `-wal`·`-shm`)를 지우고 `old/` 의 파일을 제자리로 옮긴 뒤 예전 버전 코드로 되돌린다.
