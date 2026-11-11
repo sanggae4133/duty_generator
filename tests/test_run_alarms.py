@@ -366,14 +366,15 @@ def test_recheck_failure_deletes_subscription(member, fake, monkeypatch):
     assert not PushAlarmSubscription.objects.filter(id=s1.id).exists()
 
 
-def test_duty_info_logs_reach_console():
+def test_duty_info_logs_reach_console(settings):
     """운영(journalctl)에서 'alarms tick:' INFO 줄이 레벨과 함께 stderr에 정확히 한 번 찍혀야 한다."""
     import os
     import subprocess
     import sys
     code = "import django, logging; django.setup(); logging.getLogger('duty.x').info('hello')"
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
-                       env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"})
+                       env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"},
+                       cwd=settings.BASE_DIR)
     assert r.stderr == "INFO duty.x hello\n"
 
 

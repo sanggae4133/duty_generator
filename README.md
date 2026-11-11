@@ -75,7 +75,21 @@ sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator &&
 
 잠금 경로를 직접 정할 때는 `duty` 사용자가 쓸 수 있는 곳이어야 한다(`/opt/duty_generator` 는 안 된다). 쓸 수 없으면 `run_alarms` 가 시작하지 못하고 [연결 확인]이 500 오류가 난다. 기본값(DB 폴더)은 SQLite 가 쓰는 곳이라 항상 쓸 수 있다.
 
-**기존 서버 업그레이드:** `/etc/duty_generator/env` 는 처음 설치 때 복사한 것이라 위 변수가 없다. `deploy/env.example` 의 `# --- 개인 알림` 아래 줄들을 `/etc/duty_generator/env` 끝에 붙이고 값을 채운다. 새 `deploy/duty-alarms.service` 도 `/etc/systemd/system/` 에 복사하고 `sudo systemctl daemon-reload`.
+**기존 서버 업그레이드** (이미 설치된 서버에 알림 기능을 올릴 때, 이 순서대로):
+
+```bash
+cd /opt/duty_generator
+sudo git pull                                   # 코드 갱신(다른 방식으로 배치했다면 그 방식으로)
+sudo .venv/bin/pip install -e .                 # 새 의존성(pywebpush) 설치
+sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'
+sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py migrate'
+# /etc/duty_generator/env 는 처음 설치 때 복사한 것이라 알림 변수가 없다:
+# deploy/env.example 의 "# --- 개인 알림" 아래 줄들을 /etc/duty_generator/env 끝에 붙이고 값을 채운다(sudoedit /etc/duty_generator/env)
+sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl restart duty-generator
+```
+
+그다음 아래 "전환" ①부터 진행한다. `duty-alarms` 는 전환 ④에서 켠다.
 
 ### VAPID 키 만들기
 
@@ -113,9 +127,9 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 - 한 사용자당 기기 20대까지.
 - 아이폰·아이패드: iOS 16.4 이상에서 Safari 로 사이트를 연 뒤 공유 → "홈 화면에 추가" 한 앱에서만 푸시를 받을 수 있다. 그 홈 화면 앱 안에서 `/alarms/` → [이 기기에서 푸시 받기]를 누른다. 사파리 탭에서는 안 된다. 안내 화면: `/help/push/`.
 
-### 로그 읽기 (`journalctl -u duty-alarms`)
+### 로그 읽기 (`sudo journalctl -u duty-alarms`)
 
-- 각 줄은 `<레벨> <로거> <메시지>` 형식이다(예: `INFO duty.services.alarm_runner alarms tick: ...`, 실패는 `WARNING`). `journalctl -u duty-alarms -p warning` 으로 실패만 볼 수 있다.
+- 각 줄은 `<레벨> <로거> <메시지>` 형식이다(예: `INFO duty.services.alarm_runner alarms tick: ...`, 실패는 `WARNING`). journal 우선순위는 모두 info 로 기록되므로 `-p warning` 은 쓸 수 없다. 실패만 보려면 `sudo journalctl -u duty-alarms -o cat | grep -E '^(WARNING|ERROR) '`.
 - 매분 `alarms tick: due=<보낼 건수> sent=<성공> failed=<실패>`.
 - 실패마다 `alarm send failed rule=<규칙 id> channel=<telegram|push> delivery=<기록 id> status=<종류>:<HTTP 코드> attempt=<시도 횟수>`. `status` 는 결과 상태가 아니라 실패 종류와 응답 코드를 붙인 것이다(코드가 없으면 `None`).
   - `Temporary:None` — 네트워크 오류·응답 이상·깨진 VAPID 키. 1, 2, 4 … 최대 30분 간격으로 재시도.
@@ -128,7 +142,7 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 
 ### 전환 (duty_notifier 규칙 → 웹앱 알림)
 
-1. env 값을 채우고(기존 서버는 위 "기존 서버 업그레이드") `sudo systemctl restart duty-generator` 후 `sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py run_alarms --dry-run'` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
+1. env 값을 채우고 `sudo systemctl restart duty-generator` 후(기존 서버는 위 "기존 서버 업그레이드"를 마친 뒤) `sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py run_alarms --dry-run'` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
 2. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다.
 3. PC Chrome 과 아이폰 홈 화면 앱에서 테스트 푸시가 오는지, 알림을 누르면 해당 화면이 열리는지 확인한다.
 4. `duty_notifier` 의 `config/config.yaml` 에서 `rules: []` 로 비운다(원래 내용은 따로 보관). 노티파이어는 설정을 시작할 때 한 번만 읽으므로 반드시 재시작한다. 그래야 같은 알림이 두 번 가지 않는다.
@@ -136,13 +150,13 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
    sudo systemctl restart duty-notifier && systemctl is-active duty-notifier   # active 여야 한다
    sudo systemctl enable --now duty-alarms
    ```
-5. `journalctl -u duty-alarms -f` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
+5. `sudo journalctl -u duty-alarms -f` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
 6. 롤백: 순서대로
    ```bash
    sudo systemctl disable --now duty-alarms
    # duty_notifier config/config.yaml 의 rules 를 보관한 원래 내용으로 되돌린 뒤
    sudo systemctl restart duty-notifier && systemctl is-active duty-notifier
-   journalctl -u duty-alarms -n 20; journalctl -u duty-notifier -n 50   # alarms 가 멈췄고 노티파이어가 오류 없이 떴는지
+   sudo journalctl -u duty-alarms -n 20; sudo journalctl -u duty-notifier -n 50   # alarms 가 멈췄고 노티파이어가 오류 없이 떴는지
    ```
 
 ## 운영 메모
