@@ -36,7 +36,5 @@
     today.scrollIntoView({block: "nearest", inline: "center"});
     if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
   }
-  const form = document.querySelector("form.search");
-  form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
 </script>
 {% endblock %}

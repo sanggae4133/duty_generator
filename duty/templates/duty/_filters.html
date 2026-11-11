@@ -3,3 +3,4 @@
   <fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <small class="hint">모두 해제하면 전체 표시</small>
+  <script>{ const f = document.currentScript.closest("form"); f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => f.requestSubmit()); }</script>

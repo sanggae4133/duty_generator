@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
@@ -7,7 +8,7 @@ class DifferentPasswordForm(PasswordChangeForm):
     def clean(self):
         data = super().clean()
         if data.get("new_password1") and data.get("new_password1") == data.get("old_password"):
-            raise ValidationError("임시 비밀번호와 다른 비밀번호를 입력하세요.")
+            raise ValidationError("지금 비밀번호와 다른 비밀번호를 입력하세요.")
         return data
 
 
@@ -22,4 +23,5 @@ class PasswordChange(auth_views.PasswordChangeView):
         if user.must_change_password:
             user.must_change_password = False
             user.save(update_fields=["must_change_password"])
+        messages.success(self.request, "비밀번호를 바꿨습니다.")
         return response

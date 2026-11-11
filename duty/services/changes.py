@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import date
 
 from django.db import transaction
@@ -8,11 +7,6 @@ from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, ControlDuty, Period, User
 from ..shifts import COMMUTE_SHIFTS, CONTROL_SLOTS, CELLS, DEVELOPER, is_slot_cell, slot_index
-
-
-@dataclass
-class ChangeResult:
-    warnings: list[str]
 
 
 def _owner(d: date) -> Period:
@@ -67,7 +61,7 @@ def _check_candidate(m: User | None) -> None:
 
 
 @transaction.atomic
-def change_cell(user, d: date, cell: str, before: User | None, after: User | None) -> ChangeResult:
+def change_cell(user, d: date, cell: str, before: User | None, after: User | None) -> list[str]:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
     _check_cell(cell)
@@ -90,8 +84,6 @@ def change_cell(user, d: date, cell: str, before: User | None, after: User | Non
             labels = ", ".join(CONTROL_SLOTS[o.slot][0] for o in others)
             warnings.append(f"{after.name}은(는) 그날 다른 관제 칸({labels})도 맡고 있습니다.")
     else:
-        if cell not in COMMUTE_SHIFTS:
-            raise DutyError("알 수 없는 칸입니다.")
         row = None
         if before is not None:
             row = Commute.objects.filter(period=period, date=d, member=before, shift=cell).first()
@@ -105,11 +97,11 @@ def change_cell(user, d: date, cell: str, before: User | None, after: User | Non
             Commute.objects.create(period=period, date=d, member=after, shift=cell)
         warnings = _duty_warnings(period, d, [before, after])
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell, before=before, after=after)
-    return ChangeResult(warnings)
+    return warnings
 
 
 @transaction.atomic
-def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> ChangeResult:
+def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> list[str]:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
     _check_cell(cell_a, cell_b)
@@ -142,4 +134,4 @@ def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> ChangeRes
         warnings = _duty_warnings(period, d, [a, b])
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_a, before=a, after=b)
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_b, before=b, after=a)
-    return ChangeResult(warnings)
+    return warnings
