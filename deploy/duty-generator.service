@@ -1,5 +1,7 @@
 [Unit]
 Description=duty_generator (Django)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=duty
@@ -8,6 +10,10 @@ EnvironmentFile=/etc/duty_generator/env
 # 접근 로그(--access-logfile)를 켜지 말 것: 캘린더 피드 경로(/calendar/<토큰>.ics)에 비밀 토큰이 들어 있다
 ExecStart=/opt/duty_generator/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8090 --workers 2
 Restart=always
+RestartSec=5
+# 로그는 파일로(보관 일수는 /etc/logrotate.d/duty_generator)
+StandardOutput=append:/var/log/duty_generator/web.log
+StandardError=append:/var/log/duty_generator/web.log
 
 [Install]
 WantedBy=multi-user.target

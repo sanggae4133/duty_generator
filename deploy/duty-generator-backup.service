@@ -2,6 +2,8 @@
 Description=duty_generator SQLite 백업
 
 [Service]
+StandardOutput=append:/var/log/duty_generator/backup.log
+StandardError=append:/var/log/duty_generator/backup.log
 Type=oneshot
 User=duty
 EnvironmentFile=/etc/duty_generator/env

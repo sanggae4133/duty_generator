@@ -117,7 +117,7 @@ AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = "duty/locked.html"
 SILENCED_SYSTEM_CHECKS = ["axes.W006"]  # 잠금은 의도적으로 username 만 기준(IP 는 Funnel 뒤에서 전원 동일)
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 임시 비밀번호가 쿠키에 실리지 않게
-# duty.* INFO 로그(예: "alarms tick:")를 stderr로 → systemd journal. 기본 설정은 WARNING 이상만 찍는다.
+# duty.* INFO 로그(예: "alarms tick:")를 stderr로 → systemd 가 /var/log/duty_generator/*.log 에 붙인다. 기본 설정은 WARNING 이상만 찍는다.
 # 캘린더 피드 경로(/calendar/<토큰>.ics)는 비밀이라 django.request·django.server 로그에서 지운다.
 # django.server 는 로거를 다시 설정하면 기존 핸들러가 빠지므로 Django 기본 핸들러를 그대로 다시 단다.
 LOGGING = {
@@ -125,7 +125,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "filters": {"redact_calendar": {"()": "duty.logging.RedactCalendarFeed"}},
     "formatters": {
-        "plain": {"format": "%(levelname)s %(name)s %(message)s"},
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s", "datefmt": "%Y-%m-%d %H:%M:%S"},
         "django.server": DEFAULT_LOGGING["formatters"]["django.server"],
     },
     "handlers": {
