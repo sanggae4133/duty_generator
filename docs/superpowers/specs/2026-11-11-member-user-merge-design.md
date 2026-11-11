@@ -95,7 +95,7 @@
 
 ### 1단계: 준비 릴리스 (스키마는 v1 그대로, 별도 PR)
 
-- `deploy/dbcheck.py`(표준 라이브러리 `sqlite3`만, Django 없이 실행): `dbcheck.py version <DB 파일>` → `v1`(duty 마이그레이션에 `0009_calendarfeed` 있음) / `v2`(`0001_v2` 있음) / `unknown`. `dbcheck.py fits <DB 파일> <마이그레이션 폴더>` → 백업의 duty 마이그레이션이 모두 그 폴더에 있으면 0, 아니면 1. 셸 스크립트는 판단을 이 파일에 맡긴다(pytest로 단위 테스트).
+- `deploy/dbcheck.py`(표준 라이브러리 `sqlite3`만, Django 없이 실행): DB는 URI `mode=ro`로 연다(경로 오타로 새 파일이 생기지 않게). `dbcheck.py version <DB 파일>` → `v1`(duty 마이그레이션에 `0009_calendarfeed` 있고 `0001_v2` 없음) / `v2`(`0001_v2`만 있고 예전 이름 없음) / `unknown`(둘 다·둘 다 아님·테이블 없음). `dbcheck.py fits <DB 파일> <마이그레이션 폴더>` → 적용된 duty 마이그레이션이 1개 이상이고 모두 그 폴더에 있으면 0, 아니면(테이블 없음·duty 행 0개 포함) 1. 셸 스크립트는 판단을 이 파일에 맡긴다(pytest로 단위 테스트).
 - `upgrade.sh`: fetch 후 **서비스를 멈추기 전에** 대상 버전에 `duty/migrations/0001_v2.py`가 있고 현재 DB가 `v1`이면 거부하고 `convert-v2.sh`를 안내.
 - `restore.sh`: **서비스를 멈추기 전에** `dbcheck.py fits <백업> duty/migrations`가 실패하면 거부("이 백업은 지금 코드와 구조가 다릅니다 — 예전 코드로 완전 롤백하거나, v1 백업이면 빈 v2 DB에 `convert_v1`로 옮기세요"). README의 "오래된 백업이면 migrate로 맞춘다"는 같은 세대 안에서만이라고 명시.
 - `deploy/convert-v2.sh [대상 버전, 기본 origin/main]` (set -euo pipefail, main 함수):
@@ -113,7 +113,7 @@
 
 - 운영에서 1단계가 설치된 것을 확인한 뒤 `sudo /opt/duty_generator/deploy/convert-v2.sh`. 모두 다시 로그인해야 한다. 개발 DB로 먼저 리허설.
 - 그 뒤로는 일반 `upgrade.sh`. v1 DB 상태에서 실수로 `upgrade.sh`를 돌리면 1단계 가드가 서비스 중지 전에 거부한다.
-- `convert_v1`·`convert-v2.sh`·v1 가드는 전환이 끝난 뒤 다음 정리 때 지워도 된다.
+- 롤백 가능 기간(v1 백업 보관 기간)이 끝난 뒤 `convert_v1`·`convert-v2.sh`·upgrade의 v1→v2 분기를 지운다. `restore.sh`의 `fits` 가드와 `dbcheck.py`는 계속 둔다.
 
 ## 테스트
 
@@ -126,7 +126,7 @@
   - 사전 검사 실패 각각(원본 버전·quick_check, 대상 비어 있지 않음, username·name 충돌, validator 위반, 그룹/권한 행, 원본=대상 경로) → 대상에 아무것도 없음
   - 중간 고의 실패(monkeypatch) → 대상 전체 롤백
 - **동작**: 퇴사(재직 끔) 계정 로그인 거부(스태프 포함)·기존 세션 익명화, 퇴사자 기존 배정 표시·제거 가능, 퇴사자 신규 교체·추가·맞교환 불가, 부서 없는 계정 후보·캘린더 제외·보고서 알림 수신, 최초 발급 때만 기본 규칙(초기화 때 안 만듦, 규칙 지운 계정 초기화 후에도 0개), 관리 화면 추가 폼이 비밀번호 없이 unusable password 설정, 발급 액션.
-- **운영 스크립트(1단계)**: `dbcheck.py`를 임시 DB(v1 fixture, v2 빈 DB, 잡 DB)로 단위 테스트 — version 판정, fits(v1 백업 vs v2 마이그레이션 폴더 실패, 같은 세대 성공). `bash -n` 세 스크립트. 사전 확인 순서(서비스 중지 전에 판정·거부)는 코드 리뷰로 확인.
+- **운영 스크립트(1단계)**: `dbcheck.py`를 임시 DB(v1 fixture, v2 빈 DB, 잡 DB)로 단위 테스트 — version 판정(둘 다 있음·테이블 없음 → unknown), fits(v1 백업 vs v2 마이그레이션 폴더 실패, 같은 세대 성공, `django_migrations`는 있지만 duty 행 0개 → 실패, 없는 경로 → 실패·파일 생성 안 됨). `bash -n` 세 스크립트. 사전 확인 순서(서비스 중지 전에 판정·거부)는 코드 리뷰로 확인.
 - **리허설(2단계 전)**: 개발 DB 사본으로 `convert-v2.sh`의 4~6단계와 같은 명령(이동·migrate·convert_v1)을 실제로 실행하고, WAL·SHM이 없는 경우도 확인. 실행 결과를 PR에 적는다.
 - 기존 테스트 전체를 새 모델로 옮겨 통과(`-W error`).
 - 화면 확인(1400px·390px): 관리 화면 사용자 목록·추가·편집, 근무표·근무 변경 팝업 후보, 알림·캘린더 화면.
