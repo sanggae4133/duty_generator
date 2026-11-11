@@ -1,7 +1,7 @@
 # duty_generator
 
 IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관제 당번을 생성·배포하고, 근무 변경을 기록한다.
-설계: `docs/superpowers/specs/2026-11-09-duty-generator-design.md`
+구조·도메인 규칙: `docs/ARCHITECTURE.md`
 
 ## 폴더 구조
 
@@ -14,7 +14,7 @@ IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관�
 | `requirements.in` / `requirements.lock` / `requirements-dev.txt` | 직접 쓰는 라이브러리(범위) / 운영 설치용 고정 버전 / 개발용 테스트 도구. | 올림 |
 | `pyproject.toml` | pytest 설정만. | 올림 |
 | `deploy/` | 서버용 systemd 유닛 두 개: `duty-web.service`(웹), `duty-worker.service`(작업자). 아래 "서비스 두 개". | 올림 |
-| `docs/` | 설계·구현 계획 문서. | 올림 |
+| `docs/ARCHITECTURE.md` | 구조와 도메인 규칙. 코드를 고치기 전에 읽는다. | 올림 |
 | `.env.example` → `.env` | 설정값. 견본을 `.env` 로 복사해 채운다. 개발 PC 와 서버의 차이는 이 파일의 값뿐이다. | `.env` 는 안 올림 |
 | `data/` | 실행 중 생기는 파일 전부: `db.sqlite3`(DB), `backups/`(백업), `logs/`(로그), 잠금 파일. `.env` 의 `DUTY_DATA_DIR` 로 옮길 수 있다. | 안 올림 |
 | `.venv/`, `staticfiles/` | 파이썬 가상환경, 모은 정적 파일(`collectstatic`). | 안 올림 |
