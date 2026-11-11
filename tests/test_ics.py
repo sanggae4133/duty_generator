@@ -46,6 +46,13 @@ def test_fold_korean_keeps_multibyte():
     assert parts[0] + "".join(p[1:] for p in parts[1:]) == line
 
 
+def test_fold_boundaries():
+    assert ics.fold("A" * 75) == "A" * 75
+    assert ics.fold("A" * 76) == "A" * 75 + "\r\n A"
+    assert ics.fold("A" * 74 + "가") == "A" * 74 + "\r\n 가"  # 3바이트 문자가 경계에 걸리면 통째로 다음 줄
+    assert ics.fold("A" * 72 + "가") == "A" * 72 + "가"  # 정확히 75옥텟
+
+
 def test_short_line_not_folded():
     assert ics.fold("VERSION:2.0") == "VERSION:2.0"
 

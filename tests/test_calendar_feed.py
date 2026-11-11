@@ -267,6 +267,7 @@ def test_headers_etag_304_head_post(client, me):
     check_headers(r304, etag)
     head = feed(client, token, "head")
     assert head.status_code == 200 and head.content == b""
+    assert head["Content-Length"] == r["Content-Length"] == str(len(r.content))
     check_headers(head, etag)
     assert feed(client, token, "post").status_code == 405
     assert feed(Client(enforce_csrf_checks=True), token, "post").status_code == 405
@@ -321,6 +322,16 @@ def test_filter_django_server_record(status):
     assert not leaks(rec)
 
 
+def test_filter_django_server_bad_request_record():
+    # runserver send_error: log_message("code %d, message %s", 400, "Bad request syntax ('GET /calendar/...')")
+    rec = logging.LogRecord("django.server", logging.WARNING, __file__, 1, "code %d, message %s",
+                            (400, f"Bad request syntax ('GET {path(TOKEN)} HTTP/1.1 x')"), None)
+    rec.request = object()
+    RedactCalendarFeed().filter(rec)
+    assert rec.getMessage() == "calendar feed ?" and rec.args == ()
+    assert not leaks(rec)
+
+
 def test_filter_leaves_other_records():
     req = RequestFactory().get("/me/")
     rec = logging.LogRecord("django.request", logging.WARNING, __file__, 1, "Not Found: %s", ("/me/",), None)
@@ -340,14 +351,15 @@ def test_filter_registered():
 @pytest.mark.parametrize("url", [
     "https://duty.example/\r\nX: y", "https://duty.example\n", "ftp://duty.example",
     "https://duty.example/?a=1", "https://duty.example/?", "https://duty.example/#x", "https:///path",
-    "http://duty.example",
+    "http://duty.example", "https://user:pw@duty.example", "https://user@duty.example", "https://duty.example:abc",
+    "https://duty.example:99999",
 ])
 def test_site_url_invalid(url):
     with pytest.raises(ImproperlyConfigured):
         validate_site_url(url, debug=False)
 
 
-@pytest.mark.parametrize("url", ["", "https://duty.example", "https://duty.example/sub/"])
+@pytest.mark.parametrize("url", ["", "https://duty.example", "https://duty.example/sub/", "https://duty.example:8443"])
 def test_site_url_valid(url):
     validate_site_url(url, debug=False)
 

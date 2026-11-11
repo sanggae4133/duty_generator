@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 
 def escape_text(s: str) -> str:
-    s = s.replace("\\", "\\\\").replace(";", "\;").replace(",", "\\,")
+    s = s.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
     return s.replace("\r\n", "\\n").replace("\r", "\\n").replace("\n", "\\n")
 
 

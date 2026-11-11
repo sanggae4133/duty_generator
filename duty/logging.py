@@ -1,6 +1,7 @@
 """로깅 필터. 캘린더 피드 경로에는 비밀 토큰이 들어 있어 로그에 남기지 않는다."""
 
 import logging
+import re
 
 FEED_PREFIX = "/calendar/"
 
@@ -19,8 +20,10 @@ class RedactCalendarFeed(logging.Filter):
         if hit:
             status = getattr(record, "status_code", None)
             if status is None and isinstance(record.args, tuple) and len(record.args) > 1:
-                status = record.args[1]
-            record.msg, record.args = "calendar feed %s", (status,)
+                status = record.args[1]  # django.server: (요청 줄, 상태, 크기)
+            # 상태 자리에 요청 줄이 든 메시지가 올 수 있다(runserver "code %d, message %s"). 세 자리 숫자만 남긴다
+            status = str(status) if re.fullmatch(r"\d{3}", str(status)) else "?"
+            record.msg, record.args = f"calendar feed {status}", ()
             if hasattr(record, "request"):
                 del record.request
         return True

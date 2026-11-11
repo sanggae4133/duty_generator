@@ -67,7 +67,8 @@ def feed(token: str) -> bytes | None:
 
 
 def _events(member: Member) -> list[ics.Event]:
-    days = roster.published_days(perms.today() - WINDOW, None)
+    start = perms.today() - WINDOW
+    days = roster.published_days(start, None)
     published = dict(Period.objects.filter(pk__in={d.period_id for d in days}).values_list("pk", "published_at"))
     for pid in sorted(pk for pk, at in published.items() if at is None):
         logger.warning("calendar feed: published_at 없는 배포 회차 %s 제외", pid)
@@ -75,7 +76,7 @@ def _events(member: Member) -> list[ics.Event]:
     if not days:
         return []
     owner = {d.date: d.period_id for d in days}
-    changes = ChangeLog.objects.filter(period_id__in=set(owner.values()), date__in=list(owner)).values_list("period_id", "date", "at")
+    changes = ChangeLog.objects.filter(period_id__in=set(owner.values()), date__gte=start).values_list("period_id", "date", "at")
     dtstamp = max([published[pid] for pid in owner.values()] + [at for pid, d, at in changes if owner[d] == pid])
 
     tz = timezone.get_default_timezone()

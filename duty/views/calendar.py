@@ -17,7 +17,8 @@ def feed(request, token):
     if body is None:
         raise Http404
     etag = f'"{hashlib.sha256(body).hexdigest()}"'
-    r = HttpResponse(b"" if request.method == "HEAD" else body, content_type="text/calendar; charset=utf-8")
+    # HEAD 본문은 Django·gunicorn 이 지운다. 같은 본문을 넘겨야 Content-Length 가 GET 과 같다
+    r = HttpResponse(body, content_type="text/calendar; charset=utf-8")
     r = get_conditional_response(request, etag=etag, response=r)
     for k, v in {**HEADERS, "ETag": etag}.items():  # 304 에도 같은 헤더
         r[k] = v
