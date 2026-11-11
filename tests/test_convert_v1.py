@@ -309,6 +309,17 @@ def test_target_not_empty(old, db):
     assert User.objects.count() == 0 and Department.objects.count() == 1
 
 
+def test_target_may_have_alarm_settings(old, db):
+    """migrate 가 예전 환경변수로 알림 설정 행을 만들어 둔 새 DB 도 변환할 수 있다(0002 데이터 이전)."""
+    from duty.models import AlarmSettings
+    path, con = old
+    seed(con)
+    AlarmSettings.objects.create(pk=1, telegram_bot_username="duty_bot")
+    run(path)
+    assert User.objects.filter(username="MEMS001").exists()
+    assert AlarmSettings.objects.get().telegram_bot_username == "duty_bot"
+
+
 def test_target_wrong_migrations(old, db):
     path, con = old
     seed(con)

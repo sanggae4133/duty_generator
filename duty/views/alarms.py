@@ -1,7 +1,6 @@
 import json
 import re
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -13,7 +12,7 @@ from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
 from ..errors import DutyError
 from ..models import AlarmRule, CalendarFeed, Department, PushAlarmSubscription, TelegramAlarmProfile
-from ..services import alarms, calendar
+from ..services import alarm_settings, alarms, calendar
 from ..services.prefs import SHIFT_CHOICES
 
 BOT_MISSING = "텔레그램 봇이 설정되지 않았습니다."
@@ -43,8 +42,8 @@ def condition_label(r, dept_names: dict) -> str:
     return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types, {})} / {s}"
 
 
-def _bot_link() -> str:
-    return f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}" if settings.TELEGRAM_BOT_USERNAME else ""
+def _bot_link(conf) -> str:
+    return f"https://t.me/{conf.telegram_bot_username}" if conf.telegram_bot_username else ""
 
 
 @login_required
@@ -59,13 +58,14 @@ def _index(request, **extra):
          "channels": "·".join(n for n, on in (("텔레그램", r.telegram), ("푸시", r.push)) if on)}
         for r in AlarmRule.objects.filter(user=request.user)
     ]
+    conf = alarm_settings.ensure_push_keys()
     return render(request, "duty/alarms.html", {
         "tg": TelegramAlarmProfile.objects.filter(user=request.user).first(),
-        "tg_token": senders.telegram_enabled(),
-        "bot_ready": senders.telegram_enabled() and bool(settings.TELEGRAM_BOT_USERNAME),
+        "tg_token": conf.telegram_on,
+        "bot_ready": conf.bot_ready,
         "rules": rules,
-        "push_on": senders.push_enabled(),
-        "vapid_key": settings.VAPID_PUBLIC_KEY,
+        "push_on": conf.push_on,
+        "vapid_key": conf.vapid_public_key,
         "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
         "cal": CalendarFeed.objects.filter(user=request.user).first(),
         "cal_member": request.user.department_id is not None,
@@ -83,13 +83,13 @@ def telegram_save(request):
         return redirect("alarms")
     if not re.fullmatch(r"\d{1,19}", raw) or not 1 <= int(raw) <= 2**63 - 1:
         messages.error(request, "개인 채팅 chat_id(양수 숫자)만 입력하세요.")
-    elif not senders.telegram_enabled():
+    elif not (conf := alarm_settings.current()).telegram_on:
         messages.error(request, BOT_MISSING)
     elif not alarms.take_cooldown(request.user):
         messages.error(request, "잠시 후 다시 시도하세요.")
     else:
         try:
-            kind = senders.telegram_check(raw)
+            kind = senders.telegram_check(conf.sender_config(), raw)
         except senders.SendError:
             messages.error(request, "테스트 발송 실패: 봇에게 먼저 /start를 보냈는지 확인하세요.")
         else:
@@ -104,10 +104,11 @@ def telegram_save(request):
 @require_POST
 @login_required
 def telegram_link(request):
-    if not (senders.telegram_enabled() and settings.TELEGRAM_BOT_USERNAME):
+    conf = alarm_settings.current()
+    if not conf.bot_ready:
         messages.error(request, BOT_MISSING)
         return redirect("alarms")
-    return redirect(f"{_bot_link()}?start={alarms.new_link_code(request.user)}")
+    return redirect(f"{_bot_link(conf)}?start={alarms.new_link_code(request.user)}")
 
 
 @require_POST
@@ -166,13 +167,14 @@ def rule_toggle(request, pk):
 
 @login_required
 def help_telegram(request):
+    conf = alarm_settings.current()
     return render(request, "duty/help_telegram.html", {
-        "bot_username": settings.TELEGRAM_BOT_USERNAME, "bot_link": _bot_link()})
+        "bot_username": conf.telegram_bot_username, "bot_link": _bot_link(conf)})
 
 
 # ---- 웹 푸시 ----
 
-PUSH_MISSING = "웹 푸시가 설정되지 않았습니다."
+PUSH_MISSING = "웹 푸시 키를 만들지 못했습니다. 관리자에게 알려 주세요."
 
 
 def sw_js(request):
@@ -206,6 +208,8 @@ def push_subscribe(request):
         keys = data.get("keys")
         if not isinstance(keys, dict):
             raise DutyError("잘못된 푸시 구독입니다.")
+        if not alarm_settings.ensure_push_keys().push_on:
+            raise DutyError(PUSH_MISSING)
         alarms.add_subscription(request.user, data.get("endpoint"), keys.get("p256dh"), keys.get("auth"),
                                 request.META.get("HTTP_USER_AGENT", ""), data.get("replaces"))
     except alarms.SubscriptionConflict as e:
@@ -246,7 +250,7 @@ def push_delete_all(request):
 @require_POST
 @login_required
 def push_test(request):
-    if not senders.push_enabled():
+    if not alarm_settings.ensure_push_keys().push_on:
         messages.error(request, PUSH_MISSING)
     else:
         ok, fail = alarms.test_push(request.user)

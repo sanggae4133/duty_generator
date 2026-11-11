@@ -1,14 +1,17 @@
 from datetime import date, timedelta
 
 import pytest
-from django.test import override_settings
 from django.utils import timezone
 
 from duty.alarms import senders
-from duty.models import AlarmDelivery, AlarmRule, TelegramAlarmProfile, User
+from duty.models import AlarmDelivery, AlarmRule, AlarmSettings, TelegramAlarmProfile, User
+from duty.services import alarm_settings
 
 D = date(2026, 11, 10)
-BOT = dict(TELEGRAM_BOT_TOKEN="TOK", TELEGRAM_BOT_USERNAME="duty_test_bot")
+
+
+def set_alarm_settings(**kw):
+    AlarmSettings.objects.update_or_create(pk=1, defaults=kw)
 
 
 @pytest.fixture
@@ -25,9 +28,8 @@ def other(db):
 
 
 @pytest.fixture
-def bot(settings, tmp_path):
-    settings.TELEGRAM_BOT_TOKEN = "TOK"
-    settings.TELEGRAM_BOT_USERNAME = "duty_test_bot"
+def bot(settings, tmp_path, db):
+    set_alarm_settings(telegram_bot_token="TOK", telegram_bot_username="duty_test_bot")
     settings.TELEGRAM_UPDATES_LOCK_PATH = str(tmp_path / "tg.lock")
     return settings
 
@@ -87,14 +89,14 @@ def test_others_rule_404(client, me, other):
 
 @pytest.mark.parametrize("v", ["0", "-5", str(2**63), "abc", "1.5"])
 def test_chat_id_range(client, me, bot, monkeypatch, v):
-    monkeypatch.setattr(senders, "telegram_check", lambda c: pytest.fail("호출되면 안 됨"))
+    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: pytest.fail("호출되면 안 됨"))
     r = post(client, "/alarms/telegram/", {"chat_id": v})
     assert "개인 채팅 chat_id(양수 숫자)만 입력하세요." in msgs(r)
     assert not TelegramAlarmProfile.objects.filter(user=me, chat_id=v).exists()
 
 
 def test_chat_id_saved_when_private(client, me, bot, monkeypatch):
-    monkeypatch.setattr(senders, "telegram_check", lambda c: "private")
+    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: "private")
     post(client, "/alarms/telegram/", {"chat_id": str(2**63 - 1)})
     p = TelegramAlarmProfile.objects.get(user=me)
     assert p.chat_id == str(2**63 - 1) and p.verified_at is not None
@@ -103,7 +105,8 @@ def test_chat_id_saved_when_private(client, me, bot, monkeypatch):
 @pytest.mark.parametrize("result,text", [("group", "개인 채팅이 아닙니다."),
                                          (senders.Permanent(400), "테스트 발송 실패: 봇에게 먼저 /start를 보냈는지 확인하세요.")])
 def test_chat_id_not_saved(client, me, bot, monkeypatch, result, text):
-    def fake(c):
+    def fake(cfg, c):
+        assert cfg.telegram_token == "TOK"  # DB 설정값으로 보낸다
         if isinstance(result, Exception):
             raise result
         return result
@@ -113,15 +116,14 @@ def test_chat_id_not_saved(client, me, bot, monkeypatch, result, text):
     assert not TelegramAlarmProfile.objects.filter(user=me, chat_id="123").exists()
 
 
-def test_bot_not_configured(client, me, settings):
-    settings.TELEGRAM_BOT_TOKEN = ""
+def test_bot_not_configured(client, me):
     r = post(client, "/alarms/telegram/", {"chat_id": "123"})
     assert "텔레그램 봇이 설정되지 않았습니다." in msgs(r)
 
 
 def test_telegram_cooldown(client, me, bot, monkeypatch):
     n = []
-    monkeypatch.setattr(senders, "telegram_check", lambda c: n.append(c) or "group")
+    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: n.append(c) or "group")
     post(client, "/alarms/telegram/", {"chat_id": "123"})
     r = post(client, "/alarms/telegram/", {"chat_id": "123"})
     assert "잠시 후 다시 시도하세요." in msgs(r) and len(n) == 1
@@ -150,9 +152,8 @@ def test_link_redirect(client, me, bot):
     assert p.link_code != old  # 새 코드가 이전 코드를 무효화
 
 
-def test_link_without_bot(client, me, settings):
-    settings.TELEGRAM_BOT_USERNAME = ""
-    settings.TELEGRAM_BOT_TOKEN = "TOK"
+def test_link_without_bot(client, me):
+    set_alarm_settings(telegram_bot_token="TOK", telegram_bot_username="")
     r = post(client, "/alarms/telegram/link/")
     assert "텔레그램 봇이 설정되지 않았습니다." in msgs(r)
 
@@ -166,14 +167,15 @@ def tgapi(monkeypatch):
     """getUpdates 가짜: offset 이전 것은 확인 처리된 것으로 본다."""
     st = {"updates": [], "calls": [], "sent": [], "raise": None, "send_raise": None}
 
-    def get_updates(offset=None, limit=100):
+    def get_updates(cfg, offset=None, limit=100):
+        assert cfg.telegram_token == "TOK"
         st["calls"].append(offset)
         if st["raise"]:
             raise st["raise"]
         got = [u for u in st["updates"] if offset is None or u["update_id"] >= offset]
         return got[:2]  # 한 묶음 2개로 잘라 여러 묶음 처리 확인
 
-    def send(chat_id, text):
+    def send(cfg, chat_id, text):
         st["sent"].append((chat_id, text))
         if st["send_raise"]:
             raise st["send_raise"]
@@ -393,7 +395,7 @@ def test_disconnect_invalidates_pending_code(client, me, other, bot, tgapi):
 
 def test_direct_entry_invalidates_pending_code(client, me, bot, monkeypatch):
     code_of(me, client)
-    monkeypatch.setattr(senders, "telegram_check", lambda c: "private")
+    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: "private")
     post(client, "/alarms/telegram/", {"chat_id": "77"})
     p = TelegramAlarmProfile.objects.get(user=me)
     assert p.chat_id == "77" and p.link_code is None and p.link_expires_at is None
@@ -436,10 +438,10 @@ def test_linked_notified_even_if_later_batch_fails(client, me, bot, tgapi, monke
     code = code_of(me, client)
     real = senders.telegram_get_updates
 
-    def flaky(offset=None, limit=100):
+    def flaky(cfg, offset=None, limit=100):
         if offset is not None:
             raise senders.Temporary(502)
-        return real(offset, limit)
+        return real(cfg, offset, limit)
     tgapi["updates"] = [upd(1, f"/start {code}", 42)]
     monkeypatch.setattr(senders, "telegram_get_updates", flaky)
     r = post(client, "/alarms/telegram/link/check/")
@@ -448,14 +450,15 @@ def test_linked_notified_even_if_later_batch_fails(client, me, bot, tgapi, monke
     assert [c for c, _ in tgapi["sent"]] == ["42"]
 
 
-def test_no_username_still_allows_direct_entry_and_disconnect(client, me, settings):
-    settings.TELEGRAM_BOT_TOKEN, settings.TELEGRAM_BOT_USERNAME = "TOK", ""
+def test_no_username_still_allows_direct_entry_and_disconnect(client, me):
+    set_alarm_settings(telegram_bot_token="TOK", telegram_bot_username="")
     TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now())
     body = client.get("/alarms/").content.decode()
     assert "저장 및 테스트" in body and "연결 해제" in body and "텔레그램 연결</button>" not in body
-    settings.TELEGRAM_BOT_TOKEN = ""
+    set_alarm_settings(telegram_bot_token="")
     body = client.get("/alarms/").content.decode()
     assert "연결 해제" in body and "저장 및 테스트" not in body
+    assert "관리자가 관리 화면 → 알림 설정에서 텔레그램 봇 토큰을 넣으면 [텔레그램 연결] 버튼이 나타납니다." in body
 
 
 def test_reorder_only_keeps_deliveries(client, me):
@@ -514,10 +517,9 @@ UA_ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML
 
 
 @pytest.fixture
-def vapid(settings):
-    settings.VAPID_PUBLIC_KEY = "BPub" + "x" * 83
-    settings.VAPID_PRIVATE_KEY = "priv"
-    return settings
+def vapid(db):
+    set_alarm_settings(vapid_public_key="BPub" + "x" * 83, vapid_private_key="priv")
+    return alarm_settings.current()
 
 
 def sub_json(client, endpoint=EP, p256dh=P256, auth=AUTH, ua=UA_ANDROID, **extra):
@@ -566,10 +568,24 @@ def test_push_login_required(client, db):
         assert r.status_code == 302 and r.url.startswith("/login/"), url
 
 
-def test_push_not_configured(client, me, settings):
-    settings.VAPID_PUBLIC_KEY = settings.VAPID_PRIVATE_KEY = ""
+def no_push_keys(monkeypatch):
+    def boom():
+        raise ValueError("x")
+    monkeypatch.setattr(alarm_settings, "_new_push_keys", boom)
+
+
+def test_push_keys_made_on_first_view(client, me):
     body = client.get("/alarms/").content.decode()
-    assert "웹 푸시가 설정되지 않았습니다." in body and "이 기기에서 푸시 받기" not in body
+    s = AlarmSettings.objects.get()
+    from django.utils.html import escapejs
+    assert s.push_on and escapejs(s.vapid_public_key) in body and "이 기기에서 푸시 받기" in body
+    assert s.vapid_private_key not in body
+
+
+def test_push_key_generation_failed(client, me, monkeypatch):
+    no_push_keys(monkeypatch)
+    body = client.get("/alarms/").content.decode()
+    assert "웹 푸시 키를 만들지 못했습니다. 관리자에게 알려 주세요." in body and "이 기기에서 푸시 받기" not in body
     assert 'href="/help/push/"' in body
 
 
@@ -578,7 +594,7 @@ def test_push_area(client, me, vapid):
     body = client.get("/alarms/").content.decode()
     for s in ["이 기기에서 푸시 받기", "이 기기 해제", "테스트 푸시", "모든 기기 해제", "Chrome / Android",
               "로그아웃해도 알림은 계속 오고", "iOS 16.4 이상", "이 브라우저는 푸시를 지원하지 않습니다.",
-              vapid.VAPID_PUBLIC_KEY, 'href="/help/push/"']:
+              vapid.vapid_public_key, 'href="/help/push/"']:
         assert s in body, s
     assert "priv" not in body.replace("private", "")
 
@@ -692,7 +708,8 @@ def test_test_push(client, me, other, vapid, monkeypatch):
     PushAlarmSubscription.objects.create(user=other, endpoint=EP + "x", p256dh=P256, auth=AUTH)
     calls = []
 
-    def fake(sub, title, body, url, ttl):
+    def fake(cfg, sub, title, body, url, ttl):
+        assert cfg.vapid_private_key == "priv"  # DB 설정값으로 보낸다
         calls.append(sub.endpoint)
         if sub.endpoint.endswith("1"):
             raise senders.Gone(410)
@@ -706,10 +723,10 @@ def test_test_push(client, me, other, vapid, monkeypatch):
     assert PushAlarmSubscription.objects.filter(endpoint=EP + "2").exists()
 
 
-def test_test_push_not_configured(client, me, settings, monkeypatch):
-    settings.VAPID_PUBLIC_KEY = settings.VAPID_PRIVATE_KEY = ""
+def test_test_push_not_configured(client, me, monkeypatch):
+    no_push_keys(monkeypatch)
     monkeypatch.setattr(senders, "push_send", lambda *a: pytest.fail("no send"))
-    assert "웹 푸시가 설정되지 않았습니다." in " ".join(msgs(post(client, "/alarms/push/test/")))
+    assert "웹 푸시 키를 만들지 못했습니다. 관리자에게 알려 주세요." in " ".join(msgs(post(client, "/alarms/push/test/")))
 
 
 def test_push_csrf(me, vapid):

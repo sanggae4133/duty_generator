@@ -15,6 +15,7 @@ from ..alarms import senders
 from ..errors import DutyError
 from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile
 from ..shifts import DEVELOPER, STAFF
+from . import alarm_settings
 from .prefs import SHIFT_KEYS
 
 DEFAULT_RULES = [
@@ -128,12 +129,12 @@ def new_link_code(user) -> str:
 MAX_BATCHES = 100  # ponytail: 안전 상한(100건 × 100묶음). 전용 봇이라 넘을 일 없음, 넘으면 확인 처리 후 재시도 안내
 
 
-def _link_from_updates(now, linked: list[str]) -> None:
+def _link_from_updates(cfg, now, linked: list[str]) -> None:
     """getUpdates 묶음마다 유효한 /start <코드>를 각 소유자에게 연결하고 offset으로 확인 처리, 빈 결과까지.
     연결된 chat_id는 호출자의 linked에 바로 넣는다(뒤 묶음이 실패해도 완료 메시지를 보내도록)."""
     offset = None
     for _ in range(MAX_BATCHES):
-        updates = senders.telegram_get_updates(offset=offset, limit=100)
+        updates = senders.telegram_get_updates(cfg, offset=offset, limit=100)
         if not updates:
             return
         for u in updates:
@@ -154,15 +155,17 @@ def _link_from_updates(now, linked: list[str]) -> None:
         if last is None:
             return
         offset = last + 1
-    if not senders.telegram_get_updates(offset=offset, limit=1):  # 마지막 묶음 확인 처리. 남은 건 처리·확인 안 함
+    if not senders.telegram_get_updates(cfg, offset=offset, limit=1):  # 마지막 묶음 확인 처리. 남은 건 처리·확인 안 함
         return
     raise DutyError("처리할 메시지가 남았습니다. 잠시 후 다시 시도하세요.")
 
 
 def check_link(user) -> str:
     """[연결 확인]. 성공 메시지를 돌려주고, 실패는 DutyError."""
-    if not (settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_BOT_USERNAME):
+    conf = alarm_settings.current()
+    if not conf.bot_ready:
         raise DutyError("텔레그램 봇이 설정되지 않았습니다.")
+    cfg = conf.sender_config()
     now = timezone.now()
     expired = "연결 코드가 만료되었습니다. 다시 [텔레그램 연결]을 눌러 주세요."
     if TelegramAlarmProfile.objects.filter(user=user, link_code__isnull=False, link_expires_at__lte=now).update(
@@ -184,7 +187,7 @@ def check_link(user) -> str:
             if not take_cooldown(user):
                 raise DutyError("잠시 후 다시 시도하세요.")
             try:
-                _link_from_updates(now, linked)
+                _link_from_updates(cfg, now, linked)
             except senders.Permanent:
                 raise DutyError("텔레그램 봇 설정 오류입니다. 관리자에게 알려 주세요.") from None
             except senders.SendError:
@@ -192,7 +195,7 @@ def check_link(user) -> str:
     finally:
         for cid in linked:  # DB 반영 후 발송(오류가 나도 이미 연결된 사람에겐). 실패해도 연결은 유지
             try:
-                senders.telegram_send(cid, "[연결 완료] 당번 알림이 이 채팅으로 옵니다.")
+                senders.telegram_send(cfg, cid, "[연결 완료] 당번 알림이 이 채팅으로 옵니다.")
             except senders.SendError:
                 pass
     p.refresh_from_db()
@@ -288,9 +291,10 @@ def delete_all_subscriptions(user) -> None:
 def test_push(user) -> tuple[int, int]:
     """내 모든 구독에 테스트 푸시. (성공, 실패). Gone은 삭제하고 실패로 센다."""
     ok = fail = 0
+    cfg = alarm_settings.current().sender_config()
     for sub in PushAlarmSubscription.objects.filter(user=user):
         try:
-            senders.push_send(sub, "[테스트] 당번 알림", "이 기기로 푸시 알림이 옵니다.", "/alarms/", 60)
+            senders.push_send(cfg, sub, "[테스트] 당번 알림", "이 기기로 푸시 알림이 옵니다.", "/alarms/", 60)
             ok += 1
         except senders.Gone:
             sub.delete()

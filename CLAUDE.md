@@ -13,7 +13,9 @@ IT 당번표 웹앱(Django). 구글 시트 + Apps Script 당번표를 완전히 
 .venv/bin/pytest -W error                      # 전체 테스트, 경고 0개 유지
 DUTY_DEBUG=1 .venv/bin/python manage.py migrate
 DUTY_DEBUG=1 .venv/bin/python manage.py runserver
+DUTY_DEBUG=1 .venv/bin/python manage.py run_worker   # 작업자(알림·백업·상태 점검), 필요할 때만
 ```
+- 설치(`pip install -e .`) 없이 저장소 루트에서 돈다: `pip install -r requirements.lock -r requirements-dev.txt`. 라이브러리 목록은 `requirements.in`.
 - 테스트 설정은 `config.test_settings`. 모든 변경은 테스트를 먼저 쓰고(실패 확인) 구현한다.
 - 화면 변경은 테스트 통과만으로 끝내지 말고 브라우저(PC 1400px, 모바일 390px)에서 직접 확인한다.
 
@@ -26,11 +28,17 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 - 정적 파일(htmx, Pico.css)은 CDN이 아니라 `duty/static/vendor/`에서 직접 서빙한다.
 
 ## 알림 구조
-- `duty/alarms/`는 ORM 없는 순수 계층(`schedule`·`plan`·`messages`·`forms`)과 외부 발송기(`senders`: 텔레그램·웹 푸시, 실패를 `Gone`/`Permanent`/`Temporary`/`RetryLater`로 분류). `duty/services/alarm_runner.py`가 조회→`plan`→발송→기록을 한다.
+- `duty/alarms/`는 ORM 없는 순수 계층(`schedule`·`plan`·`messages`·`forms`)과 외부 발송기(`senders`: 텔레그램·웹 푸시, 실패를 `Gone`/`Permanent`/`Temporary`/`RetryLater`로 분류, 토큰·VAPID 값은 `senders.Config` 인자로 받음). `duty/services/alarm_runner.py`가 조회→`plan`→발송→기록을 한다.
 - 기록은 목적지별 `AlarmDelivery`(규칙·날짜·칸·채널·목적지)이고 **보낸 뒤에** 남긴다(같은 내용 재발송 방지는 `last_sent_hash`, 실패는 백오프).
 - 테스트에서 텔레그램·푸시 실제 호출 금지(`senders`를 monkeypatch).
-- `run_alarms`는 `DUTY_ALARMS_LOCK` fcntl 잠금으로 한 프로세스만 돈다(`--once`·`--dry-run`은 잠금이 있으면 바로 실패). 텔레그램 [연결 확인]은 `DUTY_TELEGRAM_LOCK`으로 `getUpdates`를 직렬화한다.
+- 푸시 키는 비어 있으면 `alarm_settings.ensure_push_keys()`가 만든다. 봇이 바뀌면 `alarm_settings.save()`가 모든 텔레그램 확인을 비운다.
+- 발송은 작업자 `manage.py run_worker`가 한다(1분마다 한 바퀴: 알림 `alarm_runner.tick` 매분, 백업 `services.backup.daily` 하루 한 번, 상태 점검 `services.health.check` 5분마다. 작업마다 예외를 따로 잡아 하나가 실패해도 나머지는 돈다). 작업 함수는 `now`를 받아 테스트에서 시각을 정한다.
+- `run_worker`는 `settings.ALARMS_LOCK_PATH`(data/.alarms.lock) fcntl 잠금으로 한 프로세스만 돈다(`--once`는 잠금이 있으면 바로 실패, `--dry-run`은 잠금 없이 건수만). 텔레그램 [연결 확인]은 `TELEGRAM_UPDATES_LOCK_PATH`로 `getUpdates`를 직렬화한다.
 - 캘린더 구독: `CalendarFeed`엔 토큰 SHA-256 해시만 저장(원문은 발급 응답에 1회만, 리다이렉트·messages·세션 금지). 피드 `/calendar/<토큰>.ics`는 로그인·CSRF 예외이고 `django.request`·`django.server` 로그에서 경로를 지운다(`duty/logging.py`). `duty/ics.py`는 ORM 없는 순수 모듈.
+
+## 운영
+- 실행 중 생기는 파일은 전부 `DUTY_DATA_DIR`(기본 저장소 루트 `data/`, gitignore, 테스트는 임시 폴더): `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`. 경로는 `settings.DATA_DIR`·`DB_PATH`·`BACKUP_DIR`·`LOG_DIR`에서만 얻는다.
+- 서버는 systemd 유닛 두 개(`deploy/duty-web.service` gunicorn `--workers 1 --threads 4`, `deploy/duty-worker.service`)뿐이다. 개발·운영 차이는 `.env` 값으로만 둔다. 업그레이드·롤백·복원은 README 의 명령 목록(`manage.py backup`/`restore`)으로 한다 — 셸 스크립트·타이머를 새로 만들지 않는다.
 
 ## 도메인 기준
 - 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·알림이 같은 키를 쓴다.
@@ -48,7 +56,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 ## 보안·개인정보
 - Tailscale Funnel로 공개되는 앱이다. 로그인 잠금은 사용자명 기준.
 - 실명 데이터를 커밋하지 않는다. 테스트·fixture는 가상의 이름이나 멤버 코드만 쓴다. 보고서·로그에 실명을 옮길 때는 `***`로 가린다.
-- 비밀값은 환경변수(`DUTY_*`)로만 받는다.
+- 서버 기동 값(`DUTY_*`)은 저장소 루트 `.env`(견본·설명 `.env.example`, 환경변수가 우선, 테스트는 읽지 않음). 알림 봇 토큰·사용자명·장애 알림 chat_id·푸시 키는 DB `AlarmSettings`(한 행, 슈퍼유저가 관리 화면 → 알림 설정)에 두고 `services.alarm_settings.current()`로 읽는다. 토큰·개인키 원문은 로그·화면·메시지에 내지 않는다(관리 화면은 끝 4자리만).
 
 ## 연동
 - 외부 연동 API는 없다. 예전 `../duty_notifier`는 쓰지 않는다(2026-11-11, 알림 기능을 이 앱에 통합하고 `/api/assignments`·시트 가져오기를 삭제).

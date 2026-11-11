@@ -1,8 +1,27 @@
-"""로깅 필터. 캘린더 피드 경로에는 비밀 토큰이 들어 있어 로그에 남기지 않는다."""
+"""로깅: 형식·파일 핸들러·캘린더 피드 경로 지우기(피드 경로에는 비밀 토큰이 들어 있어 로그에 남기지 않는다)."""
 
 import logging
+import logging.handlers
 import re
 from urllib.parse import unquote
+
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+
+def log_to_file(name: str) -> None:
+    """루트 로거에 data/logs/<name>.log 를 붙인다(자정마다 새 파일, LOG_KEEP_DAYS 일 보관). 프로세스마다 한 번.
+    한 파일은 한 프로세스만 쓴다(웹은 gunicorn --workers 1, 작업자는 run_worker 하나) — 회전이 꼬이지 않게."""
+    from django.conf import settings
+    root = logging.getLogger()
+    path = settings.LOG_DIR / f"{name}.log"
+    if any(getattr(h, "baseFilename", None) == str(path) for h in root.handlers):
+        return
+    settings.LOG_DIR.mkdir(parents=True, exist_ok=True)
+    h = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=settings.LOG_KEEP_DAYS,
+                                                  encoding="utf-8")
+    h.setFormatter(logging.Formatter(LOG_FORMAT, LOG_DATEFMT))
+    root.addHandler(h)
 
 FEED_PREFIX = "/calendar/"
 # 요청 줄('GET /calendar/...', "Bad request syntax ('GET /calendar/...")에서 경로가 /calendar/로 시작할 때만

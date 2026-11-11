@@ -1,25 +1,6 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "duty-generator"
-version = "0.1.0"
-requires-python = ">=3.12"
-dependencies = [
-    "Django>=5.2,<6",
-    "django-axes>=7.0",
-    "whitenoise>=6.6",
-    "gunicorn>=22",
-    "pywebpush>=2.0",
-]
-
-[project.optional-dependencies]
-dev = ["pytest>=8", "pytest-django>=4.8"]
-
-[tool.setuptools.packages.find]
-include = ["config*", "duty*"]
-
+# 설치하지 않는 프로젝트다(pip install -e . 없음). 의존성은 requirements.in(직접 쓰는 것) → requirements.lock(고정 버전),
+# 개발 도구는 requirements-dev.txt. 이 파일은 pytest 설정만 담는다.
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.test_settings"
 testpaths = ["tests"]
+pythonpath = ["."]
