@@ -117,7 +117,7 @@ AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = "duty/locked.html"
 SILENCED_SYSTEM_CHECKS = ["axes.W006"]  # 잠금은 의도적으로 username 만 기준(IP 는 Funnel 뒤에서 전원 동일)
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 임시 비밀번호가 쿠키에 실리지 않게
-# duty.* INFO 로그(예: "alarms tick:")를 stderr로 → systemd journal. 기본 설정은 WARNING 이상만 찍는다.
+# duty.* INFO 로그(예: "alarms tick:")를 stderr로 → systemd 가 /var/log/duty_generator/*.log 에 붙인다. 기본 설정은 WARNING 이상만 찍는다.
 # 캘린더 피드 경로(/calendar/<토큰>.ics)는 비밀이라 django.request·django.server 로그에서 지운다.
 # django.server 는 로거를 다시 설정하면 기존 핸들러가 빠지므로 Django 기본 핸들러를 그대로 다시 단다.
 LOGGING = {
@@ -125,16 +125,18 @@ LOGGING = {
     "disable_existing_loggers": False,
     "filters": {"redact_calendar": {"()": "duty.logging.RedactCalendarFeed"}},
     "formatters": {
-        "plain": {"format": "%(levelname)s %(name)s %(message)s"},
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s", "datefmt": "%Y-%m-%d %H:%M:%S"},
         "django.server": DEFAULT_LOGGING["formatters"]["django.server"],
     },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "plain"},
         "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
     },
-    # ponytail: propagate 유지(pytest caplog가 루트에서 받음). 루트에 핸들러를 달면 줄이 두 번 찍힌다
+    # 핸들러는 루트에만 단다: duty INFO 와 django.request·axes 경고가 모두 시각과 함께 한 번씩 찍힌다(caplog 도 루트에서 받음)
+    "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
-        "duty": {"handlers": ["console"], "level": "INFO"},
+        "duty": {"level": "INFO"},
+        "django": {"handlers": [], "level": "WARNING"},  # Django 기본 console(DEBUG 전용)·mail_admins 대신 루트 하나로
         "django.request": {"filters": ["redact_calendar"]},
         "django.server": {**DEFAULT_LOGGING["loggers"]["django.server"], "filters": ["redact_calendar"]},
     },

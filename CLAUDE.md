@@ -40,7 +40,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - 관제 자격: `type == "개발자"`이고 그날 그 칸의 자격 출근조에 있음. 생성 카운트 풀은 기간 중 한 번이라도 자격 있는 개발자만. 목표 편차 2 이하.
 - 지난 날짜(오늘 이전) 수정은 어드민(`is_staff`)만. 오늘·미래는 로그인한 누구나.
 - 근무 변경: 출근조 칸은 교체·추가·제거, 관제 칸은 교체만, 맞교환은 같은 종류끼리. 동시 수정은 먼저 저장한 쪽이 반영되고 늦은 쪽은 오류.
-- ChangeLog `before`/`after`: 교체 `A>B`, 추가 `+B`, 제거(취소선). `replaced`는 그 칸에 그 사람을 들인 마지막 기록의 before(노티파이어 `Assignment.replaced`와 같은 의미 — 바꾸면 노티파이어가 깨진다).
+- ChangeLog `before`/`after`: 교체 `A>B`, 추가 `+B`, 제거(취소선). `replaced`는 그 칸에 그 사람을 들인 마지막 기록의 before(`/api/assignments`의 `replaced`와 같은 의미).
 - 배포 덮어쓰기: 다른 배포 회차의 `[S, B 종료일]` 행을 지우고 B의 `S` 이전 행을 지운다. ChangeLog는 남긴다.
 - 멤버 이름은 전체에서 고유하고 `>`, `,`, 줄바꿈을 쓸 수 없으며 `+`로 시작할 수 없다(체인·CSV 문법 문자).
 - 어드민: 웹 화면 어드민 기능은 `is_staff`, Django 관리 화면(멤버·계정 발급·잠금 해제)은 슈퍼유저(어드민 1~2명 가정).
@@ -51,7 +51,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py import_sheets --dry-run   # 시트 이�
 - 비밀값은 환경변수(`DUTY_*`)로만 받는다.
 
 ## 연동
-- `../duty_notifier`(FastAPI 알림봇)가 `/api/assignments`를 읽는다. 응답 형식(`date`, `shift`, `name`, `replaced`)을 바꾸면 노티파이어도 같이 바꿔야 한다.
+- 예전 `../duty_notifier`(FastAPI 알림봇)는 쓰지 않는다(2026-11-11, 알림 기능을 이 앱에 통합). `/api/assignments`는 그 노티파이어용으로 남아 있는 API다.
 
 ## 작업 방식
 - `main`에서 직접 작업하지 않는다. 브랜치를 따서 작업하고 PR로 합친다. push·PR 생성·머지는 Claude가 직접 해도 된다(2026-11-10 사용자 허용).

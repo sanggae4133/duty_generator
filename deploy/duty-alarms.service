@@ -11,6 +11,8 @@ EnvironmentFile=/etc/duty_generator/env
 ExecStart=/opt/duty_generator/.venv/bin/python manage.py run_alarms
 Restart=always
 RestartSec=5
+StandardOutput=append:/var/log/duty_generator/alarms.log
+StandardError=append:/var/log/duty_generator/alarms.log
 
 [Install]
 WantedBy=multi-user.target

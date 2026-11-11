@@ -13,30 +13,49 @@ DUTY_DEBUG=1 .venv/bin/python manage.py createsuperuser
 DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 ```
 
-## 설치 (사내 서버, 노티파이어와 같은 서버)
+## 설치 (사내 서버)
+
+Ubuntu 24.04 (Python 3.12) 기준. 위치 정리:
+
+| 무엇 | 어디 | 소유·권한 |
+|---|---|---|
+| 코드·venv | `/opt/duty_generator` | root (duty 는 읽기만) |
+| 설정(비밀값) | `/etc/duty_generator/env` | root:duty 640 |
+| DB·잠금 파일 | `/var/lib/duty_generator/` | duty 750 |
+| 자동 백업 | `/var/backups/duty_generator/` | duty 750 |
+| 로그 | `/var/log/duty_generator/*.log` | 폴더 root:adm 750(파일은 systemd 가 root 로 만든다) |
 
 ```bash
-sudo apt install -y sqlite3   # 백업 타이머가 sqlite3 CLI를 쓴다
+sudo apt install -y python3-venv sqlite3 git curl   # 백업·업그레이드가 sqlite3 CLI를 쓴다. python3 --version 이 3.12 이상이어야 한다
 sudo useradd -r -s /usr/sbin/nologin duty
-sudo mkdir -p /opt/duty_generator
+sudo git clone https://github.com/sanggae4133/duty_generator.git /opt/duty_generator
 sudo install -d -o duty -g duty -m 750 /var/lib/duty_generator /var/backups/duty_generator
 sudo install -d -o root -g duty -m 750 /etc/duty_generator
-# 코드 배치 후
-cd /opt/duty_generator && python3 -m venv .venv && .venv/bin/pip install -e .
-sudo install -o root -g duty -m 640 deploy/env.example /etc/duty_generator/env   # 값 채우기 (SECRET_KEY, API 토큰은 python -c "import secrets;print(secrets.token_urlsafe(48))")
-# 주의: /etc/duty_generator/env 값에는 따옴표, 공백, $, #, <> 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
-# DUTY_API_TOKEN 은 비우면 안 된다(빈 값이면 API 가 모두 401). 생성: python3 -c "import secrets;print(secrets.token_urlsafe(48))"
+sudo install -d -o root -g adm -m 750 /var/log/duty_generator
+cd /opt/duty_generator
+sudo python3 -m venv .venv
+sudo .venv/bin/pip install -r requirements.lock && sudo .venv/bin/pip install --no-deps -e .
+sudo install -o root -g duty -m 640 deploy/env.example /etc/duty_generator/env
+sudoedit /etc/duty_generator/env   # 값 채우기(아래 주의)
+# manage.py 를 duty 사용자·운영 설정으로 부르는 함수(이 셸에서만 유효). 아래 절차들이 이걸 쓴다.
+dm() { sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && exec .venv/bin/python manage.py "$@"' sh "$@"; }
 sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'   # root: /opt 는 duty 쓰기 권한이 없다
-sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py migrate'
+dm migrate
+dm check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
 sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now duty-generator duty-generator-backup.timer
+sudo cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
+sudo systemctl daemon-reload
+sudo systemctl enable --now duty-generator duty-generator-backup.timer duty-health.timer
+sudo systemctl start duty-generator-backup   # 첫 백업(없으면 상태 점검이 "백업 없음"을 알린다)
 ```
 
-`duty-alarms.service` 도 함께 복사되지만 여기서는 켜지 않는다. 아래 "알림 → 전환" 순서대로 켠다.
+- env 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. sh 와 systemd 가 모두 이 파일을 읽는다.
+- `DUTY_SECRET_KEY`·`DUTY_API_TOKEN` 은 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다. `DUTY_API_TOKEN` 은 비우면 안 된다(빈 값이면 API 가 모두 401).
+- 서버 시계: 알림이 분 단위로 돈다. `timedatectl` 에서 `System clock synchronized: yes`, 시간대와 상관없이 앱은 Asia/Seoul 로 계산한다.
+- `duty-alarms.service` 도 함께 복사되지만 여기서는 켜지 않는다. 아래 "알림 → 알림 켜기" 순서대로 켠다.
 
 ## 외부 공개 (Tailscale Funnel)
 
-443 포트를 경로로 나눈다. 웹은 `/`, 노티파이어 카카오 웹훅은 기존 경로를 유지한다.
 
 ```bash
 sudo tailscale funnel --bg --set-path / http://127.0.0.1:8090
@@ -45,17 +64,83 @@ sudo tailscale funnel status
 
 - `--set-path /` 는 모든 경로를 공개한다. 따라서 `/api/assignments` 도 Funnel 을 통해 외부에서 호출할 수 있다. 이 API 를 막는 것은 `Authorization: Bearer <DUTY_API_TOKEN>` 헤더뿐이다.
 - `DUTY_API_TOKEN` 은 `secrets.token_urlsafe(48)` 로 만들고 비워 두지 않는다. 빈 값이면 앱이 모든 요청을 401 로 거부한다.
-- 노티파이어는 여전히 Funnel 을 거치지 않고 `http://127.0.0.1:8090/api/assignments` 를 직접 호출한다(같은 서버). 같은 토큰을 `Authorization: Bearer $DUTY_API_TOKEN` 으로 보낸다.
 
 ## 처음 한 번: 기존 시트 가져오기
 
 ```bash
-sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py import_sheets --dry-run'
-sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py import_sheets'
+dm import_sheets --dry-run
+dm import_sheets
 ```
 
 이후 `/<DUTY_ADMIN_PATH>/` 의 멤버 목록에서 멤버를 선택하고 "계정 발급 / 비밀번호 초기화" 액션으로 임시 비밀번호를 발급한다.
 부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다. 어드민은 사용자 화면에서 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(멤버·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
+
+## 업그레이드·롤백
+
+```bash
+sudo /opt/duty_generator/deploy/upgrade.sh            # 최신 버전으로
+sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되돌리기(롤백)
+```
+
+스크립트가 하는 일: 지금 버전 출력 → DB 백업(`before-upgrade-*.sqlite3`) → 웹·알림 중지 → 코드 갱신 → 고정 버전 설치 → 정적 파일·`migrate` → 서비스 파일·logrotate 복사 → 다시 시작 → env 에 빠진 설정 이름 알림. 어느 단계든 실패하면 멈추고(서비스는 꺼진 채) 메시지를 남긴다. 고친 뒤 다시 실행하면 된다.
+
+- 이 스크립트가 없던 예전 버전에서 처음 올릴 때만: `cd /opt/duty_generator && sudo git log -1 --format=%h` 로 지금 버전을 적어 두고 `sudo git pull && sudo deploy/upgrade.sh`. 이 스크립트가 들어오기 전 버전으로는 스크립트로 되돌릴 수 없다(스크립트가 거부한다). 그때는 손으로:
+  ```bash
+  sudo systemctl disable --now duty-health.timer; sudo systemctl stop duty-alarms duty-generator
+  cd /opt/duty_generator && sudo git checkout <적어 둔 버전> && sudo .venv/bin/pip install -e .
+  sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'
+  # DB 구조가 바뀌었으면: sudo -u duty cp <upgrade.sh 가 만든 before-upgrade 백업> /var/lib/duty_generator/db.sqlite3 && sudo -u duty rm -f /var/lib/duty_generator/db.sqlite3-wal /var/lib/duty_generator/db.sqlite3-shm
+  sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl start duty-generator   # 로그는 다시 journalctl 로 간다
+  systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
+  ``` git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator` 후 다시 한다.
+- 롤백할 버전은 업그레이드 때 처음 찍힌 `지금 버전` 값이다(`cd /opt/duty_generator && sudo git log --oneline` 에서도 볼 수 있다).
+- 업그레이드에서 DB 구조가 바뀌었으면(`migrate` 가 무언가 적용) 롤백 후 DB 도 그때의 `before-upgrade-*` 로 "복원"한다.
+- `before-upgrade-*` 백업은 자동으로 지워지지 않는다. 디스크가 작으면 가끔 오래된 것을 지운다.
+
+## 백업·복원
+
+- 자동: 매일 03:00 `/var/backups/duty_generator/db-YYYYMMDD.sqlite3`, 최근 30개 보관.
+- 수동: 서비스가 도는 중에도 아래 명령으로 뜬다. **DB 파일을 `cp` 로 복사하지 말 것**(WAL 모드라 최근 변경이 빠지거나 깨진 사본이 될 수 있다).
+  ```bash
+  sudo -u duty sqlite3 /var/lib/duty_generator/db.sqlite3 ".backup /var/backups/duty_generator/manual-$(date +%Y%m%d-%H%M).sqlite3"
+  ```
+  `manual-*` 은 자동으로 지워지지 않는다. 서버 밖에 보관하려면 이 파일을 내려받는다. 실명이 들어 있으니 공유 폴더에 두지 않는다.
+- 복원: `sudo /opt/duty_generator/deploy/restore.sh /var/backups/duty_generator/<백업 파일>`
+  - 백업 파일을 먼저 검사하고(`PRAGMA quick_check` 가 `ok` 가 아니면 아무것도 바꾸지 않고 멈춤), 서비스 중지 → 지금 DB 를 `before-restore-*` 로 백업 → 교체 → `migrate`(오래된 백업이면 구조 맞춤) → 다시 시작.
+
+## 로그
+
+| 파일 | 내용 |
+|---|---|
+| `/var/log/duty_generator/web.log` | 웹(gunicorn 시작·오류, 앱 경고·오류) |
+| `/var/log/duty_generator/alarms.log` | 알림 발송(`run_alarms`, 아래 "알림 → 로그 읽기") |
+| `/var/log/duty_generator/backup.log` | 백업 실패 메시지(성공 시 비어 있음) |
+| `/var/log/duty_generator/health.log` | 상태 점검 결과가 바뀔 때마다 한 줄 |
+
+- 읽기: `sudo tail -f /var/log/duty_generator/alarms.log`, 경고·오류만: `sudo sh -c "grep -E ' (WARNING|ERROR) ' /var/log/duty_generator/*.log"`. 지난 날짜는 `web.log.1`, `web.log.2.gz` … (`sudo zgrep`).
+- **보관 기간**: `/etc/logrotate.d/duty_generator` 의 `rotate 7`(일) 숫자를 바꾼다. 하루에 `maxsize 50M` 을 넘은 파일은 그날 회전할 때 넘긴다. 저장소의 `deploy/duty_generator.logrotate` 도 같이 바꿔 두면 업그레이드 때 덮어써도 유지된다.
+- 접근 로그(요청마다 한 줄)는 남기지 않는다. 캘린더 구독 주소에 비밀 토큰이 들어 있어서다(gunicorn `--access-logfile` 을 켜지 말 것).
+
+## 장애 알림
+
+`duty-health.timer` 가 5분마다 아래를 보고, **상태가 바뀔 때만** 관리자 텔레그램으로 알린다(문제가 생겼을 때 한 번, 정상으로 돌아왔을 때 한 번).
+
+- 웹이 응답하지 않음 / 알림 서비스(`duty-alarms`, 켜 둔 경우만)가 멈춤 / 26시간 안에 만든 자동 백업이 없음 / DB 디스크 사용 90% 이상
+- 보내는 봇은 알림용 `DUTY_TELEGRAM_BOT_TOKEN`, 받는 사람은 env 의 `DUTY_OPS_CHAT_ID`(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `health.log` 에만 남는다.
+- 처음 실행이 정상이면 `health.log` 에 "정상" 한 줄만 남기고 알리지 않는다.
+- 웹 점검은 `http://127.0.0.1:8090/login/` 을 부르므로 `DUTY_ALLOWED_HOSTS` 에 `127.0.0.1` 이 있어야 한다.
+- 시험: `sudo systemctl stop duty-generator` → 5분 안에 알림 → `sudo systemctl start duty-generator` → 복구 알림.
+
+## 의존성 고정
+
+운영 설치는 `requirements.lock` 의 버전만 쓴다(`pyproject.toml` 은 범위만 적는다). 라이브러리를 올릴 때만 개발 PC 에서 다시 만든다.
+
+```bash
+python3 -m venv /tmp/lockvenv && /tmp/lockvenv/bin/pip install -U .
+{ echo '# 운영 설치용 고정 버전. 갱신: README "의존성 고정" 참고'; /tmp/lockvenv/bin/pip freeze --exclude-editable | grep -v '^duty-generator'; } > requirements.lock
+rm -rf /tmp/lockvenv
+.venv/bin/pip install -r requirements.lock && .venv/bin/pytest -W error   # 통과하면 커밋
+```
 
 ## 알림 (텔레그램·웹 푸시)
 
@@ -75,21 +160,7 @@ sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator &&
 
 잠금 경로를 직접 정할 때는 `duty` 사용자가 쓸 수 있는 곳이어야 한다(`/opt/duty_generator` 는 안 된다). 쓸 수 없으면 `run_alarms` 가 시작하지 못하고 [연결 확인]이 500 오류가 난다. 기본값(DB 폴더)은 SQLite 가 쓰는 곳이라 항상 쓸 수 있다.
 
-**기존 서버 업그레이드** (이미 설치된 서버에 알림 기능을 올릴 때, 이 순서대로):
-
-```bash
-cd /opt/duty_generator
-sudo git pull                                   # 코드 갱신(다른 방식으로 배치했다면 그 방식으로)
-sudo .venv/bin/pip install -e .                 # 새 의존성(pywebpush) 설치
-sudo sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py collectstatic --noinput'
-sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py migrate'
-# /etc/duty_generator/env 는 처음 설치 때 복사한 것이라 알림 변수가 없다:
-# deploy/env.example 의 "# --- 개인 알림" 아래 줄들을 /etc/duty_generator/env 끝에 붙이고 값을 채운다(sudoedit /etc/duty_generator/env)
-sudo cp deploy/*.service deploy/*.timer /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl restart duty-generator
-```
-
-그다음 아래 "전환" ①부터 진행한다. `duty-alarms` 는 전환 ④에서 켠다.
+**기존 서버에 알림 기능을 처음 올릴 때**: 위 "업그레이드·롤백"으로 올리고, 스크립트가 알려 주는 빠진 설정(`# --- 개인 알림` 아래 변수들)을 env 에 추가한 뒤, 아래 "알림 켜기" 1번부터 진행한다.
 
 ### VAPID 키 만들기
 
@@ -105,9 +176,9 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 "
 ```
 
-### 텔레그램 봇 (웹앱 전용으로 새로 만든다)
+### 텔레그램 봇
 
-기존 `duty_notifier` 봇은 polling(`getUpdates`) 중이라 같은 봇을 쓰면 서로의 업데이트를 가로챈다(409 충돌). 반드시 새 봇을 쓴다.
+봇은 이 웹앱만 써야 한다. 다른 프로그램(예: 예전 `duty_notifier`)이 같은 봇으로 polling 중이면 서로의 업데이트를 가로챈다(409 충돌). 예전 봇을 다시 쓰려면 그 프로그램을 먼저 끈다.
 
 1. 텔레그램 `@BotFather` 에서 `/newbot` → 토큰과 사용자명을 `DUTY_TELEGRAM_BOT_TOKEN`, `DUTY_TELEGRAM_BOT_USERNAME` 에 넣는다.
 2. 토큰을 셸 기록에 남기지 않도록 env 파일에서 읽어 부르는 함수를 만든다(이 셸에서만 유효).
@@ -119,7 +190,7 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 4. (직접 입력용) chat_id 확인: 그 사람이 새 봇에게 `/start` 를 보낸 뒤 `tg getUpdates` 의 `message.chat.id`. `offset` 은 붙이지 않는다(붙이면 대기 중인 연결 요청이 확인 처리돼 사라진다).
    보통은 사용자가 `/alarms/` 의 [텔레그램 연결] → 봇에서 [시작] → [연결 확인]으로 직접 연결하므로 이 단계는 필요 없다.
 
-[연결 확인]이 "텔레그램 봇 설정 오류입니다."를 띄우면 `getUpdates` 가 4xx 로 거절된 것이다. 대개 409(그 봇에 webhook 이 걸렸거나 다른 프로그램이 같은 봇으로 polling 중) 또는 401(토큰 오류)이다. 3단계로 webhook 을 확인하고, `duty_notifier` 와 같은 봇을 쓰고 있지 않은지 본다.
+[연결 확인]이 "텔레그램 봇 설정 오류입니다."를 띄우면 `getUpdates` 가 4xx 로 거절된 것이다. 대개 409(그 봇에 webhook 이 걸렸거나 다른 프로그램이 같은 봇으로 polling 중) 또는 401(토큰 오류)이다. 3단계로 webhook 을 확인하고, 다른 프로그램이 같은 봇을 쓰고 있지 않은지 본다.
 
 ### 웹 푸시 지원 범위
 
@@ -127,9 +198,9 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 - 한 사용자당 기기 20대까지.
 - 아이폰·아이패드: iOS 16.4 이상에서 Safari 로 사이트를 연 뒤 공유 → "홈 화면에 추가" 한 앱에서만 푸시를 받을 수 있다. 그 홈 화면 앱 안에서 `/alarms/` → [이 기기에서 푸시 받기]를 누른다. 사파리 탭에서는 안 된다. 안내 화면: `/help/push/`.
 
-### 로그 읽기 (`sudo journalctl -u duty-alarms`)
+### 로그 읽기 (`/var/log/duty_generator/alarms.log`)
 
-- 각 줄은 `<레벨> <로거> <메시지>` 형식이다(예: `INFO duty.services.alarm_runner alarms tick: ...`, 실패는 `WARNING`). journal 우선순위는 모두 info 로 기록되므로 `-p warning` 은 쓸 수 없다. 실패만 보려면 `sudo journalctl -u duty-alarms -o cat | grep -E '^(WARNING|ERROR) '`.
+- 각 줄은 `<날짜 시각> <레벨> <로거> <메시지>` 형식이다(예: `2026-11-11 09:00:00 INFO duty.services.alarm_runner alarms tick: ...`, 실패는 `WARNING`). 실패만 보려면 `sudo grep -E ' (WARNING|ERROR) ' /var/log/duty_generator/alarms.log`.
 - 매분 `alarms tick: due=<보낼 건수> sent=<성공> failed=<실패>`.
 - 실패마다 `alarm send failed rule=<규칙 id> channel=<telegram|push> delivery=<기록 id> status=<종류>:<HTTP 코드> attempt=<시도 횟수>`. `status` 는 결과 상태가 아니라 실패 종류와 응답 코드를 붙인 것이다(코드가 없으면 `None`).
   - `Temporary:None` — 네트워크 오류·응답 이상·깨진 VAPID 키. 1, 2, 4 … 최대 30분 간격으로 재시도.
@@ -140,24 +211,14 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
   - 그 밖의 이름(예: `OperationalError:None`)은 예기치 않은 예외 — 일시 실패로 재시도된다. 계속 나오면 확인한다.
 - 만료된 푸시 구독(404/410)은 로그 없이 지워진다. 기기에서 다시 [이 기기에서 푸시 받기]를 누르면 된다.
 
-### 전환 (duty_notifier 규칙 → 웹앱 알림)
+### 알림 켜기
 
-1. env 값을 채우고 `sudo systemctl restart duty-generator` 후(기존 서버는 위 "기존 서버 업그레이드"를 마친 뒤) `sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator && .venv/bin/python manage.py run_alarms --dry-run'` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
+1. env 값을 채우고 `sudo systemctl restart duty-generator` 후 `dm run_alarms --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
 2. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다.
 3. PC Chrome 과 아이폰 홈 화면 앱에서 테스트 푸시가 오는지, 알림을 누르면 해당 화면이 열리는지 확인한다.
-4. `duty_notifier` 의 `config/config.yaml` 에서 `rules: []` 로 비운다(원래 내용은 따로 보관). 노티파이어는 설정을 시작할 때 한 번만 읽으므로 반드시 재시작한다. 그래야 같은 알림이 두 번 가지 않는다.
-   ```bash
-   sudo systemctl restart duty-notifier && systemctl is-active duty-notifier   # active 여야 한다
-   sudo systemctl enable --now duty-alarms
-   ```
-5. `sudo journalctl -u duty-alarms -f` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
-6. 롤백: 순서대로
-   ```bash
-   sudo systemctl disable --now duty-alarms
-   # duty_notifier config/config.yaml 의 rules 를 보관한 원래 내용으로 되돌린 뒤
-   sudo systemctl restart duty-notifier && systemctl is-active duty-notifier
-   sudo journalctl -u duty-alarms -n 20; sudo journalctl -u duty-notifier -n 50   # alarms 가 멈췄고 노티파이어가 오류 없이 떴는지
-   ```
+4. 예전 `duty_notifier` 가 이 서버에서 아직 돌고 있으면 먼저 끈다(같은 알림이 두 번 가지 않게): `sudo systemctl disable --now duty-notifier`
+5. `sudo systemctl enable --now duty-alarms` 후 `sudo tail -f /var/log/duty_generator/alarms.log` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
+6. 끄기: `sudo systemctl disable --now duty-alarms`
 
 ## 캘린더 구독 (ICS)
 
@@ -173,4 +234,3 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 - 로그인 5회 실패 시 그 계정은 15분 잠긴다. 슈퍼유저가 Admin의 Axes 메뉴에서 해제할 수 있다.
   잠금은 아이디 기준이라 멤버 코드를 아는 사람은 그 계정을 15분씩 계속 잠글 수 있다. 이때도 슈퍼유저가 Axes 관리 화면에서 풀면 된다.
 - 퇴사자는 멤버의 "재직"을 끈다. 이제 로그인도 차단된다(스태프 제외).
-- 백업: 매일 03:00 `/var/backups/duty_generator/` 에 최근 30개 보관.

@@ -369,7 +369,7 @@ def test_recheck_failure_deletes_subscription(member, fake, monkeypatch):
 
 
 def test_duty_info_logs_reach_console(settings):
-    """운영(journalctl)에서 'alarms tick:' INFO 줄이 레벨과 함께 stderr에 정확히 한 번 찍혀야 한다."""
+    """운영 로그 파일(systemd가 stderr를 붙임)에 'alarms tick:' INFO 줄이 시각·레벨과 함께 정확히 한 번 찍혀야 한다."""
     import os
     import subprocess
     import sys
@@ -377,7 +377,23 @@ def test_duty_info_logs_reach_console(settings):
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
                        env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"},
                        cwd=settings.BASE_DIR)
-    assert r.stderr == "INFO duty.x hello\n"
+    import re
+    assert re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d INFO duty\.x hello\n", r.stderr), r.stderr
+
+
+def test_django_request_warnings_reach_console_with_time(settings):
+    """웹 경고(django.request 404 등)·axes 경고도 web.log 에 시각과 함께 한 줄씩 남는다."""
+    import os
+    import re
+    import subprocess
+    import sys
+    code = ("import django, logging; django.setup(); logging.getLogger('django.request').warning('Not Found: /x'); "
+            "logging.getLogger('axes.watch_login').warning('locked')")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
+                       env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.test_settings"},
+                       cwd=settings.BASE_DIR)
+    ts = r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d"
+    assert re.fullmatch(rf"{ts} WARNING django\.request Not Found: /x\n{ts} WARNING axes\.watch_login locked\n", r.stderr), r.stderr
 
 
 def test_lock_defaults_follow_db_dir(monkeypatch, tmp_path):
