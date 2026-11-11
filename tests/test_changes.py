@@ -163,6 +163,17 @@ def test_swap_rejects_inactive_either_side(world, who):
     assert Commute.objects.get(member=m["가"]).shift == "normal"
 
 
+@pytest.mark.parametrize("who", ["가", "나"])
+def test_swap_rejects_department_less_either_side(world, who):
+    _, m = world
+    m[who].department = None
+    m[who].type = ""
+    m[who].save()
+    with pytest.raises(DutyError, match=f"{who}은\\(는\\) 근무표 대상이 아닙니다"):
+        changes.swap(m["라"], D, "normal", m["가"], "night", m["나"])
+    assert Commute.objects.get(member=m["가"]).shift == "normal"
+
+
 def test_inactive_existing_assignment_shown_and_removable(world):
     _, m = world
     m["가"].is_active = False

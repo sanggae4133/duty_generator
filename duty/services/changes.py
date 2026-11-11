@@ -113,8 +113,8 @@ def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> ChangeRes
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
     _check_cell(cell_a, cell_b)
-    _check_active(a)  # 퇴사자를 다른 칸으로 옮기는 것도 새 배정이다
-    _check_active(b)
+    _check_candidate(a)  # 퇴사자·부서 없는 사람을 다른 칸으로 옮기는 것도 새 배정이다
+    _check_candidate(b)
     if a == b or cell_a == cell_b:
         raise DutyError("서로 다른 두 칸의 서로 다른 사람을 골라 주세요.")
     if is_slot_cell(cell_a) != is_slot_cell(cell_b):
