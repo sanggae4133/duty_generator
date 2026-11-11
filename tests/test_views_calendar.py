@@ -41,10 +41,12 @@ def test_issue_shows_url_once(client, me):
     assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
     assert token not in str(dict(client.session))
     assert not list(r.context["messages"])
+    assert all(s in body for s in ("pagehide", "pageshow", "persisted"))
     # 이후 GET: 토큰 없이 발급일만
     later = client.get("/alarms/").content.decode()
     assert token not in later and "발급일" in later and REISSUE in later
     assert "구독 끄기" in later and "구독 주소 만들기" not in later
+    assert "pagehide" not in later
 
 
 def test_unissued_shows_issue_button(client, me):
@@ -113,7 +115,7 @@ def test_auth_method_csrf(client, me):
 
 def test_help_and_menu(client, me):
     body = client.get("/help/calendar/").content.decode()
-    for s in ["즉시 반영되지 않을 수", "비밀번호", "URL로 추가", "새 구독을 추가할 수 없습니다", "구독 캘린더 추가",
+    for s in ["즉시 반영되지 않을 수", "비밀번호", "URL로 추가", "iOS 18 이하", "iCloud", "[일정 추가]", "가져오기 및 저장", "새 구독을 추가할 수 없습니다", "구독 캘린더 추가",
               "웹에서 구독", "지난 90일", "주소 재발급", 'href="/help/telegram/"', 'href="/help/push/"',
               "구독 주소 만들기", "복사"]:
         assert s in body, s

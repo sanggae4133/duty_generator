@@ -19,4 +19,6 @@ def validate_site_url(url: str, debug: bool) -> str:
         raise ImproperlyConfigured("DUTY_SITE_URL 에 사용자 정보(user@)를 넣을 수 없습니다.")
     if parts.scheme not in schemes or not parts.hostname:
         raise ImproperlyConfigured("DUTY_SITE_URL 은 https://호스트 형식이어야 합니다(DEBUG 에서는 http 허용).")
+    if parts.path not in ("", "/"):
+        raise ImproperlyConfigured("DUTY_SITE_URL 은 경로 없이 https://호스트[:포트] 만 쓸 수 있습니다.")
     return url

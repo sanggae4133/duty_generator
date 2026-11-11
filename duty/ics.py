@@ -51,6 +51,17 @@ def calendar(name: str, events: list[Event]) -> bytes:
         f"X-WR-CALNAME:{escape_text(name)}",
         "REFRESH-INTERVAL;VALUE=DURATION:PT6H",
         "X-PUBLISHED-TTL:PT6H",
+        "X-WR-TIMEZONE:Asia/Seoul",
+        # RFC 5545 §3.6: 컴포넌트가 최소 1개 있어야 하므로 빈 캘린더도 유효하도록 항상 둔다
+        "BEGIN:VTIMEZONE",
+        "TZID:Asia/Seoul",
+        "BEGIN:STANDARD",
+        "DTSTART:19700101T000000",
+        "TZOFFSETFROM:+0900",
+        "TZOFFSETTO:+0900",
+        "TZNAME:KST",
+        "END:STANDARD",
+        "END:VTIMEZONE",
     ]
     for e in events:
         lines += [

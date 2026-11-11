@@ -126,12 +126,14 @@
   <p>내 근무를 Google 캘린더·아이폰·Outlook에 구독합니다. 변경은 캘린더 앱이 새로 고칠 때 반영되어 늦을 수 있습니다.</p>
   {% if cal_error %}<p class="cal-error" role="alert">{{ cal_error }}</p>{% endif %}
   {% if cal_url %}
+    <div id="cal-url-box">
     <label for="cal-url">구독 주소</label>
     <div class="row-btns">
       <input id="cal-url" type="text" value="{{ cal_url }}" readonly>
       <button type="button" id="cal-copy">복사</button>
     </div>
     <p id="cal-msg" role="status"></p>
+    </div>
     <p><small>이 화면을 벗어나면 주소를 다시 볼 수 없습니다. 잃어버리면 [주소 재발급]을 누르세요. 주소는 비밀번호처럼 다루세요.</small></p>
     <script>
     document.getElementById("cal-copy").addEventListener("click", async () => {
@@ -140,6 +142,13 @@
       try { await navigator.clipboard.writeText(el.value); msg.textContent = "복사했습니다."; }
       catch (e) { msg.textContent = document.execCommand("copy") ? "복사했습니다." : "주소를 직접 선택해 복사하세요."; }
     });
+    // 뒤로 가기 캐시(BFCache)에 주소가 남지 않게 한다
+    addEventListener("pagehide", () => {
+      const input = document.getElementById("cal-url"), box = document.getElementById("cal-url-box");
+      if (input) input.value = "";
+      if (box) box.remove();
+    }, { once: true });
+    addEventListener("pageshow", (e) => { if (e.persisted) location.replace("{% url 'alarms' %}"); });
     </script>
   {% endif %}
   {% if cal %}<p>발급일 {{ cal.issued_at|date:"Y-m-d H:i" }}</p>{% endif %}

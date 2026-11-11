@@ -67,6 +67,9 @@ def test_empty_calendar():
     assert "REFRESH-INTERVAL;VALUE=DURATION:PT6H" in ls and "X-PUBLISHED-TTL:PT6H" in ls
     assert not any(line.startswith("METHOD") for line in ls)
     assert "BEGIN:VEVENT" not in ls
+    assert ls.count("BEGIN:VTIMEZONE") == 1 and "TZID:Asia/Seoul" in ls and "TZOFFSETTO:+0900" in ls
+    assert "X-WR-TIMEZONE:Asia/Seoul" in ls
+    assert ls.index("END:VTIMEZONE") < ls.index("END:VCALENDAR")
 
 
 def test_event_properties_utc():
