@@ -26,7 +26,7 @@ class Command(BaseCommand):
             except BlockingIOError:
                 raise CommandError("다른 run_alarms가 실행 중입니다.", returncode=1) from None
             if dry_run:
-                n = Counter(due.channel for due, _ in alarm_runner.collect(timezone.now()))
+                n = Counter(due.channel for due, *_ in alarm_runner.collect(timezone.now()))
                 self.stdout.write(f"telegram={n['telegram']} push={n['push']}")
                 return
             if once:

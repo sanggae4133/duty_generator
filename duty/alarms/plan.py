@@ -131,8 +131,9 @@ def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic,
         names = [n for n in day.members.get(c, []) if keep(n)]
         uniq.update(names)
         lines.append(m.report_line(c, names))
-    h = _hash("report", "\n".join(lines))
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
+    # 변경 표지만 빼고 보이는 내용 전체(머리·조건·근무표)
+    h = _hash("report", "\n".join([m.report_header(day.date, cond, False), *lines]))
     out = []
     for ch, dest in _targets(r, destinations):
         prev = deliveries.get((r.id, day.date, "report", ch, dest))

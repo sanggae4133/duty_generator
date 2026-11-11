@@ -131,9 +131,10 @@ def test_report_filter_and_change():
     assert t[0] == "[출근표] 11/16(월) — 매칭엔진실·개발자"
     assert t[1] == "새벽(06:30~) 가" and t[2] == "정상(08:00~) -"
     k = K("report")
-    assert run([r], d, SUN18, {k: due[0].content_hash}) == []
+    names = {"MEMS": "매칭엔진실"}
+    assert run([r], d, SUN18, {k: due[0].content_hash}, dept_names=names) == []
     d2 = [day(dawn=["가"], normal=["가"])]
-    ch = run([r], d2, SUN18, {k: due[0].content_hash})
+    ch = run([r], d2, SUN18, {k: due[0].content_hash}, dept_names=names)
     assert len(ch) == 1 and ch[0].text.startswith("[출근표 변경]") and ch[0].cell == "report"
 
 
@@ -239,3 +240,11 @@ def test_cancel_needs_personal_hash_prefix():
 
 def test_report_hash_prefixed():
     assert run([rep(shifts=("dawn",))], [day(dawn=["가"])], SUN18)[0].content_hash.startswith("report:")
+
+
+def test_report_hash_covers_condition_text():
+    r = rep(depts=("MEMS",), shifts=("dawn",))
+    d = [day(dawn=["가"])]
+    h = run([r], d, SUN18, dept_names={"MEMS": "매칭엔진실"})[0].content_hash
+    ch = run([r], d, SUN18, {K("report"): h}, dept_names={"MEMS": "새이름실"})
+    assert len(ch) == 1 and ch[0].text.startswith("[출근표 변경]") and ch[0].content_hash.startswith("report:")

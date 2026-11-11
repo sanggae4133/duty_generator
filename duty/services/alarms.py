@@ -267,6 +267,8 @@ def add_subscription(user, endpoint, p256dh, auth, user_agent: str, replaces=Non
             mine.filter(endpoint=replaces).delete()
         if not (old and old.user_id == user.id) and mine.count() >= MAX_DEVICES:
             raise DutyError(f"등록 기기는 최대 {MAX_DEVICES}대입니다. 쓰지 않는 기기를 먼저 해제해 주세요.")
+        if old and old.user_id != user.id:
+            old.delete()  # 소유자 이동은 새 행으로: 이미 계획된 sub:<옛 id> 발송이 새 소유자에게 가지 않게
         return PushAlarmSubscription.objects.update_or_create(endpoint=endpoint, defaults=dict(
             user=user, p256dh=p256dh, auth=auth, label=ua_label(user_agent)))[0]
 

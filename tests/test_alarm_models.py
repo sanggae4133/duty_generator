@@ -126,12 +126,17 @@ def test_data_migration_only_for_users_without_rules():
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     ex = MigrationExecutor(connection)
-    ex.migrate([("duty", "0006_alarms")])
-    apps = MigrationExecutor(connection).loader.project_state([("duty", "0006_alarms")]).apps
-    U, R = apps.get_model("auth", "User"), apps.get_model("duty", "AlarmRule")
-    none, one = U.objects.create(username="n"), U.objects.create(username="o")
-    R.objects.filter(user__in=[none, one]).delete()  # 기존 사용자 상황 재현(과거 상태 모델은 실제 post_save 수신기를 타지 않아 보통 비어 있다)
-    R.objects.create(user=one, **{**BASE, "telegram": True})
-    MigrationExecutor(connection).migrate([("duty", "0007_default_alarm_rules")])
-    assert R.objects.filter(user=none).count() == 2
-    assert R.objects.filter(user=one).count() == 1
+    leaves = ex.loader.graph.leaf_nodes()
+    try:
+        ex.migrate([("duty", "0006_alarms")])
+        apps = MigrationExecutor(connection).loader.project_state([("duty", "0006_alarms")]).apps
+        U, R = apps.get_model("auth", "User"), apps.get_model("duty", "AlarmRule")
+        none, one = U.objects.create(username="n"), U.objects.create(username="o")
+        R.objects.filter(user__in=[none, one]).delete()  # 기존 사용자 상황 재현(과거 상태 모델은 실제 post_save 수신기를 타지 않아 보통 비어 있다)
+        R.objects.create(user=one, **{**BASE, "telegram": True})
+        MigrationExecutor(connection).migrate([("duty", "0007_default_alarm_rules")])
+        assert R.objects.filter(user=none).count() == 2
+        assert R.objects.filter(user=one).count() == 1
+    finally:
+        MigrationExecutor(connection).migrate(leaves)  # 이후 테스트가 최신 스키마를 받게
+        assert not MigrationExecutor(connection).migration_plan(leaves)

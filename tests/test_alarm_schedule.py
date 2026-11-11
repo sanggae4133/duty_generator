@@ -1,4 +1,6 @@
 from datetime import date, datetime
+
+import pytest
 from duty.alarms.schedule import bizdays_back, send_at
 
 MON = date(2026, 11, 16)
@@ -15,3 +17,11 @@ def test_send_at():
     assert send_at("days", 1, 18 * 60, MON, start) == datetime(2026, 11, 15, 18, 0)   # 일요일도 셈
     assert send_at("days", 0, 5 * 60 + 15, MON, start) == datetime(2026, 11, 16, 5, 15)
     assert send_at("bizdays", 1, 17 * 60, MON, start) == datetime(2026, 11, 13, 17, 0)
+
+
+def test_invalid_inputs_raise():
+    start = datetime(2026, 11, 16, 6, 30)
+    with pytest.raises(ValueError):
+        bizdays_back(MON, -1)
+    with pytest.raises(ValueError):
+        send_at("weird", 1, 0, MON, start)

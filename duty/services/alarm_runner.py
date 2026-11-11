@@ -2,17 +2,20 @@
 import logging
 import math
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from .. import perms
 from ..alarms import messages as m
 from ..alarms import senders
 from ..alarms.plan import RuleSpec, plan
+from ..alarms.schedule import send_at
 from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department, Member,
                       PushAlarmSubscription, TelegramAlarmProfile)
+from .alarms import RULE_FIELDS
 from .roster import published_days
 
 log = logging.getLogger(__name__)
@@ -53,12 +56,38 @@ def _destinations(rules):
     return out
 
 
+SNAP = ("user_id", "enabled", "telegram", "push", *RULE_FIELDS)  # 계획에 쓴 규칙 값. 발송 직전·기록 때 다시 비교
+
+
+def _snap(rule) -> tuple:
+    return tuple(getattr(rule, f) for f in SNAP)
+
+
+def _current(rule_id, snap) -> bool:
+    """규칙이 아직 있고 계획 때와 같은가(끔·조건/채널 변경·삭제면 False)."""
+    rule = AlarmRule.objects.filter(id=rule_id).first()
+    return rule is not None and _snap(rule) == snap
+
+
+def _valid(rule, today) -> bool:
+    """시각 계산이 되는 규칙인가. 잘못된 규칙 하나가 tick 전체를 멈추지 않게 미리 걸러 낸다."""
+    try:
+        send_at(rule.timing, rule.offset, rule.at_minute, today, datetime.combine(today, time()))
+    except ValueError:
+        log.warning("alarm rule invalid rule=%s", rule.id)
+        return False
+    return True
+
+
 def collect(now):
-    """보낼 (Due, 기존 기록) 목록. 같은 내용의 backoff 중인 것은 뺀다."""
+    """보낼 (Due, 기존 기록, 규칙 스냅숏) 목록. 같은 내용의 backoff 중인 것은 뺀다."""
     if timezone.is_naive(now):
         raise ValueError("now는 aware datetime이어야 합니다.")
     today = perms.today()
-    rules = list(AlarmRule.objects.filter(enabled=True, user__is_active=True))
+    # 비활성 멤버(퇴사자)는 스태프가 아니면 제외 — 웹 로그아웃 미들웨어와 같은 기준
+    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True)
+             .exclude(user__member__is_active=False, user__is_staff=False) if _valid(r, today)]
+    snaps = {r.id: _snap(r) for r in rules}
     names = dict(Member.objects.filter(is_active=True, user__isnull=False).values_list("user_id", "name"))
     specs = [RuleSpec(r.id, names.get(r.user_id), r.kind, r.timing, r.offset, r.at_minute,
                       tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
@@ -76,16 +105,17 @@ def collect(now):
         if (row and row.status == AlarmDeliveryStatus.FAILED and row.content_hash == due.content_hash
                 and row.next_attempt_at and row.next_attempt_at > now):
             continue
-        out.append((due, row))
+        out.append((due, row, snaps[due.rule_id]))
     return out
 
 
-def _send(due, now, expires):
+def _send(due, now, expires, user_id):
     """성공 True, 구독 없음/Gone은 None. 실패는 예외."""
     if due.channel == "telegram":
         senders.telegram_send(due.destination, telegram_text(due.text, due.url))
         return True
-    sub = PushAlarmSubscription.objects.filter(id=int(due.destination.removeprefix("sub:"))).first()
+    # 지금도 규칙 주인의 구독일 때만(그사이 다른 사용자에게 넘어갔으면 건너뜀)
+    sub = PushAlarmSubscription.objects.filter(id=int(due.destination.removeprefix("sub:")), user_id=user_id).first()
     if sub is None:
         return None
     try:
@@ -108,28 +138,38 @@ def _next_attempt(err, attempts, now, expires):
 def tick(now) -> tuple[int, int, int]:
     pending = collect(now)
     sent = failed = 0
-    if settings.SITE_URL and any(d.channel == "telegram" and _link(d.url) is None for d, _ in pending):
+    if settings.SITE_URL and any(d.channel == "telegram" and _link(d.url) is None for d, *_ in pending):
         log.warning("alarms: SITE_URL too long, telegram link omitted")
-    for due, row in pending:
+    for due, row, snap in pending:
         key = dict(rule_id=due.rule_id, date=due.date, cell=due.cell, channel=due.channel, destination=due.destination)
         expires = timezone.make_aware(due.expires_at)
+        # ponytail: 발송 직전·기록 때 규칙을 다시 본다. 남는 틈은 네트워크 호출 자체(≤10초), 막으려면 규칙별 claim 잠금
+        if not _current(due.rule_id, snap):
+            continue
+        err = None
         try:
-            ok = _send(due, now, expires)
+            ok = _send(due, now, expires, snap[0])
         except Exception as e:  # 예기치 않은 예외도 일시 실패로(로그엔 예외 타입만)
+            ok, err = False, e
+        if not ok and err is None:
+            continue
+        with transaction.atomic():  # IMMEDIATE: 웹 쓰기와 직렬화된 상태에서 재확인 후 기록
+            if not _current(due.rule_id, snap):
+                continue  # 그사이 바뀌거나 지워짐 → 옛 조건 기록을 남기지 않는다(삭제된 규칙 FK 오류도 피함)
+            if err is None:
+                AlarmDelivery.objects.update_or_create(**key, defaults=dict(
+                    status=AlarmDeliveryStatus.SENT, attempts=0, next_attempt_at=None,
+                    content_hash=due.content_hash, last_sent_hash=due.content_hash))
+                sent += 1
+                continue
             same = row is not None and row.status == AlarmDeliveryStatus.FAILED and row.content_hash == due.content_hash
             attempts = row.attempts + 1 if same else 1
             d, _ = AlarmDelivery.objects.update_or_create(**key, defaults=dict(
                 status=AlarmDeliveryStatus.FAILED, attempts=attempts, content_hash=due.content_hash,
-                next_attempt_at=_next_attempt(e, attempts, now, expires)))
-            failed += 1
-            log.warning("alarm send failed rule=%s channel=%s delivery=%s status=%s attempt=%s",
-                        due.rule_id, due.channel, d.id, f"{type(e).__name__}:{getattr(e, 'status', None)}", attempts)
-            continue
-        if ok:
-            AlarmDelivery.objects.update_or_create(**key, defaults=dict(
-                status=AlarmDeliveryStatus.SENT, attempts=0, next_attempt_at=None,
-                content_hash=due.content_hash, last_sent_hash=due.content_hash))
-            sent += 1
+                next_attempt_at=_next_attempt(err, attempts, now, expires)))
+        failed += 1
+        log.warning("alarm send failed rule=%s channel=%s delivery=%s status=%s attempt=%s",
+                    due.rule_id, due.channel, d.id, f"{type(err).__name__}:{getattr(err, 'status', None)}", attempts)
     AlarmDelivery.objects.filter(date__lt=perms.today() - KEEP).delete()
     log.info("alarms tick: due=%d sent=%d failed=%d", len(pending), sent, failed)
     return len(pending), sent, failed

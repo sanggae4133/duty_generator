@@ -9,7 +9,7 @@ from django.utils import timezone
 from duty.alarms import senders
 from duty.models import (AlarmDelivery, AlarmRule, Commute, Period, PushAlarmSubscription,
                          TelegramAlarmProfile)
-from duty.services import alarm_runner
+from duty.services import alarm_runner, alarms
 
 D = date(2026, 11, 16)  # 월
 SUN = date(2026, 11, 15)
@@ -39,11 +39,13 @@ class Fake:
     """가짜 sender. fail[목적지] = 던질 예외(또는 목록이면 차례로)."""
 
     def __init__(self, monkeypatch):
-        self.sent, self.fail = [], {}
+        self.sent, self.fail, self.during = [], {}, {}
         monkeypatch.setattr(senders, "telegram_send", self.tg)
         monkeypatch.setattr(senders, "push_send", self.push)
 
     def _go(self, dest, payload):
+        if dest in self.during:  # 발송 도중 웹에서 일어나는 일
+            self.during.pop(dest)()
         err = self.fail.get(dest)
         if isinstance(err, list):
             err = err.pop(0) if err else None
@@ -397,3 +399,90 @@ def test_lock_defaults_follow_db_dir(monkeypatch, tmp_path):
     finally:
         monkeypatch.undo()
         importlib.reload(cs)
+
+
+def report_rule(user):
+    AlarmRule.objects.filter(user=user).delete()
+    return AlarmRule.objects.create(user=user, kind="report", timing="days", offset=1, at_minute=18 * 60,
+                                    telegram=True, push=False, shifts=["dawn"], depts=[], types=[])
+
+
+@pytest.mark.parametrize("staff", [False, True])
+def test_inactive_member_report_rule(member, fake, staff):
+    report_rule(member.user)
+    verify(member.user)
+    member.is_active = False
+    member.save()
+    member.user.is_staff = staff
+    member.user.save()
+    alarm_runner.tick(SUN18)
+    assert len(fake.sent) == (1 if staff else 0)
+
+
+def test_invalid_rule_does_not_stop_tick(member, fake, make_member, caplog):
+    from django.db import connection
+    verify(member.user)
+    bad = make_member("가상둘", user=True)
+    verify(bad.user, "222")
+    with connection.cursor() as c:
+        c.execute("PRAGMA ignore_check_constraints = ON")
+        try:
+            AlarmRule.objects.filter(user=bad.user).update(timing="weird")
+        finally:
+            c.execute("PRAGMA ignore_check_constraints = OFF")
+    with caplog.at_level(logging.WARNING):
+        alarm_runner.tick(SUN18)
+    assert fake.dests() == ["111"]
+    assert "가상둘" not in caplog.text and "invalid" in caplog.text
+
+
+def two_users(member, make_member):
+    verify(member.user)
+    other = make_member("가상둘", user=True)
+    Commute.objects.create(period=Period.objects.get(), date=D, member=other, shift="dawn")
+    verify(other.user, "222")
+    return AlarmRule.objects.get(user=member.user, timing="days")
+
+
+@pytest.mark.parametrize("change", ["toggle", "save", "delete"])
+def test_rule_changed_during_send(member, fake, make_member, change):
+    """첫 발송 도중 규칙이 바뀌면 그 규칙의 남은 발송은 건너뛰고 기록도 남기지 않는다. 다른 규칙은 계속."""
+    rule = two_users(member, make_member)
+    AlarmRule.objects.filter(id=rule.id).update(push=True)
+    [s] = PushAlarmSubscription.objects.bulk_create(
+        [PushAlarmSubscription(user=member.user, endpoint="e0", p256dh="p", auth="a")])
+    acts = {"toggle": lambda: alarms.toggle_rule(AlarmRule.objects.get(id=rule.id)),
+            "save": lambda: alarms.save_rule(member.user, dict(
+                kind="personal", timing="days", offset=1, at_minute=17 * 60, telegram=True, push=True,
+                shifts=["dawn", "dinner", "night"], depts=[], types=[]), AlarmRule.objects.get(id=rule.id)),
+            "delete": lambda: alarms.delete_rule(AlarmRule.objects.get(id=rule.id))}
+    fake.during["111"] = acts[change]
+    alarm_runner.tick(SUN18)
+    assert fake.dests() == ["111", "222"]  # push(sub)는 건너뜀
+    assert not AlarmDelivery.objects.filter(rule_id=rule.id).exists()
+    assert AlarmDelivery.objects.filter(destination="222", status="sent").exists()
+
+
+def test_failed_record_skipped_when_rule_deleted(member, fake, make_member):
+    rule = two_users(member, make_member)
+
+    def boom():
+        alarms.delete_rule(AlarmRule.objects.get(id=rule.id))
+        raise senders.Temporary(500)
+    fake.during["111"] = boom
+    alarm_runner.tick(SUN18)
+    assert fake.dests() == ["222"]
+    assert list(AlarmDelivery.objects.values_list("destination", flat=True)) == ["222"]
+
+
+def test_push_owner_changed_during_send(member, fake, make_member):
+    rule = AlarmRule.objects.get(user=member.user, timing="days")
+    AlarmRule.objects.filter(id=rule.id).update(push=True)
+    verify(member.user)
+    [s] = PushAlarmSubscription.objects.bulk_create(
+        [PushAlarmSubscription(user=member.user, endpoint="e0", p256dh="p", auth="a")])
+    other = make_member("가상둘", user=True)
+    fake.during["111"] = lambda: PushAlarmSubscription.objects.filter(id=s.id).update(user=other.user)
+    alarm_runner.tick(SUN18)
+    assert fake.dests() == ["111"]
+    assert not AlarmDelivery.objects.filter(destination=f"sub:{s.id}").exists()

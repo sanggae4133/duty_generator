@@ -655,11 +655,12 @@ def test_subscribe_bad_body(client, me, vapid, raw):
 
 
 def test_subscribe_other_users_endpoint(client, me, other, vapid):
-    PushAlarmSubscription.objects.create(user=other, endpoint=EP, p256dh=P256, auth=AUTH)
+    old = PushAlarmSubscription.objects.create(user=other, endpoint=EP, p256dh=P256, auth=AUTH)
     assert sub_json(client, auth="d" * 22).status_code == 409
     assert PushAlarmSubscription.objects.get().user == other
     assert sub_json(client).status_code == 200  # 키가 같으면 이동
-    assert PushAlarmSubscription.objects.get().user == me
+    new = PushAlarmSubscription.objects.get()
+    assert new.user == me and new.pk != old.pk  # 새 행(옛 sub:<id> 계획이 새 소유자에게 가지 않게)
 
 
 def test_unsubscribe_own_only(client, me, other, vapid):
