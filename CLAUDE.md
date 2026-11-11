@@ -26,9 +26,11 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 - 정적 파일(htmx, Pico.css)은 CDN이 아니라 `duty/static/vendor/`에서 직접 서빙한다.
 
 ## 알림 구조
-- `duty/alarms/`는 ORM 없는 순수 계층(`schedule`·`plan`·`messages`·`forms`)과 외부 발송기(`senders`: 텔레그램·웹 푸시, 실패를 `Gone`/`Permanent`/`Temporary`/`RetryLater`로 분류). `duty/services/alarm_runner.py`가 조회→`plan`→발송→기록을 한다.
+- `duty/alarms/`는 ORM 없는 순수 계층(`schedule`·`plan`·`messages`·`forms`)과 외부 발송기(`senders`: 텔레그램·웹 푸시, 실패를 `Gone`/`Permanent`/`Temporary`/`RetryLater`로 분류, 토큰·VAPID 값은 `senders.Config` 인자로 받음). `duty/services/alarm_runner.py`가 조회→`plan`→발송→기록을 한다.
 - 기록은 목적지별 `AlarmDelivery`(규칙·날짜·칸·채널·목적지)이고 **보낸 뒤에** 남긴다(같은 내용 재발송 방지는 `last_sent_hash`, 실패는 백오프).
 - 테스트에서 텔레그램·푸시 실제 호출 금지(`senders`를 monkeypatch).
+- 푸시 키는 비어 있으면 `alarm_settings.ensure_push_keys()`가 만든다. 봇이 바뀌면 `alarm_settings.save()`가 모든 텔레그램 확인을 비운다.
+- 장애 점검은 `manage.py health`(`duty-health.timer`, 상태가 바뀔 때만 `ops_chat_id`로 발송).
 - `run_alarms`는 `DUTY_ALARMS_LOCK` fcntl 잠금으로 한 프로세스만 돈다(`--once`·`--dry-run`은 잠금이 있으면 바로 실패). 텔레그램 [연결 확인]은 `DUTY_TELEGRAM_LOCK`으로 `getUpdates`를 직렬화한다.
 - 캘린더 구독: `CalendarFeed`엔 토큰 SHA-256 해시만 저장(원문은 발급 응답에 1회만, 리다이렉트·messages·세션 금지). 피드 `/calendar/<토큰>.ics`는 로그인·CSRF 예외이고 `django.request`·`django.server` 로그에서 경로를 지운다(`duty/logging.py`). `duty/ics.py`는 ORM 없는 순수 모듈.
 
@@ -48,7 +50,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 ## 보안·개인정보
 - Tailscale Funnel로 공개되는 앱이다. 로그인 잠금은 사용자명 기준.
 - 실명 데이터를 커밋하지 않는다. 테스트·fixture는 가상의 이름이나 멤버 코드만 쓴다. 보고서·로그에 실명을 옮길 때는 `***`로 가린다.
-- 비밀값은 환경변수(`DUTY_*`)로만 받는다.
+- 서버 기동 값(`DUTY_*`)은 저장소 루트 `.env`(견본·설명 `.env.example`, 환경변수가 우선, 테스트는 읽지 않음). 알림 봇 토큰·사용자명·장애 알림 chat_id·푸시 키는 DB `AlarmSettings`(한 행, 슈퍼유저가 관리 화면 → 알림 설정)에 두고 `services.alarm_settings.current()`로 읽는다. 토큰·개인키 원문은 로그·화면·메시지에 내지 않는다(관리 화면은 끝 4자리만).
 
 ## 연동
 - 외부 연동 API는 없다. 예전 `../duty_notifier`는 쓰지 않는다(2026-11-11, 알림 기능을 이 앱에 통합하고 `/api/assignments`·시트 가져오기를 삭제).

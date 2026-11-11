@@ -37,14 +37,9 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = [h for h in env("DUTY_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h]
 CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]
 ADMIN_PATH = env("DUTY_ADMIN_PATH", "admin").strip("/")
-TELEGRAM_BOT_TOKEN = env("DUTY_TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_BOT_USERNAME = env("DUTY_TELEGRAM_BOT_USERNAME", "").lstrip("@")
 DB_PATH = env("DUTY_DB_PATH", str(BASE_DIR / "db.sqlite3"))
 LOCK_DIR = Path(DB_PATH).parent  # SQLite WAL 때문에 서비스 사용자가 반드시 쓸 수 있는 폴더
 TELEGRAM_UPDATES_LOCK_PATH = env("DUTY_TELEGRAM_LOCK", str(LOCK_DIR / ".telegram-updates.lock"))
-VAPID_PUBLIC_KEY = env("DUTY_VAPID_PUBLIC_KEY", "")
-VAPID_PRIVATE_KEY = env("DUTY_VAPID_PRIVATE_KEY", "")
-VAPID_SUBJECT = env("DUTY_VAPID_SUBJECT", "mailto:admin@localhost")
 SITE_URL = validate_site_url(env("DUTY_SITE_URL", ""), DEBUG)  # 알림 링크·캘린더 구독 주소용(비면 생략)
 ALARMS_LOCK_PATH = env("DUTY_ALARMS_LOCK", str(LOCK_DIR / ".alarms.lock"))
 if not ADMIN_PATH:

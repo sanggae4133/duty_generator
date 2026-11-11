@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
 
@@ -179,6 +180,53 @@ class AlarmTiming(models.TextChoices):
 class AlarmChannel(models.TextChoices):
     TELEGRAM = "telegram", "텔레그램"
     PUSH = "push", "푸시"
+
+
+class AlarmSettings(models.Model):
+    """알림 봇·푸시 키(한 행, pk=1). 슈퍼유저가 관리 화면 → 알림 설정에서 고친다. 읽기는 services.alarm_settings.current()."""
+    telegram_bot_token = models.CharField(
+        "텔레그램 봇 토큰", max_length=200, blank=True,
+        validators=[RegexValidator(r"^\d+:[A-Za-z0-9_-]+$", "봇 토큰 형식이 아닙니다(숫자:영문·숫자).")])
+    telegram_bot_username = models.CharField(
+        "텔레그램 봇 사용자명", max_length=33, blank=True, help_text="@ 없이(붙여도 저장할 때 뗀다).",
+        validators=[RegexValidator(r"^@?[A-Za-z0-9_]{5,32}$", "봇 사용자명은 영문·숫자·_ 5~32자입니다.")])
+    ops_chat_id = models.PositiveBigIntegerField(
+        "장애 알림 받을 chat_id", null=True, blank=True, validators=[MinValueValidator(1)],
+        help_text="관리자 개인 텔레그램 chat_id(숫자). 비우면 장애 알림은 health.log 에만 남는다.")
+    vapid_public_key = models.CharField("웹 푸시 공개키", max_length=200, blank=True)
+    vapid_private_key = models.CharField("웹 푸시 개인키", max_length=200, blank=True)
+    vapid_subject = models.CharField(
+        "웹 푸시 연락처", max_length=200, default="mailto:admin@localhost",
+        help_text="mailto:주소 형식. 푸시 서비스가 문제 시 연락하는 주소.")
+    updated_at = models.DateTimeField("고친 시각", auto_now=True)
+
+    class Meta:
+        verbose_name = verbose_name_plural = "알림 설정"
+        constraints = [models.CheckConstraint(condition=Q(pk=1), name="alarmsettings_single_row")]
+
+    def __str__(self):
+        return "알림 설정"
+
+    def save(self, *args, **kwargs):
+        self.telegram_bot_username = self.telegram_bot_username.lstrip("@")
+        super().save(*args, **kwargs)
+
+    @property
+    def telegram_on(self) -> bool:
+        return bool(self.telegram_bot_token)
+
+    @property
+    def bot_ready(self) -> bool:
+        """[텔레그램 연결] 자동 연결까지 가능"""
+        return bool(self.telegram_bot_token and self.telegram_bot_username)
+
+    @property
+    def push_on(self) -> bool:
+        return bool(self.vapid_public_key and self.vapid_private_key)
+
+    def sender_config(self):
+        from .alarms.senders import Config
+        return Config(self.telegram_bot_token, self.vapid_private_key, self.vapid_subject)
 
 
 class TelegramAlarmProfile(models.Model):

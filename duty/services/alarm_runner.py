@@ -15,6 +15,7 @@ from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
 from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department,
                       PushAlarmSubscription, TelegramAlarmProfile, User)
+from . import alarm_settings
 from .alarms import RULE_FIELDS
 from .roster import published_days
 
@@ -38,13 +39,13 @@ def telegram_text(text: str, url: str) -> str:
     return m.clip(text, LIMIT - len(link) - 1) + "\n" + link
 
 
-def _destinations(rules):
+def _destinations(rules, conf):
     user_ids = {r.user_id for r in rules}
     tg, push = {}, defaultdict(list)
-    if senders.telegram_enabled():
+    if conf.telegram_on:
         tg = dict(TelegramAlarmProfile.objects.filter(user_id__in=user_ids, verified_at__isnull=False)
                   .exclude(chat_id="").values_list("user_id", "chat_id"))
-    if senders.push_enabled():
+    if conf.push_on:
         for uid, sid in PushAlarmSubscription.objects.filter(user_id__in=user_ids).values_list("user_id", "id"):
             push[uid].append(f"sub:{sid}")
     out = {}
@@ -96,7 +97,8 @@ def collect(now):
     info = {n: (dept, typ) for n, dept, typ in User.objects.values_list("name", "department__code", "type")}
     dues = plan(specs, published_days(today, today + HORIZON), info,
                 {k: d.last_sent_hash for k, d in rows.items()}, timezone.localtime(now).replace(tzinfo=None),
-                destinations=_destinations(rules), dept_names=dict(Department.objects.values_list("code", "name")),
+                destinations=_destinations(rules, alarm_settings.current()),
+                dept_names=dict(Department.objects.values_list("code", "name")),
                 extra_dates={k[1] for k in rows}, today=today)
     out = []
     for due in dues:
@@ -108,17 +110,17 @@ def collect(now):
     return out
 
 
-def _send(due, now, expires, user_id):
+def _send(cfg, due, now, expires, user_id):
     """성공 True, 구독 없음/Gone은 None. 실패는 예외."""
     if due.channel == "telegram":
-        senders.telegram_send(due.destination, telegram_text(due.text, due.url))
+        senders.telegram_send(cfg, due.destination, telegram_text(due.text, due.url))
         return True
     # 지금도 규칙 주인의 구독일 때만(그사이 다른 사용자에게 넘어갔으면 건너뜀)
     sub = PushAlarmSubscription.objects.filter(id=int(due.destination.removeprefix("sub:")), user_id=user_id).first()
     if sub is None:
         return None
     try:
-        senders.push_send(sub, due.title, due.push_text, due.url,
+        senders.push_send(cfg, sub, due.title, due.push_text, due.url,
                           max(1, math.ceil((expires - now).total_seconds())))
     except senders.Gone:
         sub.delete()
@@ -136,6 +138,7 @@ def _next_attempt(err, attempts, now, expires):
 
 def tick(now) -> tuple[int, int, int]:
     pending = collect(now)
+    cfg = alarm_settings.current().sender_config()
     sent = failed = 0
     if settings.SITE_URL and any(d.channel == "telegram" and _link(d.url) is None for d, *_ in pending):
         log.warning("alarms: SITE_URL too long, telegram link omitted")
@@ -147,7 +150,7 @@ def tick(now) -> tuple[int, int, int]:
             continue
         err = None
         try:
-            ok = _send(due, now, expires, snap[0])
+            ok = _send(cfg, due, now, expires, snap[0])
         except Exception as e:  # 예기치 않은 예외도 일시 실패로(로그엔 예외 타입만)
             ok, err = False, e
         if not ok and err is None:

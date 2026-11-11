@@ -3,9 +3,12 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db import transaction
 from django.db.models import Count
+from django.shortcuts import redirect
+from django.urls import reverse
 
 from .accounts import issue_account
-from .models import Department, User
+from .models import AlarmSettings, Department, User
+from .services import alarm_settings
 from .shifts import COMMUTE_SHIFTS
 
 
@@ -106,3 +109,72 @@ class UserAdmin(DjangoUserAdmin):
         with transaction.atomic():  # 중간 실패 시 이미 발급된 비밀번호가 사라지지 않도록 전체 롤백
             lines = [f"{u.name}({u.username}): {issue_account(u)}" for u in queryset]
         self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. " + " / ".join(lines), messages.WARNING)
+
+
+class AlarmSettingsForm(forms.ModelForm):
+    """토큰은 화면에 다시 내보내지 않는다: 비워 두면 그대로, 넣으면 교체, [토큰 지우기]로 비움."""
+    telegram_bot_token = forms.CharField(
+        label="텔레그램 봇 토큰", required=False, strip=True,
+        widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "off"}),
+        help_text="@BotFather 가 준 토큰. 비워 두면 지금 값을 그대로 둔다. 바꾸면 모든 사용자의 텔레그램 연결을 다시 해야 한다.")
+    clear_token = forms.BooleanField(label="토큰 지우기", required=False,
+                                     help_text="체크하고 저장하면 토큰을 비운다(텔레그램 알림이 꺼진다).")
+    regenerate_push_keys = forms.BooleanField(
+        label="푸시 키 다시 만들기", required=False,
+        help_text="체크하고 저장하면 새 키를 만들고 모든 기기의 푸시 구독이 끊긴다. "
+                  "사용자마다 [이 기기에서 푸시 받기]를 다시 눌러야 한다. 키가 유출됐을 때만 쓴다.")
+
+    class Meta:
+        model = AlarmSettings
+        fields = ["telegram_bot_token", "clear_token", "telegram_bot_username", "ops_chat_id", "vapid_subject",
+                  "regenerate_push_keys"]
+
+    def clean_telegram_bot_token(self):
+        v = self.cleaned_data["telegram_bot_token"]
+        if self.data.get("clear_token"):
+            return ""
+        return v or self.instance.telegram_bot_token
+
+
+@admin.register(AlarmSettings)
+class AlarmSettingsAdmin(admin.ModelAdmin):
+    form = AlarmSettingsForm
+    readonly_fields = ["token_status", "push_status", "updated_at"]
+    fieldsets = (
+        ("텔레그램", {"fields": ("token_status", "telegram_bot_token", "clear_token", "telegram_bot_username",
+                              "ops_chat_id"),
+                    "description": "토큰과 사용자명이 둘 다 있어야 사용자가 [텔레그램 연결]을 쓸 수 있다. "
+                                   "이 봇은 이 웹앱만 써야 한다(다른 프로그램이 같은 봇을 쓰면 연결 확인이 실패한다)."}),
+        ("웹 푸시", {"fields": ("push_status", "vapid_subject", "regenerate_push_keys"),
+                   "description": "푸시 키는 처음 필요할 때 자동으로 만든다."}),
+        (None, {"fields": ("updated_at",)}),
+    )
+
+    @admin.display(description="지금 토큰")
+    def token_status(self, obj):
+        t = obj.telegram_bot_token
+        return f"…{t[-4:]} (끝 4자리)" if t else "(없음 — 텔레그램 알림 꺼짐)"
+
+    @admin.display(description="푸시 키")
+    def push_status(self, obj):
+        return "있음" if obj.push_on else "아직 없음(처음 필요할 때 만든다)"
+
+    def has_add_permission(self, request):
+        return super().has_add_permission(request) and not AlarmSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if not self.has_view_or_change_permission(request):
+            return super().changelist_view(request, extra_context)  # 권한 없음 처리는 Django 에 맡긴다
+        return redirect(reverse("admin:duty_alarmsettings_change", args=[alarm_settings.current().pk]))
+
+    def save_model(self, request, obj, form, change):
+        n = alarm_settings.save(obj, regenerate_push_keys=form.cleaned_data.get("regenerate_push_keys", False))
+        if form.cleaned_data.get("regenerate_push_keys"):
+            self.message_user(request, "푸시 키를 새로 만들고 모든 기기 구독을 지웠습니다. "
+                                       "사용자마다 [이 기기에서 푸시 받기]를 다시 눌러야 합니다.", messages.WARNING)
+        if n:
+            self.message_user(request, f"봇이 바뀌어 {n}명의 텔레그램 연결 확인을 비웠습니다. "
+                                       "각자 /alarms/ 에서 [텔레그램 연결]을 다시 해야 합니다.", messages.WARNING)

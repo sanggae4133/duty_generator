@@ -11,6 +11,7 @@ from pathlib import Path
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, connection, transaction
+from django.db.migrations.loader import MigrationLoader
 from django.utils import timezone
 
 from duty.models import User
@@ -20,7 +21,7 @@ V1_MIGRATIONS = {
     "0004_roster_pref", "0005_db_constraints", "0006_alarms", "0007_default_alarm_rules",
     "0008_telegram_link_code", "0009_calendarfeed",
 }
-V2_MIGRATIONS = {"0001_v2"}
+KEEP_TARGET = {"duty_alarmsettings"}  # migrate 가 예전 환경변수로 채워 둘 수 있는 표(0002 데이터 이전)
 
 # (표, {새 칼럼: 예전 칼럼}, 예전 auth_user.id → 새 User id 로 바꿀 칼럼, 비울 칼럼). FK 순서
 COPY = [
@@ -116,10 +117,12 @@ def _check_source(old):
 
 
 def _check_target():
-    if {r["name"] for r in _rows(connection, "SELECT name FROM django_migrations WHERE app='duty'")} != V2_MIGRATIONS:
-        raise ConvertError("현재 DB가 새 스키마(duty 마이그레이션 0001_v2 하나)가 아닙니다. 빈 DB에 migrate 하세요.")
+    code = {name for app, name in MigrationLoader(None, ignore_no_migrations=True).disk_migrations if app == "duty"}
+    if {r["name"] for r in _rows(connection, "SELECT name FROM django_migrations WHERE app='duty'")} != code:
+        raise ConvertError("현재 DB가 새 스키마(duty 마이그레이션 0001_v2 부터 이 버전 것 전부)가 아닙니다. "
+                           "빈 DB에 migrate 하세요.")
     tables = _rows(connection, "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'duty_%'")
-    if any(_count(connection, t["name"]) for t in tables):
+    if any(_count(connection, t["name"]) for t in tables if t["name"] not in KEEP_TARGET):
         raise ConvertError("현재 DB가 비어 있지 않습니다. migrate 만 한 빈 DB에서 실행하세요.")
 
 

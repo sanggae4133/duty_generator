@@ -1,15 +1,16 @@
 """텔레그램·웹 푸시 발송기. 실패는 4종 예외로 분류한다.
 
 토큰·endpoint·본문은 예외 메시지에 넣지 않는다(로그 유출 방지).
+봇 토큰·VAPID 값은 Config 로 받는다(DB 설정은 services.alarm_settings 가 읽어 넘긴다 — 이 모듈은 ORM 없음).
 """
 import json
 import math
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.request
 
-from django.conf import settings
 from pywebpush import WebPushException, webpush
 
 
@@ -37,12 +38,11 @@ class RetryLater(SendError):
         self.seconds = seconds
 
 
-def telegram_enabled() -> bool:
-    return bool(settings.TELEGRAM_BOT_TOKEN)
-
-
-def push_enabled() -> bool:
-    return bool(settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY)
+@dataclass(frozen=True)
+class Config:
+    telegram_token: str = field(default="", repr=False)
+    vapid_private_key: str = field(default="", repr=False)
+    vapid_subject: str = ""
 
 
 def _utcnow() -> datetime:
@@ -68,11 +68,11 @@ def _retry_after(value) -> int | None:
     return secs if secs > 0 else None
 
 
-def _telegram_call(method: str, payload: dict):
-    if not settings.TELEGRAM_BOT_TOKEN:
+def _telegram_call(cfg: Config, method: str, payload: dict):
+    if not cfg.telegram_token:
         raise Permanent()
     req = urllib.request.Request(
-        f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/{method}",
+        f"https://api.telegram.org/bot{cfg.telegram_token}/{method}",
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
@@ -96,31 +96,31 @@ def _telegram_call(method: str, payload: dict):
         raise Temporary() from None
 
 
-def telegram_send(chat_id: str, text: str) -> dict:
-    result = _telegram_call("sendMessage", {"chat_id": chat_id, "text": text})
+def telegram_send(cfg: Config, chat_id: str, text: str) -> dict:
+    result = _telegram_call(cfg, "sendMessage", {"chat_id": chat_id, "text": text})
     if not isinstance(result, dict):
         raise Temporary()
     return result
 
 
-def telegram_get_updates(offset: int | None = None, limit: int = 100) -> list[dict]:
+def telegram_get_updates(cfg: Config, offset: int | None = None, limit: int = 100) -> list[dict]:
     payload = {"limit": limit, "allowed_updates": ["message"]}
     if offset is not None:
         payload = {"offset": offset, **payload}
-    result = _telegram_call("getUpdates", payload)
+    result = _telegram_call(cfg, "getUpdates", payload)
     if not isinstance(result, list):
         raise Temporary()
     return result
 
 
-def telegram_check(chat_id: str) -> str:
+def telegram_check(cfg: Config, chat_id: str) -> str:
     try:
-        return telegram_send(chat_id, "[테스트] 당번 알림 연결 확인")["chat"]["type"]
+        return telegram_send(cfg, chat_id, "[테스트] 당번 알림 연결 확인")["chat"]["type"]
     except (KeyError, TypeError):
         raise Temporary() from None
 
 
-def push_send(sub, title: str, body: str, url: str, ttl: int) -> None:
+def push_send(cfg: Config, sub, title: str, body: str, url: str, ttl: int) -> None:
     from ..errors import DutyError
     from ..services.alarms import check_endpoint  # 순환 import 회피
     try:
@@ -131,8 +131,8 @@ def push_send(sub, title: str, body: str, url: str, ttl: int) -> None:
         webpush(
             subscription_info={"endpoint": sub.endpoint, "keys": {"p256dh": sub.p256dh, "auth": sub.auth}},
             data=json.dumps({"title": title, "body": body, "url": url}, ensure_ascii=False),
-            vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={"sub": settings.VAPID_SUBJECT},
+            vapid_private_key=cfg.vapid_private_key,
+            vapid_claims={"sub": cfg.vapid_subject},
             timeout=10,
             ttl=ttl,
         )

@@ -7,7 +7,7 @@ from django.core.management import CommandError, call_command
 from django.utils import timezone
 
 from duty.alarms import senders
-from duty.models import (AlarmDelivery, AlarmRule, Commute, Period, PushAlarmSubscription,
+from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Commute, Period, PushAlarmSubscription,
                          TelegramAlarmProfile)
 from duty.services import alarm_runner, alarms
 
@@ -15,6 +15,10 @@ D = date(2026, 11, 16)  # 월
 SUN = date(2026, 11, 15)
 NAME = "가상인물"
 REAL_PUSH_SEND = senders.push_send
+
+
+def set_alarm_settings(**kw):
+    AlarmSettings.objects.update_or_create(pk=1, defaults=kw)
 
 
 def at(y, mo, d, h=0, mi=0, s=0):
@@ -26,9 +30,8 @@ EXPIRES = at(2026, 11, 16, 6, 30)
 
 
 @pytest.fixture
-def env(settings, tmp_path, fixed_today):
-    settings.TELEGRAM_BOT_TOKEN = "t"
-    settings.VAPID_PUBLIC_KEY = settings.VAPID_PRIVATE_KEY = "k"
+def env(settings, tmp_path, fixed_today, db):
+    set_alarm_settings(telegram_bot_token="t", vapid_public_key="k", vapid_private_key="k")
     settings.SITE_URL = ""
     settings.ALARMS_LOCK_PATH = str(tmp_path / "alarms.lock")
     fixed_today(SUN)
@@ -53,11 +56,13 @@ class Fake:
             raise err
         self.sent.append((dest, payload))
 
-    def tg(self, chat_id, text):
+    def tg(self, cfg, chat_id, text):
+        assert cfg.telegram_token == AlarmSettings.objects.get().telegram_bot_token  # DB 설정값으로 보낸다
         self._go(chat_id, text)
         return {}
 
-    def push(self, sub, title, body, url, ttl):
+    def push(self, cfg, sub, title, body, url, ttl):
+        assert cfg.vapid_private_key == AlarmSettings.objects.get().vapid_private_key
         self._go(f"sub:{sub.id}", dict(title=title, body=body, url=url, ttl=ttl))
 
     def dests(self):
@@ -109,7 +114,7 @@ def test_unverified_or_no_token(member, fake, env):
     TelegramAlarmProfile.objects.create(user=member, chat_id="111")
     assert alarm_runner.tick(SUN18) == (0, 0, 0)
     TelegramAlarmProfile.objects.update(verified_at=timezone.now())
-    env.TELEGRAM_BOT_TOKEN = ""
+    set_alarm_settings(telegram_bot_token="")
     assert alarm_runner.tick(SUN18) == (0, 0, 0)
     assert fake.sent == []
 
@@ -344,7 +349,7 @@ def test_log_has_no_token_or_endpoint(member, monkeypatch, env, caplog):
 
     token = "1234567890:" + "FAKE" + "x" * 31  # 가짜 토큰(비밀 탐지기에 걸리지 않게 실행 중에 만든다)
     endpoint = "https://fcm.googleapis.com/fcm/send/secret-endpoint-abc"
-    env.TELEGRAM_BOT_TOKEN = token
+    set_alarm_settings(telegram_bot_token=token)
     verify(member)
     AlarmRule.objects.filter(timing="days").update(push=True)
     PushAlarmSubscription.objects.create(user=member, endpoint=endpoint, p256dh="p", auth="a")

@@ -22,7 +22,7 @@
   {% elif tg_token %}
     <p>자동 연결은 봇 사용자명이 설정되지 않아 쓸 수 없습니다. 아래 직접 입력을 쓰세요.</p>
   {% else %}
-    <p>텔레그램 봇이 설정되지 않았습니다.</p>
+    <p>텔레그램 봇이 설정되지 않았습니다. 관리자가 관리 화면 → 알림 설정에서 텔레그램 봇 토큰을 넣으면 [텔레그램 연결] 버튼이 나타납니다.</p>
   {% endif %}
   {% if tg_token %}
     <details>
@@ -39,7 +39,7 @@
 <article id="push">
   <header><strong>푸시</strong> · <a href="{% url 'help_push' %}">도움말</a></header>
   {% if not push_on %}
-    <p>웹 푸시가 설정되지 않았습니다.</p>
+    <p>웹 푸시 키를 만들지 못했습니다. 관리자에게 알려 주세요.</p>
   {% else %}
     <p id="push-unsupported" hidden>이 브라우저는 푸시를 지원하지 않습니다.</p>
     <div class="row-btns">

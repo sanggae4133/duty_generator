@@ -7,7 +7,7 @@ IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관�
 
 | 위치 | 내용 |
 |---|---|
-| `.env.example` | 설정 파일 견본. 저장소 루트에 `.env` 로 복사해 값을 채운다(항목마다 설명·개발/서버 예시 값). `.env` 는 git 에 올라가지 않는다. |
+| `.env.example` | 설정 파일 견본(서버 시작에 필요한 값만 — 텔레그램 봇·푸시 키는 관리 화면 → 알림 설정). 저장소 루트에 `.env` 로 복사해 값을 채운다(항목마다 설명·개발/서버 예시 값). `.env` 는 git 에 올라가지 않는다. |
 | `config/` | Django 프로젝트 코드(설정 `settings.py`, URL, WSGI). 설정**값**은 여기서 고치지 않고 `.env` 가 정한다. |
 | `duty/` | 앱 본체: 모델·화면·서비스·관리 명령·템플릿·정적 파일. |
 | `deploy/` | 서버 설치 파일(systemd 유닛, logrotate, 업그레이드·복원 스크립트). 아래 표. |
@@ -25,9 +25,8 @@ IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관�
 | `duty-alarms.service` | 개인 알림 발송(`manage.py run_alarms`, 1분마다). 로그 `alarms.log` | 항상. 단 "알림 켜기" 뒤에만 enable | `/etc/systemd/system/` |
 | `duty-generator-backup.service` | DB 백업 1회(`sqlite3 .backup`, 최근 30개 보관). 로그 `backup.log` | 아래 타이머가 부른다 | `/etc/systemd/system/` |
 | `duty-generator-backup.timer` | 위 백업을 매일 03:00 에 부른다(꺼져 있던 시간도 부팅 후 따라잡음) | 항상 | `/etc/systemd/system/` |
-| `duty-health.service` | 상태 점검 1회(웹·알림 서비스·백업·디스크, 바뀌면 관리자 텔레그램). 로그 `health.log` | 아래 타이머가 부른다 | `/etc/systemd/system/` |
+| `duty-health.service` | 상태 점검 1회(`manage.py health`: 웹·알림 서비스·백업·디스크, 바뀌면 관리자 텔레그램). 로그 `health.log` | 아래 타이머가 부른다 | `/etc/systemd/system/` |
 | `duty-health.timer` | 위 점검을 5분마다 부른다 | 항상 | `/etc/systemd/system/` |
-| `duty-health.sh` | 상태 점검 본체(`duty-health.service` 가 실행) | — | 복사 안 함(저장소에서 바로 실행) |
 | `duty_generator.logrotate` | `/var/log/duty_generator/*.log` 를 매일 돌리고 7일 보관 | 시스템 logrotate 가 매일 | `/etc/logrotate.d/duty_generator` |
 | `upgrade.sh` | 업그레이드·롤백(아래 "업그레이드·롤백") | 사람이 `sudo` 로 실행 | 복사 안 함 |
 | `restore.sh` | 백업 파일로 DB 복원(아래 "백업·복원") | 사람이 `sudo` 로 실행 | 복사 안 함 |
@@ -81,7 +80,7 @@ sudo systemctl enable --now duty-generator duty-generator-backup.timer duty-heal
 sudo systemctl start duty-generator-backup   # 첫 백업(없으면 상태 점검이 "백업 없음"을 알린다)
 ```
 
-- `.env` 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. 앱 말고 백업·상태 점검 유닛(systemd `EnvironmentFile`)도 이 파일을 읽는다.
+- `.env` 값에는 따옴표, 공백, `$`, `#`, `<>` 를 넣지 않는다. 앱 말고 백업 유닛(systemd `EnvironmentFile`)도 이 파일을 읽는다.
 - `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
 - 설정을 바꾼 뒤에는 `sudo systemctl restart duty-generator`(알림을 켰으면 `duty-alarms` 도).
 - `dm` 은 `/opt` 에서 돌지 않으므로 파일 인자는 절대 경로로 준다.
@@ -177,7 +176,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 db.sqlite3-v1.sqlite3
 - `convert_v1` 은 `.backup` 으로 만든 단일 파일만 받는다(옆에 내용 있는 `-wal` 이 있으면 거부한다).
 - 예전 백업은 읽기 전용으로 열고, 쓰기 전에 아래를 전부 검사한다.
   - 원본: `quick_check`, `foreign_key_check`, duty 마이그레이션이 0001~0009인지.
-  - 지금 DB: `0001_v2` 만 적용된 빈 DB인지.
+  - 지금 DB: `migrate` 만 한 빈 DB인지(이 버전의 duty 마이그레이션 전부 적용, 업무 표가 비어 있음. `migrate` 가 예전 환경변수로 채운 알림 설정 행은 있어도 된다).
   - 아이디·이름 규칙과 중복.
   - 그룹·직접 권한 행이 없는지.
 - 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
@@ -229,7 +228,9 @@ DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 db.sqlite3-v1.sqlite3
 `duty-health.timer` 가 5분마다 아래를 보고, **상태가 바뀔 때만** 관리자 텔레그램으로 알린다(문제가 생겼을 때 한 번, 정상으로 돌아왔을 때 한 번).
 
 - 웹이 응답하지 않음 / 알림 서비스(`duty-alarms`, 켜 둔 경우만)가 멈춤 / 26시간 안에 만든 자동 백업이 없음 / DB 디스크 사용 90% 이상
-- 보내는 봇은 알림용 `DUTY_TELEGRAM_BOT_TOKEN`, 받는 사람은 `.env` 의 `DUTY_OPS_CHAT_ID`(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `health.log` 에만 남는다.
+- 점검은 `manage.py health`(`duty-health.service`)가 한다. 손으로 돌려 보기: `dm health`(바뀐 게 없으면 아무것도 출력하지 않는다).
+- 보내는 봇은 알림용 텔레그램 봇, 받는 사람은 관리 화면 → 알림 설정의 "장애 알림 받을 chat_id"(관리자 개인 chat_id, 아래 "텔레그램 봇" 4단계로 확인). 비우면 `health.log` 에만 남는다.
+- 발송에 실패하면 상태를 저장하지 않아 다음 점검(5분 뒤)에 다시 보낸다. 마지막 상태는 DB 폴더의 `.health.state` 에 있다.
 - 처음 실행이 정상이면 `health.log` 에 "정상" 한 줄만 남기고 알리지 않는다.
 - 웹 점검은 `http://127.0.0.1:8090/login/` 을 부르므로 `DUTY_ALLOWED_HOSTS` 에 `127.0.0.1` 이 있어야 한다.
 - 시험: `sudo systemctl stop duty-generator` → 5분 안에 알림 → `sudo systemctl start duty-generator` → 복구 알림.
@@ -249,44 +250,42 @@ rm -rf /tmp/lockvenv
 
 사용자가 `/alarms/` 에서 규칙을 만들면 `duty-alarms` 서비스(`manage.py run_alarms`, 1분마다)가 보낸다. 웹(gunicorn)과 별도 프로세스다.
 
-### 설정값 (`/opt/duty_generator/.env`)
+### 설정: 관리 화면 → 알림 설정
+
+봇 토큰·푸시 키는 `.env` 가 아니라 DB 에 한 행으로 두고, 슈퍼유저가 `/<DUTY_ADMIN_PATH>/` → "알림 설정"에서 고친다. 저장하면 웹·`run_alarms`·상태 점검이 바로 새 값을 쓴다(재시작 불필요).
+
+| 칸 | 내용 |
+|---|---|
+| 텔레그램 봇 토큰 | 웹앱 전용 봇 토큰. 비우면 텔레그램 채널이 꺼진다. 화면에는 끝 4자리만 보인다. **칸을 비워 두고 저장하면 지금 값 그대로**, 새 값을 넣으면 교체, "토큰 지우기"를 체크하면 비운다. |
+| 텔레그램 봇 사용자명 | 그 봇의 사용자명(`@` 는 떼고 저장). 비우면 [텔레그램 연결] 자동 연결을 못 쓰고 chat_id 직접 입력만 된다. |
+| 장애 알림 받을 chat_id | 관리자 개인 chat_id(숫자). 아래 "장애 알림" 참고. |
+| 웹 푸시 연락처 | `mailto:admin@example.com` 형식. 푸시 서비스가 문제 시 연락하는 주소. |
+| 푸시 키 | 처음 필요할 때(누군가 `/alarms/` 를 열 때) 자동으로 만든다. 손으로 만들 필요 없다. |
+| 푸시 키 다시 만들기 | 키가 유출됐을 때만. 체크하고 저장하면 모든 기기의 푸시 구독이 지워지고, 사용자마다 [이 기기에서 푸시 받기]를 다시 눌러야 한다. |
+
+- **봇을 바꾸면**(토큰이나 사용자명 변경) 모든 사용자의 텔레그램 연결 확인이 지워진다. 새 봇에서 [시작]을 다시 눌러야 하기 때문이다. 저장 뒤 화면에 몇 명인지 나온다. 각자 `/alarms/` 에서 [텔레그램 연결] → [시작] → [연결 확인]을 다시 하면 된다.
+- 토큰·개인키는 로그와 화면에 나오지 않는다. DB 백업에는 들어 있으니 백업 파일도 비밀로 다룬다.
+
+`.env` 에 남는 알림 관련 값:
 
 | 변수 | 내용 |
 |---|---|
-| `DUTY_TELEGRAM_BOT_TOKEN` | 웹앱 전용 봇 토큰. 비우면 텔레그램 채널이 꺼진다. |
-| `DUTY_TELEGRAM_BOT_USERNAME` | 그 봇의 사용자명(`@` 없이). 비우면 [텔레그램 연결] 자동 연결을 못 쓰고 chat_id 직접 입력만 된다. |
-| `DUTY_VAPID_PUBLIC_KEY` / `DUTY_VAPID_PRIVATE_KEY` | 웹 푸시 키. 둘 중 하나라도 비면 푸시가 꺼진다. |
-| `DUTY_VAPID_SUBJECT` | `mailto:admin@example.com` 형식. 푸시 서비스가 문제 시 연락하는 주소. |
 | `DUTY_SITE_URL` | `https://duty.example.ts.net`(경로 없이 호스트만). 텔레그램 알림 링크·캘린더 구독 주소용(비면 링크 생략, 캘린더 구독 주소 발급 불가). |
 | `DUTY_ALARMS_LOCK` | 선택. 기본은 DB 와 같은 폴더의 `.alarms.lock`. `run_alarms` 중복 실행 방지 잠금. |
 | `DUTY_TELEGRAM_LOCK` | 선택. 기본은 DB 와 같은 폴더의 `.telegram-updates.lock`. [연결 확인]이 `getUpdates` 를 한 번에 하나만 부르게 하는 잠금. |
 
 잠금 경로를 직접 정할 때는 `duty` 사용자가 쓸 수 있는 곳이어야 한다(`/opt/duty_generator` 는 안 된다). 쓸 수 없으면 `run_alarms` 가 시작하지 못하고 [연결 확인]이 500 오류가 난다. 기본값(DB 폴더)은 SQLite 가 쓰는 곳이라 항상 쓸 수 있다.
 
-**기존 서버에 알림 기능을 처음 올릴 때**: 위 "업그레이드·롤백"으로 올리고, 스크립트가 알려 주는 빠진 설정(`# --- 개인 알림` 아래 변수들)을 `.env` 에 추가한 뒤, 아래 "알림 켜기" 1번부터 진행한다.
-
-### VAPID 키 만들기
-
-키는 반드시 아래 명령으로 만든다(형식이 다르거나 깨진 개인키는 설정 단계에서 걸러지지 않고, 발송할 때마다 실패 로그 `status=Temporary:None` 로만 드러난다). 출력 두 줄을 `.env` 에 붙이고, 화면 기록 외에 파일로 남기지 않는다. 키를 바꾸면 기존 기기 구독은 모두 다시 해야 한다.
-
-```bash
-cd /opt/duty_generator && .venv/bin/python -c "
-from py_vapid import Vapid01, b64urlencode
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-v = Vapid01(); v.generate_keys()
-print('DUTY_VAPID_PUBLIC_KEY=' + b64urlencode(v.public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)))
-print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().private_value.to_bytes(32, 'big')))
-"
-```
+**예전에 `.env`(또는 `/etc/duty_generator/env`)에 알림 값을 넣어 둔 서버**(`DUTY_TELEGRAM_BOT_TOKEN`, `DUTY_TELEGRAM_BOT_USERNAME`, `DUTY_VAPID_*`, `DUTY_OPS_CHAT_ID`): 이 버전으로 올릴 때 `migrate` 가 그 값을 알림 설정 행으로 한 번 옮긴다(키가 같으니 기존 기기 구독도 그대로). 그다음 `upgrade.sh` 가 "더는 쓰지 않는 설정"으로 그 이름들을 알려 주면 `sudoedit /opt/duty_generator/.env` 로 지운다. 옮겨졌는지는 관리 화면 → 알림 설정에서 "지금 토큰" 끝 4자리와 "푸시 키: 있음"으로 확인한다.
 
 ### 텔레그램 봇
 
 봇은 이 웹앱만 써야 한다. 다른 프로그램(예: 예전 `duty_notifier`)이 같은 봇으로 polling 중이면 서로의 업데이트를 가로챈다(409 충돌). 예전 봇을 다시 쓰려면 그 프로그램을 먼저 끈다.
 
-1. 텔레그램 `@BotFather` 에서 `/newbot` → 토큰과 사용자명을 `DUTY_TELEGRAM_BOT_TOKEN`, `DUTY_TELEGRAM_BOT_USERNAME` 에 넣는다.
-2. 토큰을 셸 기록에 남기지 않도록 `.env` 에서 읽어 부르는 함수를 만든다(이 셸에서만 유효).
+1. 텔레그램 `@BotFather` 에서 `/newbot` → 토큰과 사용자명을 관리 화면 → 알림 설정에 넣는다.
+2. 텔레그램 API 를 손으로 부르는 함수를 만든다(이 셸에서만 유효, "설치"의 `dm` 이 필요). 토큰은 DB 에서 읽어 curl 에 표준입력으로 넘기므로 셸 기록·프로세스 목록에 남지 않는다.
    ```bash
-   tg() { sudo sh -c '. /opt/duty_generator/.env; curl --fail-with-body --silent --show-error "https://api.telegram.org/bot$DUTY_TELEGRAM_BOT_TOKEN/$1"; echo' sh "$1"; }
+   tg() { dm shell -v 0 -c "from duty.services.alarm_settings import current; print('url = \"https://api.telegram.org/bot' + current().telegram_bot_token + '/$1\"')" | curl --fail-with-body --silent --show-error -K -; echo; }
    ```
 3. webhook 이 걸려 있지 않은지 확인한다. `tg getWebhookInfo` 의 `"ok":true` 이고 `result.url` 이 `""` 이어야 한다.
    `url` 이 비어 있지 않으면 한 번만 `tg 'deleteWebhook?drop_pending_updates=false'` (응답 `"ok":true,"result":true` 확인) 후 `tg getWebhookInfo` 를 다시 실행해 `url` 이 `""` 인지 확인한다.
@@ -308,7 +307,7 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 - 실패마다 `alarm send failed rule=<규칙 id> channel=<telegram|push> delivery=<기록 id> status=<종류>:<HTTP 코드> attempt=<시도 횟수>`. `status` 는 결과 상태가 아니라 실패 종류와 응답 코드를 붙인 것이다(코드가 없으면 `None`).
   - `Temporary:None` — 네트워크 오류·응답 이상·깨진 VAPID 키. 1, 2, 4 … 최대 30분 간격으로 재시도.
   - `Temporary:<5xx>` — 상대 서버 오류. 위와 같이 재시도(텔레그램 503 도 여기).
-  - 푸시만 `Temporary:401`/`403` — VAPID 키·subject 설정 오류일 가능성. 재시도하므로 키를 고치면 다시 나간다.
+  - 푸시만 `Temporary:401`/`403` — 푸시 키·연락처(subject) 설정 오류일 가능성. 재시도하므로 관리 화면 → 알림 설정에서 연락처를 고치면 다시 나간다.
   - `RetryLater:429`(텔레그램·푸시), `RetryLater:503`(푸시만) — 상대가 알려 준 시간(`retry_after`/`Retry-After`) 뒤 재시도. 시간을 안 알려 주면 위의 일반 간격.
   - `Permanent:<4xx>` — 그 알림은 만료 시각까지 다시 보내지 않는다. 텔레그램 `Permanent:401` 은 봇 토큰 오류, `Permanent:403` 은 사용자가 봇을 차단, `Permanent:400` 은 chat_id 오류. 푸시는 401·403·404·410·429 를 뺀 4xx(구독 데이터 이상 등).
   - 그 밖의 이름(예: `OperationalError:None`)은 예기치 않은 예외 — 일시 실패로 재시도된다. 계속 나오면 확인한다.
@@ -316,7 +315,7 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
 
 ### 알림 켜기
 
-1. `.env` 값을 채우고 `sudo systemctl restart duty-generator` 후 `dm run_alarms --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
+1. 관리 화면 → 알림 설정에 봇 토큰·사용자명을 넣고(위 "텔레그램 봇") `dm run_alarms --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 오류 없이 끝나야 한다.
 2. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다.
 3. PC Chrome 과 아이폰 홈 화면 앱에서 테스트 푸시가 오는지, 알림을 누르면 해당 화면이 열리는지 확인한다.
 4. 예전 `duty_notifier` 가 이 서버에서 아직 돌고 있으면 먼저 끈다(같은 알림이 두 번 가지 않게): `sudo systemctl disable --now duty-notifier`
