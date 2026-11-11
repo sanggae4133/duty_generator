@@ -271,6 +271,16 @@ def test_headers_etag_304_head_post(client, me):
     check_headers(head, etag)
     assert feed(client, token, "post").status_code == 405
     assert feed(Client(enforce_csrf_checks=True), token, "post").status_code == 405
+    h304 = feed(client, token, "head", HTTP_IF_NONE_MATCH=etag)
+    assert h304.status_code == 304
+    check_headers(h304, etag)
+
+
+def test_error_responses_have_security_headers(client, me):
+    _, token = issue(me.user)
+    for r in [feed(client, "x" * 43), feed(client, "A" * 43), feed(client, token, "post"), feed(client, "A" * 43, "post")]:
+        assert r.status_code in (404, 405)
+        assert r["Cache-Control"] == "private, no-cache" and r["Referrer-Policy"] == "no-referrer"
 
 
 # --- 로그 ---
@@ -352,14 +362,14 @@ def test_filter_registered():
     "https://duty.example/\r\nX: y", "https://duty.example\n", "ftp://duty.example",
     "https://duty.example/?a=1", "https://duty.example/?", "https://duty.example/#x", "https:///path",
     "http://duty.example", "https://user:pw@duty.example", "https://user@duty.example", "https://duty.example:abc",
-    "https://duty.example:99999",
+    "https://duty.example:99999", "https://duty.example/sub", "https://duty.example/sub/",
 ])
 def test_site_url_invalid(url):
     with pytest.raises(ImproperlyConfigured):
         validate_site_url(url, debug=False)
 
 
-@pytest.mark.parametrize("url", ["", "https://duty.example", "https://duty.example/sub/", "https://duty.example:8443"])
+@pytest.mark.parametrize("url", ["", "https://duty.example", "https://duty.example/", "https://duty.example:8443"])
 def test_site_url_valid(url):
     validate_site_url(url, debug=False)
 
