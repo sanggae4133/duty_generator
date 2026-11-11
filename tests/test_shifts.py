@@ -1,6 +1,6 @@
 from datetime import date
 
-from duty.shifts import CELL_BY_LABEL, CELLS, cell_label, is_slot_cell, slot_index, weekdays
+from duty.shifts import CELLS, cell_label, is_slot_cell, slot_index, weekdays
 
 
 def test_cells_order_matches_combined_view():
@@ -13,7 +13,6 @@ def test_cell_labels_roundtrip():
     assert cell_label("slot0") == "08:30~09:30"
     assert cell_label("slot9") == "17:00~18:00"
     assert cell_label("night") == "야간"
-    assert all(CELL_BY_LABEL[cell_label(c)] == c for c in CELLS)
 
 
 def test_slot_helpers():

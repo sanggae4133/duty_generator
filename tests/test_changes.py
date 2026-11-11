@@ -37,7 +37,7 @@ def test_replace_commute(world):
 def test_removing_commute_warns_when_member_has_duty(world):
     _, m = world
     r = changes.change_cell(m["가"], D, "normal", m["가"], None)
-    assert any("관제" in w for w in r.warnings)
+    assert any("관제" in w for w in r)
     assert find_day(D).cells["normal"].removed == ["가"]
 
 
@@ -63,7 +63,7 @@ def test_duty_replace_warns_on_ineligible(world):
     p, m = world
     r = changes.change_cell(m["가"], D, "slot0", m["가"], m["직원"])
     assert ControlDuty.objects.get(period=p, date=D, slot=0).member == m["직원"]
-    assert len(r.warnings) == 2  # 개발자 아님 + 출근조 없음
+    assert len(r) == 2  # 개발자 아님 + 출근조 없음
 
 
 def test_duty_only_replace(world):
@@ -76,7 +76,7 @@ def test_duty_replace_into_second_slot_warns(world):
     p, m = world
     r = changes.change_cell(m["가"], D, "slot0", m["가"], m["라"])
     assert ControlDuty.objects.filter(period=p, date=D, member=m["라"]).count() == 2
-    assert any("다른 관제 칸" in w and "09:30~10:30" in w for w in r.warnings)
+    assert any("다른 관제 칸" in w and "09:30~10:30" in w for w in r)
 
 
 def test_swap_duty_when_member_holds_two_slots(world):
@@ -135,14 +135,14 @@ def test_inactive_after_rejected(world):
 def test_swap_commute_warns_when_duty_holder_loses_qualifying_shift(world):
     _, m = world
     r = changes.swap(m["가"], D, "normal", m["가"], "night", m["나"])
-    assert any("가" in w and "관제" in w for w in r.warnings)
+    assert any("가" in w and "관제" in w for w in r)
 
 
 def test_add_commute_warns_for_duty_holder_without_qualifying_shift(world):
     p, m = world
     Commute.objects.filter(member=m["가"]).delete()
     r = changes.change_cell(m["가"], D, "dawn", None, m["가"])
-    assert any("가" in w and "관제" in w for w in r.warnings)
+    assert any("가" in w and "관제" in w for w in r)
 
 
 def test_malformed_cell_rejected(world):

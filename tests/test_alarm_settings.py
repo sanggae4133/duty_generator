@@ -1,9 +1,7 @@
-"""알림 설정(AlarmSettings, 한 행): 서비스·0002 데이터 이전·관리 화면."""
-import importlib
+"""알림 설정(AlarmSettings, 한 행): 서비스·관리 화면."""
 import logging
 
 import pytest
-from django.apps import apps as django_apps
 from django.contrib.admin.models import LogEntry
 from django.db import IntegrityError, transaction
 from django.urls import reverse
@@ -42,43 +40,6 @@ def test_flags(db):
     assert s.bot_ready and s.push_on
     cfg = s.sender_config()
     assert (cfg.telegram_token, cfg.vapid_private_key, cfg.vapid_subject) == ("t", "b", "mailto:admin@localhost")
-
-
-# ---- 0002 데이터 이전 ----
-
-SEED_ENV = {"DUTY_TELEGRAM_BOT_TOKEN": TOKEN, "DUTY_TELEGRAM_BOT_USERNAME": "@duty_bot",
-            "DUTY_VAPID_PUBLIC_KEY": "PUB", "DUTY_VAPID_PRIVATE_KEY": "PRIV",
-            "DUTY_VAPID_SUBJECT": "mailto:ops@example.com", "DUTY_OPS_CHAT_ID": "12345"}
-
-
-def seed():
-    importlib.import_module("duty.migrations.0002_alarmsettings").seed_from_env(django_apps, None)
-
-
-def test_seed_from_env(db, monkeypatch):
-    for k, v in SEED_ENV.items():
-        monkeypatch.setenv(k, v)
-    seed()
-    s = AlarmSettings.objects.get()
-    assert (s.telegram_bot_token, s.telegram_bot_username, s.vapid_public_key, s.vapid_private_key,
-            s.vapid_subject, s.ops_chat_id) == (TOKEN, "duty_bot", "PUB", "PRIV", "mailto:ops@example.com", 12345)
-
-
-def test_seed_without_env(db, monkeypatch):
-    for k in SEED_ENV:
-        monkeypatch.delenv(k, raising=False)
-    seed()
-    assert not AlarmSettings.objects.exists()
-
-
-def test_seed_ignores_bad_chat_id(db, monkeypatch):
-    for k in SEED_ENV:
-        monkeypatch.delenv(k, raising=False)
-    monkeypatch.setenv("DUTY_TELEGRAM_BOT_TOKEN", TOKEN)
-    monkeypatch.setenv("DUTY_OPS_CHAT_ID", "-100")
-    seed()
-    s = AlarmSettings.objects.get()
-    assert s.telegram_bot_token == TOKEN and s.ops_chat_id is None and s.vapid_subject == "mailto:admin@localhost"
 
 
 # ---- 푸시 키 자동 생성 ----

@@ -75,7 +75,7 @@ sudoedit .env   # 견본은 개발 PC 값이다. 여섯 줄을 "서버:" 값으�
 # manage.py 를 duty 사용자로 부르는 함수(이 셸에서만 유효). 아래 절차들이 이걸 쓴다.
 dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }
 sudo .venv/bin/python manage.py collectstatic --noinput   # root 로: 코드 폴더는 duty 가 쓸 수 없다
-dm migrate
+dm migrate          # 개발 PC DB 를 가져가면 여기서 멈추고 아래 "개발 PC DB 를 서버로 옮기기"
 dm createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
 dm check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
 sudo cp deploy/*.service /etc/systemd/system/
@@ -196,93 +196,28 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 - 작업자 자체가 멈추면 이 알림도 멈춘다. `systemctl is-active duty-worker` 와 `worker.log` 의 매분 `alarms tick:` 줄로 확인한다.
 - 시험: `sudo systemctl stop duty-web` → 5분 안에 알림 → `sudo systemctl start duty-web` → 복구 알림.
 
-## 예전 배치에서 옮기기 (시험 서버·개발 PC, 1회)
+## 개발 PC DB 를 서버로 옮기기 (처음 한 번)
 
-예전 버전은 설정을 `/etc/duty_generator/env`, DB 를 `/var/lib/duty_generator/`, 백업·로그를 `/var/backups/duty_generator/`·`/var/log/duty_generator/` 에 두고, systemd 유닛 7개와 `pip install -e .` 를 썼다. 이 버전은 `.env` + `data/` + 유닛 2개다. 또 멤버·계정 통합 버전부터 마이그레이션을 새 `0001_v2` 하나로 새로 만들어서, 그 전(duty 마이그레이션 0001~0009) DB 는 `migrate` 로 올라가지 않고 `convert_v1` 로 한 번 옮긴다.
-
-### 서버
+서버는 개발 PC 에서 쓰던 DB 를 그대로 가져가 시작한다. 계정·비밀번호·근무·기록·알림 설정(봇 토큰·푸시 키)이 전부 같이 간다.
 
 ```bash
-cd /opt/duty_generator
-git log -1 --format=%h          # 지금(예전) 버전 — 롤백용으로 적어 둔다
-dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }   # 이 셸에서 쓸 manage.py 단축
-# 예전 DB 위치는 예전 기본값 /var/lib/duty_generator/db.sqlite3 기준이다. 예전 env 에 DUTY_DB_PATH 를 따로 정했다면 아래 경로를 그 값으로 바꾼다:
-#   sudo grep DUTY_DB_PATH /etc/duty_generator/env
-# 1. 예전 서비스를 끄고 유닛을 지운다
-sudo systemctl disable --now duty-health.timer duty-generator-backup.timer duty-alarms duty-generator
-sudo rm -f /etc/systemd/system/duty-generator.service /etc/systemd/system/duty-alarms.service \
-  /etc/systemd/system/duty-generator-backup.service /etc/systemd/system/duty-generator-backup.timer \
-  /etc/systemd/system/duty-health.service /etc/systemd/system/duty-health.timer /etc/logrotate.d/duty_generator
-sudo systemctl daemon-reload
-# 2. 설정 파일을 복사하고 data/ 를 만든 뒤, 예전 DB 를 일관된 파일 하나로 떠 둔다
-sudo install -o root -g duty -m 640 /etc/duty_generator/env .env
-sudo install -d -o duty -g duty -m 750 data data/backups data/logs
-sudo -u duty sqlite3 /var/lib/duty_generator/db.sqlite3 ".backup /opt/duty_generator/data/backups/old.sqlite3"
-# 3. 새 코드(설치 없이 돈다: 예전 editable 설치는 지운다)
-sudo git fetch && sudo git checkout <새 버전>
-sudo .venv/bin/pip uninstall -y duty-generator; sudo rm -rf duty_generator.egg-info
-sudo .venv/bin/pip install -r requirements.lock
-sudo .venv/bin/python manage.py collectstatic --noinput
-dm migrate                      # 새 빈 data/db.sqlite3. .env 에 남은 예전 알림 값은 이때 알림 설정(DB)으로 옮겨진다
-# 4-a. 예전 DB 가 멤버·계정 통합 전(0001~0009)이면
-dm convert_v1 /opt/duty_generator/data/backups/old.sqlite3
-# 4-b. 이미 0001_v2 DB 면 (convert_v1 대신)
-#   sudo -u duty rm data/db.sqlite3 data/db.sqlite3-wal data/db.sqlite3-shm 2>/dev/null
-#   sudo -u duty cp data/backups/old.sqlite3 data/db.sqlite3 && dm migrate
-# 5. 새 서비스
-sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload
-sudo systemctl enable --now duty-web duty-worker
+# 개발 PC (저장소 루트): runserver·run_worker 를 멈추고, 서버에 올릴 것과 같은 코드(main)에서
+DUTY_DEBUG=1 .venv/bin/python manage.py backup        # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다)
+scp data/backups/db-<시각>.sqlite3 <서버>:/tmp/duty.sqlite3
+
+# 서버: "설치"를 dm migrate 직전까지 한 뒤 (createsuperuser 는 하지 않는다 — 계정은 DB 에 있다)
+sudo systemctl stop duty-web duty-worker 2>/dev/null
+sudo install -o duty -g duty -m 640 /tmp/duty.sqlite3 /opt/duty_generator/data/import.sqlite3 && rm /tmp/duty.sqlite3
+dm restore /opt/duty_generator/data/import.sqlite3 && sudo rm /opt/duty_generator/data/import.sqlite3
+dm migrate
+# 이어서 "설치"의 dm check --deploy 부터
 ```
 
-- `.env` 에서 이제 안 쓰는 이름(`DUTY_DB_PATH`, `DUTY_ALARMS_LOCK`, `DUTY_TELEGRAM_LOCK`, `DUTY_TELEGRAM_BOT_*`, `DUTY_VAPID_*`, `DUTY_OPS_CHAT_ID`)을 `sudoedit .env` 로 지운다(남아 있어도 무시되지만 토큰이 파일에 남는다). 알림 값이 옮겨졌는지는 관리 화면 → 알림 설정의 "지금 토큰" 끝 4자리와 "푸시 키: 있음"으로 확인한다(키가 같으니 기존 기기 구독도 그대로다).
-- 잘 도는 걸 확인한 뒤 예전 폴더를 지운다: `sudo rm -r /etc/duty_generator /var/lib/duty_generator /var/backups/duty_generator /var/log/duty_generator`.
-- 롤백(예전 폴더를 지우기 전까지): 예전 DB 는 `/var/lib/duty_generator` 에 그대로 있다.
-  ```bash
-  sudo systemctl disable --now duty-web duty-worker
-  sudo rm -f /etc/systemd/system/duty-web.service /etc/systemd/system/duty-worker.service
-  sudo git checkout <적어 둔 예전 버전> && sudo .venv/bin/pip install -r requirements.lock && sudo .venv/bin/pip install --no-deps -e .
-  sudo sh -c 'set -a; . /etc/duty_generator/env; .venv/bin/python manage.py collectstatic --noinput'
-  # 그 버전 README 의 "설치" 절대로 유닛을 복사하고 켠다
-  ```
-
-### 개발 PC
-
-저장소 루트에서, runserver 를 멈추고 실행한다.
-
-```bash
-.venv/bin/pip uninstall -y duty-generator; rm -rf duty_generator.egg-info   # 예전 editable 설치
-.venv/bin/pip install -r requirements.lock -r requirements-dev.txt
-mkdir -p data/backups
-sqlite3 db.sqlite3 ".backup data/backups/old.sqlite3"      # 예전 위치의 DB 를 일관된 파일 하나로
-# 이미 0001_v2 DB 면:
-cp data/backups/old.sqlite3 data/db.sqlite3 && DUTY_DEBUG=1 .venv/bin/python manage.py migrate
-# 통합 전(0001~0009) DB 면 (위 대신):
-#   DUTY_DEBUG=1 .venv/bin/python manage.py migrate && DUTY_DEBUG=1 .venv/bin/python manage.py convert_v1 data/backups/old.sqlite3
-```
-
-잘 되면 예전 `db.sqlite3*` 는 지워도 된다.
-
-### 동작(`convert_v1`)
-
-- `convert_v1` 은 `.backup` 으로 만든 단일 파일만 받는다(옆에 내용 있는 `-wal` 이 있으면 거부한다).
-- 예전 백업은 읽기 전용으로 열고, 쓰기 전에 아래를 전부 검사한다.
-  - 원본: `quick_check`, `foreign_key_check`, duty 마이그레이션이 0001~0009인지.
-  - 지금 DB: `migrate` 만 한 빈 DB인지(이 버전의 duty 마이그레이션 전부 적용, 업무 표가 비어 있음. `migrate` 가 예전 환경변수로 채운 알림 설정 행은 있어도 된다).
-  - 아이디·이름 규칙과 중복.
-  - 그룹·직접 권한 행이 없는지.
-- 하나라도 걸리면 아무것도 쓰지 않고 이유를 출력한다. 옮기기는 한 트랜잭션이라 중간에 실패해도 지금 DB 는 빈 채로 남는다.
-- 멤버마다 사용자 1명을 만든다(id = 예전 멤버 id, 아이디 = 멤버 코드). 연결된 계정의 비밀번호·권한·로그인 시각을 옮긴다.
-- 재직 = 멤버 재직 AND 계정 활성.
-- 멤버와 연결되지 않은 계정(어드민 전용 등)은 부서 없는 사용자가 되고, 이름은 아이디와 같다.
-- 나머지 표는 id 그대로 옮긴다.
-- 세션·로그인 실패 기록·관리 화면 기록은 버린다(다시 로그인해야 한다). 텔레그램 연결 대기 코드는 비운다.
-- 출력에는 건수만 나온다(이름·비밀값 없음). 표별 건수와 함께 재직 AND 로 상태가 바뀐 연결 계정 수도 출력한다.
-  - "재직이었지만 계정 비활성이라 재직 끔 N": 이 사람들은 근무표 후보에서 빠진다.
-  - "퇴사였지만 계정 활성이라 로그인 차단 N (그중 스태프 M)": 예전엔 퇴사 스태프도 로그인됐지만 이제는 막힌다.
-  - 바로잡을 사람은 관리 화면에서 "재직"을 고친다.
-- 변환 뒤 활성 슈퍼유저가 없으면 경고를 출력한다. 그때는 어드민이 관리 화면에 들어갈 수 없으니, 둘 중 하나로 복구한다.
-  - `dm createsuperuser` 로 새로 만든다.
-  - `dm shell` 에서 기존 계정의 `is_active` 를 켠 뒤 `dm changepassword <아이디>` 로 비밀번호를 정한다.
+- **DB 파일을 `cp` 로 복사하지 말고 `backup` 으로 뜬다**(WAL 모드라 그냥 복사하면 최근 변경이 빠질 수 있다).
+- `restore` 는 파일의 마이그레이션이 서버 코드와 같아야 받는다. 개발 PC 와 서버를 같은 커밋으로 맞춘다.
+- 옮긴 뒤에는 **개발 PC 에서 그 DB 로 `run_worker` 를 켜지 않는다**. 같은 봇 토큰으로 두 곳이 알림을 보내고 텔레그램 연결 확인이 서로 엉킨다. 개발 PC 에서 알림을 시험하려면 관리 화면 → 알림 설정에서 토큰을 지우거나 다른 시험용 봇을 넣는다.
+- 웹 푸시는 주소(127.0.0.1 → 서버 도메인)가 바뀌어서 개발 PC 에서 등록한 기기는 서버에서 받지 못한다. 각자 서버 주소로 들어가 [이 기기에서 푸시 받기]를 다시 누른다. 텔레그램 연결은 그대로 쓰인다. 캘린더 구독은 주소가 바뀌므로 알림·캘린더 화면에서 다시 발급받는다.
+- 개발 PC 에 남은 DB 와 백업에는 실명과 봇 토큰이 들어 있다. 공유 폴더에 두지 않는다.
 
 ## 의존성 고정
 
@@ -323,7 +258,7 @@ rm -rf /tmp/lockvenv
 
 ### 텔레그램 봇
 
-봇은 이 웹앱만 써야 한다. 다른 프로그램(예: 예전 `duty_notifier`)이 같은 봇으로 polling 중이면 서로의 업데이트를 가로챈다(409 충돌). 예전 봇을 다시 쓰려면 그 프로그램을 먼저 끈다.
+봇은 이 웹앱만 써야 한다. 다른 프로그램(개발 PC 의 `run_worker` 포함)이 같은 봇으로 polling 중이면 서로의 업데이트를 가로챈다(409 충돌).
 
 1. 텔레그램 `@BotFather` 에서 `/newbot` → 토큰과 사용자명을 관리 화면 → 알림 설정에 넣는다.
 2. 텔레그램 API 를 손으로 부르는 함수를 만든다(이 셸에서만 유효, "설치"의 `dm` 이 필요). 토큰은 DB 에서 읽어 curl 에 표준입력으로 넘기므로 셸 기록·프로세스 목록에 남지 않는다.
@@ -360,12 +295,11 @@ rm -rf /tmp/lockvenv
 
 작업자는 늘 돈다(백업·상태 점검). 알림은 보낼 곳이 생기면 그때부터 나간다: 텔레그램은 관리 화면에 봇 토큰이 있고 사용자가 연결했을 때, 푸시는 사용자가 기기를 등록했을 때.
 
-1. 예전 `duty_notifier` 가 이 서버에서 아직 돌고 있으면 먼저 끈다(같은 알림이 두 번 가지 않게): `sudo systemctl disable --now duty-notifier`
-2. 관리 화면 → 알림 설정에 봇 토큰·사용자명을 넣는다(위 "텔레그램 봇").
-3. `dm run_worker --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 작업자가 도는 중에도 된다.
-4. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다. PC Chrome 과 아이폰 홈 화면 앱에서 알림을 누르면 해당 화면이 열리는지도 본다.
-5. `sudo tail -f /opt/duty_generator/data/logs/worker.log` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
-6. 텔레그램 알림을 모두 멈추려면 관리 화면 → 알림 설정에서 "토큰 지우기". (푸시만 따로 끄는 스위치는 없다. 사용자가 기기를 해제하거나 규칙을 끈다.)
+1. 관리 화면 → 알림 설정에 봇 토큰·사용자명을 넣는다(위 "텔레그램 봇").
+2. `dm run_worker --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 작업자가 도는 중에도 된다.
+3. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다. PC Chrome 과 아이폰 홈 화면 앱에서 알림을 누르면 해당 화면이 열리는지도 본다.
+4. `sudo tail -f /opt/duty_generator/data/logs/worker.log` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
+5. 텔레그램 알림을 모두 멈추려면 관리 화면 → 알림 설정에서 "토큰 지우기". (푸시만 따로 끄는 스위치는 없다. 사용자가 기기를 해제하거나 규칙을 끈다.)
 
 ## 캘린더 구독 (ICS)
 

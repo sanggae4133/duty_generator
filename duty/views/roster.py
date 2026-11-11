@@ -25,7 +25,7 @@ def _item(label: str, names: list[str], removed: bool = False) -> dict:
         {"name": n, "struck": removed or k < len(parts) - 1, "hl": next((i for i, q in enumerate(names, 1) if q == n), 0)}
         for k, n in enumerate(parts)
     ]
-    return {"tokens": tokens, "changed": len(parts) > 1 or label.startswith("+") or removed, "removed": removed}
+    return {"tokens": tokens, "changed": len(parts) > 1 or label.startswith("+") or removed}
 
 
 def _items(labels: list[str], names: list[str], removed: bool = False) -> list[dict]:
@@ -195,7 +195,7 @@ def cell(request, d, cell):
             messages.error(request, str(e))
         else:
             messages.success(request, "변경했습니다.")
-            for w in result.warnings:
+            for w in result:
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
     depts, types = _filters(request)
@@ -256,7 +256,7 @@ def swap(request, d):
         messages.error(request, str(e))
     else:
         messages.success(request, "맞교환했습니다.")
-        for w in result.warnings:
+        for w in result:
             messages.warning(request, w)
     return redirect("day", d)
 

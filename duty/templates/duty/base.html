@@ -65,9 +65,9 @@
       <li><a href="/periods/">회차</a></li>
       <li><a href="/stats/">통계</a></li>
       <li><a href="/changes/">이력</a></li>
-      <li><a href="/schema/">데이터 구조</a></li>
       {% if user.is_superuser %}<li><a href="{% url 'admin:index' %}">관리</a></li>{% endif %}
       {% endif %}
+      <li><a href="{% url 'password_change' %}">비밀번호</a></li>
       <li><form method="post" action="{% url 'logout' %}" style="margin:0">{% csrf_token %}<button class="outline secondary">로그아웃</button></form></li>
     </ul>
     {% endif %}

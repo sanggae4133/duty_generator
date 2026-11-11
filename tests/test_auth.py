@@ -78,7 +78,7 @@ def test_password_change_rejects_same_password(client, make_member):
     client.force_login(m)
     r = client.post(reverse("password_change"), {"old_password": pw, "new_password1": pw, "new_password2": pw})
     assert r.status_code == 200
-    assert "임시 비밀번호와 다른 비밀번호" in r.content.decode()
+    assert "지금 비밀번호와 다른 비밀번호" in r.content.decode()
     m.refresh_from_db()
     assert m.must_change_password
 
@@ -160,3 +160,17 @@ def test_issue_account_lifts_lockout_by_linked_username(make_member):
     with mock.patch("duty.accounts.reset") as r:
         issue_account(m)
     r.assert_called_once_with(username="custom")
+
+
+def test_user_can_change_own_password_anytime(client, make_member):
+    m = make_member("가", user=True)
+    client.force_login(m)
+    assert 'href="/password/"' in client.get("/me/").content.decode()  # 메뉴에서 언제든
+    r = client.post(reverse("password_change"), {
+        "old_password": "unused-Pw-123", "new_password1": "unused-Pw-123", "new_password2": "unused-Pw-123"}, follow=True)
+    assert "지금 비밀번호와 다른" in r.content.decode()
+    r = client.post(reverse("password_change"), {
+        "old_password": "unused-Pw-123", "new_password1": "Tr0ub4dor&3-xyz", "new_password2": "Tr0ub4dor&3-xyz"}, follow=True)
+    m.refresh_from_db()
+    assert m.check_password("Tr0ub4dor&3-xyz") and "비밀번호를 바꿨습니다" in r.content.decode()
+    assert client.get("/me/").status_code == 200  # 바꾼 뒤에도 로그인 유지

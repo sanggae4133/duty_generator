@@ -8,7 +8,6 @@ COMMUTE_SHIFTS: dict[str, str] = {  # 순서 = 화면 표시 순서
     "dinner": "석식교대",
     "night": "야간",
 }
-SHIFT_BY_LABEL = {label: key for key, label in COMMUTE_SHIFTS.items()}
 
 _BOTH = ("normal", "dinner")
 CONTROL_SLOTS: list[tuple[str, tuple[str, ...]]] = [  # (라벨, 자격 출근조)
@@ -57,7 +56,6 @@ def cell_label(cell: str) -> str:
     return CONTROL_SLOTS[slot_index(cell)][0] if is_slot_cell(cell) else COMMUTE_SHIFTS[cell]
 
 
-CELL_BY_LABEL = {cell_label(c): c for c in CELLS}
 
 
 def _span(cell: str) -> tuple[str, str]:
