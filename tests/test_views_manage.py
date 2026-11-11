@@ -155,3 +155,11 @@ def test_admin_nav_link_superuser_only(client, admin_user, make_member):
     assert "관리</a>" not in client.get("/").content.decode()
     client.force_login(make_member("가", user=True))
     assert "관리</a>" not in client.get("/").content.decode()
+
+
+def test_generate_has_detail_dialog(admin_client_ok):
+    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13),
+                              status=Period.Status.CLOSED)
+    body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
+    assert 'id="gen-help"' in body and "showModal()" in body
+    assert "자격자가 적은 칸부터" in body and "편차" in body

@@ -88,10 +88,10 @@ def find_day(d: date) -> Day | None:
     return days[0] if days else None
 
 
-def member_schedule(member: User, start: date) -> list[tuple[date, list[str]]]:
+def member_schedule(member: User, start: date, shown=lambda cell: True) -> list[tuple[date, list[str]]]:
     out = []
     for day in published_days(start, None):
-        labels = [cell_label(c) for c in CELLS if member.name in day.members[c]]
+        labels = [cell_label(c) for c in CELLS if shown(c) and member.name in day.members[c]]
         if labels:
             out.append((day.date, labels))
     return out

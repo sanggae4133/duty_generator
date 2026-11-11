@@ -83,11 +83,12 @@ def _filter_ctx(depts, types, shifts) -> dict:
             {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
             for d in sorted(Department.objects.all(), key=lambda d: DEPT_ORDER.index(d.code) if d.code in DEPT_ORDER else 99)
         ],
-        "shift_choices": [
-            {"code": c, "name": n, "checked": not shifts or c in shifts}
-            for c, n in prefs.SHIFT_CHOICES.items()
-        ],
+        "shift_choices": _shift_choices(shifts),
     }
+
+
+def _shift_choices(shifts) -> list[dict]:
+    return [{"code": c, "name": n, "checked": not shifts or c in shifts} for c, n in prefs.SHIFT_CHOICES.items()]
 
 
 def _active_members(depts: list[str] | None = None, types: list[str] | None = None):
@@ -263,8 +264,10 @@ def swap(request, d):
 @login_required
 def me(request):
     member = request.user if request.user.department_id else None
-    items = member_schedule(member, perms.today()) if member else []
+    _, _, shifts = prefs.clean([], [], request.GET.getlist("shift"))
+    items = member_schedule(member, perms.today(), _shown(shifts)) if member else []
     return render(request, "duty/me.html", {
         "member": member,
+        "shift_choices": _shift_choices(shifts),
         "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": labels} for d, labels in items],
     })
