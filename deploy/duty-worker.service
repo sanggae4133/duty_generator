@@ -16,6 +16,8 @@ Wants=network-online.target
 User=duty
 WorkingDirectory=/opt/duty_generator
 # 한 번에 하나만 돈다(data/.alarms.lock). 손으로 하나 더 띄워도 잠금 때문에 기다리기만 한다.
+# 운영 서버는 항상 DEBUG 끔: 환경변수가 .env 보다 우선하므로 .env 에 실수로 DUTY_DEBUG=1 이 있어도 꺼진다
+Environment=DUTY_DEBUG=0
 ExecStart=/opt/duty_generator/.venv/bin/python manage.py run_worker
 # 죽으면 5초 뒤 다시 띄운다
 Restart=always

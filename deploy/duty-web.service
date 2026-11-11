@@ -18,6 +18,8 @@ WorkingDirectory=/opt/duty_generator
 # --workers 1 --threads 4: 프로세스를 하나만 둔다. 로그 파일 data/logs/web.log 를 한 프로세스만 써야
 #   자정마다 파일을 넘길 때 꼬이지 않는다. 사용자가 수십 명이라 스레드 4개로 충분하다.
 # 접근 로그(--access-logfile)는 켜지 말 것: 캘린더 구독 주소(/calendar/<토큰>.ics)에 비밀 토큰이 들어 있다.
+# 운영 서버는 항상 DEBUG 끔: 환경변수가 .env 보다 우선하므로 .env 에 실수로 DUTY_DEBUG=1 이 있어도 꺼진다
+Environment=DUTY_DEBUG=0
 ExecStart=/opt/duty_generator/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8090 --workers 1 --threads 4
 # 죽으면 5초 뒤 다시 띄운다
 Restart=always
