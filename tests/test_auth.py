@@ -142,12 +142,13 @@ def test_inactive_user_session_becomes_anonymous(client, make_member):
 
 
 @pytest.mark.parametrize("staff", [False, True])
-def test_inactive_user_cannot_login(client, make_member, staff):
-    m = make_member("가", user=True, active=False)
+@pytest.mark.parametrize("active", [True, False])
+def test_inactive_user_cannot_login(client, make_member, staff, active):
+    m = make_member("가", user=True, active=active)
     m.is_staff = staff
     m.save()
     client.post(reverse("login"), {"username": m.username, "password": "unused-Pw-123"})
-    assert "_auth_user_id" not in client.session
+    assert ("_auth_user_id" in client.session) == active  # 같은 비밀번호: 재직이면 로그인, 퇴사면 거부
 
 
 def test_issue_account_lifts_lockout_by_linked_username(make_member):

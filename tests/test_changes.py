@@ -172,3 +172,14 @@ def test_inactive_existing_assignment_shown_and_removable(world):
     changes.change_cell(m["라"], D, "slot0", m["가"], m["다"])  # 퇴사자를 빼는 교체는 된다
     changes.change_cell(m["라"], D, "normal", m["가"], None)
     assert not Commute.objects.filter(member=m["가"]).exists()
+
+
+@pytest.mark.parametrize("cell,before", [("dawn", None), ("normal", "가"), ("slot0", "가")])
+def test_no_department_user_cannot_be_assigned(world, admin_user, cell, before):
+    _, m = world
+    rows = (Commute.objects.count(), ControlDuty.objects.count(), ChangeLog.objects.count())
+    with pytest.raises(DutyError, match="관리자은\\(는\\) 근무표 대상이 아닙니다"):
+        changes.change_cell(m["라"], D, cell, m[before] if before else None, admin_user)
+    assert (Commute.objects.count(), ControlDuty.objects.count(), ChangeLog.objects.count()) == rows
+    assert not Commute.objects.filter(member=admin_user).exists()
+    assert not ControlDuty.objects.filter(member=admin_user).exists()

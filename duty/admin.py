@@ -22,7 +22,9 @@ class DepartmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["managers"].queryset = User.objects.roster()  # 후보만(퇴사자·부서 없는 계정 제외)
+        # 후보는 roster()만. 지금 담당자는 퇴사·부서 해제됐어도 보여야 저장할 때 조용히 빠지지 않는다
+        current = self.instance.managers.all() if self.instance.pk else User.objects.none()
+        self.fields["managers"].queryset = (User.objects.roster() | current).distinct()
         if self.instance.pk:
             self.initial["shifts"] = self.instance.shift_keys()
 
@@ -78,11 +80,20 @@ class UserAdmin(DjangoUserAdmin):
         ("근무표", {"fields": ("name", "department", "part", "type")}),
         *DjangoUserAdmin.fieldsets[2:],  # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지)
     )
-    list_display = ["username", "name", "department", "part", "type", "is_active", "is_staff"]
+    list_display = ["login_id", "name", "department", "part", "type", "is_active", "is_staff"]
     list_filter = ["department", "type", "is_active", "is_staff"]
     search_fields = ["username", "name"]
     list_select_related = ["department"]
     actions = ["issue_accounts"]
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields["username"].label = "아이디"  # 모델 칸은 그대로 두고 화면 라벨만
+        return form
+
+    @admin.display(description="아이디", ordering="username")
+    def login_id(self, obj):
+        return obj.username
 
     @admin.action(description="계정 발급 / 비밀번호 초기화")
     def issue_accounts(self, request, queryset):

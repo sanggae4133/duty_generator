@@ -46,3 +46,18 @@ def test_department_manager_choices_are_roster(depts, make_member, admin_user):
     a = make_member("가")
     make_member("나", active=False)
     assert list(DepartmentForm(instance=depts["UI"]).fields["managers"].queryset) == [a]
+
+
+def test_department_keeps_current_manager_outside_roster(depts, make_member):
+    a, gone = make_member("가"), make_member("나", active=False)
+    depts["UI"].managers.add(gone)
+    assert set(DepartmentForm(instance=depts["UI"]).fields["managers"].queryset) == {a, gone}
+    assert list(DepartmentForm(instance=depts["MD"]).fields["managers"].queryset) == [a]
+
+
+def test_username_label(su_client, make_member):
+    m = make_member("가")
+    for url in (reverse("admin:duty_user_changelist"), reverse("admin:duty_user_add"),
+                reverse("admin:duty_user_change", args=[m.pk])):
+        body = su_client.get(url).content.decode()
+        assert "아이디" in body and "사용자 이름" not in body, url

@@ -59,6 +59,13 @@ def _check_active(m: User | None) -> None:
         raise DutyError(f"{m.name}은(는) 재직 중이 아닙니다.")
 
 
+def _check_candidate(m: User | None) -> None:
+    """새로 들이는 사람은 roster() 대상(재직 + 부서 있음)만."""
+    _check_active(m)
+    if m is not None and m.department_id is None:
+        raise DutyError(f"{m.name}은(는) 근무표 대상이 아닙니다.")
+
+
 @transaction.atomic
 def change_cell(user, d: date, cell: str, before: User | None, after: User | None) -> ChangeResult:
     perms.assert_can_edit_date(user, d)
@@ -66,7 +73,7 @@ def change_cell(user, d: date, cell: str, before: User | None, after: User | Non
     _check_cell(cell)
     if (before is None and after is None) or before == after:
         raise DutyError("변경할 내용이 없습니다.")
-    _check_active(after)
+    _check_candidate(after)
     warnings: list[str] = []
     if is_slot_cell(cell):
         slot = slot_index(cell)

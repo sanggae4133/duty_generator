@@ -244,10 +244,10 @@ def day(request, d):
 @require_POST
 def swap(request, d):
     try:
-        cell_a, name_a = request.POST["a"].split("|")
-        cell_b, name_b = request.POST["b"].split("|")
+        cell_a, username_a = request.POST["a"].split("|")
+        cell_b, username_b = request.POST["b"].split("|")
         result = changes.swap(
-            request.user, d, cell_a, User.objects.get(username=name_a), cell_b, User.objects.get(username=name_b)
+            request.user, d, cell_a, User.objects.get(username=username_a), cell_b, User.objects.get(username=username_b)
         )
     except (KeyError, ValueError, User.DoesNotExist):
         messages.error(request, "맞교환할 두 사람을 골라 주세요.")
