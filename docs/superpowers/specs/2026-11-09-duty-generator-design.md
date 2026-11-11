@@ -1,5 +1,7 @@
 # duty_generator 설계
 
+> 2026-11-11: `Member`는 사용자 모델 `duty.User`로 통합됨 — `docs/superpowers/specs/2026-11-11-member-user-merge-design.md` 참고. 아래 본문은 당시 설계 그대로다.
+
 - 작성일: 2026-11-09
 - 상태: 승인됨, 구현 계획 `docs/superpowers/plans/2026-11-09-duty-generator.md`
 
