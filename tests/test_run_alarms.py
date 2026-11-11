@@ -342,7 +342,7 @@ def test_log_has_no_token_or_endpoint(member, monkeypatch, env, caplog):
     import requests
     from pywebpush import WebPushException
 
-    token = "1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"
+    token = "1234567890:" + "FAKE" + "x" * 31  # 가짜 토큰(비밀 탐지기에 걸리지 않게 실행 중에 만든다)
     endpoint = "https://fcm.googleapis.com/fcm/send/secret-endpoint-abc"
     env.TELEGRAM_BOT_TOKEN = token
     verify(member)
