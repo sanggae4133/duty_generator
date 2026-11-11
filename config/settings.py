@@ -136,7 +136,7 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
         "duty": {"level": "INFO"},
-        "django": {"handlers": [], "level": "INFO"},  # Django 기본 console(DEBUG 전용)·mail_admins 대신 루트 하나로
+        "django": {"handlers": [], "level": "WARNING"},  # Django 기본 console(DEBUG 전용)·mail_admins 대신 루트 하나로
         "django.request": {"filters": ["redact_calendar"]},
         "django.server": {**DEFAULT_LOGGING["loggers"]["django.server"], "filters": ["redact_calendar"]},
     },

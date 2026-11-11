@@ -84,7 +84,7 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
 
 스크립트가 하는 일: 지금 버전 출력 → DB 백업(`before-upgrade-*.sqlite3`) → 웹·알림 중지 → 코드 갱신 → 고정 버전 설치 → 정적 파일·`migrate` → 서비스 파일·logrotate 복사 → 다시 시작 → env 에 빠진 설정 이름 알림. 어느 단계든 실패하면 멈추고(서비스는 꺼진 채) 메시지를 남긴다. 고친 뒤 다시 실행하면 된다.
 
-- 이 스크립트가 없던 예전 버전에서 처음 올릴 때만: `cd /opt/duty_generator && sudo git pull && sudo deploy/upgrade.sh`. git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator` 후 다시 한다.
+- 이 스크립트가 없던 예전 버전에서 처음 올릴 때만: `cd /opt/duty_generator && sudo git log -1 --format=%h` 로 지금 버전을 적어 두고 `sudo git pull && sudo deploy/upgrade.sh`. 이 스크립트가 들어오기 전 버전으로는 스크립트로 되돌릴 수 없다(스크립트가 거부한다). 그때는 적어 둔 버전으로 `sudo git checkout <버전>` 후 예전 README 절차를 따른다. git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator` 후 다시 한다.
 - 롤백할 버전은 업그레이드 때 처음 찍힌 `지금 버전` 값이다(`cd /opt/duty_generator && sudo git log --oneline` 에서도 볼 수 있다).
 - 업그레이드에서 DB 구조가 바뀌었으면(`migrate` 가 무언가 적용) 롤백 후 DB 도 그때의 `before-upgrade-*` 로 "복원"한다.
 - `before-upgrade-*` 백업은 자동으로 지워지지 않는다. 디스크가 작으면 가끔 오래된 것을 지운다.
@@ -97,16 +97,8 @@ sudo /opt/duty_generator/deploy/upgrade.sh <버전>     # 그 버전으로 되�
   sudo -u duty sqlite3 /var/lib/duty_generator/db.sqlite3 ".backup /var/backups/duty_generator/manual-$(date +%Y%m%d-%H%M).sqlite3"
   ```
   `manual-*` 은 자동으로 지워지지 않는다. 서버 밖에 보관하려면 이 파일을 내려받는다. 실명이 들어 있으니 공유 폴더에 두지 않는다.
-- 복원:
-  ```bash
-  sudo systemctl stop duty-alarms duty-generator
-  sudo -u duty sqlite3 /var/backups/duty_generator/<백업 파일> "PRAGMA quick_check"   # ok 가 나와야 한다
-  sudo -u duty cp /var/backups/duty_generator/<백업 파일> /var/lib/duty_generator/db.sqlite3
-  sudo -u duty rm -f /var/lib/duty_generator/db.sqlite3-wal /var/lib/duty_generator/db.sqlite3-shm
-  dm migrate   # 지금 코드보다 오래된 백업이면 구조를 맞춘다(dm 은 "설치" 참고)
-  sudo systemctl start duty-generator
-  systemctl is-enabled -q duty-alarms && sudo systemctl start duty-alarms
-  ```
+- 복원: `sudo /opt/duty_generator/deploy/restore.sh /var/backups/duty_generator/<백업 파일>`
+  - 백업 파일을 먼저 검사하고(`PRAGMA quick_check` 가 `ok` 가 아니면 아무것도 바꾸지 않고 멈춤), 서비스 중지 → 지금 DB 를 `before-restore-*` 로 백업 → 교체 → `migrate`(오래된 백업이면 구조 맞춤) → 다시 시작.
 
 ## 로그
 

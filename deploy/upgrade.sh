@@ -16,10 +16,15 @@ main() {  # 함수로 감싸 전체를 먼저 읽는다(git checkout 이 실행 
   sudo -u duty sqlite3 "$db" ".backup $backup"
   echo "== 백업: $backup"
 
+  git fetch -q origin
+  local target=${1:-origin/main}
+  # 이 스크립트가 없는 예전 버전으로는 되돌릴 수 없다(README "업그레이드·롤백" 참고)
+  git cat-file -e "$target:deploy/upgrade.sh" 2>/dev/null || { echo "!! $target 에는 deploy/upgrade.sh 가 없어 이 스크립트로 되돌릴 수 없습니다."; exit 1; }
+
   alarms_on=0; systemctl is-enabled -q duty-alarms 2>/dev/null && alarms_on=1
+  systemctl stop duty-health.timer duty-health.service 2>/dev/null || true   # 계획된 정지를 장애로 알리지 않게
   systemctl stop duty-alarms duty-generator
 
-  git fetch -q origin
   if [ $# -ge 1 ]; then git checkout -q "$1"; else git checkout -q main && git pull -q --ff-only; fi
   echo "== 새 버전: $(git log -1 --format='%h %s')"
 
@@ -32,8 +37,6 @@ main() {  # 함수로 감싸 전체를 먼저 읽는다(git checkout 이 실행 
   cp deploy/*.service deploy/*.timer /etc/systemd/system/
   [ -f deploy/duty_generator.logrotate ] && cp deploy/duty_generator.logrotate /etc/logrotate.d/duty_generator
   systemctl daemon-reload
-  if [ -f deploy/duty-health.timer ]; then systemctl enable -q --now duty-health.timer
-  else systemctl disable -q --now duty-health.timer 2>/dev/null || true; fi   # 이 기능 이전 버전으로 롤백한 경우
 
   systemctl start duty-generator
   [ "$alarms_on" = 1 ] && systemctl start duty-alarms
@@ -43,7 +46,9 @@ main() {  # 함수로 감싸 전체를 먼저 읽는다(git checkout 이 실행 
   [ -z "$missing" ] || echo "!! env 에 없는 설정: $missing— deploy/env.example 을 보고 sudoedit $env 로 추가한 뒤 서비스를 재시작"
 
   sleep 3
-  systemctl is-active -q duty-generator && echo "== 완료: 웹 실행 중" || { echo "!! 웹이 뜨지 않음:"; tail -n 30 /var/log/duty_generator/web.log; exit 1; }
+  systemctl is-active -q duty-generator || { echo "!! 웹이 뜨지 않음:"; tail -n 30 /var/log/duty_generator/web.log; exit 1; }
+  systemctl enable -q --now duty-health.timer
+  echo "== 완료: 웹 실행 중"
 }
 
 main "$@"
