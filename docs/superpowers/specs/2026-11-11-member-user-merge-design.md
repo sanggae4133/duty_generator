@@ -1,12 +1,12 @@
 # 멤버·계정(User) 통합 설계
 
 사용자 요청(2026-11-10 제안, 2026-11-11 진행 결정): 당번표 멤버 칼럼을 실제 서비스 계정(User)에 붙여 한 테이블로 만든다. 멤버 코드는 로그인 아이디로 쓰고 PK는 따로 둔다.
-결정 과정: Claude 초안 → 사용자 결정(재직·로그인 한 칸, 방식 A 새 스키마+변환, 코드=아이디, 시트 가져오기·API 삭제) → Codex 토론(개정 1: 마이그레이션 생성·구 DB 차단·WAL 안전 전환·사전 검사·필드 보존·후보/역사 구분·PK 보존).
+결정 과정: Claude 초안 → 사용자 결정(재직·로그인 한 칸, 방식 A 새 스키마+변환, 코드=아이디, 시트 가져오기·API 삭제) → Codex 토론(개정 1: 마이그레이션 생성·구 DB 차단·WAL 안전 전환·사전 검사·필드 보존·후보/역사 구분·PK 보존 / 개정 2: 2단계 배포, 복원 가드, 재실행 방지).
 
 ## 범위
 
 1. `Member` 모델을 없애고 커스텀 사용자 모델 `duty.User`(AUTH_USER_MODEL)에 근무표 칸을 붙인다.
-2. 기존 마이그레이션 0001~0009를 지우고 **`makemigrations`로 새 `0001_v2`를 생성**한다(손으로 합치지 않음). 이름을 `0001_initial`과 다르게 해서 예전 DB에 실수로 `migrate`하면 "테이블이 이미 있음"으로 바로 실패하게 한다.
+2. 기존 마이그레이션 0001~0009를 지우고 **`makemigrations`로 새 `0001_v2`를 생성**한다(손으로 합치지 않음). 이름을 `0001_initial`과 다르게 해서 예전 DB에 실수로 `migrate`하면 확실히 실패하게 한다(테이블 충돌 또는 `InconsistentMigrationHistory`). 실제 보호는 아래 운영 스크립트 가드가 맡는다.
 3. 함께 삭제: `import_sheets` 명령·`duty/importer.py`·관련 테스트, `openpyxl` 의존성(lock 포함), `/api/assignments`·`duty/api.py`·`api_assignments` URL·테스트·`DUTY_API_TOKEN`(settings·test_settings·env.example·README·CLAUDE.md).
 
 ## 데이터 모델
@@ -69,16 +69,15 @@
 
 - 원본: `PRAGMA quick_check` = ok, `PRAGMA foreign_key_check` 결과 없음, `django_migrations`의 duty 행이 정확히 0001~0009(이름 집합 일치), 필요한 테이블·칼럼 존재.
 - 대상: `django_migrations`의 duty 행이 `0001_v2` 하나, 업무 테이블(부서·사용자·회차·배정·변경기록·설정·캘린더·텔레그램·푸시·규칙·발송) 모두 비어 있음.
-- 최종 사용자 집합: username 중복 없음, name 중복 없음, 멤버 코드가 Django username validator 통과, 멤버와 연결되지 않은 계정의 username이 어떤 멤버 코드·이름과도 겹치지 않음, 그 계정의 username이 name으로 쓸 수 있음(32자 이하·이름 validator 통과).
+- 최종 사용자 집합(만들 User 각각): `username`·`name` 필드의 길이·validator 전부 실행(SQLite는 길이를 강제하지 않으므로 기존 멤버 이름도 검사), username 중복 없음, name 중복 없음.
 - `auth_user_groups`·`auth_user_user_permissions`·`auth_group`에 행이 있으면 거부(쓰지 않는 기능, 있으면 사람이 판단).
-- 멤버와 연결되지 않은 계정의 id 문제 없음(아래 PK 규칙으로 새로 매김).
 
 ### 사용자 만들기 (전체가 한 트랜잭션)
 
 - 멤버마다 User 1개, **`id = 예전 멤버 id`**, `username=code`, name·department·part·type 복사.
   - 연결된 계정이 있으면 그 계정의 `password`·`is_staff`·`is_superuser`·`last_login`·`date_joined`·`first_name`·`last_name`·`email` 복사, `is_active = member.is_active and user.is_active`, `must_change_password` 복사. 계정 username이 코드와 달랐으면 코드를 쓰고 건수만 출력.
   - 없으면 사용할 수 없는 비밀번호, `is_active=member.is_active`, `date_joined=변환 시각`.
-- 멤버와 연결되지 않은 계정마다 User 1개, `id = (멤버 id 최댓값 + 순번)`, username·비밀번호·권한·활성·시각·이름 칸 그대로, `name=username`, 부서 없음.
+- 멤버와 연결되지 않은 계정마다 User 1개, `auth_user.id` 순서대로 `id = (멤버 id 최댓값 또는 0) + 1, +2, …`, username·비밀번호·권한·활성·시각·이름 칸 그대로, `name=username`, 부서 없음.
 - 대응표: 예전 멤버 id → 같은 id(항등), 예전 `auth_user.id` → 새 id.
 
 ### 복사
@@ -90,20 +89,31 @@
 - 끝에 테이블별 예전/새 건수 출력. 기본 알림 규칙은 만들지 않는다(예전 규칙만 복사).
 - PK를 지정해 넣어도 SQLite `AUTOINCREMENT`의 `sqlite_sequence`가 따라오므로 이후 새 행 id가 겹치지 않는다(모든 복사 테이블에서 테스트).
 
-## 운영 전환 (1회) — `deploy/convert-v2.sh`
+## 운영 전환 — 2단계 배포
 
-일반 `upgrade.sh`로는 전환할 수 없다. `upgrade.sh`는 **현재 DB에 `duty.0009_calendarfeed`가 기록돼 있고 대상 버전이 v2면 서비스를 멈추기 전에 거부**하고 `convert-v2.sh`를 안내한다.
+운영 서버에서 돌고 있는 `upgrade.sh`는 **지금 설치된 버전의 것**이라, v2 커밋에 넣은 가드는 첫 전환 때 실행되지 않는다. 그래서 두 번에 나눠 배포한다.
 
-`sudo deploy/convert-v2.sh` (set -euo pipefail, main 함수):
-1. 웹·알림·점검 타이머 중지.
-2. `sqlite3 .backup`으로 `/var/backups/duty_generator/before-v2.sqlite3`(WAL 포함 일관된 단일 파일). 이 파일에 `quick_check`=ok, `foreign_key_check` 비어 있음 확인.
-3. 원본 DB·`-wal`·`-shm`을 **이름 그대로** `/var/lib/duty_generator/v1/`로 옮긴다(롤백용, 건드리지 않음).
-4. 코드 갱신·lock 설치·collectstatic(upgrade.sh와 같은 단계).
-5. 빈 새 DB에 `migrate` → `convert_v1 /var/backups/duty_generator/before-v2.sqlite3`.
-6. 서비스·점검 타이머 시작, 웹 active 확인.
-- 실패하면 멈춘다. 롤백: 서비스 중지 → 새 DB 지우기 → `v1/`의 세 파일을 원래 자리로 → 예전 버전 코드(스크립트가 처음 출력한 버전)로 `git checkout`·설치 → 시작. README에 정확한 명령.
-- 모두 다시 로그인해야 한다. 개발 DB로 리허설한 뒤 운영에서 실행.
-- `convert_v1`·`convert-v2.sh`·`upgrade.sh`의 v1 거부 검사는 전환이 끝난 뒤 다음 정리 때 지워도 된다.
+### 1단계: 준비 릴리스 (스키마는 v1 그대로, 별도 PR)
+
+- `deploy/dbcheck.py`(표준 라이브러리 `sqlite3`만, Django 없이 실행): `dbcheck.py version <DB 파일>` → `v1`(duty 마이그레이션에 `0009_calendarfeed` 있음) / `v2`(`0001_v2` 있음) / `unknown`. `dbcheck.py fits <DB 파일> <마이그레이션 폴더>` → 백업의 duty 마이그레이션이 모두 그 폴더에 있으면 0, 아니면 1. 셸 스크립트는 판단을 이 파일에 맡긴다(pytest로 단위 테스트).
+- `upgrade.sh`: fetch 후 **서비스를 멈추기 전에** 대상 버전에 `duty/migrations/0001_v2.py`가 있고 현재 DB가 `v1`이면 거부하고 `convert-v2.sh`를 안내.
+- `restore.sh`: **서비스를 멈추기 전에** `dbcheck.py fits <백업> duty/migrations`가 실패하면 거부("이 백업은 지금 코드와 구조가 다릅니다 — 예전 코드로 완전 롤백하거나, v1 백업이면 빈 v2 DB에 `convert_v1`로 옮기세요"). README의 "오래된 백업이면 migrate로 맞춘다"는 같은 세대 안에서만이라고 명시.
+- `deploy/convert-v2.sh [대상 버전, 기본 origin/main]` (set -euo pipefail, main 함수):
+  1. 사전 확인(아무것도 바꾸기 전): root, 현재 DB `version`=`v1`, 대상 버전에 `0001_v2.py` 있음, `before-v2.sqlite3`와 `/var/lib/duty_generator/v1/`가 **아직 없음**(있으면 덮어쓰지 않고 중단, 수동 복구 안내). 지금 버전 출력(롤백용).
+  2. 알림 서비스의 enabled 상태 기억, 점검 타이머·알림·웹 중지.
+  3. `.backup`으로 `/var/backups/duty_generator/before-v2.sqlite3`, `quick_check`=ok·`foreign_key_check` 비어 있음 확인.
+  4. 본 DB를 `/var/lib/duty_generator/v1/`로 이동, `-wal`·`-shm`은 **있을 때만** 이름 그대로 이동.
+  5. 대상 버전 checkout, lock 설치, collectstatic.
+  6. 빈 새 DB에 `migrate` → `convert_v1 /var/backups/duty_generator/before-v2.sqlite3`.
+  7. 웹 시작·active 확인, 알림은 원래 enabled였을 때만 시작, 점검 타이머 enable.
+- 실패하면 그 자리에서 멈춘다(재실행은 1번 검사가 막음). 롤백 명령(README): 서비스 중지 → 새 DB·`-wal`·`-shm` 삭제 → `v1/`에 있는 파일만 원래 자리로 → 처음 출력된 버전으로 checkout·lock 설치·collectstatic → 시작 → `before-v2.sqlite3`·`v1/`는 다음 시도 전에 다른 이름으로 치워 둔다.
+- 1단계는 운영에 일반 `upgrade.sh`로 올린다(스키마 변화 없음).
+
+### 2단계: v2 릴리스 (이 설계의 본 PR)
+
+- 운영에서 1단계가 설치된 것을 확인한 뒤 `sudo /opt/duty_generator/deploy/convert-v2.sh`. 모두 다시 로그인해야 한다. 개발 DB로 먼저 리허설.
+- 그 뒤로는 일반 `upgrade.sh`. v1 DB 상태에서 실수로 `upgrade.sh`를 돌리면 1단계 가드가 서비스 중지 전에 거부한다.
+- `convert_v1`·`convert-v2.sh`·v1 가드는 전환이 끝난 뒤 다음 정리 때 지워도 된다.
 
 ## 테스트
 
@@ -116,7 +126,8 @@
   - 사전 검사 실패 각각(원본 버전·quick_check, 대상 비어 있지 않음, username·name 충돌, validator 위반, 그룹/권한 행, 원본=대상 경로) → 대상에 아무것도 없음
   - 중간 고의 실패(monkeypatch) → 대상 전체 롤백
 - **동작**: 퇴사(재직 끔) 계정 로그인 거부(스태프 포함)·기존 세션 익명화, 퇴사자 기존 배정 표시·제거 가능, 퇴사자 신규 교체·추가·맞교환 불가, 부서 없는 계정 후보·캘린더 제외·보고서 알림 수신, 최초 발급 때만 기본 규칙(초기화 때 안 만듦, 규칙 지운 계정 초기화 후에도 0개), 관리 화면 추가 폼이 비밀번호 없이 unusable password 설정, 발급 액션.
-- **운영 스크립트**: `bash -n`, upgrade.sh의 v1 거부 분기(임시 DB로 판정 함수 단위 확인).
+- **운영 스크립트(1단계)**: `dbcheck.py`를 임시 DB(v1 fixture, v2 빈 DB, 잡 DB)로 단위 테스트 — version 판정, fits(v1 백업 vs v2 마이그레이션 폴더 실패, 같은 세대 성공). `bash -n` 세 스크립트. 사전 확인 순서(서비스 중지 전에 판정·거부)는 코드 리뷰로 확인.
+- **리허설(2단계 전)**: 개발 DB 사본으로 `convert-v2.sh`의 4~6단계와 같은 명령(이동·migrate·convert_v1)을 실제로 실행하고, WAL·SHM이 없는 경우도 확인. 실행 결과를 PR에 적는다.
 - 기존 테스트 전체를 새 모델로 옮겨 통과(`-W error`).
 - 화면 확인(1400px·390px): 관리 화면 사용자 목록·추가·편집, 근무표·근무 변경 팝업 후보, 알림·캘린더 화면.
 
