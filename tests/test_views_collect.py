@@ -18,7 +18,7 @@ def ctx(depts, make_member, fixed_today):
 
 def test_index_lists_managed_departments(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     body = client.get("/collect/").content.decode()
     assert "매칭엔진실" in body and "정보분배" not in body
 
@@ -26,14 +26,14 @@ def test_index_lists_managed_departments(client, ctx):
 def test_non_manager_forbidden(client, ctx, make_member):
     p, _ = ctx
     other = make_member("남", user=True)
-    client.force_login(other.user)
+    client.force_login(other)
     assert client.get("/collect/").status_code == 403
     assert client.get(f"/collect/{p.pk}/MEMS/").status_code == 403
 
 
 def test_upload_csv(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     f = SimpleUploadedFile("a.csv", "date,새벽,정상,석식교대,야간\n2026-11-09,가,,,\n".encode("utf-8-sig"))
     r = client.post(f"/collect/{p.pk}/MEMS/upload/", {"file": f})
     assert r.status_code == 302
@@ -42,7 +42,7 @@ def test_upload_csv(client, ctx):
 
 def test_upload_errors_are_listed(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     f = SimpleUploadedFile("a.csv", "date,새벽,정상,석식교대,야간\n2026-11-09,없는사람,,,\n".encode())
     r = client.post(f"/collect/{p.pk}/MEMS/upload/", {"file": f})
     assert r.status_code == 400 and "없는사람" in r.content.decode()
@@ -50,7 +50,7 @@ def test_upload_errors_are_listed(client, ctx):
 
 def test_table_form_save(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     r = client.post(f"/collect/{p.pk}/MEMS/", {"c_2026-11-10_normal": "가"})
     assert r.status_code == 302
     assert Commute.objects.get(period=p).date == date(2026, 11, 10)
@@ -58,7 +58,7 @@ def test_table_form_save(client, ctx):
 
 def test_export(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     r = client.get(f"/collect/{p.pk}/MEMS/export.csv")
     assert r.status_code == 200 and r["Content-Type"].startswith("text/csv")
     assert r.content.decode("utf-8-sig").splitlines()[0] == "date,day,새벽,정상,석식교대,야간"
@@ -70,7 +70,7 @@ def _csv(body):
 
 def test_upload_too_large(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     big = SimpleUploadedFile("a.csv", b"x" * 1_000_001)
     r = client.post(f"/collect/{p.pk}/MEMS/upload/", {"file": big}, follow=True)
     assert "파일이 너무 큽니다" in r.content.decode()
@@ -79,7 +79,7 @@ def test_upload_too_large(client, ctx):
 
 def test_manager_of_other_department_forbidden(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     base = f"/collect/{p.pk}/TMCH/"
     assert client.get(base).status_code == 403
     assert client.post(base, {"c_2026-11-10_normal": "가"}).status_code == 403
@@ -91,7 +91,7 @@ def test_manager_of_other_department_forbidden(client, ctx):
 def test_closed_period_saves_nothing(client, ctx):
     p, mgr = ctx
     Period.objects.filter(pk=p.pk).update(status=Period.Status.DRAFT)
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     r = client.post(f"/collect/{p.pk}/MEMS/", {"c_2026-11-10_normal": "가"}, follow=True)
     assert "취합 중인 회차가 아닙니다" in r.content.decode()
     r = client.post(f"/collect/{p.pk}/MEMS/upload/", {"file": _csv("2026-11-09,가,,,\n")}, follow=True)
@@ -105,7 +105,7 @@ def test_past_row_unchanged_ok_changed_rejected(client, ctx, fixed_today):
     member = mgr.__class__.objects.get(name="가")
     Commute.objects.create(period=p, date=date(2026, 11, 9), member=member, shift="normal")
     fixed_today(date(2026, 11, 10))
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     r = client.post(f"/collect/{p.pk}/MEMS/", {"c_2026-11-09_normal": "가", "c_2026-11-10_dawn": "가"})
     assert r.status_code == 302 and Commute.objects.count() == 2
     r = client.post(f"/collect/{p.pk}/MEMS/", {"c_2026-11-09_dawn": "가", "c_2026-11-10_dawn": "가"})
@@ -115,7 +115,7 @@ def test_past_row_unchanged_ok_changed_rejected(client, ctx, fixed_today):
 
 def test_garbage_upload_is_400(client, ctx):
     p, mgr = ctx
-    client.force_login(mgr.user)
+    client.force_login(mgr)
     f = SimpleUploadedFile("a.csv", bytes([0x81, 0xFF, 0xFE, 0x00, 0x80]) * 20)
     r = client.post(f"/collect/{p.pk}/MEMS/upload/", {"file": f})
     assert r.status_code == 400 and "CSV" in r.content.decode()

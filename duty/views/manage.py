@@ -152,7 +152,7 @@ def change_log(request):
 
 MODEL_DESC = {
     "Department": "부서와 부서별 출근조 구성",
-    "Member": "멤버(이름·소속·유형·재직, 로그인 계정 연결)",
+    "User": "사용자 = 로그인 계정 겸 근무표 멤버(아이디=멤버 코드, 이름·부서·파트·구분·재직)",
     "Period": "근무 회차와 상태",
     "Commute": "날짜별 출근조 배정",
     "ControlDuty": "날짜별 장중관제 칸 배정",

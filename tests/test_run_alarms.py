@@ -71,9 +71,16 @@ def fake(monkeypatch):
     return Fake(monkeypatch)
 
 
+def issued(make_member, name):
+    """발급된 계정: 최초 발급 때 생기는 기본 알림 규칙까지."""
+    m = make_member(name, user=True)
+    alarms.create_defaults(m)
+    return m
+
+
 @pytest.fixture
 def member(make_member, env):
-    m = make_member(NAME, user=True)
+    m = issued(make_member, NAME)
     p = Period.objects.create(name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
     Commute.objects.create(period=p, date=D, member=m, shift="dawn")
     return m
@@ -89,7 +96,7 @@ def push_only(user, n=2):
 
 
 def test_default_rule_sends_once(member, fake):
-    verify(member.user)
+    verify(member)
     assert alarm_runner.tick(SUN18) == (1, 1, 0)
     [(dest, text)] = fake.sent
     assert dest == "111" and f"{NAME}님, 내일 새벽 당번" in text
@@ -99,7 +106,7 @@ def test_default_rule_sends_once(member, fake):
 
 
 def test_unverified_or_no_token(member, fake, env):
-    TelegramAlarmProfile.objects.create(user=member.user, chat_id="111")
+    TelegramAlarmProfile.objects.create(user=member, chat_id="111")
     assert alarm_runner.tick(SUN18) == (0, 0, 0)
     TelegramAlarmProfile.objects.update(verified_at=timezone.now())
     env.TELEGRAM_BOT_TOKEN = ""
@@ -108,7 +115,7 @@ def test_unverified_or_no_token(member, fake, env):
 
 
 def test_push_one_device_backoff(member, fake):
-    s1, s2 = push_only(member.user)
+    s1, s2 = push_only(member)
     fake.fail[f"sub:{s1.id}"] = [senders.Temporary(500), senders.Temporary(500)]
     assert alarm_runner.tick(SUN18) == (2, 1, 1)
     assert fake.dests() == [f"sub:{s2.id}"]
@@ -125,7 +132,7 @@ def test_push_one_device_backoff(member, fake):
 
 
 def test_push_payload_ttl(member, fake):
-    push_only(member.user, 1)
+    push_only(member, 1)
     AlarmRule.objects.filter(timing="days").delete()
     AlarmRule.objects.update(offset=1)  # before_start 1분 → 06:29부터
     alarm_runner.tick(at(2026, 11, 16, 6, 29, 50))
@@ -134,7 +141,7 @@ def test_push_payload_ttl(member, fake):
 
 
 def test_ttl_30_days(member, fake, fixed_today):
-    push_only(member.user, 1)
+    push_only(member, 1)
     AlarmRule.objects.filter(timing="before_start").delete()
     AlarmRule.objects.update(offset=30, at_minute=6 * 60 + 30)
     fixed_today(date(2026, 10, 17))
@@ -143,7 +150,7 @@ def test_ttl_30_days(member, fake, fixed_today):
 
 
 def test_content_change_skips_backoff(member, fake):
-    [s] = push_only(member.user, 1)
+    [s] = push_only(member, 1)
     fake.fail[f"sub:{s.id}"] = [senders.Temporary(), senders.Temporary()]
     alarm_runner.tick(SUN18)
     member.name = "가상인물2"
@@ -156,7 +163,7 @@ def test_content_change_skips_backoff(member, fake):
 
 
 def test_retry_later_and_permanent(member, fake):
-    s1, s2 = push_only(member.user)
+    s1, s2 = push_only(member)
     AlarmRule.objects.filter(timing="before_start").delete()
     fake.fail[f"sub:{s1.id}"] = [senders.RetryLater(120, 429), senders.RetryLater(0, 429), senders.RetryLater(None, 429)]
     fake.fail[f"sub:{s2.id}"] = senders.Permanent(400)
@@ -178,7 +185,7 @@ def test_retry_later_and_permanent(member, fake):
 
 
 def test_retry_later_past_expiry_gives_up(member, fake):
-    [s] = push_only(member.user, 1)
+    [s] = push_only(member, 1)
     AlarmRule.objects.filter(timing="before_start").delete()
     fake.fail[f"sub:{s.id}"] = senders.RetryLater(86400, 429)
     alarm_runner.tick(SUN18)
@@ -187,7 +194,7 @@ def test_retry_later_past_expiry_gives_up(member, fake):
 
 
 def test_gone_deletes_subscription(member, fake):
-    s1, s2 = push_only(member.user)
+    s1, s2 = push_only(member)
     fake.fail[f"sub:{s1.id}"] = senders.Gone(410)
     alarm_runner.tick(SUN18)
     assert not PushAlarmSubscription.objects.filter(id=s1.id).exists()
@@ -195,7 +202,7 @@ def test_gone_deletes_subscription(member, fake):
 
 
 def test_unexpected_exception_is_temporary(member, fake, caplog):
-    [s] = push_only(member.user, 1)
+    [s] = push_only(member, 1)
     fake.fail[f"sub:{s.id}"] = ValueError("secret-key-material")
     with caplog.at_level(logging.INFO):
         assert alarm_runner.tick(SUN18) == (1, 0, 1)
@@ -205,7 +212,7 @@ def test_unexpected_exception_is_temporary(member, fake, caplog):
 
 
 def test_no_cancel_after_failed_first(member, fake):
-    [s] = push_only(member.user, 1)
+    [s] = push_only(member, 1)
     fake.fail[f"sub:{s.id}"] = senders.Permanent(400)
     alarm_runner.tick(SUN18)
     Commute.objects.all().delete()
@@ -214,7 +221,7 @@ def test_no_cancel_after_failed_first(member, fake):
 
 
 def test_unpublish_cancels_only_successful(member, fake):
-    s1, s2 = push_only(member.user)
+    s1, s2 = push_only(member)
     fake.fail[f"sub:{s2.id}"] = senders.Permanent(400)
     alarm_runner.tick(SUN18)
     fake.dests()
@@ -230,7 +237,7 @@ def test_naive_now():
 
 
 def test_cleanup_by_work_date(member, fake):
-    r = AlarmRule.objects.filter(user=member.user).first()
+    r = AlarmRule.objects.filter(user=member).first()
     for d in (SUN - timedelta(days=8), SUN - timedelta(days=7)):
         AlarmDelivery.objects.create(rule=r, date=d, cell="dawn", channel="telegram", destination="1",
                                      status="sent", content_hash="h")
@@ -239,7 +246,7 @@ def test_cleanup_by_work_date(member, fake):
 
 
 def test_failure_log_has_no_name(member, fake, caplog):
-    verify(member.user, "98765")
+    verify(member, "98765")
     fake.fail["98765"] = senders.Temporary(502)
     with caplog.at_level(logging.INFO):
         alarm_runner.tick(SUN18)
@@ -260,7 +267,7 @@ def test_telegram_link_and_limit(env):
 
 def test_telegram_send_includes_link(member, fake, env):
     env.SITE_URL = "https://duty.example/"
-    verify(member.user)
+    verify(member)
     alarm_runner.tick(SUN18)
     assert fake.sent[0][1].endswith("\nhttps://duty.example/day/2026-11-16/")
 
@@ -276,15 +283,15 @@ def test_once_locked_exits_1(env, db):
 
 
 def test_once_runs_tick(member, fake, monkeypatch):
-    verify(member.user)
+    verify(member)
     monkeypatch.setattr(timezone, "now", lambda: SUN18)
     call_command("run_alarms", "--once")
     assert len(fake.sent) == 1
 
 
 def test_dry_run(member, fake, monkeypatch, capsys):
-    verify(member.user)
-    push_only(member.user, 1)
+    verify(member)
+    push_only(member, 1)
     AlarmRule.objects.filter(timing="days").update(telegram=True)
     monkeypatch.setattr(timezone, "now", lambda: SUN18)
     call_command("run_alarms", "--dry-run")
@@ -309,9 +316,9 @@ def test_telegram_link_too_long_is_dropped(env):
 
 def test_long_site_url_warns_once_without_url(member, fake, env, caplog):
     env.SITE_URL = "https://secret-host.example/" + "x" * 4000
-    verify(member.user)
+    verify(member)
     AlarmRule.objects.filter(timing="days").update(push=True)
-    PushAlarmSubscription.objects.create(user=member.user, endpoint="e", p256dh="p", auth="a")
+    PushAlarmSubscription.objects.create(user=member, endpoint="e", p256dh="p", auth="a")
     with caplog.at_level(logging.WARNING):
         alarm_runner.tick(SUN18)
     assert len(fake.sent) == 2 and len(fake.sent[0][1]) <= 4000
@@ -319,7 +326,7 @@ def test_long_site_url_warns_once_without_url(member, fake, env, caplog):
 
 
 def test_failure_keeps_last_sent_hash(member, fake):
-    verify(member.user)
+    verify(member)
     alarm_runner.tick(SUN18)
     old = AlarmDelivery.objects.get().last_sent_hash
     member.name = "가상인물2"
@@ -338,9 +345,9 @@ def test_log_has_no_token_or_endpoint(member, monkeypatch, env, caplog):
     token = "1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"
     endpoint = "https://fcm.googleapis.com/fcm/send/secret-endpoint-abc"
     env.TELEGRAM_BOT_TOKEN = token
-    verify(member.user)
+    verify(member)
     AlarmRule.objects.filter(timing="days").update(push=True)
-    PushAlarmSubscription.objects.create(user=member.user, endpoint=endpoint, p256dh="p", auth="a")
+    PushAlarmSubscription.objects.create(user=member, endpoint=endpoint, p256dh="p", auth="a")
 
     def boom_url(*a, **kw):
         raise OSError(f"connect failed {a[0].full_url}")
@@ -359,7 +366,7 @@ def test_log_has_no_token_or_endpoint(member, monkeypatch, env, caplog):
 
 def test_recheck_failure_deletes_subscription(member, fake, monkeypatch):
     # 저장된 endpoint가 현재 검사에 걸리면 보내지 않고 Gone처럼 구독을 지운다
-    s1, s2 = push_only(member.user)
+    s1, s2 = push_only(member)
     PushAlarmSubscription.objects.filter(id=s1.id).update(endpoint="https://evil.example\\.fcm.googleapis.com/x")
     monkeypatch.setattr(senders, "push_send", REAL_PUSH_SEND)
     monkeypatch.setattr(senders, "webpush", lambda **kw: pytest.fail("발송되면 안 됨"))
@@ -424,26 +431,35 @@ def report_rule(user):
 
 
 @pytest.mark.parametrize("staff", [False, True])
-def test_inactive_member_report_rule(member, fake, staff):
-    report_rule(member.user)
-    verify(member.user)
+def test_inactive_user_gets_no_alarms(member, fake, staff):
+    report_rule(member)
+    verify(member)
     member.is_active = False
+    member.is_staff = staff  # 스태프도 예외 없음
     member.save()
-    member.user.is_staff = staff
-    member.user.save()
     alarm_runner.tick(SUN18)
-    assert len(fake.sent) == (1 if staff else 0)
+    assert fake.sent == []
+
+
+def test_no_department_admin_gets_report_with_departed_member(member, fake, admin_user):
+    report_rule(admin_user)
+    verify(admin_user, "999")
+    member.is_active = False  # 퇴사자의 근무도 보고서에는 그대로
+    member.save()
+    alarm_runner.tick(SUN18)
+    [(dest, text)] = fake.sent
+    assert dest == "999" and NAME in text
 
 
 def test_invalid_rule_does_not_stop_tick(member, fake, make_member, caplog):
     from django.db import connection
-    verify(member.user)
-    bad = make_member("가상둘", user=True)
-    verify(bad.user, "222")
+    verify(member)
+    bad = issued(make_member, "가상둘")
+    verify(bad, "222")
     with connection.cursor() as c:
         c.execute("PRAGMA ignore_check_constraints = ON")
         try:
-            AlarmRule.objects.filter(user=bad.user).update(timing="weird")
+            AlarmRule.objects.filter(user=bad).update(timing="weird")
         finally:
             c.execute("PRAGMA ignore_check_constraints = OFF")
     with caplog.at_level(logging.WARNING):
@@ -453,11 +469,11 @@ def test_invalid_rule_does_not_stop_tick(member, fake, make_member, caplog):
 
 
 def two_users(member, make_member):
-    verify(member.user)
-    other = make_member("가상둘", user=True)
+    verify(member)
+    other = issued(make_member, "가상둘")
     Commute.objects.create(period=Period.objects.get(), date=D, member=other, shift="dawn")
-    verify(other.user, "222")
-    return AlarmRule.objects.get(user=member.user, timing="days")
+    verify(other, "222")
+    return AlarmRule.objects.get(user=member, timing="days")
 
 
 @pytest.mark.parametrize("change", ["toggle", "save", "delete"])
@@ -466,9 +482,9 @@ def test_rule_changed_during_send(member, fake, make_member, change):
     rule = two_users(member, make_member)
     AlarmRule.objects.filter(id=rule.id).update(push=True)
     [s] = PushAlarmSubscription.objects.bulk_create(
-        [PushAlarmSubscription(user=member.user, endpoint="e0", p256dh="p", auth="a")])
+        [PushAlarmSubscription(user=member, endpoint="e0", p256dh="p", auth="a")])
     acts = {"toggle": lambda: alarms.toggle_rule(AlarmRule.objects.get(id=rule.id)),
-            "save": lambda: alarms.save_rule(member.user, dict(
+            "save": lambda: alarms.save_rule(member, dict(
                 kind="personal", timing="days", offset=1, at_minute=17 * 60, telegram=True, push=True,
                 shifts=["dawn", "dinner", "night"], depts=[], types=[]), AlarmRule.objects.get(id=rule.id)),
             "delete": lambda: alarms.delete_rule(AlarmRule.objects.get(id=rule.id))}
@@ -492,13 +508,13 @@ def test_failed_record_skipped_when_rule_deleted(member, fake, make_member):
 
 
 def test_push_owner_changed_during_send(member, fake, make_member):
-    rule = AlarmRule.objects.get(user=member.user, timing="days")
+    rule = AlarmRule.objects.get(user=member, timing="days")
     AlarmRule.objects.filter(id=rule.id).update(push=True)
-    verify(member.user)
+    verify(member)
     [s] = PushAlarmSubscription.objects.bulk_create(
-        [PushAlarmSubscription(user=member.user, endpoint="e0", p256dh="p", auth="a")])
-    other = make_member("가상둘", user=True)
-    fake.during["111"] = lambda: PushAlarmSubscription.objects.filter(id=s.id).update(user=other.user)
+        [PushAlarmSubscription(user=member, endpoint="e0", p256dh="p", auth="a")])
+    other = issued(make_member, "가상둘")
+    fake.during["111"] = lambda: PushAlarmSubscription.objects.filter(id=s.id).update(user=other)
     alarm_runner.tick(SUN18)
     assert fake.dests() == ["111"]
     assert not AlarmDelivery.objects.filter(destination=f"sub:{s.id}").exists()

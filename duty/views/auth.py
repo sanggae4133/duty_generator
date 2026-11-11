@@ -2,8 +2,6 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 
-from .. import perms
-
 
 class DifferentPasswordForm(PasswordChangeForm):
     def clean(self):
@@ -20,8 +18,8 @@ class PasswordChange(auth_views.PasswordChangeView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        member = perms.member_of(self.request.user)
-        if member and member.must_change_password:
-            member.must_change_password = False
-            member.save(update_fields=["must_change_password"])
+        user = self.request.user
+        if user.must_change_password:
+            user.must_change_password = False
+            user.save(update_fields=["must_change_password"])
         return response

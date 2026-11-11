@@ -33,7 +33,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 - 캘린더 구독: `CalendarFeed`엔 토큰 SHA-256 해시만 저장(원문은 발급 응답에 1회만, 리다이렉트·messages·세션 금지). 피드 `/calendar/<토큰>.ics`는 로그인·CSRF 예외이고 `django.request`·`django.server` 로그에서 경로를 지운다(`duty/logging.py`). `duty/ics.py`는 ORM 없는 순수 모듈.
 
 ## 도메인 기준
-- 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·API가 같은 키를 쓴다.
+- 칸(cell) 키 14개: 출근조 `dawn`/`normal`/`dinner`/`night`, 관제 `slot0`~`slot9`. ChangeLog·화면·알림이 같은 키를 쓴다.
 - 대상 날짜는 회차 기간의 월~금(휴장일 처리 없음).
 - 출근조는 한 사람이 하루 하나만(DB 제약). 관제는 한 사람이 하루 여러 칸 가능(대신 서기, 경고만). 자동 생성은 한 사람에게 하루 한 칸만 배정한다.
 - 관제 자격: `type == "개발자"`이고 그날 그 칸의 자격 출근조에 있음. 생성 카운트 풀은 기간 중 한 번이라도 자격 있는 개발자만. 목표 편차 2 이하.
@@ -41,8 +41,9 @@ DUTY_DEBUG=1 .venv/bin/python manage.py runserver
 - 근무 변경: 출근조 칸은 교체·추가·제거, 관제 칸은 교체만, 맞교환은 같은 종류끼리. 동시 수정은 먼저 저장한 쪽이 반영되고 늦은 쪽은 오류.
 - ChangeLog `before`/`after`: 교체 `A>B`, 추가 `+B`, 제거(취소선). `replaced`는 그 칸에 그 사람을 들인 마지막 기록의 before.
 - 배포 덮어쓰기: 다른 배포 회차의 `[S, B 종료일]` 행을 지우고 B의 `S` 이전 행을 지운다. ChangeLog는 남긴다.
-- 멤버 이름은 전체에서 고유하고 `>`, `,`, 줄바꿈을 쓸 수 없으며 `+`로 시작할 수 없다(체인·CSV 문법 문자).
-- 어드민: 웹 화면 어드민 기능은 `is_staff`, Django 관리 화면(멤버·계정 발급·잠금 해제)은 슈퍼유저(어드민 1~2명 가정).
+- 멤버 = 사용자 `duty.User`(AUTH_USER_MODEL, `username` = 멤버 코드). 근무표 후보는 `User.objects.roster()`(재직·부서 있음)만, 표시·기록·통계는 퇴사자·부서 없는 계정도 그대로. 재직(`is_active`)을 끄면 로그인도 막힌다. 기본 알림 규칙은 최초 계정 발급(`issue_account`) 때만 만든다.
+- 멤버 이름(`User.name`)은 전체에서 고유하고 `>`, `,`, 줄바꿈을 쓸 수 없으며 `+`로 시작할 수 없다(체인·CSV 문법 문자).
+- 어드민: 웹 화면 어드민 기능은 `is_staff`, Django 관리 화면(사용자·계정 발급·잠금 해제)은 슈퍼유저(어드민 1~2명 가정).
 
 ## 보안·개인정보
 - Tailscale Funnel로 공개되는 앱이다. 로그인 잠금은 사용자명 기준.

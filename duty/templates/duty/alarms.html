@@ -152,7 +152,7 @@
     </script>
   {% endif %}
   {% if cal %}<p>발급일 {{ cal.issued_at|date:"Y-m-d H:i" }}</p>{% endif %}
-  {% if not cal_member and not cal_error %}<p>멤버와 연결된 계정만 쓸 수 있습니다.</p>{% endif %}
+  {% if not cal_member and not cal_error %}<p>근무표 대상 계정만 쓸 수 있습니다.</p>{% endif %}
   <div class="row-btns">
     {% if cal_member %}
       {% if cal %}

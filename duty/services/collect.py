@@ -5,7 +5,7 @@ from django.db.models import Count
 from .. import perms
 from ..csv_io import CommuteTable, CsvError, CsvInvalid, export_commute_csv, parse_commute_csv
 from ..errors import DutyError
-from ..models import Commute, Department, Member, Period
+from ..models import Commute, Department, Period, User
 from ..shifts import COMMUTE_SHIFTS
 
 
@@ -21,7 +21,7 @@ def load_table(period: Period, dept: Department) -> CommuteTable:
     rows = (
         Commute.objects.filter(period=period, member__department=dept)
         .select_related("member")
-        .order_by("date", "member__code")
+        .order_by("date", "member__username")
     )
     for c in rows:
         table.setdefault(c.date, {}).setdefault(c.shift, []).append(c.member.name)
@@ -37,7 +37,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     valid_dates = set(period.dates())
     shift_keys = dept.shift_keys()
     existing = load_table(period, dept)
-    members = set(Member.objects.filter(department=dept, is_active=True).values_list("name", flat=True))
+    members = set(User.objects.roster().filter(department=dept).values_list("name", flat=True))
     for d in sorted(table):
         col = d.isoformat()
         if d not in valid_dates:
@@ -71,7 +71,7 @@ def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> 
     errors = validate_table(user, period, dept, table)
     if errors:
         raise CsvInvalid(errors)
-    by_name = {m.name: m for m in Member.objects.filter(department=dept)}
+    by_name = {m.name: m for m in User.objects.filter(department=dept)}
     Commute.objects.filter(period=period, member__department=dept).delete()
     rows = [
         Commute(period=period, date=d, member=by_name[n], shift=key)

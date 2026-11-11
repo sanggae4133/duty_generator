@@ -41,3 +41,11 @@ def test_period_duty_counts(make_member):
     Commute.objects.create(period=p, date=D1, member=make_member("다"), shift="normal")  # 자격 있지만 0회
     counts, spread, reached = period_duty_counts(p)
     assert counts == [("다", 0), ("가", 1), ("나", 2)] and spread == 2 and reached
+
+
+def test_departed_member_history_stays_in_stats(make_member):
+    setup_period(make_member)
+    from duty.models import User
+    User.objects.filter(name="나").update(is_active=False)
+    by = {r.name: r for r in member_stats(None, None)[0]}
+    assert by["나"].duty == 2

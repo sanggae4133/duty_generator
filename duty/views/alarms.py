@@ -8,7 +8,6 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import perms
 from ..alarms import senders
 from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
@@ -69,7 +68,7 @@ def _index(request, **extra):
         "vapid_key": settings.VAPID_PUBLIC_KEY,
         "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
         "cal": CalendarFeed.objects.filter(user=request.user).first(),
-        "cal_member": perms.member_of(request.user) is not None,
+        "cal_member": request.user.department_id is not None,
         **extra,
     })
 

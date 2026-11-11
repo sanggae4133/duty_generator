@@ -4,13 +4,13 @@
   <label>From
     <select name="before">
       {% if not slot %}<option value="">(미선택)</option>{% endif %}
-      {% for m in current_members %}<option value="{{ m.code }}">{{ m.name }}</option>{% endfor %}
+      {% for m in current_members %}<option value="{{ m.username }}">{{ m.name }}</option>{% endfor %}
     </select>
   </label>
   <label>To
     <select name="after">
       {% if not slot %}<option value="">(미선택)</option>{% endif %}
-      {% for m in members %}<option value="{{ m.code }}">{{ m.name }} · {{ m.department.name }}</option>{% endfor %}
+      {% for m in members %}<option value="{{ m.username }}">{{ m.name }} · {{ m.department.name }}</option>{% endfor %}
     </select>
   </label>
   <button>변경</button>

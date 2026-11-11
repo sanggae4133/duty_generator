@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from .. import ics, perms
 from ..errors import DutyError
-from ..models import CalendarFeed, ChangeLog, Member, Period
+from ..models import CalendarFeed, ChangeLog, Period
 from ..shifts import CELLS, COMMUTE_SHIFTS, cell_end, cell_label, cell_start, is_slot_cell
 from . import roster
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 NAME = "IT 당번(내 일정)"
 WINDOW = timedelta(days=90)
 TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{43}")
-NO_MEMBER = "멤버와 연결된 계정만 쓸 수 있습니다."
+NO_MEMBER = "근무표 대상 계정만 쓸 수 있습니다."
 NO_SITE_URL = "서버 주소(DUTY_SITE_URL)가 설정되지 않아 구독 주소를 만들 수 없습니다. 관리자에게 문의하세요."
 
 
@@ -32,7 +32,7 @@ def _hash(token: str) -> str:
 
 def issue(user) -> str:
     """구독 주소를 새로 만든다(재발급이면 이전 주소는 바로 무효). 반환값 = 절대 URL."""
-    if perms.member_of(user) is None:
+    if user.department_id is None:
         raise DutyError(NO_MEMBER)
     if not settings.SITE_URL:
         raise DutyError(NO_SITE_URL)
@@ -54,19 +54,18 @@ def revoke(user) -> None:
 
 
 def feed(token: str) -> bytes | None:
-    """토큰의 ICS 본문. 모르는 토큰이면 None(404). 퇴사·비활성·미연결이면 빈 캘린더."""
+    """토큰의 ICS 본문. 모르는 토큰이면 None(404). 퇴사(비활성)·부서 없음이면 빈 캘린더."""
     if not TOKEN_RE.fullmatch(token):
         return None
     row = CalendarFeed.objects.select_related("user").filter(token_hash=_hash(token)).first()
     if row is None:
         return None
-    member = Member.objects.filter(user=row.user).first()
-    if not (row.user.is_active and member and member.is_active):
+    if not (row.user.is_active and row.user.department_id):
         return ics.calendar(NAME, [])
-    return ics.calendar(NAME, _events(member))
+    return ics.calendar(NAME, _events(row.user))
 
 
-def _events(member: Member) -> list[ics.Event]:
+def _events(member) -> list[ics.Event]:
     since = perms.today() - WINDOW
     days = roster.published_days(since, None)
     published = dict(Period.objects.filter(pk__in={d.period_id for d in days}).values_list("pk", "published_at"))

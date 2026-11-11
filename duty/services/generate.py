@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
-from ..models import Commute, ControlDuty, Member, Period
+from ..models import Commute, ControlDuty, Period, User
 from ..shifts import DEVELOPER
 from .periods import missing_dates
 
@@ -24,12 +24,12 @@ def run_generation(period: Period, seed: int | None = None) -> GenerationOutput:
         seed = random.SystemRandom().randrange(2**31)
 
     commutes: dict = defaultdict(lambda: defaultdict(set))
-    for d, shift, code in Commute.objects.filter(period=period).values_list("date", "shift", "member__code"):
+    for d, shift, code in Commute.objects.filter(period=period).values_list("date", "shift", "member__username"):
         commutes[d][shift].add(code)
-    developers = set(Member.objects.filter(type=DEVELOPER, is_active=True).values_list("code", flat=True))
+    developers = set(User.objects.roster().filter(type=DEVELOPER).values_list("username", flat=True))
     out = generate_control_duty(period.dates(), commutes, developers, seed)  # GenerationError 전파
 
-    by_code = {m.code: m for m in Member.objects.filter(code__in=out.counts)}
+    by_code = {m.username: m for m in User.objects.filter(username__in=out.counts)}
     with transaction.atomic():
         ControlDuty.objects.filter(period=period).delete()
         ControlDuty.objects.bulk_create(

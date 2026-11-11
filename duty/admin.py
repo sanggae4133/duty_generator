@@ -1,11 +1,11 @@
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db import transaction
 from django.db.models import Count
 
 from .accounts import issue_account
-from .errors import DutyError
-from .models import Department, Member
+from .models import Department, User
 from .shifts import COMMUTE_SHIFTS
 
 
@@ -22,6 +22,7 @@ class DepartmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["managers"].queryset = User.objects.roster()  # 후보만(퇴사자·부서 없는 계정 제외)
         if self.instance.pk:
             self.initial["shifts"] = self.instance.shift_keys()
 
@@ -52,20 +53,39 @@ class DepartmentAdmin(admin.ModelAdmin):
         return ", ".join(m.name for m in obj.managers.all()) or "(없음)"
 
 
-@admin.register(Member)
-class MemberAdmin(admin.ModelAdmin):
-    list_display = ["code", "name", "department", "part", "type", "is_active", "user"]
-    list_filter = ["department", "type", "is_active"]
-    search_fields = ["code", "name"]
-    raw_id_fields = ["user"]
+class UserAddForm(forms.ModelForm):
+    """추가는 비밀번호 없이: 사용할 수 없는 비밀번호로 만들고 [계정 발급] 액션으로 임시 비밀번호를 준다."""
+
+    class Meta:
+        model = User
+        fields = ["username", "name", "department", "part", "type"]
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_unusable_password()
+        if commit:
+            user.save()
+        return user
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    add_form = UserAddForm
+    add_form_template = None  # 기본 안내("아이디와 비밀번호를 먼저…")가 맞지 않아 일반 추가 화면을 쓴다
+    add_fieldsets = ((None, {"fields": ("username", "name", "department", "part", "type")}),)
+    fieldsets = (
+        (None, {"fields": ("username", "password", "must_change_password")}),
+        ("근무표", {"fields": ("name", "department", "part", "type")}),
+        *DjangoUserAdmin.fieldsets[2:],  # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지)
+    )
+    list_display = ["username", "name", "department", "part", "type", "is_active", "is_staff"]
+    list_filter = ["department", "type", "is_active", "is_staff"]
+    search_fields = ["username", "name"]
+    list_select_related = ["department"]
     actions = ["issue_accounts"]
 
     @admin.action(description="계정 발급 / 비밀번호 초기화")
     def issue_accounts(self, request, queryset):
-        try:
-            with transaction.atomic():  # 중간 실패 시 이미 발급된 비밀번호가 사라지지 않도록 전체 롤백
-                lines = [f"{m.name}({m.code}): {issue_account(m)}" for m in queryset]
-        except DutyError as e:
-            self.message_user(request, str(e), messages.ERROR)
-            return
+        with transaction.atomic():  # 중간 실패 시 이미 발급된 비밀번호가 사라지지 않도록 전체 롤백
+            lines = [f"{u.name}({u.username}): {issue_account(u)}" for u in queryset]
         self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. " + " / ".join(lines), messages.WARNING)

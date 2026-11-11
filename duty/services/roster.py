@@ -1,10 +1,10 @@
-"""배포된 근무표 읽기 모델. 화면·API·통계가 공통으로 쓴다."""
+"""배포된 근무표 읽기 모델. 화면·통계·알림·캘린더가 공통으로 쓴다."""
 
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 
-from ..models import ChangeLog, Commute, ControlDuty, Member, Period
+from ..models import ChangeLog, Commute, ControlDuty, Period, User
 from ..shifts import CELLS, cell_label, slot_cell
 
 Log = tuple[str | None, str | None]
@@ -57,7 +57,7 @@ def published_days(start: date | None = None, end: date | None = None) -> list[D
     def slot(d, pid):
         return raw.setdefault(d, {"period": pid, "cells": defaultdict(list)})
 
-    commutes = scoped(Commute.objects).order_by("date", "member__code")
+    commutes = scoped(Commute.objects).order_by("date", "member__username")
     for d, pid, shift, name in commutes.values_list("date", "period_id", "shift", "member__name"):
         slot(d, pid)["cells"][shift].append(name)
     for d, pid, i, name in scoped(ControlDuty.objects).values_list("date", "period_id", "slot", "member__name"):
@@ -88,7 +88,7 @@ def find_day(d: date) -> Day | None:
     return days[0] if days else None
 
 
-def member_schedule(member: Member, start: date) -> list[tuple[date, list[str]]]:
+def member_schedule(member: User, start: date) -> list[tuple[date, list[str]]]:
     out = []
     for day in published_days(start, None):
         labels = [cell_label(c) for c in CELLS if member.name in day.members[c]]

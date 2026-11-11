@@ -21,7 +21,7 @@ def setup(depts, make_member, fixed_today):
     for n in ["가", "나", "다"]:
         make_member(n)
     make_member("타부서", dept="MD")
-    return p, depts["MEMS"], mgr.user
+    return p, depts["MEMS"], mgr
 
 
 def reasons(exc):
@@ -84,7 +84,7 @@ def test_non_manager_forbidden(setup, make_member):
     p, dept, _ = setup
     other = make_member("남", user=True)
     with pytest.raises(PermissionDenied):
-        collect.apply_csv(other.user, p, dept, CSV.encode())
+        collect.apply_csv(other, p, dept, CSV.encode())
 
 
 def test_requires_collecting(setup):
@@ -127,8 +127,8 @@ def test_progress(setup):
 def test_unchanged_date_skips_member_check(setup, make_member):
     p, dept, user = setup
     collect.apply_csv(user, p, dept, CSV.encode())
-    from duty.models import Member
-    Member.objects.filter(name="가").update(is_active=False)
+    from duty.models import User
+    User.objects.filter(name="가").update(is_active=False)
     same_plus = 'date,새벽,정상,석식교대,야간\n2026-11-09,가,"나,다",,\n2026-11-10,,나,,\n'.encode()
     assert collect.apply_csv(user, p, dept, same_plus) == 4
     changed = 'date,새벽,정상,석식교대,야간\n2026-11-09,가,나,,\n'.encode()

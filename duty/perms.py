@@ -5,7 +5,7 @@ from datetime import date
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
-from .models import Department, Member
+from .models import Department
 
 
 def today() -> date:
@@ -16,19 +16,12 @@ def is_admin(user) -> bool:
     return bool(user.is_authenticated and user.is_staff)
 
 
-def member_of(user) -> Member | None:
-    if not user.is_authenticated:
-        return None
-    return getattr(user, "member", None)
-
-
 def managed_departments(user):
     if is_admin(user):
         return Department.objects.all()
-    member = member_of(user)
-    if member is None:
+    if not user.is_authenticated:
         return Department.objects.none()
-    return member.managed_departments.all()
+    return user.managed_departments.all()
 
 
 def can_input_department(user, dept: Department) -> bool:

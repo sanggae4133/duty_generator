@@ -13,8 +13,8 @@ from ..alarms import messages as m
 from ..alarms import senders
 from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
-from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department, Member,
-                      PushAlarmSubscription, TelegramAlarmProfile)
+from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department,
+                      PushAlarmSubscription, TelegramAlarmProfile, User)
 from .alarms import RULE_FIELDS
 from .roster import published_days
 
@@ -84,17 +84,16 @@ def collect(now):
     if timezone.is_naive(now):
         raise ValueError("now는 aware datetime이어야 합니다.")
     today = perms.today()
-    # 비활성 멤버(퇴사자)는 스태프가 아니면 제외 — 웹 로그아웃 미들웨어와 같은 기준
-    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True)
-             .exclude(user__member__is_active=False, user__is_staff=False) if _valid(r, today)]
+    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True).select_related("user")
+             if _valid(r, today)]
     snaps = {r.id: _snap(r) for r in rules}
-    names = dict(Member.objects.filter(is_active=True, user__isnull=False).values_list("user_id", "name"))
-    specs = [RuleSpec(r.id, names.get(r.user_id), r.kind, r.timing, r.offset, r.at_minute,
+    # 개인 알림 대상은 근무표 대상 계정(부서 있음)만. 부서 없는 어드민은 보고서형만 받는다
+    specs = [RuleSpec(r.id, r.user.name if r.user.department_id else None, r.kind, r.timing, r.offset, r.at_minute,
                       tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
                       tuple(r.shifts), tuple(r.depts), tuple(r.types)) for r in rules]
     rows = {(d.rule_id, d.date, d.cell, d.channel, d.destination): d
             for d in AlarmDelivery.objects.filter(date__gte=today)}
-    info = {n: (dept, typ) for n, dept, typ in Member.objects.values_list("name", "department__code", "type")}
+    info = {n: (dept, typ) for n, dept, typ in User.objects.values_list("name", "department__code", "type")}
     dues = plan(specs, published_days(today, today + HORIZON), info,
                 {k: d.last_sent_hash for k, d in rows.items()}, timezone.localtime(now).replace(tzinfo=None),
                 destinations=_destinations(rules), dept_names=dict(Department.objects.values_list("code", "name")),

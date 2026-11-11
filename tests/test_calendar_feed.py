@@ -4,14 +4,13 @@ from datetime import date, datetime, timedelta
 from datetime import timezone as dt_tz
 
 import pytest
-from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.test import Client, RequestFactory
 
 from config.site_url import validate_site_url
 from duty.errors import DutyError
 from duty.logging import RedactCalendarFeed
-from duty.models import CalendarFeed, ChangeLog, Commute, ControlDuty, Period
+from duty.models import CalendarFeed, ChangeLog, Commute, ControlDuty, Period, User
 from duty.services import calendar
 
 S = Period.Status
@@ -64,10 +63,10 @@ def vevents(resp):
 # --- 발급 서비스 ---
 
 def test_issue_returns_site_url_and_stores_hash_only(client, me):
-    url, token = issue(me.user)
+    url, token = issue(me)
     assert url == f"{SITE}/calendar/{token}.ics"
     assert len(token) == 43
-    row = CalendarFeed.objects.get(user=me.user)
+    row = CalendarFeed.objects.get(user=me)
     assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
     assert token not in str(CalendarFeed.objects.values().get())
     assert feed(client, token).status_code == 200
@@ -75,14 +74,14 @@ def test_issue_returns_site_url_and_stores_hash_only(client, me):
 
 def test_issue_trailing_slash_site(env, me):
     env.SITE_URL = SITE + "/"
-    url, _ = issue(me.user)
+    url, _ = issue(me)
     assert url.startswith(f"{SITE}/calendar/")
 
 
 def test_reissue_invalidates_old_and_updates_issued_at(client, me):
-    _, old = issue(me.user)
+    _, old = issue(me)
     CalendarFeed.objects.update(issued_at=PUB_AT)
-    _, new = issue(me.user)
+    _, new = issue(me)
     assert CalendarFeed.objects.count() == 1
     assert CalendarFeed.objects.get().issued_at > PUB_AT
     assert feed(client, old).status_code == 404
@@ -90,16 +89,16 @@ def test_reissue_invalidates_old_and_updates_issued_at(client, me):
 
 
 def test_revoke(client, me):
-    _, token = issue(me.user)
-    calendar.revoke(me.user)
-    calendar.revoke(me.user)  # 없어도 오류 없음
+    _, token = issue(me)
+    calendar.revoke(me)
+    calendar.revoke(me)  # 없어도 오류 없음
     assert not CalendarFeed.objects.exists()
     assert feed(client, token).status_code == 404
 
 
-def test_issue_requires_member(env, db):
-    user = User.objects.create_user("nomember", password="unused-Pw-123")
-    with pytest.raises(DutyError):
+def test_issue_requires_department(env, db):
+    user = User.objects.create_user("nomember", password="unused-Pw-123", name="관리2")
+    with pytest.raises(DutyError, match="근무표 대상 계정만 쓸 수 있습니다"):
         calendar.issue(user)
     assert not CalendarFeed.objects.exists()
 
@@ -107,7 +106,7 @@ def test_issue_requires_member(env, db):
 def test_issue_requires_site_url(env, me):
     env.SITE_URL = ""
     with pytest.raises(DutyError, match="DUTY_SITE_URL"):
-        calendar.issue(me.user)
+        calendar.issue(me)
     assert not CalendarFeed.objects.exists()
 
 
@@ -115,16 +114,16 @@ def test_issue_requires_site_url(env, me):
 
 @pytest.mark.parametrize("token", ["a" * 42, "a" * 44, "a" * 21 + "." + "a" * 21, "가" + "a" * 42])
 def test_malformed_token_404(client, me, token):
-    issue(me.user)
+    issue(me)
     assert feed(client, token).status_code == 404
 
 
 def test_no_login_and_must_change_password_ok(client, me):
-    _, token = issue(me.user)
+    _, token = issue(me)
     assert feed(client, token).status_code == 200
     me.must_change_password = True
     me.save()
-    client.force_login(me.user)
+    client.force_login(me)
     r = feed(client, token)
     assert r.status_code == 200 and b"BEGIN:VCALENDAR" in r.content
 
@@ -136,7 +135,7 @@ def test_only_own_assignments(client, me, make_member):
     commute(p, other, "dinner")
     ControlDuty.objects.create(period=p, date=D, slot=1, member=me)
     ControlDuty.objects.create(period=p, date=D, slot=2, member=other)
-    _, token = issue(me.user)
+    _, token = issue(me)
     evs = vevents(feed(client, token))
     assert [e["SUMMARY"] for e in evs] == ["정상 출근 08:00~17:00", "관제 09:30~10:30"]
     assert {e["UID"] for e in evs} == {f"20261112-normal-{me.pk}@duty-generator", f"20261112-slot1-{me.pk}@duty-generator"}
@@ -144,7 +143,7 @@ def test_only_own_assignments(client, me, make_member):
 
 def test_dinner_summary(client, me):
     commute(period(), me, "dinner")
-    _, token = issue(me.user)
+    _, token = issue(me)
     assert vevents(feed(client, token))[0]["SUMMARY"] == "석식교대 출근 09:00~18:00"
 
 
@@ -152,7 +151,7 @@ def test_times_in_utc(client, me):
     p = period()
     commute(p, me, "dawn")
     ControlDuty.objects.create(period=p, date=D, slot=1, member=me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     dawn, slot = vevents(feed(client, token))
     assert (dawn["DTSTART"], dawn["DTEND"]) == ("20261111T213000Z", "20261112T063000Z")
     assert (slot["DTSTART"], slot["DTEND"]) == ("20261112T003000Z", "20261112T013000Z")
@@ -163,7 +162,7 @@ def test_published_only_and_90_day_window(client, me):
     edge = TODAY - timedelta(days=90)
     commute(period(edge), me)
     commute(period(edge - timedelta(days=1)), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     evs = vevents(feed(client, token))
     assert [e["UID"].split("-")[0] for e in evs] == [edge.strftime("%Y%m%d")]
 
@@ -171,7 +170,7 @@ def test_published_only_and_90_day_window(client, me):
 def test_window_moves_with_today_changes_etag(client, me, fixed_today):
     edge = TODAY - timedelta(days=90)
     commute(period(edge), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     r1 = feed(client, token)
     assert len(vevents(r1)) == 1
     fixed_today(TODAY + timedelta(days=1))
@@ -182,7 +181,7 @@ def test_window_moves_with_today_changes_etag(client, me, fixed_today):
 def test_dtstamp_is_latest_publish_or_change(client, me, make_member):
     p = period()
     commute(p, me, "normal")
-    _, token = issue(me.user)
+    _, token = issue(me)
     r1 = feed(client, token)
     assert vevents(r1)[0]["DTSTAMP"] == "20261101T030000Z"
     other = make_member("교체자")
@@ -199,7 +198,7 @@ def test_period_without_published_at_excluded(client, me, caplog):
     p = period(at=None)
     commute(p, me)
     commute(period(D + timedelta(days=1)), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     with caplog.at_level(logging.WARNING, logger="duty"):
         evs = vevents(feed(client, token))
     assert [e["UID"][:8] for e in evs] == ["20261113"]
@@ -207,21 +206,17 @@ def test_period_without_published_at_excluded(client, me, caplog):
     assert warn and str(p.pk) in warn[0] and "가상일" not in warn[0]
 
 
-@pytest.mark.parametrize("case", ["member_inactive", "user_inactive", "unlinked"])
-def test_inactive_or_unlinked_gives_empty_calendar(client, me, case):
+@pytest.mark.parametrize("case", ["inactive", "no_department"])
+def test_inactive_or_no_department_gives_empty_calendar(client, me, case):
     commute(period(), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     r1 = feed(client, token)
     assert len(vevents(r1)) == 1
-    if case == "member_inactive":
+    if case == "inactive":
         me.is_active = False
-        me.save()
-    elif case == "user_inactive":
-        me.user.is_active = False
-        me.user.save()
     else:
-        me.user = None
-        me.save()
+        me.department, me.type = None, ""
+    me.save()
     r2 = feed(client, token)
     assert r2.status_code == 200 and b"BEGIN:VCALENDAR" in r2.content
     assert vevents(r2) == [] and r2["ETag"] != r1["ETag"]
@@ -229,7 +224,7 @@ def test_inactive_or_unlinked_gives_empty_calendar(client, me, case):
 
 def test_member_rename_keeps_uid(client, me):
     commute(period(), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     uid = vevents(feed(client, token))[0]["UID"]
     me.name = "새이름"
     me.save()
@@ -238,7 +233,7 @@ def test_member_rename_keeps_uid(client, me):
 
 def test_url_and_description_with_site_url(client, me, env):
     commute(period(), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     ev = vevents(feed(client, token))[0]
     assert ev["URL"] == f"{SITE}/me/" and ev["DESCRIPTION"] == f"근무표: {SITE}/me/"
     env.SITE_URL = ""
@@ -256,7 +251,7 @@ def check_headers(r, etag):
 
 def test_headers_etag_304_head_post(client, me):
     commute(period(), me)
-    _, token = issue(me.user)
+    _, token = issue(me)
     r = feed(client, token)
     assert r["Content-Type"] == "text/calendar; charset=utf-8"
     etag = f'"{hashlib.sha256(r.content).hexdigest()}"'
@@ -277,7 +272,7 @@ def test_headers_etag_304_head_post(client, me):
 
 
 def test_error_responses_have_security_headers(client, me):
-    _, token = issue(me.user)
+    _, token = issue(me)
     for r in [feed(client, "x" * 43), feed(client, "A" * 43), feed(client, token, "post"), feed(client, "A" * 43, "post")]:
         assert r.status_code in (404, 405)
         assert r["Cache-Control"] == "private, no-cache" and r["Referrer-Policy"] == "no-referrer"
@@ -286,8 +281,8 @@ def test_error_responses_have_security_headers(client, me):
 # --- 로그 ---
 
 def test_feed_logs_have_no_token_or_path(client, me, caplog):
-    _, token = issue(me.user)
-    calendar.revoke(me.user)
+    _, token = issue(me)
+    calendar.revoke(me)
     bad = "a" * 42
     with caplog.at_level(logging.INFO):
         assert feed(client, bad).status_code == 404
@@ -387,7 +382,7 @@ def test_changelog_on_date_without_rows_keeps_feed_200(client, me):
     commute(p, me)  # D+1 에는 행 없음
     ChangeLog.objects.create(period=p, date=D + timedelta(days=1), cell="dawn", before=me, after=None)
     ChangeLog.objects.update(at=datetime(2026, 11, 5, tzinfo=dt_tz.utc))
-    _, token = issue(me.user)
+    _, token = issue(me)
     r = feed(client, token)
     assert r.status_code == 200
     assert vevents(r)[0]["DTSTAMP"] == "20261101T030000Z"

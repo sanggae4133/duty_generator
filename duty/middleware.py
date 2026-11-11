@@ -1,9 +1,6 @@
-from django.contrib import messages
-from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from . import perms
 from .logging import FEED_PREFIX
 
 
@@ -22,11 +19,7 @@ class ForcePasswordChangeMiddleware:
             r.headers.setdefault("Cache-Control", "private, no-cache")
             r.headers.setdefault("Referrer-Policy", "no-referrer")
             return r
-        member = perms.member_of(request.user)
-        if member and not member.is_active and not request.user.is_staff:
-            logout(request)
-            messages.error(request, "재직 중이 아닌 계정입니다. 관리자에게 문의하세요.")
-            return redirect("login")
-        if member and member.must_change_password and request.path not in {reverse("password_change"), reverse("logout")}:
+        # 퇴사(재직 끔) 계정의 세션은 Django 가 익명으로 돌린다(ModelBackend.get_user)
+        if request.user.is_authenticated and request.user.must_change_password and request.path not in {reverse("password_change"), reverse("logout")}:
             return redirect("password_change")
         return self.get_response(request)
