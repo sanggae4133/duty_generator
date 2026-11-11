@@ -1,7 +1,7 @@
 {% extends "duty/base.html" %}
-{% block title %}알림 설정 · IT 당번표{% endblock %}
+{% block title %}알림·캘린더 · IT 당번표{% endblock %}
 {% block content %}
-<h3>알림 설정</h3>
+<h3>알림·캘린더</h3>
 
 <article id="telegram">
   <header><strong>텔레그램</strong> · <a href="{% url 'help_telegram' %}">도움말</a></header>
@@ -121,6 +121,41 @@
   {% endif %}
 </article>
 
+<article id="calendar">
+  <header><strong>캘린더 구독</strong> · <a href="{% url 'help_calendar' %}">도움말</a></header>
+  <p>내 근무를 Google 캘린더·아이폰·Outlook에 구독합니다. 변경은 캘린더 앱이 새로 고칠 때 반영되어 늦을 수 있습니다.</p>
+  {% if cal_error %}<p class="cal-error" role="alert">{{ cal_error }}</p>{% endif %}
+  {% if cal_url %}
+    <label for="cal-url">구독 주소</label>
+    <div class="row-btns">
+      <input id="cal-url" type="text" value="{{ cal_url }}" readonly>
+      <button type="button" id="cal-copy">복사</button>
+    </div>
+    <p id="cal-msg" role="status"></p>
+    <p><small>이 화면을 벗어나면 주소를 다시 볼 수 없습니다. 잃어버리면 [주소 재발급]을 누르세요. 주소는 비밀번호처럼 다루세요.</small></p>
+    <script>
+    document.getElementById("cal-copy").addEventListener("click", async () => {
+      const el = document.getElementById("cal-url"), msg = document.getElementById("cal-msg");
+      el.select();
+      try { await navigator.clipboard.writeText(el.value); msg.textContent = "복사했습니다."; }
+      catch (e) { msg.textContent = document.execCommand("copy") ? "복사했습니다." : "주소를 직접 선택해 복사하세요."; }
+    });
+    </script>
+  {% endif %}
+  {% if cal %}<p>발급일 {{ cal.issued_at|date:"Y-m-d H:i" }}</p>{% endif %}
+  {% if not cal_member and not cal_error %}<p>멤버와 연결된 계정만 쓸 수 있습니다.</p>{% endif %}
+  <div class="row-btns">
+    {% if cal_member %}
+      {% if cal %}
+      <form method="post" action="{% url 'alarm_calendar_issue' %}" onsubmit="return confirm('기존 구독은 더 이상 갱신되지 않습니다. 캘린더 앱에서 기존 구독을 지우고 새 주소를 등록하세요.')">{% csrf_token %}<button class="secondary">주소 재발급</button></form>
+      {% else %}
+      <form method="post" action="{% url 'alarm_calendar_issue' %}">{% csrf_token %}<button>구독 주소 만들기</button></form>
+      {% endif %}
+    {% endif %}
+    {% if cal %}<form method="post" action="{% url 'alarm_calendar_revoke' %}" onsubmit="return confirm('캘린더 구독을 끌까요? 구독한 캘린더는 더 이상 갱신되지 않습니다.')">{% csrf_token %}<button class="outline secondary">구독 끄기</button></form>{% endif %}
+  </div>
+</article>
+
 <h4>알림 규칙</h4>
 <div class="grid-wrap">
 <table class="rules">
@@ -156,6 +191,8 @@
   table.devices { word-break: keep-all; }
   table.rules { min-width: 40rem; word-break: keep-all; }
   table.rules th { white-space: nowrap; }
-  #telegram, #push { word-break: keep-all; }
+  #telegram, #push, #calendar { word-break: keep-all; }
+  #cal-url { flex: 1 1 16rem; min-width: 0; margin: 0; }
+  .cal-error { color: var(--pico-del-color); }
 </style>
 {% endblock %}

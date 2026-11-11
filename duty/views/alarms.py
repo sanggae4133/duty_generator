@@ -8,12 +8,13 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from .. import perms
 from ..alarms import senders
 from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
 from ..errors import DutyError
-from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile
-from ..services import alarms
+from ..models import AlarmRule, CalendarFeed, Department, PushAlarmSubscription, TelegramAlarmProfile
+from ..services import alarms, calendar
 from ..services.prefs import SHIFT_CHOICES
 
 BOT_MISSING = "텔레그램 봇이 설정되지 않았습니다."
@@ -49,6 +50,10 @@ def _bot_link() -> str:
 
 @login_required
 def index(request):
+    return _index(request)
+
+
+def _index(request, **extra):
     dept_names = dict(Department.objects.values_list("code", "name"))
     rules = [
         {"r": r, "timing": timing_label(r), "cond": condition_label(r, dept_names),
@@ -63,6 +68,9 @@ def index(request):
         "push_on": senders.push_enabled(),
         "vapid_key": settings.VAPID_PUBLIC_KEY,
         "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
+        "cal": CalendarFeed.objects.filter(user=request.user).first(),
+        "cal_member": perms.member_of(request.user) is not None,
+        **extra,
     })
 
 
@@ -250,3 +258,32 @@ def push_test(request):
 @login_required
 def help_push(request):
     return render(request, "duty/help_push.html")
+
+
+# ---- 캘린더 구독 ----
+
+@require_POST
+@login_required
+def calendar_issue(request):
+    """주소는 이 응답에만 싣는다(리다이렉트·messages·세션 금지)."""
+    try:
+        url = calendar.issue(request.user)
+    except DutyError as e:
+        return _index(request, cal_error=str(e))
+    r = _index(request, cal_url=url)
+    r["Cache-Control"] = "private, no-store"
+    r["Referrer-Policy"] = "no-referrer"
+    return r
+
+
+@require_POST
+@login_required
+def calendar_revoke(request):
+    calendar.revoke(request.user)
+    messages.info(request, "캘린더 구독을 껐습니다.")
+    return redirect("alarms")
+
+
+@login_required
+def help_calendar(request):
+    return render(request, "duty/help_calendar.html")

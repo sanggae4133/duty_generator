@@ -69,7 +69,7 @@ sudo -u duty sh -c 'set -a; . /etc/duty_generator/env; cd /opt/duty_generator &&
 | `DUTY_TELEGRAM_BOT_USERNAME` | 그 봇의 사용자명(`@` 없이). 비우면 [텔레그램 연결] 자동 연결을 못 쓰고 chat_id 직접 입력만 된다. |
 | `DUTY_VAPID_PUBLIC_KEY` / `DUTY_VAPID_PRIVATE_KEY` | 웹 푸시 키. 둘 중 하나라도 비면 푸시가 꺼진다. |
 | `DUTY_VAPID_SUBJECT` | `mailto:admin@example.com` 형식. 푸시 서비스가 문제 시 연락하는 주소. |
-| `DUTY_SITE_URL` | `https://duty.example.ts.net`. 텔레그램 알림 마지막 줄의 링크용(비면 링크 생략). |
+| `DUTY_SITE_URL` | `https://duty.example.ts.net`. 텔레그램 알림 링크·캘린더 구독 주소용(비면 링크 생략, 캘린더 구독 주소 발급 불가). |
 | `DUTY_ALARMS_LOCK` | 선택. 기본은 DB 와 같은 폴더의 `.alarms.lock`. `run_alarms` 중복 실행 방지 잠금. |
 | `DUTY_TELEGRAM_LOCK` | 선택. 기본은 DB 와 같은 폴더의 `.telegram-updates.lock`. [연결 확인]이 `getUpdates` 를 한 번에 하나만 부르게 하는 잠금. |
 
@@ -158,6 +158,14 @@ print('DUTY_VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().p
    sudo systemctl restart duty-notifier && systemctl is-active duty-notifier
    sudo journalctl -u duty-alarms -n 20; sudo journalctl -u duty-notifier -n 50   # alarms 가 멈췄고 노티파이어가 오류 없이 떴는지
    ```
+
+## 캘린더 구독 (ICS)
+
+- 각자 [알림·캘린더] 화면에서 [구독 주소 만들기]로 개인 구독 주소(`/calendar/<토큰>.ics`)를 받아 Google 캘린더·아이폰·Outlook에 구독한다. 사용 방법은 `/help/calendar/`.
+- 피드에는 배포된 회차의 본인 출근조·관제 일정만, 오늘 기준 지난 90일부터 나온다. 퇴사(재직 끔)·계정 비활성·멤버 연결 해제면 빈 캘린더가 된다.
+- 갱신 시점은 캘린더 앱이 정한다(Google은 몇 시간 이상 걸리기도 함). 즉시 알아야 하는 변경은 텔레그램·푸시 알림이 맡는다.
+- DB에는 토큰의 SHA-256 해시만 남고 주소는 발급 화면에 한 번만 보인다. 주소가 유출되면 본인이 [주소 재발급](기존 주소 즉시 무효) 또는 [구독 끄기]를 누른다. 피드 경로는 앱 로그(`django.request`·`django.server`)에서 `calendar feed <상태코드>`로 바뀌어 남는다.
+- `DUTY_SITE_URL`이 비어 있으면 주소를 발급할 수 없다. 값은 `https://호스트[:포트][/경로]` 형식만 허용(DEBUG에서만 `http`), 공백·제어문자·`?`·`#`·`user@`·잘못된 포트가 있으면 서버가 시작하지 않는다.
 
 ## 운영 메모
 
