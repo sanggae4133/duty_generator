@@ -169,7 +169,9 @@ def _build_users(old):
     if bad:
         raise ConvertError(f"아이디·이름 규칙(형식·길이)을 어기는 사용자 {len(bad)}명(새 id: {', '.join(map(str, bad))})")
     for f, label in (("username", "아이디 중복"), ("name", "이름 중복")):
-        if dup := sum(n - 1 for n in Counter(u[f] for u in users).values() if n > 1):
+        # 아이디는 관리 화면과 같게 대소문자를 구분하지 않고 본다
+        key = (lambda v: v.casefold()) if f == "username" else (lambda v: v)
+        if dup := sum(n - 1 for n in Counter(key(u[f]) for u in users).values() if n > 1):
             raise ConvertError(f"{label} {dup}건: 멤버 코드·이름과 연결 없는 계정 아이디가 겹칩니다.")
     return users, user_map, notes
 

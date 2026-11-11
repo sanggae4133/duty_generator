@@ -36,6 +36,13 @@ def _summary(values: list[int]) -> Summary | None:
 def member_stats(start: date | None, end: date | None):
     days = published_days(start, end)
     stats = {n: MemberStat(n) for n in User.objects.roster().filter(type=DEVELOPER).values_list("name", flat=True)}
+    # 퇴사·부서 해제된 개발자도 이 기간에 근무가 있으면 통계에 남긴다(역사는 그대로)
+    developers = set(User.objects.filter(type=DEVELOPER).values_list("name", flat=True))
+    for day in days:
+        for names in day.members.values():
+            for n in names:
+                if n in developers:
+                    stats.setdefault(n, MemberStat(n))
     for day in days:
         for cell, names in day.members.items():
             if is_slot_cell(cell):

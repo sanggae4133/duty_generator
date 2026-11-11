@@ -205,6 +205,9 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 ```bash
 cd /opt/duty_generator
 git log -1 --format=%h          # 지금(예전) 버전 — 롤백용으로 적어 둔다
+dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }   # 이 셸에서 쓸 manage.py 단축
+# 예전 DB 위치는 예전 기본값 /var/lib/duty_generator/db.sqlite3 기준이다. 예전 env 에 DUTY_DB_PATH 를 따로 정했다면 아래 경로를 그 값으로 바꾼다:
+#   sudo grep DUTY_DB_PATH /etc/duty_generator/env
 # 1. 예전 서비스를 끄고 유닛을 지운다
 sudo systemctl disable --now duty-health.timer duty-generator-backup.timer duty-alarms duty-generator
 sudo rm -f /etc/systemd/system/duty-generator.service /etc/systemd/system/duty-alarms.service \
