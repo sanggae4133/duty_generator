@@ -3,11 +3,25 @@ import re
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from .. import accounts, help as guide
+
+
+CHUNK = 1 << 20  # Range 응답 한 번의 최대 크기
+
+
+def _read(path, start: int, length: int):
+    with open(path, "rb") as f:
+        f.seek(start)
+        while length > 0:
+            b = f.read(min(64 * 1024, length))
+            if not b:
+                return
+            length -= len(b)
+            yield b
 
 
 def index(request):
@@ -36,11 +50,15 @@ def video(request, name):
             r = HttpResponse(status=416)
             r["Content-Range"] = f"bytes */{size}"
             return r
-        with open(path, "rb") as f:  # ponytail: 조각을 메모리로 읽는다. 영상이 수 MB 라 충분, 커지면 스트리밍
-            f.seek(start)
-            r = HttpResponse(f.read(end - start + 1), status=206, content_type="video/mp4")
+        # 로그인 전에도 열린 주소라 한 번에 최대 1MB 만, 조금씩 읽어 보낸다(메모리 고정). 브라우저가 다음 조각을 다시 요청한다
+        end = min(end, start + CHUNK - 1)
+        length = end - start + 1
+        if request.method == "HEAD":
+            r = HttpResponse(status=206, content_type="video/mp4")
+        else:
+            r = StreamingHttpResponse(_read(path, start, length), status=206, content_type="video/mp4")
         r["Content-Range"] = f"bytes {start}-{end}/{size}"
-        r["Content-Length"] = str(end - start + 1)
+        r["Content-Length"] = str(length)
     r["Accept-Ranges"] = "bytes"
     r["Cache-Control"] = "private, max-age=3600"
     return r

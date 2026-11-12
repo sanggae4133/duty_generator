@@ -70,7 +70,7 @@ def test_video_range(client, people, videos, rng, status, part, crange):
     """아이폰 Safari 는 Range 로 조각을 받아야 재생한다."""
     client.force_login(people["member"])
     r = client.get("/help/video/member.mp4", HTTP_RANGE=rng)
-    assert r.status_code == status and r.content == part
+    assert r.status_code == status and b"".join(r.streaming_content) == part
     assert r["Content-Range"] == crange and r["Content-Length"] == str(len(part))
 
 
@@ -140,3 +140,17 @@ def test_public_help_before_login(client, db, videos):
     assert "멤버 코드" in body and "15분" in body and "/help/video/member.mp4" in body
     assert "/help/video/manager.mp4" not in body and "/help/video/admin.mp4" not in body
     assert 'href="/help/telegram/"' not in body and "로그인" in body
+
+
+
+def test_range_is_capped_and_streamed(client, people, settings, tmp_path):
+    """공개 영상: 큰 Range 도 한 번에 최대 1MB 를 조금씩 보내고(메모리 고정), HEAD 는 파일을 읽지 않는다."""
+    big = bytes(range(256)) * (5 * 4096)  # 5MB
+    (tmp_path / "member.mp4").write_bytes(big)
+    settings.HELP_VIDEO_DIR = tmp_path
+    r = client.get("/help/video/member.mp4", HTTP_RANGE="bytes=0-")
+    assert r.status_code == 206 and r.streaming
+    body = b"".join(r.streaming_content)
+    assert body == big[:1 << 20] and r["Content-Range"] == f"bytes 0-{(1 << 20) - 1}/{len(big)}"
+    h = client.head("/help/video/member.mp4", HTTP_RANGE="bytes=0-")
+    assert h.status_code == 206 and h["Content-Length"] == str(1 << 20) and h.content == b""
