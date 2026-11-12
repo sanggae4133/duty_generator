@@ -14,7 +14,7 @@ from ..errors import DutyError
 from ..models import Department, User
 from ..services import changes, prefs
 from ..services.roster import find_day, member_schedule, published_days
-from ..shifts import CELLS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
+from ..shifts import CELLS, COMMUTE_SHIFTS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
 from .common import date_param, safe_next
 
 
@@ -78,6 +78,7 @@ def _shown(shifts: list[str]):
 
 def _filter_ctx(depts, types, shifts) -> dict:
     return {
+        "filter_on": bool(depts or types or shifts),
         "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)],
         "dept_choices": [
             {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
@@ -99,8 +100,10 @@ def _active_members(depts: list[str] | None = None, types: list[str] | None = No
 def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None):
     current = day.members[cell] if day else []
     qs = User.objects.filter(name__in=current).order_by("name")
+    # 출근조 칸: 그날 이미 출근조가 있는 사람은 To 에서 고를 수 없다(한 사람 하루 출근조 하나). 관제는 경고만
+    busy = set() if is_slot_cell(cell) or not day else {n for k in COMMUTE_SHIFTS for n in day.members[k]}
     return {
-        "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
+        "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell), "busy": busy,
         "current_members": list(_filtered(qs, depts or [], types or [])),
     }
 
@@ -165,7 +168,8 @@ def roster(request):
         cells = day_cells(d)
         other = view == "month" and d.month != anchor.month
         return {
-            "date": d, "is_today": d == today, "edit": (admin or d >= today) and not other, "other": other,
+            "date": d, "is_today": d == today, "other": other, "empty": d not in by_date,
+            "edit": (admin or d >= today) and not other and d in by_date,  # 배포된 근무표가 있는 날만
             "commute": [cells[k] for k in CELLS if not is_slot_cell(k) and k in cells],
             "duty": [{"time": cells[k]["label"][:5], **cells[k]} for k in CELLS if is_slot_cell(k) and k in cells],
         }
@@ -221,7 +225,7 @@ def day(request, d):
     keep, shown = _keeper(depts, types), _shown(shifts)
     sections = []
     if found:
-        for k in filter(shown, CELLS):
+        for k in filter(shown, [*COMMUTE_SHIFTS, *(c for c in CELLS if is_slot_cell(c))]):  # 출근조 먼저, 관제는 뒤에 묶어서
             ctx = _cell_context(found, k, d, depts, types)
             ctx.update(
                 members=members, next=request.path,
@@ -269,5 +273,5 @@ def me(request):
     return render(request, "duty/me.html", {
         "member": member,
         "shift_choices": _shift_choices(shifts),
-        "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": labels} for d, labels in items],
+        "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": labels, "today": d == perms.today()} for d, labels in items],
     })

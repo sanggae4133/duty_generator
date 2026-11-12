@@ -130,6 +130,8 @@ def test_change_log_filters(admin_client_ok, make_member):
     assert "야간" in h and "새벽" not in h
     h = get(f"?by={a.username}")
     assert "새벽" in h and "야간" not in h
+    h = get("?by=가")  # 수정자는 이름으로도 찾는다
+    assert "새벽" in h and "야간" not in h and "<td class=\"nw\">가</td>" in h
 
 
 def test_admin_nav_link_superuser_only(client, admin_user, make_member):

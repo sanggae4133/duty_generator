@@ -47,6 +47,6 @@ def same_day_notice(kind: str, timing: str, offset: int, at_minute: int, shifts:
     slots = [c for c in late if is_slot_cell(c)]  # 시작 순서라 항상 앞쪽부터 연속
     if slots:
         whole = len(slots) == sum(map(is_slot_cell, cells))
-        names.append("장중당번" if whole else
-                     f"장중당번 {cell_start(slots[0]):%H:%M}~{cell_end(slots[-1]):%H:%M}")
+        names.append("장중관제" if whole else
+                     f"장중관제 {cell_start(slots[0]):%H:%M}~{cell_end(slots[-1]):%H:%M}")
     return f"{_topic('·'.join(names))} 발송 시각이 근무 시작 이후라 제외됩니다."

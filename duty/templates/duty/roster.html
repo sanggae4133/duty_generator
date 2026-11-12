@@ -1,21 +1,24 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <div class="cal-nav">
-  <a role="button" class="{% if view != 'week' %}outline {% endif %}secondary" href="{{ week_link }}">주간</a>
-  <a role="button" class="{% if view != 'month' %}outline {% endif %}secondary" href="{{ month_link }}">월간</a>
-  {% if prev %}<a role="button" class="outline" href="{{ prev }}">◀ 이전</a>{% endif %}
-  <a role="button" class="outline" href="{{ today_link }}">오늘</a>
-  {% if next %}<a role="button" class="outline" href="{{ next }}">다음 ▶</a>{% endif %}
-  <strong class="cal-title">{{ title }}</strong>
+  <h3 class="cal-title">{{ title }}</h3>
+  <span class="seg" role="group" aria-label="보기">
+    <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
+  </span>
+  <span class="seg" role="group" aria-label="이동">
+    {% if prev %}<a href="{{ prev }}" aria-label="이전{% if view == 'week' %} 주{% else %} 달{% endif %}">◀</a>{% endif %}<a href="{{ today_link }}">오늘</a>{% if next %}<a href="{{ next }}" aria-label="다음{% if view == 'week' %} 주{% else %} 달{% endif %}">▶</a>{% endif %}
+  </span>
 </div>
 <form method="get" class="search">
   <input type="hidden" name="view" value="{{ view }}">
+  <details class="filters"><summary>검색·필터{% if filter_on or names.0 or names.1 or names.2 %} <span class="on">적용 중</span>{% endif %}</summary><div class="filters-body">
   <span class="pair"><input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem"><button>이동</button></span>
-  <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="이름 {{ forloop.counter }}" aria-label="이름 {{ forloop.counter }}"></span>
+  <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}" aria-hidden="true"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="강조할 이름" aria-label="강조할 이름 {{ forloop.counter }}"></span>
   {% endfor %}<button>검색</button></span>
-  {% include "duty/_filters.html" %}</form>
+  {% include "duty/_filters.html" with nested=True %}
+  </div></details></form>
 <div class="grid-wrap roster-scroll">
-<table class="roster month" id="roster">
+<table class="roster month{% if view == 'week' %} stack{% endif %}" id="roster">
   <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for week in weeks %}
@@ -30,6 +33,7 @@
   </tbody>
 </table>
 </div>
+<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람{% if weeks.0.0.edit or weeks.0.4.edit %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>
 <script>
   const today = document.getElementById("today");
   if (today) {

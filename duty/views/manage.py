@@ -167,10 +167,10 @@ def change_log(request):
         qs = qs.filter(Q(before__name=name) | Q(after__name=name))
     by = request.GET.get("by", "").strip()
     if by:
-        qs = qs.filter(by__username=by)
+        qs = qs.filter(Q(by__username=by) | Q(by__name=by))
     logs = [
         {
-            "at": log.at, "by": log.by.username if log.by else "import", "date": log.date,
+            "at": log.at, "by": (log.by.name or log.by.username) if log.by else "시트 가져오기", "date": log.date,
             "cell": cell_label(log.cell), "before": log.before.name if log.before else "",
             "after": log.after.name if log.after else "", "period": log.period.name,
         }

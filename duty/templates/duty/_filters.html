@@ -1,6 +1,8 @@
 <input type="hidden" name="f" value="1">
+{% if not nested %}<details class="filters"><summary>필터{% if filter_on %} <span class="on">적용 중</span>{% endif %}</summary><div class="filters-body">{% endif %}
   <fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <small class="hint">모두 해제하면 전체 표시</small>
-  <script>{ const f = document.currentScript.closest("form"); f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => f.requestSubmit()); }</script>
+{% if not nested %}</div></details>{% endif %}
+  <script>{ const f = document.currentScript.closest("form"); const d = f.querySelector("details.filters"); if (innerWidth > 768) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => f.requestSubmit()); }</script>

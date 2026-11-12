@@ -114,7 +114,7 @@ def test_slot_before_start():
     d = [day(slot2=["가"])]
     due = run([r], d, datetime(2026, 11, 16, 9, 30))
     assert len(due) == 1 and due[0].expires_at == datetime(2026, 11, 16, 10, 30)
-    assert "10:30~11:30" in due[0].text and "장중당번" in due[0].text
+    assert "10:30~11:30" in due[0].text and "장중관제" in due[0].text
     assert run([r], d, datetime(2026, 11, 16, 9, 29)) == []
 
 

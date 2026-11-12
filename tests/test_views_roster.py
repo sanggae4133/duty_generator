@@ -19,6 +19,15 @@ def world(make_member, fixed_today):
     return a, b
 
 
+def publish_more(member, *days):
+    """world 의 배포 회차에 날짜를 더한다(배포된 근무표가 있는 날만 편집 링크가 생긴다)."""
+    p = Period.objects.get()
+    p.end_date = date(2026, 12, 31)
+    p.save()
+    for x in days:
+        Commute.objects.create(period=p, date=x, member=member, shift="normal")
+
+
 def test_anonymous_redirected_to_login(client, db):
     r = client.get("/")
     assert r.status_code == 302 and r.url.startswith("/login/")
@@ -68,6 +77,7 @@ def test_cells_use_nowrap_lines(client, world):
 
 def test_week_view_default(client, world):
     a, _ = world
+    publish_more(a, *[date(2026, 11, d) for d in (9, 11, 12, 13)])
     client.force_login(a)
     body = client.get("/").content.decode()
     for d in range(9, 14):
@@ -80,6 +90,7 @@ def test_week_view_default(client, world):
 
 def test_month_view(client, world):
     a, _ = world
+    publish_more(a, date(2026, 11, 2), date(2026, 11, 30), date(2026, 12, 1))
     client.force_login(a)
     body = client.get("/?view=month&date=2026-11-10").content.decode()
     assert "2026년 11월" in body and "/day/2026-11-30/" in body and "/day/2026-11-02/" in body
@@ -102,6 +113,7 @@ def test_prev_next_links_keep_names(client, world, view, prev, nxt):
 def test_past_cells_not_editable_for_member_in_week(client, world, fixed_today):
     a, _ = world
     fixed_today(date(2026, 11, 12))
+    publish_more(a, date(2026, 11, 12))
     client.force_login(a)
     body = client.get("/?date=2026-11-10").content.decode()
     assert "/cell/2026-11-10/" not in body and "/cell/2026-11-12/slot3/" in body
@@ -278,9 +290,9 @@ def test_popup_members_filtered_by_dept(client, two_depts):
     a, c = two_depts  # 가(MEMS)·라(UI) 모두 정상 칸 소속
     client.force_login(a)
     popup = client.get(f"/cell/{D}/normal/?dept=UI").content.decode()
-    assert popup.count(f'<option value="{c.username}">') == 2 and f'<option value="{a.username}">' not in popup  # From, To
+    assert popup.count(f'<option value="{c.username}"') == 2 and f'<option value="{a.username}"' not in popup  # From, To(To 는 이미 출근조라 막힘)
     full = client.get(f"/cell/{D}/normal/").content.decode()
-    assert f'<option value="{a.username}">' in full and f'<option value="{c.username}">' in full
+    assert f'<option value="{a.username}"' in full and f'<option value="{c.username}"' in full
 
 
 @pytest.mark.parametrize("q", ["", "?dept=NOPE&type=외부", "?dept=&type="])
@@ -323,9 +335,9 @@ def test_removed_label_filtered_by_its_department(client, two_depts):
 def test_edge_dates_hide_prev_next(client, world):
     a, _ = world
     client.force_login(a)
-    assert "◀ 이전" not in client.get("/?view=month&date=2000-01-15").content.decode()
-    assert "다음 ▶" not in client.get("/?view=month&date=2099-12-15").content.decode()
-    assert "◀ 이전" in client.get("/?view=month&date=2000-02-15").content.decode()
+    assert 'aria-label="이전 달"' not in client.get("/?view=month&date=2000-01-15").content.decode()
+    assert 'aria-label="다음 달"' not in client.get("/?view=month&date=2099-12-15").content.decode()
+    assert 'aria-label="이전 달"' in client.get("/?view=month&date=2000-02-15").content.decode()
 
 
 def test_separate_move_and_search_buttons(client, world):
@@ -362,10 +374,10 @@ def test_me_shift_filter(client, world):
     a, _ = world
     client.force_login(a)
     body = client.get("/me/?shift=slots").content.decode()
-    assert "<p>08:30~09:30</p>" in body
+    assert '<span class="what">장중관제 08:30~09:30</span>' in body
     assert re.search(r'value="slots" checked', body) and not re.search(r'value="normal" checked', body)
     assert "예정된 근무가 없습니다" in client.get("/me/?shift=dinner").content.decode()
-    assert "<p>정상, 08:30~09:30</p>" in client.get("/me/").content.decode()
+    assert '<span class="what">정상 · 장중관제 08:30~09:30</span>' in client.get("/me/").content.decode()
 
 
 def test_nav_brand_active_and_repo_link(client, world, settings):
@@ -381,3 +393,25 @@ def test_nav_brand_active_and_repo_link(client, world, settings):
     body = client.get("/day/2026-11-10/").content.decode()
     assert re.search(r'<a href="/" aria-current="page">근무표</a>', body)  # 일자 화면도 근무표 메뉴
     assert 'href="https://github.com/example/duty"' in body and 'rel="noopener"' in body
+
+
+def test_unpublished_day_has_no_edit_links(client, world):
+    """배포된 근무표가 없는 날은 '근무표 없음'만, 편집 링크 없음(눌러도 저장 때 오류였다)."""
+    a, _ = world
+    client.force_login(a)
+    body = client.get("/?view=week&date=2026-11-10").content.decode()
+    assert body.count("근무표 없음") == 4  # 같은 주 월·수·목·금
+    assert "/cell/2026-11-11/" not in body and "/cell/2026-11-10/" in body
+
+
+def test_cell_form_guides_and_blocks_busy(client, world, make_member):
+    """출근조 칸: 그날 이미 다른 출근조인 사람은 고를 수 없게(저장 뒤 오류 대신), 사용법 안내, 버튼 '저장'."""
+    a, b = world  # 가=정상, 나=석식교대
+    make_member("다", user=True)
+    client.force_login(a)
+    body = client.get(f"/cell/{D}/dawn/").content.decode()
+    assert "From만 고르면 빼기" in body and "<button>저장</button>" in body
+    assert re.search(r'<option value="[^"]+" disabled>나 · ', body)  # 석식교대 중
+    assert re.search(r'<option value="[^"]+">다 · ', body)
+    slot = client.get(f"/cell/{D}/slot0/").content.decode()
+    assert "disabled>" not in slot and "바꾸기만" in slot  # 관제는 경고만, 막지 않는다

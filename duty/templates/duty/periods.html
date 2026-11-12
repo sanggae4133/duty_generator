@@ -1,18 +1,28 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>회차</h3>
-<form method="post" class="search">{% csrf_token %}
-  <input name="name" placeholder="회차 이름" required>
-  <input type="date" name="start_date" required aria-label="시작일">
-  <input type="date" name="end_date" required aria-label="종료일">
-  <button>새 회차</button>
+<details class="new-period"{% if not periods %} open{% endif %}><summary role="button" class="outline">+ 새 회차</summary>
+<form method="post" class="search labeled">{% csrf_token %}
+  <label>이름 <input name="name" placeholder="예: 2026년 12월" required></label>
+  <label>시작일 <input type="date" name="start_date" required></label>
+  <label>종료일 <input type="date" name="end_date" required></label>
+  <button>만들기</button>
 </form>
+</details>
 <table>
   <thead><tr><th>이름</th><th>기간</th><th>상태</th></tr></thead>
   <tbody>{% for p in periods %}
     <tr><td><a href="{% url 'period_detail' p.pk %}">{{ p.name }}</a></td>
       <td>{{ p.start_date|date:"Y-m-d" }} ~ {{ p.end_date|date:"Y-m-d" }}</td>
-      <td>{{ p.get_status_display }}</td></tr>
+      <td><span class="pill st-{{ p.status }}">{{ p.get_status_display }}</span></td></tr>
   {% endfor %}</tbody>
 </table>
+<style>
+  details.new-period summary[role=button] { width: auto; display: inline-block; margin-bottom: .8rem; }
+  .pill { display: inline-block; padding: .1rem .6rem; border-radius: 1rem; font-size: .8rem; white-space: nowrap; border: 1px solid var(--duty-line); }
+  .pill.st-collecting { border-color: #8a5300; color: #8a5300; }
+  @media (prefers-color-scheme: dark) { .pill.st-collecting { border-color: #f0a948; color: #f0a948; } }
+  .pill.st-generated { border-color: var(--pico-primary); color: var(--pico-primary); }
+  .pill.st-published { background: var(--pico-primary-background); border-color: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+</style>
 {% endblock %}

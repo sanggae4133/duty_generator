@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from .. import perms
 from ..csv_io import CsvInvalid, split_names
 from ..errors import DutyError
-from ..models import Department, Period
+from ..models import Department, Period, User
 from ..services import collect
 from ..shifts import COMMUTE_SHIFTS, DAY_LABELS
 
@@ -48,6 +48,7 @@ def _render_table(request, period, dept, table, errors):
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
         "shift_labels": [COMMUTE_SHIFTS[k] for k in keys],
+        "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
         "is_open": period.status == Period.Status.COLLECTING,
     }, status=400 if errors else 200)
 

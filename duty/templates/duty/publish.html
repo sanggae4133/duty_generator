@@ -3,7 +3,7 @@
 <h3>{{ period.name }} 배포</h3>
 <form method="get" class="search">
   <label>덮어쓰기 시작일 <input type="date" name="from" value="{{ preview.overwrite_from|date:'Y-m-d' }}" min="{{ period.start_date|date:'Y-m-d' }}" max="{{ period.end_date|date:'Y-m-d' }}"></label>
-  <button class="secondary">다시 계산</button>
+  <button class="secondary">범위 다시 보기</button>
 </form>
 <article>
   <p>덮어쓰기 범위: {{ preview.overwrite_from|date:"Y-m-d" }} ~ {{ preview.overwrite_to|date:"Y-m-d" }}</p>
@@ -11,7 +11,7 @@
   {% if preview.periods %}<p>덮어쓰는 회차: {{ preview.periods|join:", " }}</p>{% endif %}
   <p>사라지는 근무 변경: {{ preview.discarded_changes }}건 (이력은 남음)</p>
 </article>
-<form method="post">{% csrf_token %}
+<form method="post" onsubmit="return confirm('{{ preview.overwrite_from|date:"Y-m-d" }} ~ {{ preview.overwrite_to|date:"Y-m-d" }}를 이 회차로 배포할까요?')">{% csrf_token %}
   <input type="hidden" name="from" value="{{ preview.overwrite_from|date:'Y-m-d' }}">
   <button>배포</button>
 </form>

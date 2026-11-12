@@ -71,7 +71,7 @@ def test_day_dept_filter_names_and_cell_form(client, two_depts):
     a, c = two_depts
     client.force_login(a)
     body = client.get(f"/day/{D}/?dept=UI&shift=normal").content.decode()
-    art = body.split('<article id="normal">')[1].split("</article>")[0]
+    art = body.split('<article id="normal" class="dcell">')[1].split("</article>")[0]
     assert "라" in art and "가" not in art
     assert f'value="{c.username}"' in art and f'value="{a.username}"' not in art
 

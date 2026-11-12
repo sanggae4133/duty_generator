@@ -3,9 +3,9 @@
 <h3>{{ period.name }} · {{ dept.name }}</h3>
 {% if not is_open %}<p>취합이 열려 있지 않아 저장할 수 없습니다.</p>{% endif %}
 <div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
-  {% if is_open %}<form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" class="search" style="margin:0">{% csrf_token %}
+  {% if is_open %}<form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 {{ dept.name|escapejs }} 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">{% csrf_token %}
     <input type="file" name="file" accept=".csv" required>
-    <button>CSV 업로드 (부서 전체 교체)</button>
+    <button class="secondary">CSV 올리기 (부서 전체 교체)</button>
   </form>{% endif %}
   <a role="button" class="secondary" style="white-space:nowrap" href="{% url 'collect_export' period.pk dept.code %}">CSV 내려받기</a>
 </div>
@@ -15,16 +15,23 @@
   <ul>{% for e in errors %}<li>{% if e.row %}{{ e.row }}행 {% endif %}{{ e.column }}: {{ e.reason }}</li>{% endfor %}</ul>
 </article>
 {% endif %}
+<p class="guide"><small>칸마다 그 출근조에 들어갈 사람 이름을 쉼표(,)로 구분해 적습니다. 한 사람은 하루에 한 출근조만.{% if names %}<br>{{ dept.name }} 인원: {{ names|join:", " }}{% endif %}</small></p>
 <form method="post">{% csrf_token %}
 <div class="grid-wrap">
 <table class="roster">
   <thead><tr><th>날짜</th><th>요일</th>{% for s in shift_labels %}<th>{{ s }}</th>{% endfor %}</tr></thead>
   <tbody>{% for r in rows %}
-    <tr><td>{{ r.date|date:"Y-m-d" }}</td><td>{{ r.weekday }}</td>
+    <tr><td class="nw">{{ r.date|date:"Y-m-d" }}</td><td>{{ r.weekday }}</td>
       {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}" {% if r.locked %}readonly{% endif %}></td>{% endfor %}
     </tr>{% endfor %}</tbody>
 </table>
 </div>
-{% if is_open %}<button>표 저장</button>{% endif %}
+{% if is_open %}<div class="savebar"><button>표 저장</button></div>{% endif %}
 </form>
+<style>
+  p.guide { margin: 0 0 .6rem; }
+  table.roster td input { min-width: 8rem; margin: 0; }
+  .savebar { position: sticky; bottom: 0; padding: .6rem 0; background: var(--pico-background-color); border-top: 1px solid var(--duty-line); }
+  .savebar button { width: auto; margin: 0; }
+</style>
 {% endblock %}

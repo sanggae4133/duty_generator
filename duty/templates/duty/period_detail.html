@@ -3,44 +3,41 @@
 <h3>{{ period.name }} <small>({{ period.get_status_display }})</small></h3>
 <ol class="lifecycle">{% for code, label in steps %}<li><span{% if code == period.status %} class="now"{% endif %}>{{ label }}</span></li>{% endfor %}</ol>
 {% if period.status == S.DRAFT %}
-<form method="post" class="search">{% csrf_token %}
-  <input name="name" value="{{ period.name }}" required>
-  <input type="date" name="start_date" value="{{ period.start_date|date:'Y-m-d' }}" required>
-  <input type="date" name="end_date" value="{{ period.end_date|date:'Y-m-d' }}" required>
-  <button>저장</button>
+<form method="post" class="search labeled">{% csrf_token %}
+  <label>이름 <input name="name" value="{{ period.name }}" required></label>
+  <label>시작일 <input type="date" name="start_date" value="{{ period.start_date|date:'Y-m-d' }}" required></label>
+  <label>종료일 <input type="date" name="end_date" value="{{ period.end_date|date:'Y-m-d' }}" required></label>
+  <button class="outline">기간 저장</button>
 </form>
 {% else %}
 <p>{{ period.start_date|date:"Y-m-d" }} ~ {{ period.end_date|date:"Y-m-d" }}</p>
 {% endif %}
 
 <div class="actions">
-  {% if period.status == S.DRAFT or period.status == S.CLOSED or period.status == S.GENERATED %}
-  <form method="post" action="{% url 'period_action' period.pk 'open' %}"{% if period.status == S.GENERATED %} onsubmit="return confirm('생성된 당번이 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}<button class="secondary">{% if period.status == S.DRAFT %}취합 열기{% else %}재오픈 (생성 결과 삭제){% endif %}</button></form>
-  {% endif %}
-  {% if period.status == S.COLLECTING %}
+  {% if period.status == S.DRAFT %}
+  <form method="post" action="{% url 'period_action' period.pk 'open' %}">{% csrf_token %}<button>취합 열기</button></form>
+  {% elif period.status == S.COLLECTING %}
   <form method="post" action="{% url 'period_action' period.pk 'close' %}">{% csrf_token %}<button>취합 마감</button></form>
+  {% elif period.status == S.CLOSED %}
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>장중관제 생성</button></form>
+  {% elif period.status == S.GENERATED %}
+  <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">{% csrf_token %}<button class="outline secondary" {% if missing %}disabled{% endif %}>재생성</button></form>
   {% endif %}
   {% if period.status == S.CLOSED or period.status == S.GENERATED %}
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>{% if period.status == S.GENERATED %}재생성{% else %}생성{% endif %}</button></form>
-  <button type="button" class="outline secondary" onclick="document.getElementById('gen-help').showModal()">자세히</button>
-  {% endif %}
-  {% if period.status == S.GENERATED %}
-  <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
+  <button type="button" class="outline secondary" onclick="document.getElementById('gen-help').showModal()">생성 방식</button>
   {% endif %}
 </div>
+{% if missing and period.status != S.DRAFT and period.status != S.PUBLISHED %}<p class="note">출근표가 비어 있는 부서가 있어 아직 생성할 수 없습니다(아래 입력 현황).</p>{% endif %}
 
 {% if movable %}
+<details class="move-box"><summary>다른 상태로 옮기기</summary>
 <form method="post" action="{% url 'period_move' period.pk %}" class="move"{% if period.status == S.GENERATED %} onsubmit="return confirm('생성된 장중관제가 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}
-  <label for="move-to">상태 바꾸기</label>
-  <select id="move-to" name="to">{% for code, label in movable %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
-  <button class="outline">바꾸기</button>
+  <select id="move-to" name="to" aria-label="옮길 상태">{% for code, label in movable %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
+  <button class="outline">옮기기</button>
   <small>출근표는 그대로 남습니다. 생성됨에서 나가면 장중관제 생성 결과만 지웁니다.</small>
 </form>
-{% endif %}
-{% if period.status != S.PUBLISHED %}
-<form method="post" action="{% url 'period_delete' period.pk %}" onsubmit="return confirm('회차 \'{{ period.name|escapejs }}\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">{% csrf_token %}
-  <button class="outline contrast" style="width:auto;margin:1rem 0">회차 삭제</button>
-</form>
+</details>
 {% endif %}
 {% if undo %}
 <article>
@@ -68,6 +65,15 @@
 <h4>장중관제 배정 횟수 — 편차 {{ spread }} {% if reached %}(목표 2 이하 도달){% else %}(목표 2 미도달){% endif %}</h4>
 <table><tbody>{% for name, n in counts %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table>
 {% endif %}
+{% if period.status != S.PUBLISHED %}
+<section class="danger">
+  <h4>위험 구역</h4>
+  <form method="post" action="{% url 'period_delete' period.pk %}" onsubmit="return confirm('회차 \'{{ period.name|escapejs }}\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">{% csrf_token %}
+    <button class="danger-btn">회차 삭제</button> <small>시험·실수로 만든 회차를 출근표·생성 결과와 함께 지웁니다. 되돌릴 수 없습니다.</small>
+  </form>
+</section>
+{% endif %}
+
 {% if events %}
 <h4>상태 기록</h4>
 <div class="grid-wrap"><table><thead><tr><th>시각</th><th>누가</th><th>변경</th><th>메모</th></tr></thead>
@@ -88,6 +94,13 @@
   form.move { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
   form.move select, form.move button, form.move label { width: auto; margin: 0; }
   form.move small { flex-basis: 100%; opacity: .7; }
+  details.move-box { margin: 0 0 1rem; } details.move-box summary { font-size: .9rem; }
+  p.note { font-size: .9rem; opacity: .8; }
+  section.danger { margin-top: 2.5rem; padding: 1rem; border: 1px solid var(--nxt-red); border-radius: .4rem; }
+  section.danger h4 { margin: 0 0 .6rem; color: var(--nxt-red); font-size: 1rem; }
+  section.danger form { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  button.danger-btn { width: auto; margin: 0; background: transparent; color: var(--nxt-red); border-color: var(--nxt-red); }
+  button.danger-btn:hover { background: var(--nxt-red); color: #fff; }
 </style>
 <dialog id="gen-help"><article>
   <h4>장중관제 생성 방식</h4>
