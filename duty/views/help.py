@@ -2,6 +2,7 @@ import re
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
@@ -9,16 +10,17 @@ from django.views.decorators.http import require_POST
 from .. import accounts, help as guide
 
 
-@login_required
 def index(request):
+    """로그인 전에도 열린다(로그인 화면의 [사용법 보기]): 로그인 안내 + 일반 사용자 영상. 권한 영상·설정 도움말은 로그인 뒤."""
     return render(request, "duty/help.html", {"videos": guide.for_user(request.user)})
 
 
-@login_required
 def video(request, name):
     if name not in {n for n, *_ in guide.VIDEOS}:
         raise Http404
     if not guide.allowed(request.user, name):
+        if not request.user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
         return HttpResponse(status=403)
     path = settings.HELP_VIDEO_DIR / f"{name}.mp4"
     if not path.is_file():

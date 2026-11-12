@@ -48,7 +48,12 @@ def test_video_permission(client, people, videos, who, name, code):
 
 
 def test_video_needs_login_and_known_name(client, people, videos):
-    assert client.get("/help/video/member.mp4").status_code == 302
+    r = client.get("/help/video/member.mp4")  # 일반 사용자 영상은 로그인 전에도(가짜 데이터)
+    assert r.status_code == 200
+    r.close()
+    for name in ("manager", "admin"):
+        r = client.get(f"/help/video/{name}.mp4")
+        assert r.status_code == 302 and r.url.startswith("/login/")
     client.force_login(people["admin"])
     assert client.get("/help/video/nope.mp4").status_code == 404
     (videos / "member.mp4").unlink()
@@ -124,3 +129,14 @@ def test_help_page_has_text_steps(client, people, videos):
     client.force_login(people["admin"])
     body = client.get("/help/").content.decode()
     assert body.count("글로 보기") == 3 and "취합 마감" in body
+
+
+
+def test_public_help_before_login(client, db, videos):
+    """로그인 화면의 버튼으로 들어가는 도움말: 로그인 안내 + 일반 사용자 영상만, 권한 영상·설정 도움말은 숨김."""
+    login = client.get("/login/").content.decode()
+    assert 'href="/help/"' in login and "사용법" in login
+    body = client.get("/help/").content.decode()
+    assert "멤버 코드" in body and "15분" in body and "/help/video/member.mp4" in body
+    assert "/help/video/manager.mp4" not in body and "/help/video/admin.mp4" not in body
+    assert 'href="/help/telegram/"' not in body and "로그인" in body
