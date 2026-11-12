@@ -43,7 +43,7 @@ STEPS = {
 
 def allowed(user, name: str) -> bool:
     if name == "member":
-        return user.is_authenticated
+        return True  # 가짜 데이터로 찍은 기본 사용법이라 로그인 전(로그인 화면의 도움말)에도 보여 준다
     if name == "manager":
         return perms.is_admin(user) or perms.managed_departments(user).exists()
     return name == "admin" and perms.is_admin(user)
