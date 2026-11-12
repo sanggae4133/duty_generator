@@ -430,3 +430,13 @@ def test_cell_form_defaults_to_swap(client, world, make_member):
     assert "맞바꿉니다" in body and "confirm(" in body and "<button>저장</button>" in body
     slot = client.get(f"/cell/{D}/slot0/").content.decode()
     assert 'value="+"' not in slot and 'value="-"' not in slot  # 관제 칸은 넣기·빼기 없음
+
+
+def test_theme_switch_in_topbar(client, world):
+    a, _ = world
+    client.force_login(a)
+    body = client.get("/me/").content.decode()
+    head = body.split("</head>")[0]
+    assert "duty-theme" in head.split('<link rel="stylesheet"')[0]  # 스타일보다 먼저 적용(깜빡임 없게)
+    assert 'id="theme-btn"' in body and 'aria-label="화면 모드' in body
+    assert "duty-theme" in client.get("/login/").content.decode()  # 로그인 화면도
