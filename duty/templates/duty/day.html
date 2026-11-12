@@ -1,6 +1,6 @@
 {% extends "duty/base.html" %}
 {% block content %}
-<nav>
+<nav aria-label="날짜 이동">
   <ul><li><a href="{% url 'day' prev %}{{ qs }}">◀</a></li></ul>
   <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong></li></ul>
   <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
