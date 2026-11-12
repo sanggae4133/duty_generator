@@ -3,7 +3,7 @@ from ..shifts import COMMUTE_SHIFTS, DEVELOPER, STAFF
 
 SHIFT_CHOICES = {**COMMUTE_SHIFTS, "slots": "장중관제"}  # 화면 순서 = 키 순서
 SHIFT_KEYS = list(SHIFT_CHOICES)
-_KEYS = ("f", "dept", "type", "shift")
+_KEYS = ("f", "dept", "type", "shift", "hist")
 
 
 def clean(depts, types, shifts) -> tuple[list[str], list[str], list[str]]:
@@ -24,11 +24,14 @@ def resolve(user, get, with_view: bool = True) -> dict:
     pref = RosterPref.objects.filter(user=user).first()
     if not any(k in get for k in _KEYS) and not (with_view and "view" in get):
         if pref is None:
-            return {"depts": [], "types": [], "shifts": [], "view": "week"}
-        return dict(zip(("depts", "types", "shifts"), clean(pref.depts, pref.types, pref.shifts)), view=pref.view)
+            return {"depts": [], "types": [], "shifts": [], "view": "week", "history": True}
+        return dict(zip(("depts", "types", "shifts"), clean(pref.depts, pref.types, pref.shifts)),
+                    view=pref.view, history=pref.history)
     d, t, s = clean(get.getlist("dept"), get.getlist("type"), get.getlist("shift"))
     view = get["view"] if with_view and get.get("view") in ("week", "month") else (pref.view if pref else "week")
-    new = {"depts": d, "types": t, "shifts": s, "view": view}
+    # 체크박스는 hidden hist=0 뒤에 오므로 마지막 값을 본다. hist 가 없는 주소(날짜 이동 등)는 저장값 유지
+    history = get.getlist("hist")[-1] == "1" if "hist" in get else (pref.history if pref else True)
+    new = {"depts": d, "types": t, "shifts": s, "view": view, "history": history}
     if pref is None or any(getattr(pref, k) != v for k, v in new.items()):
         RosterPref.objects.update_or_create(user=user, defaults=new)  # 첫 저장 동시 요청도 안전
     return new

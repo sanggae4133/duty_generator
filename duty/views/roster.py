@@ -31,6 +31,11 @@ def _items(labels: list[str], names: list[str], removed: bool = False) -> list[d
     return [_item(lb, names, removed) for lb in labels]
 
 
+def _latest(labels: list[str]) -> list[str]:
+    """변경 내역을 숨길 때: 'A>B>C'·'+C' → 'C'(지금 근무하는 사람만)."""
+    return [lb.split(">")[-1].strip().lstrip("+") for lb in labels]
+
+
 def _lines(labels: list[str], names: list[str], removed: bool = False, per_line: int = 3) -> list[list[dict]]:
     items = _items(labels, names, removed)
     return [items[i:i + per_line] for i in range(0, len(items), per_line)]
@@ -75,8 +80,9 @@ def _shown(shifts: list[str]):
     return lambda k: not shifts or ("slots" if is_slot_cell(k) else k) in shifts
 
 
-def _filter_ctx(depts, types, shifts) -> dict:
+def _filter_ctx(depts, types, shifts, history: bool = True) -> dict:
     return {
+        "history": history,
         "filter_on": bool(depts or types or shifts),
         "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)],
         "dept_choices": [
@@ -127,7 +133,8 @@ def roster(request):
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
     today, admin = perms.today(), perms.is_admin(request.user)
     pref = prefs.resolve(request.user, request.GET)
-    view, depts, types, shifts = pref["view"], pref["depts"], pref["types"], pref["shifts"]
+    view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
+    show = (lambda x: x) if history else _latest
     anchor = date_param(request, "date") or today
     if not LOW <= anchor <= HIGH:  # 극단 날짜의 overflow 방지
         anchor = today
@@ -163,8 +170,8 @@ def roster(request):
         return {
             k: {
                 "key": k, "slot": is_slot_cell(k), "label": cell_label(k),
-                "lines": _lines([x for x in found.cells[k].labels if keep(x)], names) if found else [],
-                "removed": _lines([x for x in found.cells[k].removed if keep(x)], names, True) if found else [],
+                "lines": _lines(show([x for x in found.cells[k].labels if keep(x)]), names) if found else [],
+                "removed": _lines([x for x in found.cells[k].removed if keep(x)], names, True) if found and history else [],
             }
             for k in CELLS if shown(k)
         }
@@ -186,7 +193,7 @@ def roster(request):
         "week_link": link("week", anchor), "month_link": link("month", anchor),
         "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs),
     }
-    ctx.update(_filter_ctx(depts, types, shifts), weeks=days)
+    ctx.update(_filter_ctx(depts, types, shifts, history), weeks=days)
     return render(request, "duty/roster.html", ctx)
 
 
@@ -224,7 +231,8 @@ def _neighbor(d, step: int):
 @login_required
 def day(request, d):
     pref = prefs.resolve(request.user, request.GET, with_view=False)
-    depts, types, shifts = pref["depts"], pref["types"], pref["shifts"]
+    depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
+    show = (lambda x: x) if history else _latest
     found = find_day(d)
     editable = perms.is_admin(request.user) or d >= perms.today()
     members = _active_members(depts, types)
@@ -235,15 +243,15 @@ def day(request, d):
             ctx = _cell_context(found, k, d, depts, types, members)
             ctx.update(
                 next=request.path,
-                items=_items([x for x in found.cells[k].labels if keep(x)], []),
-                removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True),
+                items=_items(show([x for x in found.cells[k].labels if keep(x)]), []),
+                removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True) if history else [],
             )
             sections.append(ctx)
     qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
     return render(request, "duty/day.html", {
         "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
         "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
-        "qs": qs, **_filter_ctx(depts, types, shifts),
+        "qs": qs, **_filter_ctx(depts, types, shifts, history),
     })
 
 

@@ -33,7 +33,7 @@
   </tbody>
 </table>
 </div>
-<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람{% if weeks.0.0.edit or weeks.0.4.edit %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>
+{% if history %}<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람{% if weeks.0.0.edit or weeks.0.4.edit %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>{% endif %}
 <script>
   const today = document.getElementById("today");
   if (today) {

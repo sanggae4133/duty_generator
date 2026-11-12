@@ -133,7 +133,7 @@ def test_day_does_not_overwrite_view_but_shares_filters(client, world):
 def test_defaults_without_prefs(client, world):
     client.force_login(world[0])
     body = client.get("/").content.decode()
-    assert body.count('type="checkbox"') == 11 and body.count(" checked") == 11
+    assert body.count('type="checkbox"') == 12 and body.count(" checked") == 12
     assert not RosterPref.objects.exists()
 
 
@@ -142,7 +142,7 @@ def test_stale_saved_prefs_fall_back_to_all(client, world):
     RosterPref.objects.create(user=a, depts=["GONE"], types=["외부"], shifts=["bogus"])
     client.force_login(a)
     body = client.get("/").content.decode()
-    assert "<small>정상</small>" in body and body.count(" checked") == 11
+    assert "<small>정상</small>" in body and body.count(" checked") == 12
 
 
 def test_unchanged_get_does_not_write(client, world):
@@ -154,3 +154,39 @@ def test_unchanged_get_does_not_write(client, world):
     with CaptureQueriesContext(connection) as ctx:
         client.get("/?view=month&shift=normal")
     assert not [q for q in ctx.captured_queries if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE"))]
+
+
+# ── 변경 내역 표시 켬/끔 ──
+
+@pytest.fixture
+def changed(world, make_member):
+    from duty.services import changes
+    a, b = world
+    c = make_member("다", user=True)
+    changes.change_cell(a, D, "normal", a, c)       # 가>다
+    changes.change_cell(a, D, "dinner", b, None)    # 나 빠짐(취소선)
+    return a
+
+
+def test_history_shown_by_default(client, changed):
+    client.force_login(changed)
+    g = grid(client)
+    assert "&gt;" in g and "<s>" in g and "chg" in g
+
+
+def test_history_off_shows_latest_only_and_is_saved(client, changed):
+    client.force_login(changed)
+    g = grid(client, "?f=1&hist=0")
+    assert "&gt;" not in g and "<s>" not in g and "chg" not in g and ">다<" in g
+    assert RosterPref.objects.get(user=changed).history is False
+    g = grid(client)  # 저장값
+    assert "&gt;" not in g and "<s>" not in g
+    day = client.get(f"/day/{D}/").content.decode()
+    assert "<s>" not in day.split('<h4 class="grp">')[1]
+    assert "&gt;" in grid(client, "?f=1&hist=0&hist=1")  # 체크하면 hidden 0 뒤에 1 이 온다
+
+
+def test_history_kept_when_link_has_no_hist(client, changed):
+    client.force_login(changed)
+    grid(client, "?f=1&hist=0")
+    assert "&gt;" not in grid(client, "?f=1&dept=MEMS")  # 날짜 이동 등 hist 없는 주소

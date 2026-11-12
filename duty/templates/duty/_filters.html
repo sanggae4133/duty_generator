@@ -3,6 +3,23 @@
   <fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  <small class="hint">모두 해제하면 전체 표시</small>
+  <fieldset class="filter"><legend>보기</legend><input type="hidden" name="hist" value="0"><label><input type="checkbox" name="hist" value="1"{% if history %} checked{% endif %}> 변경 내역 표시(A&gt;B·취소선)</label></fieldset>
+  <small class="hint">부서·유형·스케줄은 모두 해제하면 전체 표시</small>
 {% if not nested %}</div></details>{% endif %}
-  <script>{ const f = document.currentScript.closest("form"); const d = f.querySelector("details.filters"); if (innerWidth > 768) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => f.requestSubmit()); }</script>
+  <script>{
+    // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게)
+    const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname;
+    let s = null;
+    try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {}
+    if (innerWidth > 768 || (s && s.open)) d.open = true;
+    f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => {
+      const g = document.querySelector(".roster-scroll");
+      try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {}
+      f.requestSubmit();
+    });
+    if (s) addEventListener("DOMContentLoaded", () => {  // 근무표의 '오늘로 이동'보다 뒤에
+      const g = document.querySelector(".roster-scroll");
+      if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; }
+      scrollTo(0, s.y);
+    });
+  }</script>
