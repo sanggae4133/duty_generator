@@ -170,6 +170,30 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
   - 복원 전에 검사한다. `quick_check` 가 `ok` 가 아니거나 백업의 마이그레이션이 지금 코드와 다르면 아무것도 바꾸지 않고 멈춘다(다르면 그 백업을 만든 버전의 코드로 먼저 바꾼다).
   - 지금 DB 는 `data/backups/before-restore-YYYYMMDD-HHMMSS.sqlite3` 로 남긴다(자동으로 지우지 않는다). 남은 `-wal`·`-shm` 은 지운다.
 
+## 서버에서 데이터 보기
+
+`duty` 는 로그인할 수 없는 계정이라(`/sbin/nologin`) `su - duty` 로는 안 들어가진다. 계정을 바꾸지 않고 `sudo` 로 본다.
+
+```bash
+cd /opt/duty_generator
+sudo ls -la data data/backups data/logs
+sudo tail -f data/logs/worker.log         # 작업자 로그 (web.log 는 웹)
+sudo -u duty bash                         # duty 로 셸이 꼭 필요할 때. 나갈 때 exit
+```
+
+DB 안을 볼 때는 읽기 전용으로 연다(서비스가 도는 중에도 안전).
+
+```bash
+sudo dnf install -y sqlite                # 처음 한 번
+sudo -u duty sqlite3 -readonly data/db.sqlite3
+# sqlite> .tables
+# sqlite> select id, name, status from duty_period;
+# sqlite> .quit
+```
+
+- 데이터는 DB 를 직접 고치지 말고 웹 화면·관리 화면에서 고친다(직접 고치면 변경 기록이 남지 않고 규칙 검사도 건너뛴다).
+- DB 에는 실명과 봇 토큰이 들어 있다. 화면을 캡처하거나 결과를 밖으로 옮기지 않는다.
+
 ## 로그
 
 | 파일 | 내용 |
