@@ -1,5 +1,5 @@
 // 사용법 영상 녹화(개발 PC 전용, 운영 서버에는 필요 없음). 가짜 데이터(seed.py)로 띄운 서버를 Chrome 으로 조작하며
-// 자막을 얹어 화면을 찍고 ffmpeg 로 duty/help_videos/<이름>.mp4 를 만든다. 순서와 방법은 README "사용법 영상 다시 만들기".
+// 자막을 얹어 화면을 찍고 ffmpeg 로 duty/help_videos/<이름>.mp4 를 만든다. 순서와 방법은 docs/DEVELOPMENT.md "사용법 영상 다시 만들기".
 //   node tools/help_videos/record.mjs <서버 주소> <작업 폴더> <ffmpeg 경로> [member manager admin]
 import {spawn, execFileSync} from 'node:child_process';
 import fs from 'node:fs';

@@ -1,6 +1,6 @@
 # duty_generator
 
-NXT 당번표 웹앱(Django). 구글 시트 + Apps Script 당번표를 완전히 대체한다. **작업 전에 `docs/ARCHITECTURE.md`를 읽는다**(구조·도메인 규칙의 기준). 설치·운영은 `README.md`. 동작을 바꾸면 그 문서도 같은 PR에서 고친다.
+NXT 당번표 웹앱(Django). 구글 시트 + Apps Script 당번표를 완전히 대체한다. **작업 전에 `docs/ARCHITECTURE.md`를 읽는다**(구조·도메인 규칙의 기준). 기획 `docs/OVERVIEW.md`, 설계 철학·결정 기록 `docs/PRINCIPLES.md`, 운영 `docs/OPERATIONS.md`, 개발 `docs/DEVELOPMENT.md`. 동작을 바꾸면 해당 문서도 같은 PR에서 고치고, 중요한 결정은 PRINCIPLES.md "결정 기록"에 한 줄 더한다.
 
 ## 소통 규칙
 - 사용자와의 대화, 진행 보고, 질문, 최종 보고는 **한국어**로 한다.

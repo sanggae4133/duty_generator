@@ -1,6 +1,6 @@
 # 아키텍처
 
-코드가 지금 어떻게 생겼고 왜 그런지를 적는다. 설치·운영 명령은 `README.md`. 이 문서와 코드가 다르면 코드가 맞고, 이 문서를 고친다.
+코드가 지금 어떻게 생겼고 왜 그런지를 적는다. 기획은 [OVERVIEW.md](OVERVIEW.md), 설계 철학·결정 기록은 [PRINCIPLES.md](PRINCIPLES.md), 운영 명령은 [OPERATIONS.md](OPERATIONS.md), 개발 방법은 [DEVELOPMENT.md](DEVELOPMENT.md). 이 문서와 코드가 다르면 코드가 맞고, 이 문서를 고친다.
 
 ## 한눈에
 
@@ -110,7 +110,7 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 - 메뉴 [도움말](`/help/`): 권한별 사용법 영상과 텔레그램·푸시·캘린더 설정 도움말. 영상 목록·권한은 `duty/help.py`(`member` 모두, `manager` 출근표 입력 담당·관리자, `admin` 관리자).
 - 영상은 정적 파일이 아니라 `/help/video/<이름>.mp4` 뷰가 권한을 확인한 뒤 `settings.HELP_VIDEO_DIR`에서 내려준다(아이폰 재생을 위해 HTTP Range 지원).
 - 로그인할 때마다(`user_logged_in` → `accounts.on_login`) 다음 화면에 사용법 팝업을 띄운다. [다시 보지 않기]는 `User.help_dismissed`에 남는다. 비밀번호 변경 화면에서는 미룬다.
-- 영상은 `tools/help_videos/`(가짜 데이터 + Chrome 녹화)로 다시 만든다(README "사용법 영상 다시 만들기").
+- 영상은 `tools/help_videos/`(가짜 데이터 + Chrome 녹화)로 다시 만든다(DEVELOPMENT.md "사용법 영상 다시 만들기").
 
 ## 캘린더 구독
 
@@ -121,7 +121,7 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 
 - `manage.py run_worker`: 1분마다 **백업**(하루 한 번 `DUTY_BACKUP_HOUR` 이후) → **상태 점검**(5분마다, 바뀔 때만 장애 알림) → **알림**. 작업마다 예외를 따로 잡아 하나가 실패해도 나머지는 돈다. 파일 잠금으로 한 프로세스만 돈다.
 - 실행 중 생기는 파일은 전부 `data/`: `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`.
-- 개발·운영 차이는 `.env` 값뿐이다. 셸 스크립트·타이머·logrotate는 없다. 업그레이드·롤백·복원은 README의 명령으로 한다.
+- 개발·운영 차이는 `.env` 값뿐이다. 셸 스크립트·타이머·logrotate는 없다. 업그레이드·롤백·복원은 OPERATIONS.md 의 명령으로 한다.
 
 ## 화면 디자인
 
