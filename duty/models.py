@@ -89,6 +89,8 @@ class Period(models.Model):
     overwrite_from = models.DateField(null=True, blank=True)
     # 배포가 지운 행 [[모델 c|k, 회차 id, 날짜, 멤버 id, 출근조|칸]]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
     publish_undo = models.JSONField(null=True, blank=True, editable=False)
+    # 이 번호 이하의 ChangeLog 는 근무표·알림에 쓰지 않는다(배포 취소 때 그 시점 최대 번호로 정함). 시각 대신 번호라 시계와 무관
+    log_floor = models.BigIntegerField(default=0, editable=False)
 
     class Meta:
         verbose_name = verbose_name_plural = "회차"

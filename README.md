@@ -60,10 +60,10 @@ cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 
 ## 설치 (사내 서버)
 
-RHEL 9 기준(Python 3.12 패키지, 시스템 SQLite 3.34 — Django 5.2 는 SQLite 3.31 이상이 필요해서 **RHEL 8 은 안 된다**). 코드는 root 소유(`duty` 는 읽기만), 쓰는 곳은 `data/` 하나(`duty` 소유)다.
+RHEL 9.4 이상 기준(Python 3.12 패키지는 9.4 부터, 시스템 SQLite 3.34 — Django 5.2 는 SQLite 3.31 이상이 필요해서 **RHEL 8 은 안 된다**). 코드는 root 소유(`duty` 는 읽기만), 쓰는 곳은 `data/` 하나(`duty` 소유)다.
 
 ```bash
-sudo dnf install -y python3.12 git curl     # 기본 python3(3.9)가 아니라 python3.12 를 쓴다
+sudo dnf install -y python3.12 python3.12-pip git curl     # 기본 python3(3.9)가 아니라 python3.12 를 쓴다
 sudo useradd -r -s /sbin/nologin duty
 sudo git clone https://github.com/sanggae4133/duty_generator.git /opt/duty_generator
 cd /opt/duty_generator

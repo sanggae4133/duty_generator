@@ -214,3 +214,20 @@ def test_period_with_events_cannot_be_deleted(db):
     p = periods.save_draft(Period(name="p", start_date=d(11, 9), end_date=d(11, 13)))
     with pytest.raises(ProtectedError):
         p.delete()
+
+
+def test_unpublish_cutoff_ignores_clock(abc, admin_user):
+    """배포 취소 이전 기록은 시각이 아니라 기록 번호로 가른다(시계가 뒤로 가도)."""
+    from datetime import timedelta
+    from duty.services import changes
+    _, b, _ = abc
+    publish(b, d(11, 16))
+    m = Commute.objects.filter(period=b, date=d(11, 19)).first().member
+    changes.change_cell(admin_user, d(11, 19), "normal", m, None)
+    unpublish(b)
+    Commute.objects.create(period=b, date=d(11, 19), member=m, shift="normal")
+    publish(b, d(11, 16))
+    changes.change_cell(admin_user, d(11, 20), "normal", m, None)  # 새 주기의 변경
+    ChangeLog.objects.filter(date=d(11, 20)).update(at=ChangeLog.objects.get(date=d(11, 19)).at - timedelta(days=1))
+    assert find_day(d(11, 20)).cells["normal"].removed == [m.name]  # 시각이 과거여도 보인다
+    assert find_day(d(11, 19)).cells["normal"].removed == []

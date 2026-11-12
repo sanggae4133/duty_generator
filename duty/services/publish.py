@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 
 from ..errors import DutyError
@@ -105,5 +106,6 @@ def unpublish(period: Period, by=None) -> None:
             for k, p, d, m, v in undo if k == key
         )
     period.status, period.overwrite_from, period.published_at, period.publish_undo = S.GENERATED, None, None, None
+    period.log_floor = ChangeLog.objects.aggregate(m=Max("id"))["m"] or 0  # 지금까지의 기록은 다시 배포해도 쓰지 않는다
     period.save()
     record(period, S.PUBLISHED, by, "배포 취소")
