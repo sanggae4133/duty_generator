@@ -6,7 +6,8 @@
 {% for v in videos %}
 <article class="howto">
   <header><strong>{{ v.title }}</strong> <small>· {{ v.who }}</small></header>
-  <video controls playsinline preload="metadata" src="/help/video/{{ v.name }}.mp4"></video>
+  <video controls playsinline preload="metadata" src="/help/video/{{ v.name }}.mp4" aria-describedby="steps-{{ v.name }}"></video>
+  <details><summary>글로 보기</summary><ol id="steps-{{ v.name }}">{% for s in v.steps %}<li>{{ s }}</li>{% endfor %}</ol></details>
 </article>
 {% endfor %}
 <h4>설정 도움말</h4>

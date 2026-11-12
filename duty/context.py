@@ -20,9 +20,12 @@ def nav(request):
     if user.is_superuser:
         items.append(("관리", reverse("admin:index"), ()))
     items.append(("도움말", "/help/", ()))
-    # 로그인 직후 첫 화면에 사용법 팝업(비밀번호 변경 화면에서는 미룬다)
-    if request.path != reverse("password_change") and request.session.pop("show_help", False):
-        out["welcome_videos"] = guide.for_user(user)
+    # 로그인 직후 첫 화면에 사용법 팝업(비밀번호 변경 화면에서는 미룬다). base.html 이 실제로 그릴 때만
+    # 세션 표시를 소비한다(템플릿이 부를 때 실행) — 근무 변경 팝업 같은 부분 응답이 먼저 와도 잃지 않게
+    if request.path != reverse("password_change"):
+        def welcome():
+            return guide.for_user(user) if request.session.pop("show_help", False) else []
+        out["welcome_videos"] = welcome
     path = request.path
     out["menu"] = [
         {"label": label, "url": url,

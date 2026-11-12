@@ -150,19 +150,19 @@
   {% block content %}{% endblock %}
   {% if repo_url %}<footer class="site-foot"><a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub 저장소</a></footer>{% endif %}
 </main>
-{% if welcome_videos %}
-<dialog id="help-welcome" class="welcome"><article>
-  <header><strong>NXT 당번표 사용법</strong></header>
-  <p>1분 안팎의 짧은 영상입니다. 메뉴의 <a href="/help/">도움말</a>에서 언제든 다시 볼 수 있습니다.</p>
-  {% for v in welcome_videos %}<details{% if forloop.first %} open{% endif %}><summary>{{ v.title }} <small>· {{ v.who }}</small></summary>
+{% with welcome=welcome_videos %}{% if welcome %}
+<dialog id="help-welcome" class="welcome" aria-labelledby="help-welcome-title"><article>
+  <header><strong id="help-welcome-title">NXT 당번표 사용법</strong></header>
+  <p>1분 안팎의 짧은 영상입니다. 메뉴의 <a href="/help/">도움말</a>에서 언제든 다시 볼 수 있고, 글로 된 설명도 있습니다.</p>
+  {% for v in welcome %}<details{% if forloop.first %} open{% endif %}><summary>{{ v.title }} <small>· {{ v.who }}</small></summary>
     <video controls playsinline preload="none" src="/help/video/{{ v.name }}.mp4"></video></details>{% endfor %}
   <footer>
-    <button class="outline secondary" onclick="fetch('/help/dismiss/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}}).finally(() => this.closest('dialog').close())">다시 보지 않기</button>
+    <button class="outline secondary" onclick="const d = this.closest('dialog'); fetch('/help/dismiss/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}}).then(r => { if (!r.ok) throw 0; d.close(); }).catch(() => alert('저장하지 못했습니다. 잠시 뒤 다시 눌러 주세요.'))">다시 보지 않기</button>
     <button onclick="this.closest('dialog').close()">닫기</button>
   </footer>
 </article></dialog>
 <script>document.getElementById("help-welcome").showModal();</script>
-{% endif %}
+{% endif %}{% endwith %}
 <dialog id="dlg"><article><div id="dlg-body"></div><footer><button class="secondary" onclick="document.getElementById('dlg').close()">닫기</button></footer></article></dialog>
 <script>
   document.body.addEventListener("htmx:afterSwap", e => {

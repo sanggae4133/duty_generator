@@ -102,3 +102,25 @@ def test_welcome_popup_waits_for_password_change(client, make_member, videos):
 def test_dismiss_requires_post(client, people):
     client.force_login(people["member"])
     assert client.get("/help/dismiss/").status_code == 405
+
+
+def test_popup_flag_survives_partial_responses(client, people, videos):
+    """부분 응답(근무 변경 팝업·manifest)이 먼저 와도 팝업 표시 기회를 잃지 않는다."""
+    u = people["member"]
+    client.post(reverse("login"), {"username": u.username, "password": "unused-Pw-123"})
+    client.get("/manifest.webmanifest")
+    client.get("/cell/2026-11-10/normal/")
+    assert 'id="help-welcome"' in client.get("/").content.decode()
+
+
+def test_video_range_huge_number(client, people, videos):
+    client.force_login(people["member"])
+    r = client.get("/help/video/member.mp4", HTTP_RANGE="bytes=" + "9" * 5000 + "-")
+    assert r.status_code in (200, 416)  # 500 이 아니면 된다(형식 밖은 전체 응답)
+    r.close()
+
+
+def test_help_page_has_text_steps(client, people, videos):
+    client.force_login(people["admin"])
+    body = client.get("/help/").content.decode()
+    assert body.count("글로 보기") == 3 and "취합 마감" in body

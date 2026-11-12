@@ -268,12 +268,13 @@ python3 -m venv $W/ff && $W/ff/bin/pip install imageio-ffmpeg   # ffmpeg(시스�
 FF=$($W/ff/bin/python -c "import imageio_ffmpeg as i; print(i.get_ffmpeg_exe())")
 export DUTY_ENV_FILE= DUTY_DEBUG=1 DUTY_DATA_DIR=$W/data   # 빈 DB(지금 data/ 를 건드리지 않는다)
 .venv/bin/python manage.py migrate && .venv/bin/python manage.py shell < tools/help_videos/seed.py
-.venv/bin/python manage.py runserver 127.0.0.1:8795 --noreload &   # 끝나면 이 서버를 끈다
-node tools/help_videos/record.mjs http://127.0.0.1:8795 $W $FF     # member → manager → admin 순서(관리자 영상이 담당자 입력을 쓴다)
-rm -rf $W
+.venv/bin/python manage.py runserver 127.0.0.1:8795 --noreload & SRV=$!
+node tools/help_videos/record.mjs http://127.0.0.1:8795 $W $FF     # member → manager → admin 순서
+kill $SRV; rm -rf $W
 ```
 
-- 자막·순서는 `tools/help_videos/record.mjs` 의 `VIDEOS` 에서 고친다. 영상 하나만 다시 뽑으려면 끝에 이름(`member` 등)을 붙인다.
+- 자막·순서는 `tools/help_videos/record.mjs` 의 `VIDEOS` 에서 고치고, 같은 내용의 글(`duty/help.py` 의 `STEPS`, 도움말의 "글로 보기")도 같이 고친다.
+- 영상 하나만 다시 뽑으려면 끝에 이름(`member` 등)을 붙인다. 단 `admin` 은 담당자 영상이 채우는 출근표를 쓰므로 `manager admin` 으로 함께 뽑는다(새 데이터에서).
 - Chrome·Node 가 필요하다. 영상은 휴대폰 화면(390×844, 2배율), 관리자 영상만 PC 화면(1280×800)이다.
 
 ## 의존성 고정
