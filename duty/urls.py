@@ -66,6 +66,7 @@ urlpatterns = [
     path("manifest.webmanifest", alarm_views.manifest, name="manifest"),
     path("help/telegram/", alarm_views.help_telegram, name="help_telegram"),
     path("alarms/calendar/issue/", alarm_views.calendar_issue, name="alarm_calendar_issue"),
+    path("alarms/calendar/shifts/", alarm_views.calendar_shifts, name="alarm_calendar_shifts"),
     path("alarms/calendar/revoke/", alarm_views.calendar_revoke, name="alarm_calendar_revoke"),
     path("help/calendar/", alarm_views.help_calendar, name="help_calendar"),
     path("calendar/<str:token>.ics", calendar_views.feed, name="calendar_feed"),
