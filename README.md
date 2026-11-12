@@ -203,6 +203,15 @@ sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -x -H 127.0.0.1 -p 8092 /opt/duty
 - `-r` 읽기 전용, `-x` 브라우저 자동 실행 안 함, `-H 127.0.0.1` 서버 안에서만 열기.
 - 내 PC 에서는 SSH 터널로 본다: `ssh -L 8092:127.0.0.1:8092 <서버>` 후 브라우저에서 `http://127.0.0.1:8092`. VS Code 원격 접속 중이면 포트 전달이 자동으로 잡힌다.
 - **Tailscale Funnel 에 올리지 않는다**(실명·봇 토큰이 그대로 보인다). `-H 0.0.0.0` 으로 열지 않는다.
+- `-r` 없이 띄우면 행 추가·수정·삭제와 SQL 실행도 된다. **쓰기는 웬만하면 하지 않는다**: 변경 기록(ChangeLog)·지난 날짜 권한 같은 앱 규칙을 건너뛰고, sqlite-web 은 외래키 검사를 켜지 않아 기록이 남은 사람·회차를 지워도 막히지 않으며, 서비스가 도는 중이면 잠금이 겹친다. 꼭 고쳐야 하면 이 순서로만 한다.
+  ```bash
+  sudo systemctl stop duty-web duty-worker
+  sudo -u duty .venv/bin/python manage.py backup        # 잘못되면 이 파일로 restore
+  sudo -u duty /opt/sqlite-web/bin/sqlite_web -x -H 127.0.0.1 -p 8092 /opt/duty_generator/data/db.sqlite3   # -r 없음
+  # 고친 뒤 Ctrl+C
+  sudo systemctl start duty-web duty-worker
+  ```
+  자주 직접 고치게 되는 것이 있으면 화면 기능으로 넣는다.
 
 - 데이터는 DB 를 직접 고치지 말고 웹 화면·관리 화면에서 고친다(직접 고치면 변경 기록이 남지 않고 규칙 검사도 건너뛴다).
 - DB 에는 실명과 봇 토큰이 들어 있다. 화면을 캡처하거나 결과를 밖으로 옮기지 않는다.
