@@ -2,7 +2,7 @@
 
 IT 부서의 출근조·장중관제 당번표를 만들고, 바꾸고, 알려 주는 사내 웹앱. 구글 시트 + Apps Script 당번표를 대체한다.
 
-- 회차 단위로 **부서 출근표를 취합**하고(표·CSV), **장중관제 당번을 자동 생성**해(편차 2 이하) **배포**한다.
+- 회차 단위로 **부서 출근표를 취합**하고(표·CSV), **장중관제 당번을 자동 생성**해(편차 2 이하를 목표로) **배포**한다.
 - 배포된 근무표를 휴대폰·PC 에서 보고 **근무를 바꾸면 누가 언제 무엇을 바꿨는지 남는다**. 지난 날짜는 관리자만.
 - 근무 전 **텔레그램·웹 푸시 알림**, 휴대폰 캘린더에 **내 근무 구독(ICS)**.
 - 잘못 배포하면 **배포 취소**로 되돌린다. 매일 DB 를 백업한다.
@@ -14,7 +14,8 @@ IT 부서의 출근조·장중관제 당번표를 만들고, 바꾸고, 알려 �
 |---|---|
 | 멤버 | 근무표·내 근무 보기, 오늘·미래 근무 바꾸기, 알림·캘린더 |
 | 출근표 입력 담당 | 취합 중인 회차에 자기 부서 출근표 입력 |
-| 관리자 | 회차 만들기·취합·생성·배포·배포 취소, 지난 날짜 수정, 통계·이력, 계정·알림 설정 |
+| 관리자(스태프) | 회차 만들기·취합·생성·배포·배포 취소, 지난 날짜 수정, 통계·이력 |
+| 슈퍼유저 | 관리 화면: 계정 발급·부서·입력 담당자·로그인 잠금 해제·알림 설정(관리자 1~2명이 함께 가진다) |
 
 ## 기술
 
@@ -26,10 +27,10 @@ Python 3.12 · Django 5.2 · SQLite(WAL) · 서버 렌더링 템플릿 + htmx + 
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock -r requirements-dev.txt
 cp .env.example .env                       # 견본이 개발 PC 값이라 그대로 쓴다
+.venv/bin/pytest -W error                  # 전체 테스트
 .venv/bin/python manage.py migrate         # data/db.sqlite3 를 만든다
 .venv/bin/python manage.py createsuperuser
-.venv/bin/python manage.py runserver       # http://127.0.0.1:8000
-.venv/bin/pytest -W error                  # 전체 테스트
+.venv/bin/python manage.py runserver       # http://127.0.0.1:8000 (Ctrl+C 로 끈다)
 ```
 
 ## 문서
