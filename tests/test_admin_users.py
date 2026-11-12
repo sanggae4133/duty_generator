@@ -69,3 +69,11 @@ def test_add_rejects_username_differing_only_in_case(su_client, make_member):
         "username": m.username.lower(), "name": "새사람", "department": "MD", "part": "", "type": "개발자"})
     assert r.status_code == 200 and "같은 아이디가 이미 있습니다" in r.content.decode()
     assert User.objects.count() == 2  # 관리자 + 가
+
+
+def test_change_form_has_help_and_notice_checkboxes(su_client, make_member):
+    """관리자가 '사용법 팝업 다시 보지 않기'를 되돌리거나(다시 띄우기) 변경 알림을 끌 수 있다."""
+    m = make_member("가상다", user=True)
+    body = su_client.get(reverse("admin:duty_user_change", args=[m.pk])).content.decode()
+    assert 'name="help_dismissed"' in body and 'name="notify_changes"' in body
+    assert "사용법 팝업 다시 보지 않기" in body
