@@ -26,11 +26,20 @@ def _kind(cell: str) -> str:
     return "장중관제" if is_slot_cell(cell) else f"{cell_label(cell)} 당번"
 
 
+def _where(cell: str) -> str:
+    return f"장중관제 {cell_label(cell)}" if is_slot_cell(cell) else cell_label(cell)
+
+
 def change_notice(d: date, cell: str, before: str | None, after: str | None, by: str) -> tuple[str, str]:
     """내 근무가 바뀌었을 때(제목, 본문). 교체 A → B, 넣기 +B, 빼기 A 빠짐."""
     what = f"{before} → {after}" if before and after else (f"+{after}" if after else f"{before} 빠짐")
-    where = f"장중관제 {cell_label(cell)}" if is_slot_cell(cell) else cell_label(cell)
-    return "근무 변경", f"[근무 변경] {day_label(d)} {where}\n{what}\n바꾼 사람: {by}"
+    return "근무 변경", f"[근무 변경] {day_label(d)} {_where(cell)}\n{what}\n바꾼 사람: {by}"
+
+
+def swap_notice(d: date, cell_a: str, a: str, cell_b: str, b: str, by: str) -> tuple[str, str]:
+    """맞교환 한 번(기록 2건)을 한 통으로: A 는 cell_a → cell_b, B 는 반대로."""
+    return "근무 변경", (f"[근무 변경] {day_label(d)} 맞교환\n{a} {_where(cell_a)} → {_where(cell_b)}\n"
+                       f"{b} {_where(cell_b)} → {_where(cell_a)}\n바꾼 사람: {by}")
 
 
 def personal_text(name: str, d: date, cell: str, today: date) -> str:

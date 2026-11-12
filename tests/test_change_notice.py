@@ -31,13 +31,12 @@ def world(make_member, fixed_today, monkeypatch):
     return p, a, b, c, sent
 
 
-def test_swap_notifies_both_but_not_actor(world):
+def test_swap_notifies_both_once_but_not_actor(world):
     p, a, b, c, sent = world
-    changes.exchange(c, D, "normal", a, b)  # 다가 가·나 를 맞바꿈
+    changes.exchange(c, D, "normal", a, b)  # 다가 가·나 를 맞바꿈(기록 2건)
     change_notice.tick(NOW)
-    chats = sorted(x for x, _ in sent)
-    assert chats == ["11", "11", "22", "22"]  # 맞교환은 기록 2건 → 두 사람이 각각 2건
-    assert all("정상" in t or "석식교대" in t for _, t in sent)
+    assert sorted(x for x, _ in sent) == ["11", "22"]  # 한 사람에 한 통으로 합친다
+    assert all("맞교환" in t and "정상" in t and "석식교대" in t for _, t in sent)
     assert not ChangeLog.objects.filter(notified=False).exists()
     sent.clear()
     change_notice.tick(NOW)
@@ -57,7 +56,7 @@ def test_opt_out_and_push(world):
     sub = PushAlarmSubscription.objects.create(user=a, endpoint="https://fcm.googleapis.com/x", p256dh="p", auth="a")
     changes.exchange(c, D, "normal", a, b)
     change_notice.tick(NOW)
-    assert sorted(x for x, _ in sent) == ["11", "11", f"push:{sub.pk}", f"push:{sub.pk}"]
+    assert sorted(x for x, _ in sent) == ["11", f"push:{sub.pk}"]
 
 
 def test_old_or_past_changes_are_skipped(world, fixed_today):
@@ -83,3 +82,36 @@ def test_toggle_view(client, world):
     assert not User.objects.get(pk=a.pk).notify_changes
     client.post("/alarms/changes/", {"on": "1"})
     assert User.objects.get(pk=a.pk).notify_changes
+
+
+def test_undone_or_overwritten_changes_are_not_sent(world):
+    from duty.services.publish import unpublish
+    p, a, b, c, sent = world
+    p.publish_undo, p.published_at = [], NOW - timedelta(hours=1)  # 실제 배포처럼
+    p.save()
+    changes.exchange(c, D, "normal", a, c)
+    p.refresh_from_db()
+    from duty.models import PeriodEvent
+    PeriodEvent.objects.create(period=p, from_status="generated", to_status="published")
+    unpublish(p)  # 배포 취소 → 이 기록은 근무표에서 숨는다
+    change_notice.tick(NOW)
+    assert sent == [] and not ChangeLog.objects.filter(notified=False).exists()
+
+
+def test_marked_before_sending(world, monkeypatch):
+    """보내는 도중 작업자가 죽어도 같은 알림이 다시 가지 않게 먼저 표시한다(최대 한 번)."""
+    p, a, b, c, sent = world
+    seen = []
+    monkeypatch.setattr("duty.alarms.senders.telegram_send",
+                        lambda cfg, chat, text: seen.append(ChangeLog.objects.filter(notified=False).count()) or {})
+    changes.exchange(a, D, "normal", a, c)
+    change_notice.tick(NOW)
+    assert seen == [0]
+
+
+def test_past_date_uses_perms_today(world, fixed_today):
+    p, a, b, c, sent = world
+    changes.exchange(c, D, "normal", a, c)
+    fixed_today(D + timedelta(days=1))  # 작업 라운드가 자정을 넘긴 경우
+    change_notice.tick(NOW)
+    assert sent == []

@@ -104,7 +104,7 @@ def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list
     where = {}
     for k in kinds:
         for n in (day.members[k] if day else []):
-            where.setdefault(n, cell_label(k))
+            where[n] = f"{where[n]}·{cell_label(k)}" if n in where else cell_label(k)  # 관제 여러 칸이면 모두
     return {
         "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
         "current_members": list(_filtered(qs, depts or [], types or [])),

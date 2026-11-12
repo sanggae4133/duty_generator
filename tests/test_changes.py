@@ -235,3 +235,10 @@ def test_exchange_add_or_remove_only(world):
     assert not Commute.objects.filter(period=p, date=D, member=m["가"]).exists()
     changes.exchange(m["가"], D, "dawn", None, m["다"])  # 넣기만
     assert Commute.objects.get(period=p, date=D, member=m["다"]).shift == "dawn"
+
+
+def test_exchange_with_multi_slot_holder_is_explained(world):
+    p, m = world  # 라=slot1
+    ControlDuty.objects.create(period=p, date=D, slot=5, member=m["라"])
+    with pytest.raises(DutyError, match="여러 칸"):
+        changes.exchange(m["가"], D, "slot0", m["가"], m["라"])

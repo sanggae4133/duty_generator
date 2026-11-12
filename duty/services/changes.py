@@ -109,8 +109,13 @@ def exchange(user, d: date, cell: str, before: User | None, after: User | None) 
     _check_cell(cell)
     period = _owner(d)
     if is_slot_cell(cell):
-        row = ControlDuty.objects.filter(period=period, date=d, member=after).order_by("slot").first()
-        other = f"slot{row.slot}" if row else None
+        rows = list(ControlDuty.objects.filter(period=period, date=d, member=after).exclude(slot=slot_index(cell)))
+        if len(rows) > 1:
+            raise DutyError(f"{after.name}은(는) 그날 장중관제가 여러 칸이라 맞바꿀 칸을 정할 수 없습니다. "
+                            f"{after.name}의 칸을 눌러 거기서 바꿔 주세요.")
+        if ControlDuty.objects.filter(period=period, date=d, slot=slot_index(cell), member=after).exists():
+            raise DutyError(f"{after.name}은(는) 이미 이 칸에 있습니다.")
+        other = f"slot{rows[0].slot}" if rows else None
     else:
         other = Commute.objects.filter(period=period, date=d, member=after).values_list("shift", flat=True).first()
     if other == cell:
