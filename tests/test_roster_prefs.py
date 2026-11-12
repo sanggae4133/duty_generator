@@ -50,7 +50,7 @@ def test_invalid_shift_ignored(client, world):
 def test_fold_button_gone(client, world):
     client.force_login(world[0])
     body = client.get("/").content.decode()
-    assert "slot-toggle" not in body and "slots-hidden" not in body and "localStorage" not in body
+    assert "slot-toggle" not in body and "slots-hidden" not in body  # 예전 관제 접기 버튼(localStorage 는 이제 화면 모드가 쓴다)
 
 
 def test_shift_carried_in_links(client, world):
