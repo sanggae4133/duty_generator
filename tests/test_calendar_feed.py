@@ -459,3 +459,13 @@ def test_shift_choice_view(client, me):
     assert len(re.findall(r'name="shift" value="(?:night|slots)" checked', body)) == 2
     assert client.post("/alarms/calendar/shifts/", {"shift": ["bogus"]}).status_code == 302
     assert me.calendar_feed.__class__.objects.get(user=me).shifts == ["night", "slots"]  # 모르는 값은 무시하지 않고 거절
+
+
+def test_empty_choice_is_rejected(client, me):
+    """전부 해제는 '전부'와 저장값이 같아(빈 목록) 헷갈리므로 거절한다."""
+    issue(me)
+    calendar.set_shifts(me, ["night"])
+    client.force_login(me)
+    client.post("/alarms/calendar/shifts/", {})
+    assert me.calendar_feed.__class__.objects.get(user=me).shifts == ["night"]
+    assert "하나 이상" in client.get("/alarms/").content.decode()

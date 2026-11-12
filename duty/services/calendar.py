@@ -55,6 +55,8 @@ def set_shifts(user, shifts) -> None:
     row = CalendarFeed.objects.filter(user=user).first()
     if row is None:
         raise DutyError("먼저 구독 주소를 발급하세요.")
+    if not shifts:  # 저장값 [] 은 '전부'라, 전부 해제를 그대로 받으면 반대로 전부 들어간다
+        raise DutyError("캘린더에 넣을 근무를 하나 이상 고르세요.")
     row.shifts = normalize("personal", shifts, [], [])[0]  # 모르는 값은 오류, 전부 = []
     row.save(update_fields=["shifts"])
 
