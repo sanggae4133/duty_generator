@@ -174,3 +174,21 @@ def test_lifecycle_move_and_unpublish_views(admin_client_ok, make_member):
     assert c.post(f"/periods/{p.pk}/move/", {"to": "published"}).status_code == 302
     p.refresh_from_db()
     assert p.status == Period.Status.DRAFT
+
+
+def test_period_delete_view(admin_client_ok, make_member):
+    from django.test import Client
+    member = Client()
+    member.force_login(make_member("가", user=True))
+    p = Period.objects.create(name="시험", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13))
+    assert "회차 삭제" in admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
+    assert member.post(f"/periods/{p.pk}/delete/").status_code == 403
+    r = admin_client_ok.post(f"/periods/{p.pk}/delete/")
+    assert r.status_code == 302 and r.url == "/periods/" and not Period.objects.filter(pk=p.pk).exists()
+    assert admin_client_ok.get(f"/periods/{p.pk}/delete/").status_code in (404, 405)
+
+
+def test_period_detail_with_event_without_user(admin_client_ok):
+    from duty.services import periods
+    p = periods.save_draft(Period(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13)))  # by 없음
+    assert admin_client_ok.get(f"/periods/{p.pk}/").status_code == 200

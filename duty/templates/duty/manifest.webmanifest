@@ -1,6 +1,6 @@
 {% load static %}{
-  "name": "당번표",
-  "short_name": "당번표",
+  "name": "NXT 당번표",
+  "short_name": "NXT 당번표",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

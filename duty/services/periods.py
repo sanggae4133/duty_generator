@@ -4,7 +4,7 @@ from datetime import date
 from django.db import transaction
 
 from ..errors import DutyError
-from ..models import Commute, ControlDuty, Department, Period, PeriodEvent
+from ..models import ChangeLog, Commute, ControlDuty, Department, Period, PeriodEvent
 
 S = Period.Status
 
@@ -58,6 +58,18 @@ def move(period: Period, to: str, by=None) -> None:
     period.status, period.seed, period.generated_at = to, None, None
     period.save()
     record(period, old, by)
+
+
+@transaction.atomic
+def delete(period: Period) -> None:
+    """시험·실수로 만든 회차를 지운다. 배포된 회차, 근무 변경 기록이 남은 회차(배포된 적 있음)는 안 된다."""
+    period.refresh_from_db()
+    if period.status == S.PUBLISHED:
+        raise DutyError("배포된 회차는 지울 수 없습니다. 먼저 배포 취소하세요.")
+    if ChangeLog.objects.filter(period=period).exists():
+        raise DutyError("근무 변경 기록이 남은 회차(배포된 적 있음)는 지울 수 없습니다.")
+    PeriodEvent.objects.filter(period=period).delete()
+    period.delete()  # 출근표·장중관제는 함께 지워진다(CASCADE)
 
 
 def missing_dates(period: Period) -> dict[str, list[date]]:

@@ -2,12 +2,12 @@
 {% block content %}
 <h3>{{ period.name }} · {{ dept.name }}</h3>
 {% if not is_open %}<p>취합이 열려 있지 않아 저장할 수 없습니다.</p>{% endif %}
-<div role="group">
-  {% if is_open %}<form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" role="group">{% csrf_token %}
+<div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
+  {% if is_open %}<form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" class="search" style="margin:0">{% csrf_token %}
     <input type="file" name="file" accept=".csv" required>
     <button>CSV 업로드 (부서 전체 교체)</button>
   </form>{% endif %}
-  <a role="button" class="secondary" href="{% url 'collect_export' period.pk dept.code %}">CSV 내려받기</a>
+  <a role="button" class="secondary" style="white-space:nowrap" href="{% url 'collect_export' period.pk dept.code %}">CSV 내려받기</a>
 </div>
 {% if errors %}
 <article>

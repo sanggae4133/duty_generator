@@ -3,7 +3,7 @@
 <h3>{{ period.name }} <small>({{ period.get_status_display }})</small></h3>
 <ol class="lifecycle">{% for code, label in steps %}<li><span{% if code == period.status %} class="now"{% endif %}>{{ label }}</span></li>{% endfor %}</ol>
 {% if period.status == S.DRAFT %}
-<form method="post" role="group">{% csrf_token %}
+<form method="post" class="search">{% csrf_token %}
   <input name="name" value="{{ period.name }}" required>
   <input type="date" name="start_date" value="{{ period.start_date|date:'Y-m-d' }}" required>
   <input type="date" name="end_date" value="{{ period.end_date|date:'Y-m-d' }}" required>
@@ -37,6 +37,11 @@
   <small>출근표는 그대로 남습니다. 생성됨에서 나가면 장중관제 생성 결과만 지웁니다.</small>
 </form>
 {% endif %}
+{% if period.status != S.PUBLISHED %}
+<form method="post" action="{% url 'period_delete' period.pk %}" onsubmit="return confirm('회차 \'{{ period.name|escapejs }}\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">{% csrf_token %}
+  <button class="outline contrast" style="width:auto;margin:1rem 0">회차 삭제</button>
+</form>
+{% endif %}
 {% if undo %}
 <article>
   {% if undo.blocker %}<small>배포 취소 불가: {{ undo.blocker }}</small>{% else %}
@@ -66,7 +71,7 @@
 {% if events %}
 <h4>상태 기록</h4>
 <div class="grid-wrap"><table><thead><tr><th>시각</th><th>누가</th><th>변경</th><th>메모</th></tr></thead>
-<tbody>{% for e in events %}<tr><td class="nw">{{ e.at|date:"Y-m-d H:i" }}</td><td class="nw">{{ e.by.name|default:e.by.username|default:"-" }}</td>
+<tbody>{% for e in events %}<tr><td class="nw">{{ e.at|date:"Y-m-d H:i" }}</td><td class="nw">{% if e.by %}{{ e.by.name|default:e.by.username }}{% else %}-{% endif %}</td>
   <td class="nw">{% if e.from_status %}{{ e.get_from_status_display }} → {% endif %}{{ e.get_to_status_display }}</td><td>{{ e.note }}</td></tr>{% endfor %}</tbody></table></div>
 {% endif %}
 

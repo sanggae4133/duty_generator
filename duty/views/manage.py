@@ -97,6 +97,19 @@ def period_action(request, pid, action):
 
 @admin_required
 @require_POST
+def period_delete(request, pid):
+    period = get_object_or_404(Period, pk=pid)
+    try:
+        periods.delete(period)
+    except DutyError as e:
+        messages.error(request, str(e))
+        return redirect("period_detail", pid)
+    messages.success(request, f"회차 '{period.name}'을(를) 지웠습니다.")
+    return redirect("periods")
+
+
+@admin_required
+@require_POST
 def period_move(request, pid):
     period = get_object_or_404(Period, pk=pid)
     try:

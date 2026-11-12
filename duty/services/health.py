@@ -64,6 +64,6 @@ def check(now) -> None:
         log.info("health: 정상")
     conf = alarm_settings.current()
     if conf.ops_chat_id and conf.telegram_on:
-        text = f"[당번표 {socket.gethostname()}]{found or ' 정상으로 돌아왔습니다.'}"
+        text = f"[NXT 당번표 {socket.gethostname()}]{found or ' 정상으로 돌아왔습니다.'}"
         senders.telegram_send(conf.sender_config(), str(conf.ops_chat_id), text)  # 실패는 예외 → 상태 저장 안 함
     state.write_text(found, encoding="utf-8")

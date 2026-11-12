@@ -1,7 +1,7 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>변경 이력</h3>
-<form method="get" role="group">
+<form method="get" class="search">
   <input type="date" name="from" value="{{ start|date:'Y-m-d' }}"><input type="date" name="to" value="{{ end|date:'Y-m-d' }}">
   <input name="name" value="{{ name }}" placeholder="사람 이름"><input name="by" value="{{ by }}" placeholder="수정자 아이디">
   <button>보기</button>

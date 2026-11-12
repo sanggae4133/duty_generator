@@ -366,3 +366,18 @@ def test_me_shift_filter(client, world):
     assert re.search(r'value="slots" checked', body) and not re.search(r'value="normal" checked', body)
     assert "예정된 근무가 없습니다" in client.get("/me/?shift=dinner").content.decode()
     assert "<p>정상, 08:30~09:30</p>" in client.get("/me/").content.decode()
+
+
+def test_nav_brand_active_and_repo_link(client, world, settings):
+    a, _ = world
+    client.force_login(a)
+    settings.REPO_URL = ""
+    body = client.get("/me/").content.decode()
+    assert "NXT 당번표" in body and "IT 당번표" not in body
+    assert re.search(r'<a href="/me/" aria-current="page">내 근무</a>', body)
+    assert 'aria-current="page">근무표' not in body
+    assert "github" not in body.lower()
+    settings.REPO_URL = "https://github.com/example/duty"
+    body = client.get("/day/2026-11-10/").content.decode()
+    assert re.search(r'<a href="/" aria-current="page">근무표</a>', body)  # 일자 화면도 근무표 메뉴
+    assert 'href="https://github.com/example/duty"' in body and 'rel="noopener"' in body

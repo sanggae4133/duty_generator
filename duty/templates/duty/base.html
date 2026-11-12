@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}IT 당번표{% endblock %}</title>
+  <title>{% block title %}NXT 당번표{% endblock %}</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="{% static 'vendor/pico.min.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
@@ -49,34 +49,48 @@
     .hl1 { background: #ffeb3b; } .hl2 { background: #81d4fa; } .hl3 { background: #aed581; }
     .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: .25em; vertical-align: middle; }
     @media (prefers-color-scheme: dark) { .chg { color: #ff4081; } }
+    /* 상단바: 위 줄 = 이름 + 계정, 아래 줄 = 메뉴 알약(모바일은 가로로 밀어 본다) */
+    .topbar { border-bottom: 1px solid var(--duty-line); margin-bottom: 1rem; }
+    .topbar .brand-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem 0; }
+    .topbar .brand { font-weight: 800; font-size: 1.2rem; text-decoration: none; color: var(--pico-color); white-space: nowrap; }
+    .topbar .account { display: flex; align-items: center; gap: .6rem; font-size: .85rem; white-space: nowrap; }
+    .topbar .account .who { opacity: .7; }
+    .topbar .account form { margin: 0; }
+    .topbar .account button { width: auto; margin: 0; padding: .25rem .7rem; font-size: .85rem; }
+    .topbar nav.menu ul { display: flex; flex-wrap: nowrap; gap: .4rem; overflow-x: auto; margin: 0; padding: 0 0 .7rem; scrollbar-width: none; }
+    .topbar nav.menu li { list-style: none; margin: 0; padding: 0; }
+    .topbar nav.menu a { display: block; margin: 0; padding: .4rem .9rem; border: 1px solid var(--duty-line); border-radius: 999px;
+      text-decoration: none; font-size: .9rem; color: var(--pico-color); white-space: nowrap; }
+    .topbar nav.menu a:hover { border-color: var(--pico-primary); }
+    .topbar nav.menu a[aria-current=page] { background: var(--pico-primary-background); border-color: var(--pico-primary-background);
+      color: var(--pico-primary-inverse); font-weight: 600; }
+    @media (max-width: 480px) { .topbar .account .who { display: none; } }
+    .site-foot { margin-top: 2rem; padding: 1rem 0; border-top: 1px solid var(--duty-line); text-align: right; font-size: .8rem; }
+    .site-foot a { opacity: .6; }
   </style>
 </head>
 <body>
 <main class="container-fluid">
-  <nav>
-    <ul><li><strong>IT 당번표</strong></li></ul>
-    {% if user.is_authenticated %}
-    <ul>
-      <li><a href="/">근무표</a></li>
-      <li><a href="/me/">내 근무</a></li>
-      <li><a href="/alarms/">알림·캘린더</a></li>
-      {% if can_collect %}<li><a href="/collect/">출근표 입력</a></li>{% endif %}
-      {% if user.is_staff %}
-      <li><a href="/periods/">회차</a></li>
-      <li><a href="/stats/">통계</a></li>
-      <li><a href="/changes/">이력</a></li>
-      {% if user.is_superuser %}<li><a href="{% url 'admin:index' %}">관리</a></li>{% endif %}
+  <header class="topbar">
+    <div class="brand-row">
+      <a href="/" class="brand">NXT 당번표</a>
+      {% if user.is_authenticated %}
+      <div class="account">
+        <span class="who">{{ user.name|default:user.username }}</span>
+        <a href="{% url 'password_change' %}">비밀번호</a>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="outline secondary">로그아웃</button></form>
+      </div>
       {% endif %}
-      <li><a href="{% url 'password_change' %}">비밀번호</a></li>
-      <li><form method="post" action="{% url 'logout' %}" style="margin:0">{% csrf_token %}<button class="outline secondary">로그아웃</button></form></li>
-    </ul>
-    {% endif %}
-  </nav>
+    </div>
+    {% if menu %}<nav class="menu" aria-label="메뉴"><ul>{% for m in menu %}<li><a href="{{ m.url }}"{% if m.active %} aria-current="page"{% endif %}>{{ m.label }}</a></li>{% endfor %}</ul></nav>{% endif %}
+  </header>
   {% for m in messages %}<article><small>{{ m }}</small></article>{% endfor %}
   {% block content %}{% endblock %}
+  {% if repo_url %}<footer class="site-foot"><a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub 저장소</a></footer>{% endif %}
 </main>
 <dialog id="dlg"><article><div id="dlg-body"></div><footer><button class="secondary" onclick="document.getElementById('dlg').close()">닫기</button></footer></article></dialog>
 <script>
+  document.querySelector(".topbar nav.menu [aria-current]")?.scrollIntoView({inline: "center", block: "nearest"});  // 모바일: 지금 메뉴가 보이게
   document.body.addEventListener("htmx:afterSwap", e => {
     if (e.detail.target.id === "dlg-body") document.getElementById("dlg").showModal();
   });

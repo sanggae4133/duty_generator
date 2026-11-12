@@ -80,7 +80,7 @@ def test_day_filter_form_and_nav_links(client, world):
     client.force_login(world[0])
     body = client.get(f"/day/{D}/?type=개발자").content.decode().replace("&amp;", "&")
     assert 'name="f" value="1"' in body and 'name="shift"' in body
-    nav = body.split("<nav>")[2].split("</nav>")[0]
+    nav = body.split('<nav aria-label="날짜 이동">')[1].split("</nav>")[0]
     assert "type=%EA%B0%9C%EB%B0%9C%EC%9E%90" in nav
 
 

@@ -19,7 +19,7 @@ from . import roster
 
 logger = logging.getLogger(__name__)
 
-NAME = "IT 당번(내 일정)"
+NAME = "NXT 당번(내 일정)"
 WINDOW = timedelta(days=90)
 TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{43}")
 NO_MEMBER = "근무표 대상 계정만 쓸 수 있습니다."

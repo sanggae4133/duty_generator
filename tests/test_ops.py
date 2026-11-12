@@ -290,7 +290,7 @@ def test_health_change_sends_once_then_recovery(box, caplog):
         health.check(NOW)
     assert "health: 웹 응답 없음; 디스크 95% 사용;" in caplog.text
     [(tok, chat, text)] = box["sent"]
-    assert tok == "TOK" and chat == "777" and text.startswith("[당번표 ") and "웹 응답 없음; 디스크 95% 사용;" in text
+    assert tok == "TOK" and chat == "777" and text.startswith("[NXT 당번표 ") and "웹 응답 없음; 디스크 95% 사용;" in text
     health.check(NOW)
     assert len(box["sent"]) == 1
     box["web"], box["disk"] = True, Usage(100, 50, 50)

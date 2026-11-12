@@ -1,7 +1,7 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>{{ period.name }} 배포</h3>
-<form method="get" role="group">
+<form method="get" class="search">
   <label>덮어쓰기 시작일 <input type="date" name="from" value="{{ preview.overwrite_from|date:'Y-m-d' }}" min="{{ period.start_date|date:'Y-m-d' }}" max="{{ period.end_date|date:'Y-m-d' }}"></label>
   <button class="secondary">다시 계산</button>
 </form>
