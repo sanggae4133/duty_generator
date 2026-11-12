@@ -137,7 +137,7 @@ def test_only_own_assignments(client, me, make_member):
     ControlDuty.objects.create(period=p, date=D, slot=2, member=other)
     _, token = issue(me)
     evs = vevents(feed(client, token))
-    assert [e["SUMMARY"] for e in evs] == ["정상 출근 08:00~17:00", "관제 09:30~10:30"]
+    assert [e["SUMMARY"] for e in evs] == ["정상 출근 08:00~17:00", "장중관제 09:30~10:30"]
     assert {e["UID"] for e in evs} == {f"20261112-normal-{me.pk}@duty-generator", f"20261112-slot1-{me.pk}@duty-generator"}
 
 
@@ -415,3 +415,57 @@ def test_filter_redacts_percent_encoded_feed_path():
     RedactCalendarFeed().filter(rec)
     assert rec.getMessage() == "calendar feed 200"
     assert not leaks(rec)
+
+
+# ── 캘린더에 넣을 근무 고르기 ──
+
+def _summaries(client, token):
+    return sorted(e["SUMMARY"] for e in vevents(feed(client, token)))
+
+
+def test_feed_filters_by_chosen_shifts(client, me):
+    from duty.models import ControlDuty
+    p = period()
+    commute(p, me, "normal")
+    ControlDuty.objects.create(period=p, date=D, slot=0, member=me)
+    _, token = issue(me)
+    assert len(_summaries(client, token)) == 2  # 기본 = 전부
+    calendar.set_shifts(me, ["slots"])
+    assert _summaries(client, token) == ["장중관제 08:30~09:30"]
+    calendar.set_shifts(me, ["normal"])
+    assert [s.split()[0] for s in _summaries(client, token)] == ["정상"]
+    calendar.set_shifts(me, ["dawn", "normal", "dinner", "night", "slots"])  # 전부 고르면 빈 목록(=전부)으로
+    assert me.calendar_feed.__class__.objects.get(user=me).shifts == []
+
+
+def test_reissue_keeps_shift_choice(client, me):
+    issue(me)
+    calendar.set_shifts(me, ["night"])
+    issue(me)
+    assert me.calendar_feed.__class__.objects.get(user=me).shifts == ["night"]
+
+
+def test_shift_choice_view(client, me):
+    client.force_login(me)
+    r = client.post("/alarms/calendar/shifts/", {"shift": ["slots"]})
+    assert r.status_code == 302  # 구독 전이면 저장할 곳이 없다는 안내
+    issue(me)
+    body = client.get("/alarms/").content.decode()
+    assert "일정에 넣을 근무" in body and body.count('name="shift"') == 5
+    client.post("/alarms/calendar/shifts/", {"shift": ["slots", "night"]})
+    assert me.calendar_feed.__class__.objects.get(user=me).shifts == ["night", "slots"]
+    body = client.get("/alarms/").content.decode()
+    import re
+    assert len(re.findall(r'name="shift" value="(?:night|slots)" checked', body)) == 2
+    assert client.post("/alarms/calendar/shifts/", {"shift": ["bogus"]}).status_code == 302
+    assert me.calendar_feed.__class__.objects.get(user=me).shifts == ["night", "slots"]  # 모르는 값은 무시하지 않고 거절
+
+
+def test_empty_choice_is_rejected(client, me):
+    """전부 해제는 '전부'와 저장값이 같아(빈 목록) 헷갈리므로 거절한다."""
+    issue(me)
+    calendar.set_shifts(me, ["night"])
+    client.force_login(me)
+    client.post("/alarms/calendar/shifts/", {})
+    assert me.calendar_feed.__class__.objects.get(user=me).shifts == ["night"]
+    assert "하나 이상" in client.get("/alarms/").content.decode()

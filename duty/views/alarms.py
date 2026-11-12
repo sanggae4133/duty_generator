@@ -67,7 +67,7 @@ def _index(request, **extra):
         "push_on": conf.push_on,
         "vapid_key": conf.vapid_public_key,
         "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
-        "cal": CalendarFeed.objects.filter(user=request.user).first(),
+        "cal": CalendarFeed.objects.filter(user=request.user).first(), "shift_choices": list(SHIFT_CHOICES.items()),
         "cal_member": request.user.department_id is not None,
         **extra,
     })
@@ -286,6 +286,18 @@ def calendar_issue(request):
     r["Cache-Control"] = "private, no-store"
     r["Referrer-Policy"] = "no-referrer"
     return r
+
+
+@require_POST
+@login_required
+def calendar_shifts(request):
+    try:
+        calendar.set_shifts(request.user, request.POST.getlist("shift"))
+    except DutyError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, "캘린더에 넣을 근무를 저장했습니다. 캘린더 앱이 새로 고칠 때 반영됩니다.")
+    return redirect("alarms")
 
 
 @require_POST

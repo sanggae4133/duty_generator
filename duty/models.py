@@ -194,6 +194,7 @@ class CalendarFeed(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="calendar_feed")
     token_hash = models.CharField(max_length=64, unique=True)
     issued_at = models.DateTimeField()
+    shifts = models.JSONField(default=list, blank=True)  # 넣을 근무(dawn·normal·dinner·night·slots). 빈 목록 = 전부
 
 
 class AlarmKind(models.TextChoices):

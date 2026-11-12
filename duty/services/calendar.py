@@ -49,6 +49,18 @@ def issue(user) -> str:
         return settings.SITE_URL.rstrip("/") + reverse("calendar_feed", args=[token])
 
 
+def set_shifts(user, shifts) -> None:
+    """캘린더에 넣을 근무를 고른다(알림 규칙의 스케줄과 같은 값). 구독 주소는 그대로."""
+    from .alarms import normalize  # 순환 import 피함
+    row = CalendarFeed.objects.filter(user=user).first()
+    if row is None:
+        raise DutyError("먼저 구독 주소를 발급하세요.")
+    if not shifts:  # 저장값 [] 은 '전부'라, 전부 해제를 그대로 받으면 반대로 전부 들어간다
+        raise DutyError("캘린더에 넣을 근무를 하나 이상 고르세요.")
+    row.shifts = normalize("personal", shifts, [], [])[0]  # 모르는 값은 오류, 전부 = []
+    row.save(update_fields=["shifts"])
+
+
 def revoke(user) -> None:
     CalendarFeed.objects.filter(user=user).delete()
 
@@ -62,10 +74,10 @@ def feed(token: str) -> bytes | None:
         return None
     if not (row.user.is_active and row.user.department_id):
         return ics.calendar(NAME, [])
-    return ics.calendar(NAME, _events(row.user))
+    return ics.calendar(NAME, _events(row.user, row.shifts))
 
 
-def _events(member) -> list[ics.Event]:
+def _events(member, shifts=()) -> list[ics.Event]:
     since = perms.today() - WINDOW
     days = roster.published_days(since, None)
     published = dict(Period.objects.filter(pk__in={d.period_id for d in days}).values_list("pk", "published_at"))
@@ -83,10 +95,10 @@ def _events(member) -> list[ics.Event]:
     events = []
     for day in days:
         for cell in CELLS:
-            if member.name not in day.members[cell]:
+            if member.name not in day.members[cell] or (shifts and ("slots" if is_slot_cell(cell) else cell) not in shifts):
                 continue
             start, end = cell_start(cell), cell_end(cell)
-            summary = f"관제 {cell_label(cell)}" if is_slot_cell(cell) else \
+            summary = f"장중관제 {cell_label(cell)}" if is_slot_cell(cell) else \
                 f"{COMMUTE_SHIFTS[cell]} 출근 {start:%H:%M}~{end:%H:%M}"
             events.append(ics.Event(
                 uid=f"{day.date:%Y%m%d}-{cell}-{member.pk}@duty-generator", dtstamp=dtstamp,

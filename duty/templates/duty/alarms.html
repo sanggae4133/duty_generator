@@ -164,7 +164,13 @@
     addEventListener("pageshow", (e) => { if (e.persisted) location.replace("{% url 'alarms' %}"); });
     </script>
   {% endif %}
-  {% if cal %}<p>발급일 {{ cal.issued_at|date:"Y-m-d H:i" }}</p>{% endif %}
+  {% if cal %}<p>발급일 {{ cal.issued_at|date:"Y-m-d H:i" }}</p>
+  <form method="post" action="{% url 'alarm_calendar_shifts' %}" class="cal-shifts">{% csrf_token %}
+    <fieldset><legend>일정에 넣을 근무</legend>
+      {% for code, name in shift_choices %}<label><input type="checkbox" name="shift" value="{{ code }}"{% if not cal.shifts or code in cal.shifts %} checked{% endif %}> {{ name }}</label>{% endfor %}
+    </fieldset>
+    <button class="outline">저장</button> <small>주소는 그대로이고, 캘린더 앱이 새로 고칠 때 반영됩니다.</small>
+  </form>{% endif %}
   {% if not cal_member and not cal_error %}<p>근무표 대상 계정만 쓸 수 있습니다.</p>{% endif %}
   <div class="row-btns">
     {% if cal_member %}
@@ -214,6 +220,12 @@
   table.rules { min-width: 40rem; word-break: keep-all; }
   table.rules th { white-space: nowrap; }
   #telegram, #push, #calendar { word-break: keep-all; }
+  form.cal-shifts fieldset { display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: .3rem .8rem .5rem; margin: .5rem 0;
+    border: 1px solid var(--duty-line); border-radius: .3rem; }
+  form.cal-shifts legend { width: auto; padding: 0 .3rem; font-size: .8rem; opacity: .7; }
+  form.cal-shifts label { margin: 0; white-space: nowrap; }
+  form.cal-shifts { margin-bottom: 1.2rem; }
+  form.cal-shifts button { width: auto; margin: 0; }
   #cal-url { flex: 1 1 16rem; min-width: 0; margin: 0; }
   .cal-error { color: var(--pico-del-color); }
 </style>
