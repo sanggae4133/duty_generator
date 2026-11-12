@@ -166,7 +166,7 @@ def test_admin_blank_keeps_new_replaces_clear_empties(su, linked):
 @pytest.mark.parametrize("data,err", [
     (dict(telegram_bot_token="not a token"), "봇 토큰 형식이 아닙니다"),
     (dict(telegram_bot_username="bad name!"), "봇 사용자명은 영문·숫자·_ 5~32자입니다."),
-    (dict(ops_chat_id="0"), "1"),
+    (dict(ops_chat_id="0"), "0은 쓸 수 없습니다"),
     (dict(vapid_subject="admin@example.com"), "mailto:"),
     (dict(vapid_subject="mailto:admin"), "mailto:"),
 ])
@@ -205,3 +205,12 @@ def test_admin_save_logs_no_token(su, caplog):
         su.post(change_url(), form(telegram_bot_token=TOKEN))
     assert TOKEN not in caplog.text
     assert User.objects.filter(is_superuser=True).exists()
+
+
+@pytest.mark.parametrize("chat", ["-1001234567890", "-12345", "777"])
+def test_ops_chat_id_accepts_group_and_personal(su, chat):
+    """단톡방(음수, 슈퍼그룹은 -100…)과 개인(양수) chat_id 모두 저장된다."""
+    alarm_settings.current().save()
+    r = su.post(change_url(), form(ops_chat_id=chat))
+    assert r.status_code == 302
+    assert AlarmSettings.objects.get().ops_chat_id == int(chat)
