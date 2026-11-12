@@ -20,4 +20,4 @@ class Command(BaseCommand):
         self.stdout.write(f"복원했습니다: {file}")
         if before:
             self.stdout.write(f"복원 직전 DB: {before}")
-        self.stdout.write("이제 migrate 를 실행하고 서비스를 시작하세요(README \"백업·복원\").")
+        self.stdout.write("이제 migrate 를 실행하고 서비스를 시작하세요(docs/OPERATIONS.md \"백업·복원\").")

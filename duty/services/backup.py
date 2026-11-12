@@ -108,7 +108,7 @@ def check(src: Path) -> None:
         raise DutyError("백업 파일 검사(quick_check) 실패: 손상됐거나 SQLite 파일이 아닙니다.")
     if applied != _code_migrations():
         raise DutyError("백업의 마이그레이션이 지금 코드와 다릅니다. 그 백업을 만든 버전의 코드로 바꾼 뒤 복원하세요"
-                        "(README \"업그레이드·롤백\").")
+                        "(docs/OPERATIONS.md \"업그레이드·롤백\").")
 
 
 def restore(src: Path, now) -> Path | None:

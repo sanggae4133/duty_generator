@@ -3,7 +3,7 @@
 #   - DB 백업: 하루 한 번 .env 의 DUTY_BACKUP_HOUR 시(기본 3시) 이후 → data/backups/db-YYYYMMDD.sqlite3,
 #     DUTY_BACKUP_KEEP_DAYS 일(기본 30)보다 오래된 백업은 지운다
 #   - 상태 점검: 5분마다 웹 응답·최근 백업·디스크를 보고, 바뀌면 관리자 텔레그램(관리 화면 → 알림 설정)
-# 서버에 이 파일을 /etc/systemd/system/ 로 복사해서 쓴다(README "설치"). 설정값은 /opt/duty_generator/.env.
+# 서버에 이 파일을 /etc/systemd/system/ 로 복사해서 쓴다(docs/OPERATIONS.md "설치"). 설정값은 /opt/duty_generator/.env.
 
 [Unit]
 Description=당번표 작업자(알림·백업·상태 점검)
