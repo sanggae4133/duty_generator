@@ -7,6 +7,7 @@ from .views import alarms as alarm_views
 from .views import auth as auth_views_local
 from .views import calendar as calendar_views
 from .views import collect as collect_views
+from .views import help as help_views
 from .views import manage as manage_views
 from .views import roster as roster_views
 
@@ -57,6 +58,9 @@ urlpatterns = [
     path("alarms/push/<int:pk>/delete/", alarm_views.push_delete, name="alarm_push_delete"),
     path("alarms/push/delete-all/", alarm_views.push_delete_all, name="alarm_push_delete_all"),
     path("alarms/push/test/", alarm_views.push_test, name="alarm_push_test"),
+    path("help/", help_views.index, name="help"),
+    path("help/video/<str:name>.mp4", help_views.video, name="help_video"),
+    path("help/dismiss/", help_views.dismiss, name="help_dismiss"),
     path("help/push/", alarm_views.help_push, name="help_push"),
     path("sw.js", alarm_views.sw_js, name="sw_js"),
     path("manifest.webmanifest", alarm_views.manifest, name="manifest"),

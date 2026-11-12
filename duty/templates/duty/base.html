@@ -123,6 +123,10 @@
     .msg.error::before { content: "! "; color: var(--nxt-red); font-weight: 700; }
     .msg.warning { border-color: #c77700; background: rgba(199, 119, 0, .1); }
     .msg.warning::before { content: "⚠ "; color: #c77700; }
+    dialog.welcome article { max-width: 30rem; }
+    dialog.welcome video { width: 100%; max-height: 60vh; background: #000; border-radius: .3rem; margin-top: .5rem; }
+    dialog.welcome footer { display: flex; gap: .5rem; justify-content: flex-end; }
+    dialog.welcome footer button { width: auto; margin: 0; }
     .site-foot { margin-top: 2rem; padding: 1rem 0; border-top: 1px solid var(--duty-line); text-align: right; font-size: .8rem; }
     .site-foot a { opacity: .6; }
   </style>
@@ -146,6 +150,19 @@
   {% block content %}{% endblock %}
   {% if repo_url %}<footer class="site-foot"><a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub 저장소</a></footer>{% endif %}
 </main>
+{% with welcome=welcome_videos %}{% if welcome %}
+<dialog id="help-welcome" class="welcome" aria-labelledby="help-welcome-title"><article>
+  <header><strong id="help-welcome-title">NXT 당번표 사용법</strong></header>
+  <p>1분 안팎의 짧은 영상입니다. 메뉴의 <a href="/help/">도움말</a>에서 언제든 다시 볼 수 있고, 글로 된 설명도 있습니다.</p>
+  {% for v in welcome %}<details{% if forloop.first %} open{% endif %}><summary>{{ v.title }} <small>· {{ v.who }}</small></summary>
+    <video controls playsinline preload="none" src="/help/video/{{ v.name }}.mp4"></video></details>{% endfor %}
+  <footer>
+    <button class="outline secondary" onclick="const d = this.closest('dialog'); fetch('/help/dismiss/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}}).then(r => { if (!r.ok) throw 0; d.close(); }).catch(() => alert('저장하지 못했습니다. 잠시 뒤 다시 눌러 주세요.'))">다시 보지 않기</button>
+    <button onclick="this.closest('dialog').close()">닫기</button>
+  </footer>
+</article></dialog>
+<script>document.getElementById("help-welcome").showModal();</script>
+{% endif %}{% endwith %}
 <dialog id="dlg"><article><div id="dlg-body"></div><footer><button class="secondary" onclick="document.getElementById('dlg').close()">닫기</button></footer></article></dialog>
 <script>
   document.body.addEventListener("htmx:afterSwap", e => {

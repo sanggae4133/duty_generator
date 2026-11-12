@@ -105,6 +105,13 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 - 봇 토큰·푸시 키는 DB `AlarmSettings`(슈퍼유저가 관리 화면에서). 푸시 키는 비어 있으면 자동으로 만든다. 봇을 바꾸면 모든 텔레그램 연결 확인을 비운다.
 - 텔레그램 연결: 사용자가 일회용 코드를 봇에 보내면 [연결 확인]이 `getUpdates`로 찾는다(파일 잠금으로 한 번에 하나).
 
+## 도움말
+
+- 메뉴 [도움말](`/help/`): 권한별 사용법 영상과 텔레그램·푸시·캘린더 설정 도움말. 영상 목록·권한은 `duty/help.py`(`member` 모두, `manager` 출근표 입력 담당·관리자, `admin` 관리자).
+- 영상은 정적 파일이 아니라 `/help/video/<이름>.mp4` 뷰가 권한을 확인한 뒤 `settings.HELP_VIDEO_DIR`에서 내려준다(아이폰 재생을 위해 HTTP Range 지원).
+- 로그인할 때마다(`user_logged_in` → `accounts.on_login`) 다음 화면에 사용법 팝업을 띄운다. [다시 보지 않기]는 `User.help_dismissed`에 남는다. 비밀번호 변경 화면에서는 미룬다.
+- 영상은 `tools/help_videos/`(가짜 데이터 + Chrome 녹화)로 다시 만든다(README "사용법 영상 다시 만들기").
+
 ## 캘린더 구독
 
 - 사용자가 발급하면 `/calendar/<토큰>.ics` 주소가 **한 번만** 보인다. DB에는 SHA-256 해시만 둔다. 재발급하면 예전 주소는 죽는다.

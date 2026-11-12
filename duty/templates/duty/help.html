@@ -1,0 +1,24 @@
+{% extends "duty/base.html" %}
+{% block title %}도움말 · NXT 당번표{% endblock %}
+{% block content %}
+<h3>도움말</h3>
+<h4>사용법 영상</h4>
+{% for v in videos %}
+<article class="howto">
+  <header><strong>{{ v.title }}</strong> <small>· {{ v.who }}</small></header>
+  <video controls playsinline preload="metadata" src="/help/video/{{ v.name }}.mp4" aria-describedby="steps-{{ v.name }}"></video>
+  <details><summary>글로 보기</summary><ol id="steps-{{ v.name }}">{% for s in v.steps %}<li>{{ s }}</li>{% endfor %}</ol></details>
+</article>
+{% endfor %}
+<h4>설정 도움말</h4>
+<ul>
+  <li><a href="/help/telegram/">텔레그램 알림 받기</a></li>
+  <li><a href="/help/push/">휴대폰·PC 푸시 알림 받기</a></li>
+  <li><a href="/help/calendar/">내 근무를 캘린더 앱에 구독하기</a></li>
+</ul>
+<p><small>더 궁금한 점은 관리자에게 문의하세요.</small></p>
+<style>
+  article.howto video { width: 100%; max-height: 70vh; background: #000; border-radius: .3rem; }
+  article.howto { max-width: 40rem; }
+</style>
+{% endblock %}
