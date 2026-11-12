@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, RegexValidator
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 
@@ -11,6 +11,12 @@ from .shifts import CELLS, COMMUTE_SHIFTS, CONTROL_SLOTS, DEVELOPER, STAFF, week
 def _one_of(field: str, values, name: str) -> models.CheckConstraint:
     # SQLite에는 enum 타입이 없어 choices를 DB CHECK로도 강제한다(앱을 거치지 않은 쓰기 방지)
     return models.CheckConstraint(condition=models.Q(**{f"{field}__in": list(values)}), name=name)
+
+
+def validate_chat_id(value: int) -> None:
+    """텔레그램 chat_id: 개인은 양수, 그룹·단톡방은 음수. 0 은 없다."""
+    if value == 0:
+        raise ValidationError("0은 쓸 수 없습니다. 개인은 양수, 단톡방은 -로 시작하는 숫자입니다.")
 
 
 def validate_member_name(value: str) -> None:
@@ -212,9 +218,9 @@ class AlarmSettings(models.Model):
     telegram_bot_username = models.CharField(
         "텔레그램 봇 사용자명", max_length=33, blank=True, help_text="@ 없이(붙여도 저장할 때 뗀다).",
         validators=[RegexValidator(r"^@?[A-Za-z0-9_]{5,32}$", "봇 사용자명은 영문·숫자·_ 5~32자입니다.")])
-    ops_chat_id = models.PositiveBigIntegerField(
-        "장애 알림 받을 chat_id", null=True, blank=True, validators=[MinValueValidator(1)],
-        help_text="관리자 개인 텔레그램 chat_id(숫자). 비우면 장애 알림은 worker.log 에만 남는다.")
+    ops_chat_id = models.BigIntegerField(
+        "장애 알림 받을 chat_id", null=True, blank=True, validators=[validate_chat_id],
+        help_text="개인은 양수, 단톡방은 음수(-100…, 봇을 방에 초대해 둔다). 비우면 장애 알림은 worker.log 에만 남는다.")
     vapid_public_key = models.CharField("웹 푸시 공개키", max_length=200, blank=True)
     vapid_private_key = models.CharField("웹 푸시 개인키", max_length=200, blank=True)
     vapid_subject = models.CharField(
