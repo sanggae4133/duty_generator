@@ -184,6 +184,7 @@ class RosterPref(models.Model):
     types = models.JSONField(default=list)
     shifts = models.JSONField(default=list)
     view = models.CharField(max_length=5, choices=[("week", "주간"), ("month", "월간")], default="week")
+    history = models.BooleanField(default=True)  # 변경 내역(A>B·+B·취소선) 표시. 끄면 지금 근무하는 사람만
 
     class Meta:
         constraints = [_one_of("view", ("week", "month"), "rosterpref_view_valid")]
