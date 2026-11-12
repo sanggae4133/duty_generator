@@ -3,6 +3,8 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 
+from .. import accounts
+
 
 class DifferentPasswordForm(PasswordChangeForm):
     def clean(self):
@@ -19,9 +21,6 @@ class PasswordChange(auth_views.PasswordChangeView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        user = self.request.user
-        if user.must_change_password:
-            user.must_change_password = False
-            user.save(update_fields=["must_change_password"])
+        accounts.password_changed(self.request.user)
         messages.success(self.request, "비밀번호를 바꿨습니다.")
         return response

@@ -60,35 +60,35 @@ cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 
 ## 설치 (사내 서버)
 
-Ubuntu 24.04 (Python 3.12) 기준. 코드는 root 소유(`duty` 는 읽기만), 쓰는 곳은 `data/` 하나(`duty` 소유)다.
+RHEL 9.4 이상 기준(Python 3.12 패키지는 9.4 부터, 시스템 SQLite 3.34 — Django 5.2 는 SQLite 3.31 이상이 필요해서 **RHEL 8 은 안 된다**). 코드는 root 소유(`duty` 는 읽기만), 쓰는 곳은 `data/` 하나(`duty` 소유)다.
 
 ```bash
-sudo apt install -y python3-venv git curl   # python3 --version 이 3.12 이상이어야 한다
-sudo useradd -r -s /usr/sbin/nologin duty
+sudo dnf install -y python3.12 python3.12-pip git curl     # 기본 python3(3.9)가 아니라 python3.12 를 쓴다
+sudo useradd -r -s /sbin/nologin duty
 sudo git clone https://github.com/sanggae4133/duty_generator.git /opt/duty_generator
 cd /opt/duty_generator
 sudo install -d -o duty -g duty -m 750 data data/backups data/logs
-sudo python3 -m venv .venv
+sudo python3.12 -m venv .venv
 sudo .venv/bin/pip install -r requirements.lock
 sudo install -o root -g duty -m 640 .env.example .env
 sudoedit .env   # 견본은 개발 PC 값이다. 여섯 줄을 "서버:" 값으로: DUTY_DEBUG=0, DUTY_SECRET_KEY, DUTY_ALLOWED_HOSTS, DUTY_CSRF_ORIGINS, DUTY_SITE_URL, DUTY_ADMIN_PATH
-# manage.py 를 duty 사용자로 부르는 함수(이 셸에서만 유효). 아래 절차들이 이걸 쓴다.
-dm() { sudo -u duty /opt/duty_generator/.venv/bin/python /opt/duty_generator/manage.py "$@"; }
 sudo .venv/bin/python manage.py collectstatic --noinput   # root 로: 코드 폴더는 duty 가 쓸 수 없다
-dm migrate          # 개발 PC DB 를 가져가면 여기서 멈추고 아래 "개발 PC DB 를 서버로 옮기기"
-dm createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
-dm check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
+sudo -u duty .venv/bin/python manage.py migrate   # 개발 PC DB 를 가져가면 여기서 멈추고 아래 "개발 PC DB 를 서버로 옮기기"
+sudo -u duty .venv/bin/python manage.py createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
+sudo -u duty .venv/bin/python manage.py check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
 sudo cp deploy/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now duty-web duty-worker
 ```
 
+- SELinux(기본 enforcing)에서도 기본 정책으로 돈다(서비스는 `/opt` 의 가상환경을 실행하고 `data/` 에만 쓴다). 서비스가 `Permission denied` 로 안 뜨면 `sudo ausearch -m avc -ts recent` 로 거부 기록을 보고, 파일을 다른 곳에서 옮겨 왔다면 `sudo restorecon -R /opt/duty_generator` 로 라벨을 되돌린다.
+- 웹은 `127.0.0.1:8090` 에만 열고 바깥 공개는 Tailscale Funnel 이 맡으므로 firewalld 는 열 것이 없다.
 - `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
 - `.env` 를 고친 뒤에는 `sudo systemctl restart duty-web duty-worker`.
-- `dm` 은 `/opt/duty_generator` 밖에서도 돌므로 파일 인자는 절대 경로로 준다.
+- 서버 명령은 모두 `cd /opt/duty_generator` 에서 실행한다. `manage.py` 는 항상 `sudo -u duty .venv/bin/python manage.py ...` 로 부른다(DB·로그 파일 주인이 `duty` 라서).
 - 서버 시계: 알림이 분 단위로 돈다. `timedatectl` 에서 `System clock synchronized: yes`. 시간대와 상관없이 앱은 Asia/Seoul 로 계산한다.
 - 작업자는 켜질 때 26시간 안에 만든 백업이 없으면(새 설치·오래 꺼져 있었음) 시각과 상관없이 바로 하나 만든다. 그래서 상태 점검이 "백업 없음"으로 시작하지 않는다.
-- `dm check --deploy` 가 `DEBUG`·`SECRET_KEY` 경고를 내면 `.env` 의 여섯 줄을 덜 바꾼 것이다.
+- `sudo -u duty .venv/bin/python manage.py check --deploy` 가 `DEBUG`·`SECRET_KEY` 경고를 내면 `.env` 의 여섯 줄을 덜 바꾼 것이다.
 - 알림은 관리 화면 → 알림 설정에 봇 토큰을 넣어야 나간다(아래 "알림 켜기").
 
 ## 서비스 두 개 (`deploy/`)
@@ -125,7 +125,7 @@ sudo tailscale funnel status
 ## 처음 한 번: 계정 만들기
 
 `/<DUTY_ADMIN_PATH>/` 의 "사용자" 화면이 멤버이자 로그인 계정이다(아이디 = 멤버 코드).
-- 첫 어드민은 설치 때 `dm createsuperuser` 로 만든다. 아이디·비밀번호 말고 **이름**도 묻는다. 이 계정은 부서가 없어 근무표 대상이 아닌 어드민 전용 계정이고, "스태프 권한"도 켜져 있다. 기본 알림 규칙은 생기지 않는다(필요하면 알림 화면에서 추가).
+- 첫 어드민은 설치 때 `sudo -u duty .venv/bin/python manage.py createsuperuser` 로 만든다. 아이디·비밀번호 말고 **이름**도 묻는다. 이 계정은 부서가 없어 근무표 대상이 아닌 어드민 전용 계정이고, "스태프 권한"도 켜져 있다. 기본 알림 규칙은 생기지 않는다(필요하면 알림 화면에서 추가).
 - 새 사람: [사용자 추가]에서 아이디·이름·부서·파트·구분을 넣는다(비밀번호 없이 만들어지고 아직 로그인할 수 없다).
 - 계정 발급: 목록에서 선택 → "계정 발급 / 비밀번호 초기화" 액션 → 화면에 한 번만 보이는 임시 비밀번호를 전달한다. 첫 발급 때 기본 알림 규칙이 생기고, 첫 로그인에서 비밀번호를 바꾸게 한다.
 - 어드민 전용 계정(근무표에 안 들어감)은 부서를 비워 둔다. 어드민은 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(사용자·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
@@ -134,36 +134,36 @@ sudo tailscale funnel status
 
 ## 업그레이드·롤백
 
-`dm` 은 "설치" 절의 함수다. 지금 버전을 먼저 적어 둔다(롤백할 때 쓴다).
+지금 버전을 먼저 적어 둔다(롤백할 때 쓴다).
 
 ```bash
 cd /opt/duty_generator
 git log -1 --format=%h                       # 지금 버전(적어 둔다)
 sudo systemctl stop duty-web duty-worker
-dm backup                                    # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다, 적어 둔다)
+sudo -u duty .venv/bin/python manage.py backup   # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다, 적어 둔다)
 sudo git pull --ff-only                      # 특정 버전이면: sudo git fetch && sudo git checkout <버전>
 sudo .venv/bin/pip install -r requirements.lock
 sudo .venv/bin/python manage.py collectstatic --noinput
-dm migrate                                   # 무언가 적용됐으면(DB 구조 변경) 롤백 때 DB 복원이 필요하다
+sudo -u duty .venv/bin/python manage.py migrate   # 무언가 적용됐으면(DB 구조 변경) 롤백 때 DB 복원이 필요하다
 sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload   # 유닛이 바뀌었을 때만 필요(해도 무해)
 sudo systemctl start duty-web duty-worker
 systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journalctl -u duty-web -n 50
 ```
 
-- **롤백**: 위와 같은 순서에서 `git pull` 대신 `sudo git checkout <적어 둔 버전>`. 업그레이드 때 `migrate` 가 무언가 적용했으면 `dm migrate` 대신 `dm restore <업그레이드 전에 만든 백업>`(아래 "백업·복원")을 한다 — 복원은 백업의 마이그레이션이 지금 코드와 같아야 받아 주므로, 코드를 먼저 되돌린 뒤에 한다.
+- **롤백**: 위와 같은 순서에서 `git pull` 대신 `sudo git checkout <적어 둔 버전>`. 업그레이드 때 `migrate` 가 무언가 적용했으면 `sudo -u duty .venv/bin/python manage.py migrate` 대신 `sudo -u duty .venv/bin/python manage.py restore <업그레이드 전에 만든 백업>`(아래 "백업·복원")을 한다 — 복원은 백업의 마이그레이션이 지금 코드와 같아야 받아 주므로, 코드를 먼저 되돌린 뒤에 한다.
 - git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator/.git` 후 다시 한다.
 - 업그레이드 전 백업도 `db-*` 라 `DUTY_BACKUP_KEEP_DAYS` 일 뒤 자동으로 지워진다. 오래 둘 것은 서버 밖으로 내려받는다.
 
 ## 백업·복원
 
 - 자동: 작업자가 매일 `DUTY_BACKUP_HOUR` 시(기본 3시) 이후 처음 돌 때 `data/backups/db-YYYYMMDD.sqlite3` 를 만들고, `DUTY_BACKUP_KEEP_DAYS` 일(기본 30)보다 오래된 `db-*` 를 지운다. 작업자가 꺼져 있었으면 다시 켜질 때 그날 것을 만든다(26시간 안 백업이 없으면 그 시각 전이라도 바로).
-- 수동: `dm backup` → `data/backups/db-YYYYMMDD-HHMMSS.sqlite3`. 서비스가 도는 중에도 된다. **DB 파일을 `cp` 로 복사하지 말 것**(WAL 모드라 최근 변경이 빠지거나 깨진 사본이 될 수 있다). 백업은 SQLite 백업 기능으로 떠서 일관된 파일 하나가 된다.
+- 수동: `sudo -u duty .venv/bin/python manage.py backup` → `data/backups/db-YYYYMMDD-HHMMSS.sqlite3`. 서비스가 도는 중에도 된다. **DB 파일을 `cp` 로 복사하지 말 것**(WAL 모드라 최근 변경이 빠지거나 깨진 사본이 될 수 있다). 백업은 SQLite 백업 기능으로 떠서 일관된 파일 하나가 된다.
 - 백업에는 실명과 텔레그램 봇 토큰·푸시 키가 들어 있다. 서버 밖에 보관하려면 내려받되 공유 폴더에 두지 않는다.
 - 복원:
   ```bash
   sudo systemctl stop duty-web duty-worker
-  dm restore /opt/duty_generator/data/backups/<백업 파일>
-  dm migrate
+  sudo -u duty .venv/bin/python manage.py restore data/backups/<백업 파일>
+  sudo -u duty .venv/bin/python manage.py migrate
   sudo systemctl start duty-web duty-worker
   ```
   - 작업자가 돌고 있으면(`data/.alarms.lock` 이 잡혀 있으면) 아무것도 바꾸지 않고 멈춘다. 복원하는 동안은 이 잠금을 잡고 있어 작업자가 뜨지 못한다. 웹은 검사하지 않으니 직접 멈춘다.
@@ -202,15 +202,17 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 
 ```bash
 # 개발 PC (저장소 루트): runserver·run_worker 를 멈추고, 서버에 올릴 것과 같은 코드(main)에서
-DUTY_DEBUG=1 .venv/bin/python manage.py backup        # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다)
+git pull --ff-only
+DUTY_DEBUG=1 .venv/bin/python manage.py migrate   # 서버 코드와 마이그레이션을 맞춘다(안 맞으면 restore 가 거부한다)
+DUTY_DEBUG=1 .venv/bin/python manage.py backup   # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다)
 scp data/backups/db-<시각>.sqlite3 <서버>:/tmp/duty.sqlite3
 
-# 서버: "설치"를 dm migrate 직전까지 한 뒤 (createsuperuser 는 하지 않는다 — 계정은 DB 에 있다)
+# 서버: "설치"를 migrate 직전까지 한 뒤 (createsuperuser 는 하지 않는다 — 계정은 DB 에 있다)
 sudo systemctl stop duty-web duty-worker 2>/dev/null
-sudo install -o duty -g duty -m 640 /tmp/duty.sqlite3 /opt/duty_generator/data/import.sqlite3 && rm /tmp/duty.sqlite3
-dm restore /opt/duty_generator/data/import.sqlite3 && sudo rm /opt/duty_generator/data/import.sqlite3
-dm migrate
-# 이어서 "설치"의 dm check --deploy 부터
+sudo install -o duty -g duty -m 640 /tmp/duty.sqlite3 data/import.sqlite3 && rm /tmp/duty.sqlite3
+sudo -u duty .venv/bin/python manage.py restore data/import.sqlite3 && sudo rm data/import.sqlite3
+sudo -u duty .venv/bin/python manage.py migrate
+# 이어서 "설치"의 check --deploy 부터
 ```
 
 - **DB 파일을 `cp` 로 복사하지 말고 `backup` 으로 뜬다**(WAL 모드라 그냥 복사하면 최근 변경이 빠질 수 있다).
@@ -261,16 +263,9 @@ rm -rf /tmp/lockvenv
 봇은 이 웹앱만 써야 한다. 다른 프로그램(개발 PC 의 `run_worker` 포함)이 같은 봇으로 polling 중이면 서로의 업데이트를 가로챈다(409 충돌).
 
 1. 텔레그램 `@BotFather` 에서 `/newbot` → 토큰과 사용자명을 관리 화면 → 알림 설정에 넣는다.
-2. 텔레그램 API 를 손으로 부르는 함수를 만든다(이 셸에서만 유효, "설치"의 `dm` 이 필요). 토큰은 DB 에서 읽어 curl 에 표준입력으로 넘기므로 셸 기록·프로세스 목록에 남지 않는다.
-   ```bash
-   tg() { dm shell -v 0 -c "from duty.services.alarm_settings import current; print('url = \"https://api.telegram.org/bot' + current().telegram_bot_token + '/$1\"')" | curl --fail-with-body --silent --show-error -K -; echo; }
-   ```
-3. webhook 이 걸려 있지 않은지 확인한다. `tg getWebhookInfo` 의 `"ok":true` 이고 `result.url` 이 `""` 이어야 한다.
-   `url` 이 비어 있지 않으면 한 번만 `tg 'deleteWebhook?drop_pending_updates=false'` (응답 `"ok":true,"result":true` 확인) 후 `tg getWebhookInfo` 를 다시 실행해 `url` 이 `""` 인지 확인한다.
-4. (직접 입력용) chat_id 확인: 그 사람이 새 봇에게 `/start` 를 보낸 뒤 `tg getUpdates` 의 `message.chat.id`. `offset` 은 붙이지 않는다(붙이면 대기 중인 연결 요청이 확인 처리돼 사라진다).
-   보통은 사용자가 `/alarms/` 의 [텔레그램 연결] → 봇에서 [시작] → [연결 확인]으로 직접 연결하므로 이 단계는 필요 없다.
+2. 사용자는 `/alarms/` 의 [텔레그램 연결] → 봇에서 [시작] → [연결 확인]으로 직접 연결한다. 서버에서 따로 할 일은 없다.
 
-[연결 확인]이 "텔레그램 봇 설정 오류입니다."를 띄우면 `getUpdates` 가 4xx 로 거절된 것이다. 대개 409(그 봇에 webhook 이 걸렸거나 다른 프로그램이 같은 봇으로 polling 중) 또는 401(토큰 오류)이다. 3단계로 webhook 을 확인하고, 다른 프로그램이 같은 봇을 쓰고 있지 않은지 본다.
+[연결 확인]이 "텔레그램 봇 설정 오류입니다."를 띄우면 `getUpdates` 가 4xx 로 거절된 것이다. 대개 409(그 봇에 webhook 이 걸렸거나 다른 프로그램이 같은 봇으로 polling 중) 또는 401(토큰 오류)이다. 토큰을 다시 확인하고, 다른 프로그램이 같은 봇을 쓰고 있지 않은지 본다. 원인을 못 찾으면 BotFather 에서 새 봇을 만들어 알림 설정의 토큰·사용자명을 바꾸는 것이 가장 빠르다(사용자는 다시 연결해야 한다).
 
 ### 웹 푸시 지원 범위
 
@@ -296,7 +291,7 @@ rm -rf /tmp/lockvenv
 작업자는 늘 돈다(백업·상태 점검). 알림은 보낼 곳이 생기면 그때부터 나간다: 텔레그램은 관리 화면에 봇 토큰이 있고 사용자가 연결했을 때, 푸시는 사용자가 기기를 등록했을 때.
 
 1. 관리 화면 → 알림 설정에 봇 토큰·사용자명을 넣는다(위 "텔레그램 봇").
-2. `dm run_worker --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 작업자가 도는 중에도 된다.
+2. `sudo -u duty .venv/bin/python manage.py run_worker --dry-run` — 발송·기록 없이 `telegram=<n> push=<n>`(지금 보낼 건수)만 출력한다. 작업자가 도는 중에도 된다.
 3. `/alarms/` 에서 텔레그램 연결 또는 chat_id [저장 및 테스트], 푸시 [이 기기에서 푸시 받기] → [테스트 푸시]로 실제 수신을 확인한다. PC Chrome 과 아이폰 홈 화면 앱에서 알림을 누르면 해당 화면이 열리는지도 본다.
 4. `sudo tail -f /opt/duty_generator/data/logs/worker.log` 에서 매분 `alarms tick:` 줄이 찍히는지 확인한다.
 5. 텔레그램 알림을 모두 멈추려면 관리 화면 → 알림 설정에서 "토큰 지우기". (푸시만 따로 끄는 스위치는 없다. 사용자가 기기를 해제하거나 규칙을 끈다.)

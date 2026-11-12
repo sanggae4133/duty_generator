@@ -154,3 +154,80 @@ def test_unpublish_requires_published(abc):
     a, *_ = abc
     with pytest.raises(DutyError):
         unpublish(a)
+
+
+# ── Codex 리뷰: 오래된 객체·순서·이력 ──
+
+def test_stale_period_objects_are_rechecked(abc, admin_user):
+    from duty.services.generate import run_generation
+    a, *_ = abc
+    stale = Period.objects.get(pk=a.pk)
+    publish(a, d(11, 2))
+    undo = Period.objects.get(pk=a.pk).publish_undo
+    with pytest.raises(DutyError):
+        publish(stale, d(11, 2))  # 이미 배포됨: 보관한 행을 빈 값으로 덮지 않는다
+    with pytest.raises(DutyError):
+        periods.move(stale, S.DRAFT)
+    with pytest.raises(DutyError):
+        run_generation(stale)
+    p = Period.objects.get(pk=a.pk)
+    assert p.status == S.PUBLISHED and p.publish_undo == undo
+
+
+def test_stale_collect_rejected(make_member, admin_user):
+    from duty.services import collect
+    m = make_member("가")
+    p = Period.objects.create(name="p", start_date=d(11, 9), end_date=d(11, 9), status=S.COLLECTING)
+    stale = Period.objects.get(pk=p.pk)
+    periods.move(p, S.CLOSED)
+    with pytest.raises(DutyError):
+        collect.apply_table(admin_user, stale, m.department, {d(11, 9): {"normal": [m.name]}})
+    assert not Commute.objects.filter(period=p).exists()
+
+
+def test_latest_publish_by_order_not_clock(abc):
+    a, b, _ = abc
+    publish(a, d(11, 2))
+    publish(b, d(11, 18))
+    Period.objects.filter(pk__in=[a.pk, b.pk]).update(published_at=Period.objects.get(pk=a.pk).published_at)
+    with pytest.raises(DutyError, match="B"):
+        unpublish(a)
+
+
+def test_changes_before_unpublish_not_replayed(abc, admin_user):
+    from duty.services import changes
+    a, b, _ = abc
+    publish(b, d(11, 16))
+    na = Commute.objects.filter(period=b, date=d(11, 19)).first().member
+    changes.change_cell(admin_user, d(11, 19), "normal", na, None)  # 제거
+    assert find_day(d(11, 19)).cells["normal"].removed == [na.name]
+    unpublish(b)
+    Commute.objects.create(period=b, date=d(11, 19), member=na, shift="normal")  # 다시 입력
+    publish(b, d(11, 16))
+    cell = find_day(d(11, 19)).cells["normal"]
+    assert cell.removed == [] and not cell.changed and cell.labels == [na.name]
+    assert ChangeLog.objects.filter(period=b).count() == 1  # 기록은 남는다
+
+
+def test_period_with_events_cannot_be_deleted(db):
+    from django.db.models import ProtectedError
+    p = periods.save_draft(Period(name="p", start_date=d(11, 9), end_date=d(11, 13)))
+    with pytest.raises(ProtectedError):
+        p.delete()
+
+
+def test_unpublish_cutoff_ignores_clock(abc, admin_user):
+    """배포 취소 이전 기록은 시각이 아니라 기록 번호로 가른다(시계가 뒤로 가도)."""
+    from datetime import timedelta
+    from duty.services import changes
+    _, b, _ = abc
+    publish(b, d(11, 16))
+    m = Commute.objects.filter(period=b, date=d(11, 19)).first().member
+    changes.change_cell(admin_user, d(11, 19), "normal", m, None)
+    unpublish(b)
+    Commute.objects.create(period=b, date=d(11, 19), member=m, shift="normal")
+    publish(b, d(11, 16))
+    changes.change_cell(admin_user, d(11, 20), "normal", m, None)  # 새 주기의 변경
+    ChangeLog.objects.filter(date=d(11, 20)).update(at=ChangeLog.objects.get(date=d(11, 19)).at - timedelta(days=1))
+    assert find_day(d(11, 20)).cells["normal"].removed == [m.name]  # 시각이 과거여도 보인다
+    assert find_day(d(11, 19)).cells["normal"].removed == []

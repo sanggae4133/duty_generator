@@ -43,7 +43,7 @@
   <form method="post" action="{% url 'period_action' period.pk 'unpublish' %}" onsubmit="return confirm('배포를 취소하고 이 회차를 생성됨으로 되돌릴까요?')">{% csrf_token %}
     <button class="secondary">배포 취소</button>
     <small>{% if undo.restored_rows %}배포 때 덮어쓴 근무 {{ undo.restored_rows }}칸을 되살리고 {% endif %}이 회차는 생성됨으로 돌아갑니다(근무표에서 빠집니다).
-      {% if undo.later_changes %}배포 뒤 바뀐 근무 {{ undo.later_changes }}건은 근무표에서 빠지고 이 회차 데이터에만 남습니다(다시 배포하면 보입니다).{% endif %}</small>
+      {% if undo.later_changes %}배포 뒤 바뀐 근무 {{ undo.later_changes }}건은 이 회차 데이터에 남지만, 변경 표시(A>B·취소선)는 다시 배포해도 나오지 않습니다.{% endif %}</small>
   </form>{% endif %}
 </article>
 {% endif %}

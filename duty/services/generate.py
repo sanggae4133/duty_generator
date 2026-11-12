@@ -13,7 +13,9 @@ from .periods import missing_dates, record
 S = Period.Status
 
 
+@transaction.atomic  # 검사·입력 읽기·저장을 한 트랜잭션에(IMMEDIATE: 그동안 다른 쓰기는 기다린다)
 def run_generation(period: Period, seed: int | None = None, by=None) -> GenerationOutput:
+    period.refresh_from_db()
     if period.status not in {S.CLOSED, S.GENERATED}:
         raise DutyError("마감된 회차만 생성할 수 있습니다.")
     missing = missing_dates(period)
@@ -30,15 +32,14 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     out = generate_control_duty(period.dates(), commutes, developers, seed)  # GenerationError 전파
 
     by_code = {m.username: m for m in User.objects.filter(username__in=out.counts)}
-    with transaction.atomic():
-        ControlDuty.objects.filter(period=period).delete()
-        ControlDuty.objects.bulk_create(
-            ControlDuty(period=period, date=d, slot=i, member=by_code[code])
-            for d, picked in out.assignments.items()
-            for i, code in enumerate(picked)
-        )
-        old = period.status
-        period.status, period.seed, period.generated_at = S.GENERATED, seed, timezone.now()
-        period.save()
-        record(period, old, by, "재생성" if old == S.GENERATED else "")
+    ControlDuty.objects.filter(period=period).delete()
+    ControlDuty.objects.bulk_create(
+        ControlDuty(period=period, date=d, slot=i, member=by_code[code])
+        for d, picked in out.assignments.items()
+        for i, code in enumerate(picked)
+    )
+    old = period.status
+    period.status, period.seed, period.generated_at = S.GENERATED, seed, timezone.now()
+    period.save()
+    record(period, old, by, "재생성" if old == S.GENERATED else "")
     return out
