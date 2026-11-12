@@ -1,18 +1,29 @@
-<form method="post" action="{% url 'cell' d cell %}">{% csrf_token %}
+<form method="post" action="{% url 'cell' d cell %}" onsubmit="return cellConfirm(this)">{% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
   {% if not inline %}<p><strong>{{ d|date:"Y-m-d" }} {% if slot %}장중관제 {% endif %}{{ label }}</strong></p>{% endif %}
-  <p><small>{% if slot %}장중관제 칸은 바꾸기만 됩니다: From 사람을 To 사람으로.{% else %}From만 고르면 빼기 · To만 고르면 넣기 · 둘 다 고르면 바꾸기.{% endif %}</small></p>
+  <p><small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 {% if slot %}장중관제가{% else %}근무가{% endif %} 없으면 From 대신 들어갑니다.</small></p>
   <label>From
     <select name="before">
-      {% if not slot %}<option value="">(미선택)</option>{% endif %}
-      {% for m in current_members %}<option value="{{ m.username }}">{{ m.name }}</option>{% endfor %}
+      {% for m in current_members %}<option value="{{ m.username }}">{{ m.name }}</option>
+      {% endfor %}{% if not slot %}<option value="+">(없음 — 새로 넣기만)</option>{% endif %}
     </select>
   </label>
   <label>To
-    <select name="after">
-      {% if not slot %}<option value="">(미선택)</option>{% endif %}
-      {% for m in members %}<option value="{{ m.username }}"{% if m.name in busy %} disabled{% endif %}>{{ m.name }} · {{ m.department.name }}{% if m.name in busy %} (그날 이미 출근조 있음 — 맞교환 사용){% endif %}</option>{% endfor %}
+    <select name="after" required>
+      <option value="" disabled selected>바꿀 사람 선택</option>
+      {% for m in to_options %}<option value="{{ m.username }}">{{ m.name }} · {{ m.dept }} ({{ m.where }})</option>
+      {% endfor %}{% if not slot %}<option value="-">(없음 — 빼기만)</option>{% endif %}
     </select>
   </label>
   <button>저장</button>
 </form>
+<script>
+  // 넣기만·빼기만은 드물다: 한 번 더 묻는다
+  window.cellConfirm = window.cellConfirm || (f => {
+    const b = f.before.value, a = f.after.value;
+    if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; }
+    if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다.");
+    if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다.");
+    return true;
+  });
+</script>

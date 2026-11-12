@@ -35,7 +35,11 @@ class RuleForm(forms.Form):
         return dict(enabled=rule.enabled, kind=rule.kind, timing=rule.timing,
                     hours=h if timed else 2, minutes=m if timed else 0, days=1 if timed else rule.offset,
                     at_time=time(18, 0) if timed else time(*divmod(rule.at_minute, 60)),
-                    telegram=rule.telegram, push=rule.push, shifts=rule.shifts, depts=rule.depts, types=rule.types)
+                    telegram=rule.telegram, push=rule.push,
+                    # 저장은 '전부 = 빈 목록'이라 그대로 그리면 전부 해제로 보인다 → 전부 체크로
+                    shifts=rule.shifts or list(SHIFT_CHOICES),
+                    depts=rule.depts or list(Department.objects.values_list("code", flat=True)),
+                    types=rule.types or [STAFF, DEVELOPER])
 
     def clean(self):
         c = super().clean()

@@ -6,7 +6,6 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
 from .. import perms
 from ..csv_io import split_names
@@ -97,14 +96,20 @@ def _active_members(depts: list[str] | None = None, types: list[str] | None = No
     return list(_filtered(qs, depts or [], types or []))
 
 
-def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None):
+def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None, members=()):
     current = day.members[cell] if day else []
     qs = User.objects.filter(name__in=current).order_by("name")
-    # 출근조 칸: 그날 이미 출근조가 있는 사람은 To 에서 고를 수 없다(한 사람 하루 출근조 하나). 관제는 경고만
-    busy = set() if is_slot_cell(cell) or not day else {n for k in COMMUTE_SHIFTS for n in day.members[k]}
+    # To 목록에 그날 같은 종류 근무를 붙인다(맞교환이 기본이라 무엇과 바뀌는지 보이게)
+    kinds = [k for k in CELLS if is_slot_cell(k) == is_slot_cell(cell)]
+    where = {}
+    for k in kinds:
+        for n in (day.members[k] if day else []):
+            where.setdefault(n, cell_label(k))
     return {
-        "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell), "busy": busy,
+        "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
         "current_members": list(_filtered(qs, depts or [], types or [])),
+        "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
+                        "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
     }
 
 
@@ -192,9 +197,10 @@ def cell(request, d, cell):
     fallback = reverse("day", args=[d])
     if request.method == "POST":
         try:
-            result = changes.change_cell(
-                request.user, d, cell, _member(request.POST.get("before")), _member(request.POST.get("after"))
-            )
+            # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
+            before, after = request.POST.get("before"), request.POST.get("after")
+            result = changes.exchange(request.user, d, cell, _member(None if before == "+" else before),
+                                      _member(None if after == "-" else after))
         except DutyError as e:
             messages.error(request, str(e))
         else:
@@ -203,8 +209,8 @@ def cell(request, d, cell):
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
     depts, types = _filters(request)
-    ctx = _cell_context(find_day(d), cell, d, depts, types)
-    ctx.update(members=_active_members(depts, types), next=safe_next(request, fallback))
+    ctx = _cell_context(find_day(d), cell, d, depts, types, _active_members(depts, types))
+    ctx.update(next=safe_next(request, fallback))
     return render(request, "duty/_cell_form.html", ctx)
 
 
@@ -226,43 +232,20 @@ def day(request, d):
     sections = []
     if found:
         for k in filter(shown, [*COMMUTE_SHIFTS, *(c for c in CELLS if is_slot_cell(c))]):  # 출근조 먼저, 관제는 뒤에 묶어서
-            ctx = _cell_context(found, k, d, depts, types)
+            ctx = _cell_context(found, k, d, depts, types, members)
             ctx.update(
-                members=members, next=request.path,
+                next=request.path,
                 items=_items([x for x in found.cells[k].labels if keep(x)], []),
                 removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True),
             )
             sections.append(ctx)
-    swap_options = [
-        {"value": f"{k}|{m.username}", "text": f"{cell_label(k)} · {m.name}"}  # 맞교환은 필터와 무관하게 전체
-        for k in (CELLS if found else []) for m in _cell_context(found, k, d)["current_members"]
-    ]
     qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
     return render(request, "duty/day.html", {
         "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
-        "editable": editable, "swap_options": swap_options, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
+        "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
         "qs": qs, **_filter_ctx(depts, types, shifts),
     })
 
-
-@login_required
-@require_POST
-def swap(request, d):
-    try:
-        cell_a, username_a = request.POST["a"].split("|")
-        cell_b, username_b = request.POST["b"].split("|")
-        result = changes.swap(
-            request.user, d, cell_a, User.objects.get(username=username_a), cell_b, User.objects.get(username=username_b)
-        )
-    except (KeyError, ValueError, User.DoesNotExist):
-        messages.error(request, "맞교환할 두 사람을 골라 주세요.")
-    except DutyError as e:
-        messages.error(request, str(e))
-    else:
-        messages.success(request, "맞교환했습니다.")
-        for w in result:
-            messages.warning(request, w)
-    return redirect("day", d)
 
 
 @login_required

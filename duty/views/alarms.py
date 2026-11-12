@@ -258,6 +258,15 @@ def push_test(request):
     return redirect("alarms")
 
 
+@require_POST
+@login_required
+def notify_changes(request):
+    on = bool(request.POST.get("on"))
+    alarms.set_notify_changes(request.user, on)
+    messages.success(request, "내 근무가 바뀌면 알림을 " + ("켰습니다." if on else "껐습니다."))
+    return redirect("alarms")
+
+
 @login_required
 def help_push(request):
     return render(request, "duty/help_push.html")

@@ -72,7 +72,7 @@ def test_day_dept_filter_names_and_cell_form(client, two_depts):
     client.force_login(a)
     body = client.get(f"/day/{D}/?dept=UI&shift=normal").content.decode()
     art = body.split('<article id="normal" class="dcell">')[1].split("</article>")[0]
-    assert "라" in art and "가" not in art
+    assert '<span class="lb">라</span>' in art and '<span class="lb">가</span>' not in art
     assert f'value="{c.username}"' in art and f'value="{a.username}"' not in art
 
 
@@ -135,20 +135,6 @@ def test_defaults_without_prefs(client, world):
     body = client.get("/").content.decode()
     assert body.count('type="checkbox"') == 11 and body.count(" checked") == 11
     assert not RosterPref.objects.exists()
-
-
-def _swap_values(client, q=""):
-    import re
-    body = client.get(f"/day/{D}/{q}").content.decode()
-    return re.findall(r'<option value="(\w+\|[^"]+)">', body.split('name="a"')[1].split("</select>")[0])
-
-
-def test_swap_options_unfiltered(client, two_depts):
-    a, c = two_depts
-    client.force_login(a)
-    full = _swap_values(client)
-    assert f"slot0|{a.username}" in full and f"normal|{c.username}" in full
-    assert _swap_values(client, "?f=1&shift=normal&dept=UI") == full
 
 
 def test_stale_saved_prefs_fall_back_to_all(client, world):

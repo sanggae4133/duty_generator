@@ -833,3 +833,14 @@ def test_push_test_button_only_with_devices(client, me, vapid):
     body = client.get("/alarms/").content.decode()
     assert "등록된 기기가 없습니다" in body and "테스트 푸시</button>" not in body
     assert '<button id="push-off" class="secondary js-push" hidden>' in body  # 이 기기 등록 여부는 브라우저가 확인해 보인다
+
+
+def test_rule_edit_shows_all_selected_as_checked(client, me):
+    """'전부'는 빈 목록으로 저장된다 → 수정 화면에서 전부 체크로 보여야 한다(초기화된 것처럼 보이지 않게)."""
+    import re
+    from duty.models import AlarmRule
+    r = AlarmRule.objects.create(user=me, kind="report", timing="days", offset=2, at_minute=9 * 60,
+                                 telegram=True, push=False, shifts=[], depts=[], types=[], enabled=True)
+    body = client.get(f"/alarms/rules/{r.pk}/").content.decode()
+    for name, n in (("shifts", 5), ("types", 2)):
+        assert body.count(f'name="{name}"') == n and len(re.findall(rf'name="{name}"[^>]*checked', body)) == n, name

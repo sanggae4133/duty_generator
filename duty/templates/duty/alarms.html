@@ -3,6 +3,15 @@
 {% block content %}
 <h3>알림·캘린더</h3>
 
+<article id="changes">
+  <form method="post" action="{% url 'alarm_notify_changes' %}" class="toggle">{% csrf_token %}
+    <label><input type="checkbox" name="on" value="1" role="switch"{% if user.notify_changes %} checked{% endif %} onchange="this.form.requestSubmit()">
+      <strong>내 근무가 바뀌면 바로 알림</strong></label>
+    <small>누가 내 근무를 바꾸거나 맞교환하면 연결된 텔레그램·푸시로 바로 알려 줍니다(오늘·앞으로의 근무, 내가 바꾼 것은 제외).</small>
+    <noscript><button class="outline">저장</button></noscript>
+  </form>
+</article>
+
 <article id="telegram">
   <header><strong>텔레그램</strong> · <a href="{% url 'help_telegram' %}">도움말</a></header>
   {% if tg.verified_at and tg.chat_id %}

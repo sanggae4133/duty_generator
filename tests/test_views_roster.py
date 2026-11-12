@@ -158,19 +158,28 @@ def test_unknown_member_code_is_rejected(client, world):
     assert Commute.objects.filter(date=D, member=a, shift="normal").exists()
 
 
-def test_swap_via_post(client, world):
-    a, b = world
+def test_swap_via_cell_dialog(client, world):
+    """근무 변경 창에서 To 가 그날 다른 출근조면 맞교환된다(따로 있던 맞교환 화면은 없앴다)."""
+    a, b = world  # 가=정상, 나=석식교대
     client.force_login(a)
-    r = client.post(f"/swap/{D}/", {"a": f"normal|{a.username}", "b": f"dinner|{b.username}"})
+    r = client.post(f"/cell/{D}/normal/", {"before": a.username, "after": b.username})
     assert r.status_code == 302
-    assert Commute.objects.get(date=D, member=a).shift == "dinner"
+    assert Commute.objects.get(date=D, member=a).shift == "dinner" and Commute.objects.get(date=D, member=b).shift == "normal"
+    assert client.get(f"/swap/{D}/").status_code == 404
+
+
+def test_remove_only_with_sentinel(client, world):
+    a, _ = world
+    client.force_login(a)
+    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": "-"})
+    assert not Commute.objects.filter(date=D, member=a).exists()
 
 
 def test_day_page(client, world):
     a, _ = world
     client.force_login(a)
     body = client.get(f"/day/{D}/").content.decode()
-    assert "08:30~09:30" in body and "맞교환" in body
+    assert "08:30~09:30" in body and 'name="a"' not in body  # 따로 있던 맞교환 폼은 없다
 
 
 def test_dept_page_removed(client, world):
@@ -290,7 +299,7 @@ def test_popup_members_filtered_by_dept(client, two_depts):
     a, c = two_depts  # 가(MEMS)·라(UI) 모두 정상 칸 소속
     client.force_login(a)
     popup = client.get(f"/cell/{D}/normal/?dept=UI").content.decode()
-    assert popup.count(f'<option value="{c.username}"') == 2 and f'<option value="{a.username}"' not in popup  # From, To(To 는 이미 출근조라 막힘)
+    assert popup.count(f'<option value="{c.username}"') == 1 and f'<option value="{a.username}"' not in popup  # From 만(같은 칸 사람은 To 에서 뺀다)
     full = client.get(f"/cell/{D}/normal/").content.decode()
     assert f'<option value="{a.username}"' in full and f'<option value="{c.username}"' in full
 
@@ -404,14 +413,20 @@ def test_unpublished_day_has_no_edit_links(client, world):
     assert "/cell/2026-11-11/" not in body and "/cell/2026-11-10/" in body
 
 
-def test_cell_form_guides_and_blocks_busy(client, world, make_member):
-    """출근조 칸: 그날 이미 다른 출근조인 사람은 고를 수 없게(저장 뒤 오류 대신), 사용법 안내, 버튼 '저장'."""
+def test_cell_form_defaults_to_swap(client, world, make_member):
+    """기본은 맞교환: From 은 이 칸 사람, To 는 사람 선택(그날 근무 표시), 넣기·빼기는 맨 끝 + 확인창."""
     a, b = world  # 가=정상, 나=석식교대
     make_member("다", user=True)
     client.force_login(a)
-    body = client.get(f"/cell/{D}/dawn/").content.decode()
-    assert "From만 고르면 빼기" in body and "<button>저장</button>" in body
-    assert re.search(r'<option value="[^"]+" disabled>나 · ', body)  # 석식교대 중
-    assert re.search(r'<option value="[^"]+">다 · ', body)
+    body = client.get(f"/cell/{D}/normal/").content.decode()
+    before = body.split('name="before"')[1].split("</select>")[0]
+    after = body.split('name="after"')[1].split("</select>")[0]
+    assert before.strip().startswith(">") and f'<option value="{a.username}">가</option>' in before  # 첫 사람이 기본
+    assert before.rstrip().endswith('<option value="+">(없음 — 새로 넣기만)</option>')
+    assert '<option value="" disabled selected>바꿀 사람 선택</option>' in after
+    assert re.search(r'<option value="[^"]+">나 · [^<]*\(석식교대\)</option>', after)
+    assert re.search(r'<option value="[^"]+">다 · [^<]*\(근무 없음\)</option>', after)
+    assert after.rstrip().endswith('<option value="-">(없음 — 빼기만)</option>')
+    assert "맞바꿉니다" in body and "confirm(" in body and "<button>저장</button>" in body
     slot = client.get(f"/cell/{D}/slot0/").content.decode()
-    assert "disabled>" not in slot and "바꾸기만" in slot  # 관제는 경고만, 막지 않는다
+    assert 'value="+"' not in slot and 'value="-"' not in slot  # 관제 칸은 넣기·빼기 없음

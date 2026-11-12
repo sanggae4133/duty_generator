@@ -101,6 +101,26 @@ def change_cell(user, d: date, cell: str, before: User | None, after: User | Non
 
 
 @transaction.atomic
+def exchange(user, d: date, cell: str, before: User | None, after: User | None) -> list[str]:
+    """근무 변경 창의 저장. 둘 다 있으면 기본은 맞교환: To 가 그날 같은 종류 다른 칸에 있으면 서로 바꾸고,
+    없으면 From 대신 들어간다. 한쪽만 있으면 넣기·빼기(change_cell)."""
+    if before is None or after is None:
+        return change_cell(user, d, cell, before, after)
+    _check_cell(cell)
+    period = _owner(d)
+    if is_slot_cell(cell):
+        row = ControlDuty.objects.filter(period=period, date=d, member=after).order_by("slot").first()
+        other = f"slot{row.slot}" if row else None
+    else:
+        other = Commute.objects.filter(period=period, date=d, member=after).values_list("shift", flat=True).first()
+    if other == cell:
+        raise DutyError(f"{after.name}은(는) 이미 이 칸에 있습니다.")
+    if other:
+        return swap(user, d, cell, before, other, after)
+    return change_cell(user, d, cell, before, after)
+
+
+@transaction.atomic
 def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> list[str]:
     perms.assert_can_edit_date(user, d)
     period = _owner(d)
