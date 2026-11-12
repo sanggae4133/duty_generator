@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>try { const t = localStorage.getItem("duty-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <title>{% block title %}NXT 당번표{% endblock %}</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="{% static 'duty/nxt-mark.svg' %}" type="image/svg+xml">
@@ -12,19 +13,28 @@
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
     /* NEXTRADE BI: RED #E50038(로고·위험), PURPLE #2B1B40(주요 동작). 지정 서체 Noto Sans CJK KR(없으면 시스템 글꼴) */
+    /* 화면 모드: <html data-theme="light|dark">(사용자가 고름) 또는 없음(시스템 설정). 다크 값은 아래 두 곳에 같이 둔다 */
+    :root { --pico-font-family-sans-serif: "Noto Sans KR", "Noto Sans CJK KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
     :root:not([data-theme=dark]) {
-      --pico-font-family-sans-serif: "Noto Sans KR", "Noto Sans CJK KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
       --pico-primary: #4b2f7f; --pico-primary-hover: #2b1b40; --pico-primary-underline: rgba(75, 47, 127, .5);
       --pico-primary-background: #2b1b40; --pico-primary-hover-background: #3f2a5e; --pico-primary-border: #2b1b40;
       --pico-primary-hover-border: #3f2a5e; --pico-primary-focus: rgba(75, 47, 127, .35); --pico-primary-inverse: #fff;
-      --nxt-red: #e50038;
+      --nxt-red: #e50038; --day-line: #9aa4b1; --duty-line: #dfe3e8; --chg: #e91e63; --pill-collect: #8a5300; --logo-filter: none;
     }
     @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) {
       --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
       --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
-      --nxt-red: #ff4d73;
+      --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
+      --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     } }
+    :root[data-theme=dark] {
+      --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
+      --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
+      --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
+      --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
+      --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
+    }
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
     form.search input:not([type=checkbox]) { width: auto; min-width: 9rem; flex: 1 1 9rem; margin: 0; }
     form.search .pair { display: flex; align-items: center; gap: .5rem; flex-wrap: nowrap; }
@@ -74,8 +84,6 @@
     table.roster.month td.other { opacity: .35; }
     table.roster.month .line { white-space: normal; }
     table.roster.month .sec > small { display: block; opacity: .7; }
-    :root { --day-line: #9aa4b1; --duty-line: #dfe3e8; }
-    @media (prefers-color-scheme: dark) { :root { --day-line: #7d8896; --duty-line: #3a424d; } }
     table.roster.month td { border: 2px solid var(--day-line); }
     table.roster.month .sec { border: 1px solid var(--duty-line); border-radius: .3rem; padding: .15rem .3rem; margin-top: .3rem; }
     /* 오늘 표시는 border-collapse 경합을 피하려고 inset 그림자로 그린다 */
@@ -88,25 +96,25 @@
     table.roster thead th { position: sticky; top: 0; z-index: 2; background: var(--pico-background-color); padding: .2rem .5rem; text-align: center; }
     table.roster { font-size: .8rem; }
     table.roster th { white-space: nowrap; word-break: keep-all; }
-    .chg { font-weight: bold; font-style: italic; color: #e91e63; }
+    .chg { font-weight: bold; font-style: italic; color: var(--chg); }
     s { text-decoration-thickness: 2px; }
     .chg .hl1, .chg .hl2, .chg .hl3 { color: #ad1457; }
     .hl1, .hl2, .hl3 { font-weight: bold; padding: 0 .25em; border-radius: .25em; color: #000; }
     .hl1 { background: #ffeb3b; } .hl2 { background: #81d4fa; } .hl3 { background: #aed581; }
     .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: .25em; vertical-align: middle; outline: 1px solid rgba(0,0,0,.25); }
-    @media (prefers-color-scheme: dark) { .chg { color: #ff4081; } }
     /* 상단바: 위 줄 = 로고 + 계정, 아래 줄 = 메뉴 알약(좁으면 여러 줄로 — 숨은 메뉴가 없게) */
     .topbar { border-bottom: 1px solid var(--duty-line); margin-bottom: 1rem; }
     .topbar .brand-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem 0; }
     .topbar a.brand, .topbar a.brand:hover { color: var(--pico-color); }
     .topbar .brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1.15rem; text-decoration: none; color: var(--pico-color); white-space: nowrap; }
     .topbar .brand img { height: 28px; width: auto; }
-    @media (prefers-color-scheme: dark) { .topbar .brand img { filter: brightness(0) invert(1); } }  /* BI: 어두운 배경은 흰색 단색 */
+    .topbar .brand img { filter: var(--logo-filter); }
     .topbar .account { display: flex; align-items: center; gap: .25rem; font-size: .85rem; white-space: nowrap; }
     .topbar .account a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .5rem; }
     .topbar .account .who { opacity: .7; }
     .topbar .account form { margin: 0; }
     .topbar .account button { width: auto; margin: 0; min-height: 40px; padding: .25rem .8rem; font-size: .85rem; }
+    .topbar .account .theme-btn { min-width: 40px; padding: .25rem .5rem; font-size: 1rem; line-height: 1; }
     .topbar nav.menu ul { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0 0 .7rem; }
     .topbar nav.menu li { list-style: none; margin: 0; padding: 0; }
     .topbar nav.menu a { display: block; margin: 0; padding: .5rem .9rem; border: 1px solid var(--duty-line); border-radius: 999px;
@@ -136,13 +144,12 @@
   <header class="topbar">
     <div class="brand-row">
       <a href="/" class="brand"><img src="{% static 'duty/nxt-signature.svg' %}" alt="NXT" width="78" height="28"><span>당번표</span></a>
-      {% if user.is_authenticated %}
       <div class="account">
-        <span class="who">{{ user.name|default:user.username }}</span>
-        <a href="{% url 'password_change' %}">비밀번호</a>
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="outline secondary">로그아웃</button></form>
+        {% if user.is_authenticated %}<span class="who">{{ user.name|default:user.username }}</span>{% endif %}
+        <button type="button" id="theme-btn" class="outline secondary theme-btn" aria-label="화면 모드 바꾸기" title="화면 모드 바꾸기">◐</button>
+        {% if user.is_authenticated %}<a href="{% url 'password_change' %}">비밀번호</a>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="outline secondary">로그아웃</button></form>{% endif %}
       </div>
-      {% endif %}
     </div>
     {% if menu %}<nav class="menu" aria-label="메뉴"><ul>{% for m in menu %}<li><a href="{{ m.url }}"{% if m.active %} aria-current="page"{% endif %}>{{ m.label }}</a></li>{% endfor %}</ul></nav>{% endif %}
   </header>
@@ -165,6 +172,25 @@
 {% endif %}{% endwith %}
 <dialog id="dlg"><article><div id="dlg-body"></div><footer><button class="secondary" onclick="document.getElementById('dlg').close()">닫기</button></footer></article></dialog>
 <script>
+  // 화면 모드: 시스템 → 라이트 → 다크 → 시스템. 기기마다(localStorage) 기억한다
+  (() => {
+    const b = document.getElementById("theme-btn");
+    if (!b) return;
+    const MODES = {system: ["◐", "시스템 설정"], light: ["☀", "라이트"], dark: ["☾", "다크"]}, ORDER = ["system", "light", "dark"];
+    const now = () => document.documentElement.dataset.theme || "system";
+    const draw = () => {
+      const m = now(), next = ORDER[(ORDER.indexOf(m) + 1) % 3];
+      b.textContent = MODES[m][0];
+      b.title = b.ariaLabel = `화면 모드: ${MODES[m][1]} (누르면 ${MODES[next][1]})`;
+    };
+    b.addEventListener("click", () => {
+      const next = ORDER[(ORDER.indexOf(now()) + 1) % 3];
+      if (next === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = next;
+      try { next === "system" ? localStorage.removeItem("duty-theme") : localStorage.setItem("duty-theme", next); } catch (e) {}
+      draw();
+    });
+    draw();
+  })();
   document.body.addEventListener("htmx:afterSwap", e => {
     if (e.detail.target.id === "dlg-body") document.getElementById("dlg").showModal();
   });
