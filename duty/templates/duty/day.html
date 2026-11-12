@@ -16,20 +16,12 @@
   <p>{% with line=s.items %}{% include "duty/_labels.html" %}{% endwith %}{% if not s.items %}-{% endif %}{% if s.removed_items %} {% with line=s.removed_items %}{% include "duty/_labels.html" %}{% endwith %}{% endif %}</p>
   {% if editable %}
   <details><summary role="button" class="outline secondary">바꾸기</summary>
-    {% include "duty/_cell_form.html" with cell=s.cell label=s.label slot=s.slot current_members=s.current_members members=s.members next=s.next busy=s.busy inline=True %}
+    {% include "duty/_cell_form.html" with cell=s.cell label=s.label slot=s.slot current_members=s.current_members to_options=s.to_options next=s.next inline=True %}
   </details>
   {% endif %}
 </article>
 {% endfor %}
-{% if found and editable %}
-<details><summary>맞교환</summary>
-  <form method="post" action="{% url 'swap' d %}">{% csrf_token %}
-    <select name="a">{% for o in swap_options %}<option value="{{ o.value }}">{{ o.text }}</option>{% endfor %}</select>
-    <select name="b">{% for o in swap_options %}<option value="{{ o.value }}">{{ o.text }}</option>{% endfor %}</select>
-    <button>맞교환</button>
-  </form>
-</details>
-{% endif %}
+
 <style>
   h4.grp { margin: 1.5rem 0 .5rem; }
   article.dcell { margin: 0 0 .6rem; padding: .7rem 1rem; }

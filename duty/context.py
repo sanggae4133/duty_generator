@@ -12,7 +12,7 @@ def nav(request):
     if not user.is_authenticated:
         return out
     out["can_collect"] = perms.managed_departments(user).exists()
-    items = [("근무표", "/", ("/day/", "/cell/", "/swap/")), ("내 근무", "/me/", ()), ("알림·캘린더", "/alarms/", ())]
+    items = [("근무표", "/", ("/day/", "/cell/")), ("내 근무", "/me/", ()), ("알림·캘린더", "/alarms/", ())]
     if out["can_collect"]:
         items.append(("출근표 입력", "/collect/", ()))
     if user.is_staff:

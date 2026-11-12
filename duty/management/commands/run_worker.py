@@ -15,7 +15,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from duty.logging import log_to_file
-from duty.services import alarm_runner, backup, health
+from duty.services import alarm_runner, backup, change_notice, health
 
 log = logging.getLogger("duty.worker")
 HEALTH_EVERY = 5  # 분
@@ -26,6 +26,7 @@ def run_round(now, everything=False, skip_health=False) -> None:
     jobs = [("backup", backup.daily)]
     if everything or (not skip_health and timezone.localtime(now).minute % HEALTH_EVERY == 0):
         jobs.append(("health", health.check))
+    jobs.append(("changes", change_notice.tick))  # 내 근무가 바뀌면 알림: 정기 알림보다 먼저('바로' 가게)
     jobs.append(("alarms", alarm_runner.tick))
     for name, job in jobs:
         try:

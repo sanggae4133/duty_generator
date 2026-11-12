@@ -122,9 +122,9 @@ const VIDEOS = {
     await s.say('굵은 기울임 글씨는 배포 뒤에 바뀐 근무,\n취소선은 빠진 사람입니다.', 3000);
     await s.say('바꿀 칸을 누릅니다.', 1200);
     await s.tap('a.cell[hx-get*="/normal/"]', 1600, -1);
-    await s.say('From은 빠질 사람, To는 들어올 사람입니다.\n하나만 고르면 빼기·넣기, 둘 다면 바꾸기.', 3600);
-    await s.pick('#dlg select[name=before]', '');
-    await s.pick('#dlg select[name=after]', '문하늘');
+    await s.say('From(이 칸 사람)과 To(바꿀 사람)를 고르면\n두 사람의 근무를 서로 맞바꿉니다.', 3400);
+    await s.pick('#dlg select[name=after]', '');
+    await s.say('To 목록 괄호 안이 그 사람의 그날 근무입니다.\n근무가 없는 사람이면 From 대신 들어갑니다.', 3400);
     await s.tap('#dlg form button', 1800);
     await s.say('저장하면 바로 반영되고 이력에 남습니다.\n지난 날짜는 관리자만 바꿀 수 있습니다.', 3200);
     await s.ev('scrollTo({top: 0})'); await sleep(600);
@@ -137,7 +137,7 @@ const VIDEOS = {
     await s.tap('nav.menu a[href="/me/"]', 1500);
     await s.say('내 근무: 앞으로의 내 근무만 모아 봅니다.\n날짜를 누르면 그날 전체 근무가 나옵니다.', 3200);
     await s.tap('nav.menu a[href="/alarms/"]', 1500);
-    await s.say('알림·캘린더: 텔레그램·푸시로 근무 전에 알림을 받고,\n휴대폰 캘린더에 내 근무를 구독할 수 있습니다.', 3400);
+    await s.say('알림·캘린더: 근무 전 알림, 내 근무가 바뀌면 바로 알림,\n휴대폰 캘린더 구독을 여기서 켭니다.', 3400);
     await s.scroll(600, 1500);
     await s.ev('scrollTo({top: 0})'); await sleep(500);
     await s.tap('nav.menu a[href="/help/"]', 1500);

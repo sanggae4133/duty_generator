@@ -194,3 +194,51 @@ def test_no_department_user_cannot_be_assigned(world, admin_user, cell, before):
     assert (Commute.objects.count(), ControlDuty.objects.count(), ChangeLog.objects.count()) == rows
     assert not Commute.objects.filter(member=admin_user).exists()
     assert not ControlDuty.objects.filter(member=admin_user).exists()
+
+
+# ── 근무 변경 창의 기본 = 맞교환(exchange) ──
+
+def test_exchange_swaps_when_to_has_other_shift(world):
+    p, m = world  # 가=정상, 나=야간
+    changes.exchange(m["가"], D, "normal", m["가"], m["나"])
+    assert Commute.objects.get(period=p, date=D, member=m["가"]).shift == "night"
+    assert Commute.objects.get(period=p, date=D, member=m["나"]).shift == "normal"
+    assert ChangeLog.objects.count() == 2
+
+
+def test_exchange_replaces_when_to_is_free(world):
+    p, m = world  # 다=근무 없음
+    changes.exchange(m["가"], D, "normal", m["가"], m["다"])
+    assert Commute.objects.get(period=p, date=D, member=m["다"]).shift == "normal"
+    assert not Commute.objects.filter(period=p, date=D, member=m["가"]).exists()
+
+
+def test_exchange_same_cell_rejected(world):
+    p, m = world
+    Commute.objects.create(period=p, date=D, member=m["다"], shift="normal")
+    with pytest.raises(DutyError, match="이미 이 칸"):
+        changes.exchange(m["가"], D, "normal", m["가"], m["다"])
+
+
+def test_exchange_slots(world):
+    p, m = world  # 가=slot0, 라=slot1, 나=관제 없음
+    changes.exchange(m["가"], D, "slot0", m["가"], m["라"])
+    assert ControlDuty.objects.get(period=p, date=D, slot=0).member == m["라"]
+    assert ControlDuty.objects.get(period=p, date=D, slot=1).member == m["가"]
+    changes.exchange(m["가"], D, "slot1", m["가"], m["나"])  # 관제 없는 사람이면 교체
+    assert ControlDuty.objects.get(period=p, date=D, slot=1).member == m["나"]
+
+
+def test_exchange_add_or_remove_only(world):
+    p, m = world
+    changes.exchange(m["가"], D, "normal", m["가"], None)  # 빼기만
+    assert not Commute.objects.filter(period=p, date=D, member=m["가"]).exists()
+    changes.exchange(m["가"], D, "dawn", None, m["다"])  # 넣기만
+    assert Commute.objects.get(period=p, date=D, member=m["다"]).shift == "dawn"
+
+
+def test_exchange_with_multi_slot_holder_is_explained(world):
+    p, m = world  # 라=slot1
+    ControlDuty.objects.create(period=p, date=D, slot=5, member=m["라"])
+    with pytest.raises(DutyError, match="여러 칸"):
+        changes.exchange(m["가"], D, "slot0", m["가"], m["라"])

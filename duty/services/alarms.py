@@ -13,7 +13,7 @@ from django.utils import timezone
 from .. import perms
 from ..alarms import senders
 from ..errors import DutyError
-from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile
+from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile, User
 from ..shifts import DEVELOPER, STAFF
 from . import alarm_settings
 from .prefs import SHIFT_KEYS
@@ -286,6 +286,10 @@ def delete_subscription(sub: PushAlarmSubscription) -> None:
 
 def delete_all_subscriptions(user) -> None:
     PushAlarmSubscription.objects.filter(user=user).delete()
+
+
+def set_notify_changes(user, on: bool) -> None:
+    User.objects.filter(pk=user.pk).update(notify_changes=on)
 
 
 def test_push(user) -> tuple[int, int]:
