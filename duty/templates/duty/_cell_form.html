@@ -1,6 +1,7 @@
 <form method="post" action="{% url 'cell' d cell %}">{% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
-  <p><strong>{{ d|date:"Y-m-d" }} {{ label }}</strong></p>
+  {% if not inline %}<p><strong>{{ d|date:"Y-m-d" }} {% if slot %}장중관제 {% endif %}{{ label }}</strong></p>{% endif %}
+  <p><small>{% if slot %}장중관제 칸은 바꾸기만 됩니다: From 사람을 To 사람으로.{% else %}From만 고르면 빼기 · To만 고르면 넣기 · 둘 다 고르면 바꾸기.{% endif %}</small></p>
   <label>From
     <select name="before">
       {% if not slot %}<option value="">(미선택)</option>{% endif %}
@@ -10,8 +11,8 @@
   <label>To
     <select name="after">
       {% if not slot %}<option value="">(미선택)</option>{% endif %}
-      {% for m in members %}<option value="{{ m.username }}">{{ m.name }} · {{ m.department.name }}</option>{% endfor %}
+      {% for m in members %}<option value="{{ m.username }}"{% if m.name in busy %} disabled{% endif %}>{{ m.name }} · {{ m.department.name }}{% if m.name in busy %} (그날 이미 출근조 있음 — 맞교환 사용){% endif %}</option>{% endfor %}
     </select>
   </label>
-  <button>변경</button>
+  <button>저장</button>
 </form>

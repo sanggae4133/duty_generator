@@ -5,9 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}NXT 당번표{% endblock %}</title>
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="{% static 'duty/nxt-mark.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'duty/apple-touch-icon.png' %}">
+  <meta name="theme-color" content="#2b1b40">
   <link rel="stylesheet" href="{% static 'vendor/pico.min.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
+    /* NEXTRADE BI: RED #E50038(로고·위험), PURPLE #2B1B40(주요 동작). 지정 서체 Noto Sans CJK KR(없으면 시스템 글꼴) */
+    :root:not([data-theme=dark]) {
+      --pico-font-family-sans-serif: "Noto Sans KR", "Noto Sans CJK KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      --pico-primary: #4b2f7f; --pico-primary-hover: #2b1b40; --pico-primary-underline: rgba(75, 47, 127, .5);
+      --pico-primary-background: #2b1b40; --pico-primary-hover-background: #3f2a5e; --pico-primary-border: #2b1b40;
+      --pico-primary-hover-border: #3f2a5e; --pico-primary-focus: rgba(75, 47, 127, .35); --pico-primary-inverse: #fff;
+      --nxt-red: #e50038;
+    }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) {
+      --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
+      --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
+      --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
+      --nxt-red: #ff4d73;
+    } }
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
     form.search input:not([type=checkbox]) { width: auto; min-width: 9rem; flex: 1 1 9rem; margin: 0; }
     form.search .pair { display: flex; align-items: center; gap: .5rem; flex-wrap: nowrap; }
@@ -18,11 +35,39 @@
     form.search .hint { flex-basis: 100%; margin: .25rem 0 0 .4rem; font-size: .8rem; opacity: .65; }
     form.search .name { display: flex; align-items: center; gap: .25rem; flex: 1 1 10rem; }
     form.search button { width: auto; margin: 0; white-space: nowrap; }
+    /* 라벨이 위에 붙는 입력칸(placeholder 에만 기대지 않게) */
+    form.labeled { align-items: flex-end; }
+    form.labeled label { display: flex; flex-direction: column; flex: 1 1 9rem; margin: 0; font-size: .8rem; }
+    form.labeled label input { width: 100%; margin-top: .2rem; font-size: 1rem; }
+    td.nw { white-space: nowrap; }
     nav a, nav button, nav strong, .lb, .hl1, .hl2, .hl3 { white-space: nowrap; }
     nav ul { flex-wrap: wrap; }
-    .cal-nav { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
-    .cal-nav a[role=button] { margin: 0; white-space: nowrap; padding: .4rem .8rem; }
-    .cal-title { margin-left: .5rem; white-space: nowrap; }
+    .cal-nav { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin-bottom: 1rem; }
+    .cal-title { margin: 0 auto 0 0; white-space: nowrap; font-size: 1.3rem; }
+    /* 묶음 버튼: 지금 선택이 채워진다 */
+    .seg, .seg[role=group] { display: inline-flex; width: auto; margin: 0; box-shadow: none; border: 1px solid var(--pico-primary-border); border-radius: .4rem; overflow: hidden; }
+    .seg a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 .9rem; text-decoration: none; white-space: nowrap; }
+    .seg a + a { border-left: 1px solid var(--pico-primary-border); }
+    .seg a[aria-current] { background: var(--pico-primary-background); color: var(--pico-primary-inverse); font-weight: 600; }
+    /* 근무표 칸: 누를 수 있는 칸은 칸 전체가 누르는 영역 */
+    table.roster a.cell { display: block; min-height: 1.8rem; padding: .1rem .25rem; margin: 0 -.25rem; border-radius: .25rem; text-decoration: none; color: inherit; }
+    table.roster a.cell:hover, table.roster a.cell:focus-visible { background: var(--pico-primary-focus); }
+    table.roster .add { opacity: .35; font-weight: 700; }
+    table.roster .none { margin: .5rem 0 0; font-size: .8rem; opacity: .5; }
+    .legend { margin: .5rem 0 0; opacity: .8; }
+    /* 필터: 좁은 화면은 접어 둔다 */
+    details.filters { flex-basis: 100%; margin: 0; }
+    details.filters summary { width: fit-content; font-size: .9rem; }
+    details.filters .on { margin-left: .3rem; padding: .05rem .5rem; border-radius: 1rem; font-size: .75rem; background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
+    details.filters .filters-body { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+    /* 주간 보기 모바일: 하루씩 세로로 쌓는다(가로 스크롤 없이 5일 모두) */
+    @media (max-width: 600px) {
+      table.roster.month.stack { min-width: 0; table-layout: auto; }
+      table.roster.month.stack thead { display: none; }
+      table.roster.month.stack tr, table.roster.month.stack td { display: block; width: 100%; }
+      table.roster.month.stack td { margin-bottom: .6rem; }
+      .grid-wrap.roster-scroll:has(.stack) { max-height: none; overflow: visible; }
+    }
     table.roster.month { table-layout: fixed; min-width: 56rem; }
     table.roster.month td { vertical-align: top; word-break: keep-all; }
     table.roster td, table.roster th { scroll-margin-top: 2.6rem; }  /* 오늘 칸으로 스크롤해도 고정 헤더에 안 가려지게 */
@@ -44,27 +89,40 @@
     table.roster { font-size: .8rem; }
     table.roster th { white-space: nowrap; word-break: keep-all; }
     .chg { font-weight: bold; font-style: italic; color: #e91e63; }
+    s { text-decoration-thickness: 2px; }
     .chg .hl1, .chg .hl2, .chg .hl3 { color: #ad1457; }
     .hl1, .hl2, .hl3 { font-weight: bold; padding: 0 .25em; border-radius: .25em; color: #000; }
     .hl1 { background: #ffeb3b; } .hl2 { background: #81d4fa; } .hl3 { background: #aed581; }
-    .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: .25em; vertical-align: middle; }
+    .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: .25em; vertical-align: middle; outline: 1px solid rgba(0,0,0,.25); }
     @media (prefers-color-scheme: dark) { .chg { color: #ff4081; } }
-    /* 상단바: 위 줄 = 이름 + 계정, 아래 줄 = 메뉴 알약(모바일은 가로로 밀어 본다) */
+    /* 상단바: 위 줄 = 로고 + 계정, 아래 줄 = 메뉴 알약(좁으면 여러 줄로 — 숨은 메뉴가 없게) */
     .topbar { border-bottom: 1px solid var(--duty-line); margin-bottom: 1rem; }
     .topbar .brand-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem 0; }
-    .topbar .brand { font-weight: 800; font-size: 1.2rem; text-decoration: none; color: var(--pico-color); white-space: nowrap; }
-    .topbar .account { display: flex; align-items: center; gap: .6rem; font-size: .85rem; white-space: nowrap; }
+    .topbar a.brand, .topbar a.brand:hover { color: var(--pico-color); }
+    .topbar .brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1.15rem; text-decoration: none; color: var(--pico-color); white-space: nowrap; }
+    .topbar .brand img { height: 28px; width: auto; }
+    @media (prefers-color-scheme: dark) { .topbar .brand img { filter: brightness(0) invert(1); } }  /* BI: 어두운 배경은 흰색 단색 */
+    .topbar .account { display: flex; align-items: center; gap: .25rem; font-size: .85rem; white-space: nowrap; }
+    .topbar .account a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .5rem; }
     .topbar .account .who { opacity: .7; }
     .topbar .account form { margin: 0; }
-    .topbar .account button { width: auto; margin: 0; padding: .25rem .7rem; font-size: .85rem; }
-    .topbar nav.menu ul { display: flex; flex-wrap: nowrap; gap: .4rem; overflow-x: auto; margin: 0; padding: 0 0 .7rem; scrollbar-width: none; }
+    .topbar .account button { width: auto; margin: 0; min-height: 40px; padding: .25rem .8rem; font-size: .85rem; }
+    .topbar nav.menu ul { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0 0 .7rem; }
     .topbar nav.menu li { list-style: none; margin: 0; padding: 0; }
-    .topbar nav.menu a { display: block; margin: 0; padding: .4rem .9rem; border: 1px solid var(--duty-line); border-radius: 999px;
+    .topbar nav.menu a { display: block; margin: 0; padding: .5rem .9rem; border: 1px solid var(--duty-line); border-radius: 999px;
       text-decoration: none; font-size: .9rem; color: var(--pico-color); white-space: nowrap; }
     .topbar nav.menu a:hover { border-color: var(--pico-primary); }
     .topbar nav.menu a[aria-current=page] { background: var(--pico-primary-background); border-color: var(--pico-primary-background);
       color: var(--pico-primary-inverse); font-weight: 600; }
     @media (max-width: 480px) { .topbar .account .who { display: none; } }
+    /* 알림 메시지: 성공·오류·경고를 색과 왼쪽 띠로 구분(색만으로 구분하지 않게 기호도 붙인다) */
+    .msg { margin: 0 0 1rem; padding: .7rem 1rem; border-left: 4px solid var(--pico-muted-border-color); border-radius: .3rem; background: var(--pico-card-background-color); }
+    .msg.success { border-color: #1e8e3e; background: rgba(30, 142, 62, .08); }
+    .msg.success::before { content: "✓ "; color: #1e8e3e; font-weight: 700; }
+    .msg.error { border-color: var(--nxt-red); background: rgba(229, 0, 56, .08); }
+    .msg.error::before { content: "! "; color: var(--nxt-red); font-weight: 700; }
+    .msg.warning { border-color: #c77700; background: rgba(199, 119, 0, .1); }
+    .msg.warning::before { content: "⚠ "; color: #c77700; }
     .site-foot { margin-top: 2rem; padding: 1rem 0; border-top: 1px solid var(--duty-line); text-align: right; font-size: .8rem; }
     .site-foot a { opacity: .6; }
   </style>
@@ -73,7 +131,7 @@
 <main class="container-fluid">
   <header class="topbar">
     <div class="brand-row">
-      <a href="/" class="brand">NXT 당번표</a>
+      <a href="/" class="brand"><img src="{% static 'duty/nxt-signature.svg' %}" alt="NXT" width="78" height="28"><span>당번표</span></a>
       {% if user.is_authenticated %}
       <div class="account">
         <span class="who">{{ user.name|default:user.username }}</span>
@@ -84,13 +142,12 @@
     </div>
     {% if menu %}<nav class="menu" aria-label="메뉴"><ul>{% for m in menu %}<li><a href="{{ m.url }}"{% if m.active %} aria-current="page"{% endif %}>{{ m.label }}</a></li>{% endfor %}</ul></nav>{% endif %}
   </header>
-  {% for m in messages %}<article><small>{{ m }}</small></article>{% endfor %}
+  {% for m in messages %}<div class="msg {{ m.tags }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endfor %}
   {% block content %}{% endblock %}
   {% if repo_url %}<footer class="site-foot"><a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub 저장소</a></footer>{% endif %}
 </main>
 <dialog id="dlg"><article><div id="dlg-body"></div><footer><button class="secondary" onclick="document.getElementById('dlg').close()">닫기</button></footer></article></dialog>
 <script>
-  document.querySelector(".topbar nav.menu [aria-current]")?.scrollIntoView({inline: "center", block: "nearest"});  // 모바일: 지금 메뉴가 보이게
   document.body.addEventListener("htmx:afterSwap", e => {
     if (e.detail.target.id === "dlg-body") document.getElementById("dlg").showModal();
   });

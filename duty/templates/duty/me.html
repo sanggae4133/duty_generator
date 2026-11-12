@@ -1,7 +1,7 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>내 근무</h3>
-{% if not member %}<p>근무표 대상 계정이 아닙니다.</p>{% else %}
+{% if not member %}<p>이 계정은 부서가 없어 근무표에 들어가지 않습니다. 전체 근무는 <a href="/">근무표</a>에서 볼 수 있습니다.</p>{% else %}
 <form method="get" class="search">
   <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   <small class="hint">모두 해제하면 전체 표시</small>
@@ -11,8 +11,16 @@
   form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
 </script>
 {% endif %}
-{% for it in items %}
-<article><a href="{% url 'day' it.date %}"><strong>{{ it.date|date:"Y-m-d" }} ({{ it.weekday }})</strong></a>
-  <p>{{ it.labels|join:", " }}</p></article>
-{% empty %}{% if member %}<p>예정된 근무가 없습니다.</p>{% endif %}{% endfor %}
+{% if items %}<ul class="mine">{% for it in items %}
+<li{% if it.today %} class="today" aria-current="date"{% endif %}><a href="{% url 'day' it.date %}"><span class="when">{{ it.date|date:"n/j" }} ({{ it.weekday }}){% if it.today %} 오늘{% endif %}</span><span class="what">{{ it.labels|join:" · " }}</span></a></li>
+{% endfor %}</ul>
+{% elif member %}<p>예정된 근무가 없습니다.</p>{% endif %}
+<style>
+  ul.mine { list-style: none; padding: 0; margin: 0; }
+  ul.mine li { list-style: none; margin: 0 0 .4rem; }
+  ul.mine a { display: flex; gap: 1rem; align-items: center; min-height: 48px; padding: .5rem .9rem; border: 1px solid var(--duty-line); border-radius: .4rem; text-decoration: none; color: inherit; }
+  ul.mine a:hover { border-color: var(--pico-primary); }
+  ul.mine .when { min-width: 6.5rem; font-weight: 600; white-space: nowrap; }
+  ul.mine li.today a { border: 2px solid var(--nxt-red); }
+</style>
 {% endblock %}

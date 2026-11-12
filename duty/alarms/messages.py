@@ -23,7 +23,7 @@ def cell_span(cell: str) -> str:
 
 
 def _kind(cell: str) -> str:
-    return "장중당번" if is_slot_cell(cell) else f"{cell_label(cell)} 당번"
+    return "장중관제" if is_slot_cell(cell) else f"{cell_label(cell)} 당번"
 
 
 def personal_text(name: str, d: date, cell: str, today: date) -> str:

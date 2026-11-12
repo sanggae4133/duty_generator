@@ -489,7 +489,7 @@ def test_integrity_error_other_than_duplicate_reraised(me):
 def test_same_day_notice_collapses_slots():
     from duty.alarms.schedule import same_day_notice
     assert same_day_notice("personal", "days", 0, 10 * 60, []) == \
-        "새벽·정상·석식교대·장중당번 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."
+        "새벽·정상·석식교대·장중관제 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."
 
 
 def test_batch_cap_exact_drain_is_ok(client, me, bot, tgapi, monkeypatch):
@@ -827,3 +827,9 @@ def test_subscribe_replaces_frees_cap(client, me, vapid):
 def test_push_area_sends_replaces(client, me, vapid):
     body = client.get("/alarms/").content.decode()
     assert "replaces: last()" in body and "localStorage" in body
+
+
+def test_push_test_button_only_with_devices(client, me, vapid):
+    body = client.get("/alarms/").content.decode()
+    assert "등록된 기기가 없습니다" in body and "테스트 푸시</button>" not in body
+    assert '<button id="push-off" class="secondary js-push" hidden>' in body  # 이 기기 등록 여부는 브라우저가 확인해 보인다

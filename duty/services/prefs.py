@@ -1,7 +1,7 @@
 from ..models import Department, RosterPref
 from ..shifts import COMMUTE_SHIFTS, DEVELOPER, STAFF
 
-SHIFT_CHOICES = {**COMMUTE_SHIFTS, "slots": "장중당번"}  # 화면 순서 = 키 순서
+SHIFT_CHOICES = {**COMMUTE_SHIFTS, "slots": "장중관제"}  # 화면 순서 = 키 순서
 SHIFT_KEYS = list(SHIFT_CHOICES)
 _KEYS = ("f", "dept", "type", "shift")
 

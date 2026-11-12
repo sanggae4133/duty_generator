@@ -1,16 +1,18 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>변경 이력</h3>
-<form method="get" class="search">
-  <input type="date" name="from" value="{{ start|date:'Y-m-d' }}"><input type="date" name="to" value="{{ end|date:'Y-m-d' }}">
-  <input name="name" value="{{ name }}" placeholder="사람 이름"><input name="by" value="{{ by }}" placeholder="수정자 아이디">
+<form method="get" class="search labeled">
+  <label>근무일 부터 <input type="date" name="from" value="{{ start|date:'Y-m-d' }}"></label>
+  <label>까지 <input type="date" name="to" value="{{ end|date:'Y-m-d' }}"></label>
+  <label>바뀐 사람 <input name="name" value="{{ name }}" placeholder="이름"></label>
+  <label>수정자 <input name="by" value="{{ by }}" placeholder="이름 또는 아이디"></label>
   <button>보기</button>
 </form>
 <div class="grid-wrap"><table>
   <thead><tr><th>시각</th><th>수정자</th><th>근무일</th><th>칸</th><th>변경</th><th>회차</th></tr></thead>
   <tbody>{% for l in logs %}
-    <tr><td>{{ l.at|date:"Y-m-d H:i" }}</td><td>{{ l.by }}</td><td>{{ l.date|date:"Y-m-d" }}</td><td>{{ l.cell }}</td>
-      <td>{{ l.before|default:"(없음)" }} → {{ l.after|default:"(없음)" }}</td><td>{{ l.period }}</td></tr>
+    <tr><td class="nw">{{ l.at|date:"Y-m-d H:i" }}</td><td class="nw">{{ l.by }}</td><td class="nw">{{ l.date|date:"Y-m-d" }}</td><td class="nw">{{ l.cell }}</td>
+      <td class="nw">{{ l.before|default:"(없음)" }} → {{ l.after|default:"(없음)" }}</td><td class="nw">{{ l.period }}</td></tr>
   {% empty %}<tr><td colspan="6">이력이 없습니다.</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}

@@ -1,13 +1,16 @@
 {% extends "duty/base.html" %}
 {% block content %}
-<h3>당번 통계</h3>
-<form method="get" class="search">
-  <input type="date" name="from" value="{{ start|date:'Y-m-d' }}"><input type="date" name="to" value="{{ end|date:'Y-m-d' }}"><button>보기</button>
+<h3>근무 통계</h3>
+<form method="get" class="search labeled">
+  <label>부터 <input type="date" name="from" value="{{ start|date:'Y-m-d' }}"></label>
+  <label>까지 <input type="date" name="to" value="{{ end|date:'Y-m-d' }}"></label>
+  <button>보기</button>
 </form>
+<p><strong>기간:</strong> {% if start or end %}{{ start|date:"Y-m-d"|default:"처음" }} ~ {{ end|date:"Y-m-d"|default:"끝" }}{% else %}전체(배포된 근무 전부){% endif %}</p>
 {% if duty %}<p>장중관제 — 평균 {{ duty.mean|floatformat:2 }}, 표준편차 {{ duty.stdev|floatformat:2 }}, 최대 편차 {{ duty.spread }}</p>{% endif %}
 {% if total %}<p>전체 — 평균 {{ total.mean|floatformat:2 }}, 표준편차 {{ total.stdev|floatformat:2 }}, 최대 편차 {{ total.spread }}</p>{% endif %}
-<table>
+<div class="grid-wrap"><table>
   <thead><tr><th>이름</th><th>장중관제</th><th>새벽</th><th>야간</th><th>계</th></tr></thead>
   <tbody>{% for r in rows %}<tr><td>{{ r.name }}</td><td>{{ r.duty }}</td><td>{{ r.dawn }}</td><td>{{ r.night }}</td><td>{{ r.total }}</td></tr>{% endfor %}</tbody>
-</table>
+</table></div>
 {% endblock %}

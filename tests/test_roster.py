@@ -48,7 +48,7 @@ def test_member_schedule(make_member):
     make_published(make_member)
     from duty.models import User
 
-    assert member_schedule(User.objects.get(name="나"), D) == [(D, ["정상", "08:30~09:30"])]
+    assert member_schedule(User.objects.get(name="나"), D) == [(D, ["정상", "장중관제 08:30~09:30"])]
 
 
 def test_chain_replaced_cleared_when_readded():
