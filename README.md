@@ -258,6 +258,24 @@ sudo -u duty .venv/bin/python manage.py migrate
 - 웹 푸시는 주소(127.0.0.1 → 서버 도메인)가 바뀌어서 개발 PC 에서 등록한 기기는 서버에서 받지 못한다. 각자 서버 주소로 들어가 [이 기기에서 푸시 받기]를 다시 누른다. 텔레그램 연결은 그대로 쓰인다. 캘린더 구독은 주소가 바뀌므로 알림·캘린더 화면에서 다시 발급받는다.
 - 개발 PC 에 남은 DB 와 백업에는 실명과 봇 토큰이 들어 있다. 공유 폴더에 두지 않는다.
 
+## 사용법 영상 다시 만들기 (개발 PC)
+
+메뉴 [도움말]과 첫 로그인 팝업의 영상은 `duty/help_videos/{member,manager,admin}.mp4` 이다(권한 확인 뒤에만 내려준다: 담당자 영상은 담당자·관리자, 관리자 영상은 관리자). 화면을 크게 바꿨으면 가짜 데이터로 다시 녹화한다. 실명은 나오지 않는다.
+
+```bash
+W=$(mktemp -d)                                         # 작업 폴더(끝나면 지운다)
+python3 -m venv $W/ff && $W/ff/bin/pip install imageio-ffmpeg   # ffmpeg(시스템에 깔지 않는다)
+FF=$($W/ff/bin/python -c "import imageio_ffmpeg as i; print(i.get_ffmpeg_exe())")
+export DUTY_ENV_FILE= DUTY_DEBUG=1 DUTY_DATA_DIR=$W/data   # 빈 DB(지금 data/ 를 건드리지 않는다)
+.venv/bin/python manage.py migrate && .venv/bin/python manage.py shell < tools/help_videos/seed.py
+.venv/bin/python manage.py runserver 127.0.0.1:8795 --noreload &   # 끝나면 이 서버를 끈다
+node tools/help_videos/record.mjs http://127.0.0.1:8795 $W $FF     # member → manager → admin 순서(관리자 영상이 담당자 입력을 쓴다)
+rm -rf $W
+```
+
+- 자막·순서는 `tools/help_videos/record.mjs` 의 `VIDEOS` 에서 고친다. 영상 하나만 다시 뽑으려면 끝에 이름(`member` 등)을 붙인다.
+- Chrome·Node 가 필요하다. 영상은 휴대폰 화면(390×844, 2배율), 관리자 영상만 PC 화면(1280×800)이다.
+
 ## 의존성 고정
 
 설치하지 않는 프로젝트다(`pip install -e .` 없음). 직접 쓰는 라이브러리와 허용 범위는 `requirements.in`, 운영 설치는 `requirements.lock` 의 고정 버전만 쓴다. 테스트 도구는 `requirements-dev.txt`(고정). 라이브러리를 올릴 때만 개발 PC 에서 lock 을 다시 만든다.
