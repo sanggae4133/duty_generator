@@ -152,5 +152,9 @@ def test_range_is_capped_and_streamed(client, people, settings, tmp_path):
     assert r.status_code == 206 and r.streaming
     body = b"".join(r.streaming_content)
     assert body == big[:1 << 20] and r["Content-Range"] == f"bytes 0-{(1 << 20) - 1}/{len(big)}"
-    h = client.head("/help/video/member.mp4", HTTP_RANGE="bytes=0-")
-    assert h.status_code == 206 and h["Content-Length"] == str(1 << 20) and h.content == b""
+    from unittest import mock
+    with mock.patch("builtins.open", side_effect=AssertionError("HEAD 가 파일을 열었다")):
+        h = client.head("/help/video/member.mp4", HTTP_RANGE="bytes=0-")
+        assert h.status_code == 206 and h["Content-Length"] == str(1 << 20)
+        h = client.head("/help/video/member.mp4")  # Range 없는 HEAD 도
+        assert h.status_code == 200 and h["Content-Length"] == str(len(big)) and h["Accept-Ranges"] == "bytes"

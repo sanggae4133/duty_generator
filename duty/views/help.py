@@ -42,7 +42,11 @@ def video(request, name):
     size = path.stat().st_size
     m = re.fullmatch(r"bytes=(\d{0,15})-(\d{0,15})", request.headers.get("Range", "").strip())
     if not m or m[1] == m[2] == "":
-        r = FileResponse(open(path, "rb"), content_type="video/mp4")
+        if request.method == "HEAD":  # 헤더만(파일을 열지 않는다)
+            r = HttpResponse(content_type="video/mp4")
+            r["Content-Length"] = str(size)
+        else:
+            r = FileResponse(open(path, "rb"), content_type="video/mp4")
     else:  # 아이폰 Safari 는 Range 로 조각을 받아야 재생한다
         start, end = (size - int(m[2]), size - 1) if m[1] == "" else (int(m[1]), min(int(m[2] or size - 1), size - 1))
         start = max(start, 0)
