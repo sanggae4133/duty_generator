@@ -1,6 +1,6 @@
 # duty_generator
 
-IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관제 당번을 생성·배포하고, 근무 변경을 기록한다.
+NXT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관제 당번을 생성·배포하고, 근무 변경을 기록한다.
 구조·도메인 규칙: `docs/ARCHITECTURE.md`
 
 ## 폴더 구조
@@ -32,6 +32,7 @@ IT 당번표 웹. 회차 단위로 부서 출근표를 취합하고, 장중관�
 | `DUTY_SITE_URL` | 비움 또는 `http://127.0.0.1:8000` | `https://duty.example.ts.net` |
 | `DUTY_ADMIN_PATH` | 비움(`admin`) | 짐작하기 어려운 값 |
 | `DUTY_DATA_DIR` | 비움(`data/`) | 비움(`/opt/duty_generator/data`) |
+| `DUTY_REPO_URL` | 비움(링크 숨김) 또는 저장소 주소 | 저장소 주소(화면 아래 링크) |
 | `DUTY_BACKUP_HOUR` / `DUTY_BACKUP_KEEP_DAYS` / `DUTY_LOG_KEEP_DAYS` | 비움(3시 / 30일 / 14일) | 비움(같음) |
 
 텔레그램 봇 토큰·웹 푸시 키·장애 알림 chat_id 는 `.env` 가 아니라 관리 화면 → 알림 설정(DB)에 둔다(아래 "알림").

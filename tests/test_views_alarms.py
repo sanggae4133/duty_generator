@@ -541,7 +541,7 @@ def test_manifest_anonymous(client, db):
     r = client.get("/manifest.webmanifest")
     assert r.status_code == 200 and r["Content-Type"].startswith("application/manifest+json")
     m = json.loads(r.content)
-    assert m["name"] == "당번표" and m["start_url"] == "/" and m["display"] == "standalone"
+    assert m["name"] == "NXT 당번표" and m["start_url"] == "/" and m["display"] == "standalone"
     assert {i["sizes"] for i in m["icons"]} == {"192x192", "512x512"}
 
 

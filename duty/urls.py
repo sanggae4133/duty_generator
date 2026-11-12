@@ -39,6 +39,7 @@ urlpatterns = [
     path("periods/", manage_views.period_list, name="periods"),
     path("periods/<int:pid>/", manage_views.period_detail, name="period_detail"),
     path("periods/<int:pid>/action/<str:action>/", manage_views.period_action, name="period_action"),
+    path("periods/<int:pid>/delete/", manage_views.period_delete, name="period_delete"),
     path("periods/<int:pid>/move/", manage_views.period_move, name="period_move"),
     path("periods/<int:pid>/publish/", manage_views.period_publish, name="period_publish"),
     path("stats/", manage_views.stats_view, name="stats"),

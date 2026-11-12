@@ -231,3 +231,36 @@ def test_unpublish_cutoff_ignores_clock(abc, admin_user):
     ChangeLog.objects.filter(date=d(11, 20)).update(at=ChangeLog.objects.get(date=d(11, 19)).at - timedelta(days=1))
     assert find_day(d(11, 20)).cells["normal"].removed == [m.name]  # 시각이 과거여도 보인다
     assert find_day(d(11, 19)).cells["normal"].removed == []
+
+
+# ── 회차 삭제 ──
+
+@pytest.mark.parametrize("status", [S.DRAFT, S.COLLECTING, S.CLOSED, S.GENERATED])
+def test_delete_unpublished_period(make_member, admin_user, status):
+    p = make_period("p", d(11, 9), d(11, 13), status, make_member("가"))
+    periods.record(p, "", admin_user)
+    periods.delete(p)
+    assert not Period.objects.filter(pk=p.pk).exists()
+    assert not Commute.objects.exists() and not ControlDuty.objects.exists() and not PeriodEvent.objects.exists()
+
+
+def test_delete_refuses_published_and_logged(abc, admin_user):
+    from duty.services import changes
+    a, b, _ = abc
+    publish(b, d(11, 16))
+    with pytest.raises(DutyError, match="배포"):
+        periods.delete(Period.objects.get(pk=b.pk))
+    m = Commute.objects.filter(period=b, date=d(11, 19)).first().member
+    changes.change_cell(admin_user, d(11, 19), "normal", m, None)
+    unpublish(b)
+    with pytest.raises(DutyError, match="기록"):
+        periods.delete(Period.objects.get(pk=b.pk))
+    assert Period.objects.filter(pk=b.pk).exists()
+
+
+def test_delete_rechecks_stale_object(make_member):
+    p = make_period("p", d(11, 9), d(11, 13), S.GENERATED, make_member("가"))
+    stale = Period.objects.get(pk=p.pk)
+    Period.objects.filter(pk=p.pk).update(status=S.PUBLISHED)
+    with pytest.raises(DutyError):
+        periods.delete(stale)
