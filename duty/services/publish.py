@@ -5,7 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, ControlDuty, Period, User
+from ..models import ChangeLog, Commute, ControlDuty, Period, PeriodEvent, User
 from .periods import record
 
 S = Period.Status
@@ -50,6 +50,7 @@ _MODELS = {"c": (Commute, "shift"), "k": (ControlDuty, "slot")}
 
 @transaction.atomic
 def publish(period: Period, overwrite_from: date, by=None) -> None:
+    period.refresh_from_db()  # 화면이 트랜잭션 밖에서 읽은 상태를 믿지 않는다(동시 배포)
     _validate(period, overwrite_from)
     undo = []
     for key, (model, field) in _MODELS.items():
@@ -80,9 +81,11 @@ def unpublish_info(period: Period) -> UnpublishInfo:
         return blocked("배포된 회차가 아닙니다.")
     if period.publish_undo is None:
         return blocked("이 기능 전에 배포된 회차라 되돌릴 정보가 없습니다.")
-    later = _others(period).filter(published_at__gt=period.published_at).order_by("-published_at").first()
-    if later:
-        return blocked(f"나중에 배포된 회차({later.name})부터 배포 취소해야 합니다.")
+    # 배포 순서는 시계가 아니라 상태 기록 순번으로 정한다(같은 시각·시계 보정에도 맞게)
+    top = (PeriodEvent.objects.filter(to_status=S.PUBLISHED, period__status=S.PUBLISHED)
+           .order_by("-id").select_related("period").first())
+    if top and top.period_id != period.pk:
+        return blocked(f"나중에 배포된 회차({top.period.name})부터 배포 취소해야 합니다.")
     return UnpublishInfo(None, len(period.publish_undo), ChangeLog.objects.filter(period=period, at__gte=period.published_at).count())
 
 

@@ -46,6 +46,7 @@ MOVABLE = (S.DRAFT, S.COLLECTING, S.CLOSED)  # 생성됨·배포됨은 생성·�
 @transaction.atomic
 def move(period: Period, to: str, by=None) -> None:
     """배포 전 상태끼리 자유롭게 옮긴다. 생성됨에서 나가면 생성 결과(장중관제)를 지운다. 출근표는 남는다."""
+    period.refresh_from_db()
     if to not in MOVABLE:
         raise DutyError("옮길 수 없는 상태입니다.")
     if period.status == S.PUBLISHED:

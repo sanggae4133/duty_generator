@@ -106,7 +106,7 @@ class Period(models.Model):
 
 class PeriodEvent(models.Model):
     """회차 상태 변경 기록. from_status '' = 새로 만듦."""
-    period = models.ForeignKey(Period, on_delete=models.CASCADE, related_name="events")
+    period = models.ForeignKey(Period, on_delete=models.PROTECT, related_name="events")  # 기록 있는 회차는 지우지 않는다
     at = models.DateTimeField(auto_now_add=True)
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     from_status = models.CharField(max_length=16, blank=True, choices=PeriodStatus.choices)

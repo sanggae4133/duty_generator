@@ -60,15 +60,15 @@ cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 
 ## 설치 (사내 서버)
 
-Ubuntu 24.04 (Python 3.12) 기준. 코드는 root 소유(`duty` 는 읽기만), 쓰는 곳은 `data/` 하나(`duty` 소유)다.
+RHEL 9 기준(Python 3.12 패키지, 시스템 SQLite 3.34 — Django 5.2 는 SQLite 3.31 이상이 필요해서 **RHEL 8 은 안 된다**). 코드는 root 소유(`duty` 는 읽기만), 쓰는 곳은 `data/` 하나(`duty` 소유)다.
 
 ```bash
-sudo apt install -y python3-venv git curl   # python3 --version 이 3.12 이상이어야 한다
-sudo useradd -r -s /usr/sbin/nologin duty
+sudo dnf install -y python3.12 git curl     # 기본 python3(3.9)가 아니라 python3.12 를 쓴다
+sudo useradd -r -s /sbin/nologin duty
 sudo git clone https://github.com/sanggae4133/duty_generator.git /opt/duty_generator
 cd /opt/duty_generator
 sudo install -d -o duty -g duty -m 750 data data/backups data/logs
-sudo python3 -m venv .venv
+sudo python3.12 -m venv .venv
 sudo .venv/bin/pip install -r requirements.lock
 sudo install -o root -g duty -m 640 .env.example .env
 sudoedit .env   # 견본은 개발 PC 값이다. 여섯 줄을 "서버:" 값으로: DUTY_DEBUG=0, DUTY_SECRET_KEY, DUTY_ALLOWED_HOSTS, DUTY_CSRF_ORIGINS, DUTY_SITE_URL, DUTY_ADMIN_PATH
@@ -83,6 +83,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now duty-web duty-worker
 ```
 
+- SELinux(기본 enforcing)에서도 기본 정책으로 돈다(서비스는 `/opt` 의 가상환경을 실행하고 `data/` 에만 쓴다). 서비스가 `Permission denied` 로 안 뜨면 `sudo ausearch -m avc -ts recent` 로 거부 기록을 보고, 파일을 다른 곳에서 옮겨 왔다면 `sudo restorecon -R /opt/duty_generator` 로 라벨을 되돌린다.
+- 웹은 `127.0.0.1:8090` 에만 열고 바깥 공개는 Tailscale Funnel 이 맡으므로 firewalld 는 열 것이 없다.
 - `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
 - `.env` 를 고친 뒤에는 `sudo systemctl restart duty-web duty-worker`.
 - `dm` 은 `/opt/duty_generator` 밖에서도 돌므로 파일 인자는 절대 경로로 준다.
@@ -202,6 +204,8 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 
 ```bash
 # 개발 PC (저장소 루트): runserver·run_worker 를 멈추고, 서버에 올릴 것과 같은 코드(main)에서
+git pull --ff-only
+DUTY_DEBUG=1 .venv/bin/python manage.py migrate       # 서버 코드와 마이그레이션을 맞춘다(안 맞으면 restore 가 거부한다)
 DUTY_DEBUG=1 .venv/bin/python manage.py backup        # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다)
 scp data/backups/db-<시각>.sqlite3 <서버>:/tmp/duty.sqlite3
 

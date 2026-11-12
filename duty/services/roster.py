@@ -4,7 +4,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 
-from ..models import ChangeLog, Commute, ControlDuty, Period, User
+from django.db.models import Max
+
+from ..models import ChangeLog, Commute, ControlDuty, Period, PeriodEvent, User
 from ..shifts import CELLS, cell_label, slot_cell
 
 Log = tuple[str | None, str | None]
@@ -64,8 +66,13 @@ def published_days(start: date | None = None, end: date | None = None) -> list[D
         slot(d, pid)["cells"][slot_cell(i)].append(name)
 
     logs: dict[tuple[date, str], list[Log]] = defaultdict(list)
-    rows = scoped(ChangeLog.objects).order_by("at", "id").values_list("date", "period_id", "cell", "before__name", "after__name")
-    for d, pid, cell, before, after in rows:
+    # 배포 취소 이전 기록은 다시 배포해도 쓰지 않는다(그사이 출근표·생성이 바뀌었을 수 있다)
+    undone = dict(PeriodEvent.objects.filter(from_status=Period.Status.PUBLISHED)
+                  .values("period").annotate(m=Max("at")).values_list("period", "m"))
+    rows = scoped(ChangeLog.objects).order_by("at", "id").values_list("date", "period_id", "cell", "before__name", "after__name", "at")
+    for d, pid, cell, before, after, at in rows:
+        if pid in undone and at <= undone[pid]:
+            continue
         if d in raw and raw[d]["period"] == pid:  # 덮어쓰인 회차의 이력은 숨긴다
             logs[(d, cell)].append((before, after))
 

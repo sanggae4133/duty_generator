@@ -67,6 +67,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
 
 @transaction.atomic
 def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> int:
+    period.refresh_from_db()  # 그사이 마감됐으면 막는다
     _require_input(user, period, dept)
     errors = validate_table(user, period, dept, table)
     if errors:
