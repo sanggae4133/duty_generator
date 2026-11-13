@@ -240,11 +240,11 @@ def box(db, data, monkeypatch):
     """정상인 서버: 웹 응답, 최근 백업, 디스크 50%."""
     data.BACKUP_DIR.mkdir()
     (data.BACKUP_DIR / "db-20261111.sqlite3").write_text("x")
-    st = {"web": True, "disk": Usage(100, 50, 50), "sent": [], "send_raise": None, "urls": []}
+    st = {"web": True, "disk": Usage(100, 50, 50), "sent": [], "send_raise": None, "urls": [], "down": set()}
 
     def urlopen(url, timeout=None):
         st["urls"].append((url, timeout))
-        if not st["web"]:
+        if not st["web"] or url in st["down"]:
             raise urllib.error.URLError("refused")
         return open(os.devnull, "rb")
 
@@ -275,11 +275,24 @@ def test_health_first_ok_records_only(box, caplog):
         health.check(NOW)
     assert "health: 정상(점검 시작)" in caplog.text
     assert box["sent"] == [] and box["state"].read_text() == ""
-    assert box["urls"] == [("http://127.0.0.1:8090/login/", 10)]
+    assert box["urls"] == [("http://127.0.0.1:8008/login/", 10)]
     caplog.clear()
     with caplog.at_level(logging.INFO):
         health.check(NOW)
     assert "health" not in caplog.text  # 그대로면 아무것도 안 남긴다
+
+
+def test_health_tells_nginx_from_web(box):
+    """nginx(8008)만 죽으면 'nginx 응답 없음', 웹(8090)까지 죽으면 '웹 응답 없음'으로 바뀌어 다시 알린다
+    (nginx 를 꺼 둔 동안에도 웹 장애를 놓치지 않게)."""
+    health.check(NOW)
+    box["down"] = {"http://127.0.0.1:8008/login/"}
+    health.check(NOW)
+    assert "nginx 응답 없음(웹은 정상)" in box["sent"][-1][2]
+    assert ("http://127.0.0.1:8090/login/", 10) in box["urls"]
+    box["down"].add("http://127.0.0.1:8090/login/")
+    health.check(NOW)
+    assert len(box["sent"]) == 2 and "웹 응답 없음" in box["sent"][-1][2] and "nginx" not in box["sent"][-1][2]
 
 
 def test_health_change_sends_once_then_recovery(box, caplog):

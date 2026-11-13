@@ -15,3 +15,7 @@ from .settings import *  # noqa: E402,F401,F403
 
 WHITENOISE_USE_FINDERS = True  # staticfiles/ 디렉터리 없이 테스트
 WHITENOISE_AUTOREFRESH = True
+
+# 테스트에서는 빠른 해시를 쓴다(운영의 PBKDF2 100만 회는 계정을 만들거나 로그인할 때마다 0.5초씩 걸려 전체 테스트 시간의 대부분이었다).
+# 운영 설정(config/settings.py)은 그대로다
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

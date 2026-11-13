@@ -24,7 +24,7 @@ DUTY_DEBUG=1 .venv/bin/python manage.py run_worker   # 작업자(알림·백업�
 - ORM 없는 순수 모듈: `shifts`·`generator`·`csv_io`·`ics`·`alarms/`(senders 제외). 시각은 인자로 받는다.
 - "오늘"은 `from . import perms` 후 `perms.today()`(`from .perms import today` 금지 — 테스트에서 monkeypatch).
 - 정해진 값 칸은 `choices` + DB `CheckConstraint`. 기록을 남길 FK는 `PROTECT`.
-- 경로는 `settings.DATA_DIR`·`DB_PATH`·`BACKUP_DIR`·`LOG_DIR`에서만. 개발·운영 차이는 `.env` 값으로만. 셸 스크립트·타이머·새 deploy 파일을 만들지 않는다.
+- 경로는 `settings.DATA_DIR`·`DB_PATH`·`BACKUP_DIR`·`LOG_DIR`에서만. 개발·운영 차이는 `.env` 값으로만. 셸 스크립트·타이머·새 deploy 파일을 만들지 않는다(deploy/ 는 systemd 유닛 2개와 nginx 설정 하나뿐).
 - 정적 파일(htmx, Pico.css)은 CDN 말고 `duty/static/vendor/`.
 - 테스트에서 텔레그램·푸시 실제 호출 금지(`senders` monkeypatch). 진짜처럼 보이는 비밀값 문자열을 테스트에 쓰지 않는다(런타임에 조립).
 - 마이그레이션 파일은 지우지 않는다(운영 DB를 올리는 유일한 길).
