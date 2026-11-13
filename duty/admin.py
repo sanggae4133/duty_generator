@@ -1,4 +1,5 @@
 from django import forms
+from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db import transaction
@@ -107,11 +108,20 @@ class UserAdmin(DjangoUserAdmin):
     def login_id(self, obj):
         return obj.username
 
-    @admin.action(description="계정 발급 / 비밀번호 초기화")
+    @admin.action(description="계정 발급 / 비밀번호 초기화", permissions=["change"])
     def issue_accounts(self, request, queryset):
+        if not request.user.is_superuser:  # 관리 화면 자체가 슈퍼유저 전용이지만 액션에서도 한 번 더
+            raise PermissionDenied
+        mine = queryset.filter(pk=request.user.pk).exists()
+        queryset = queryset.exclude(pk=request.user.pk)  # 자기 비밀번호가 바뀌면 세션과 함께 이 목록도 사라진다
         with transaction.atomic():  # 중간 실패 시 이미 발급된 비밀번호가 사라지지 않도록 전체 롤백
             lines = [f"{u.name}({u.username}): {issue_account(u)}" for u in queryset]
-        self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. " + " / ".join(lines), messages.WARNING)
+        if mine:
+            self.message_user(request, "자기 계정은 발급에서 뺐습니다. 내 비밀번호는 메뉴의 [비밀번호]에서 바꾸세요.",
+                              messages.INFO)
+        if lines:
+            self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요. "
+                              + " / ".join(lines), messages.WARNING)
 
 
 class AlarmSettingsForm(forms.ModelForm):
@@ -188,3 +198,7 @@ class AlarmSettingsAdmin(admin.ModelAdmin):
         if n:
             self.message_user(request, f"봇이 바뀌어 {n}명의 텔레그램 연결 확인을 비웠습니다. "
                                        "각자 /alarms/ 에서 [텔레그램 연결]을 다시 해야 합니다.", messages.WARNING)
+
+
+# 관리 화면은 슈퍼유저만(운영 문서의 약속을 코드로). 스태프에게 모델 권한을 줘도 들어오지 못한다
+admin.site.has_permission = lambda request: request.user.is_active and request.user.is_staff and request.user.is_superuser

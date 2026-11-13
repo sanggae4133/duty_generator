@@ -60,7 +60,7 @@ sudoedit .env   # 견본은 개발 PC 값이다. 여섯 줄을 "서버:" 값으�
 sudo .venv/bin/python manage.py collectstatic --noinput   # root 로: 코드 폴더는 duty 가 쓸 수 없다
 sudo -u duty .venv/bin/python manage.py migrate   # 개발 PC DB 를 가져가면 여기서 멈추고 아래 "개발 PC DB 를 서버로 옮기기"
 sudo -u duty .venv/bin/python manage.py createsuperuser  # 첫 어드민: 아이디·이름·비밀번호를 묻는다(아래 "처음 한 번: 계정 만들기")
-sudo -u duty .venv/bin/python manage.py check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 HSTS·SSL_REDIRECT 경고는 무시)
+sudo -u duty .venv/bin/python manage.py check --deploy   # 경고 확인(HTTPS 는 Funnel 이 맡으므로 SSL_REDIRECT 경고는 무시)
 sudo cp deploy/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now duty-web duty-worker
@@ -112,8 +112,8 @@ sudo tailscale funnel status
 `/<DUTY_ADMIN_PATH>/` 의 "사용자" 화면이 멤버이자 로그인 계정이다(아이디 = 멤버 코드).
 - 첫 어드민은 설치 때 `sudo -u duty .venv/bin/python manage.py createsuperuser` 로 만든다. 아이디·비밀번호 말고 **이름**도 묻는다. 이 계정은 부서가 없어 근무표 대상이 아닌 어드민 전용 계정이고, "스태프 권한"도 켜져 있다. 기본 알림 규칙은 생기지 않는다(필요하면 알림 화면에서 추가).
 - 새 사람: [사용자 추가]에서 아이디·이름·부서·파트·구분을 넣는다(비밀번호 없이 만들어지고 아직 로그인할 수 없다).
-- 계정 발급: 목록에서 선택 → "계정 발급 / 비밀번호 초기화" 액션 → 화면에 한 번만 보이는 임시 비밀번호를 전달한다. 첫 발급 때 기본 알림 규칙이 생기고, 첫 로그인에서 비밀번호를 바꾸게 한다.
-- 어드민 전용 계정(근무표에 안 들어감)은 부서를 비워 둔다. 어드민은 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(사용자·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다. 어드민은 1~2명을 가정한다.
+- 계정 발급: 목록에서 선택 → "계정 발급 / 비밀번호 초기화" 액션 → 화면에 한 번만 보이는 임시 비밀번호를 **사람마다 1:1로** 전달한다(단톡방·공유 문서에 올리지 않는다). 자기 계정은 선택해도 빠진다(내 비밀번호는 메뉴의 [비밀번호]). 첫 발급 때 기본 알림 규칙이 생기고, 첫 로그인에서 비밀번호를 바꾸게 한다.
+- 어드민 전용 계정(근무표에 안 들어감)은 부서를 비워 둔다. 어드민은 "스태프 권한"과 "슈퍼유저 권한"을 둘 다 켠다. Django 관리 화면(사용자·부서·입력 담당자, 계정 발급, 잠금 해제)은 슈퍼유저만 쓸 수 있다(스태프에게 모델 권한을 줘도 들어오지 못한다). 어드민은 1~2명을 가정한다.
 - 부서 입력 담당자는 부서 화면의 "입력 담당자"에서 지정한다.
 - 비밀번호는 항상 [계정 발급] 액션으로 준다. 사용자 편집 화면의 비밀번호 칸에서 Django 기본 "비밀번호 설정/변경" 화면으로 정하면 발급을 거치지 않는다. 그러면 첫 로그인 비밀번호 변경이 걸리지 않고, 기본 알림 규칙도 생기지 않는다. 그 뒤 [계정 발급]을 해도 최초 발급으로 치지 않는다.
 
@@ -143,7 +143,7 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 
 - 자동: 작업자가 매일 `DUTY_BACKUP_HOUR` 시(기본 3시) 이후 처음 돌 때 `data/backups/db-YYYYMMDD.sqlite3` 를 만들고, `DUTY_BACKUP_KEEP_DAYS` 일(기본 30)보다 오래된 `db-*` 를 지운다. 작업자가 꺼져 있었으면 다시 켜질 때 그날 것을 만든다(26시간 안 백업이 없으면 그 시각 전이라도 바로).
 - 수동: `sudo -u duty .venv/bin/python manage.py backup` → `data/backups/db-YYYYMMDD-HHMMSS.sqlite3`. 서비스가 도는 중에도 된다. **DB 파일을 `cp` 로 복사하지 말 것**(WAL 모드라 최근 변경이 빠지거나 깨진 사본이 될 수 있다). 백업은 SQLite 백업 기능으로 떠서 일관된 파일 하나가 된다.
-- 백업에는 실명과 텔레그램 봇 토큰·푸시 키가 들어 있다. 서버 밖에 보관하려면 내려받되 공유 폴더에 두지 않는다.
+- 백업에는 실명, 비밀번호 해시, 텔레그램 봇 토큰·푸시 키가 들어 있다. 서버 밖에 보관하려면 내려받되 공유 폴더에 두지 않는다.
 - 복원:
   ```bash
   sudo systemctl stop duty-web duty-worker
@@ -179,19 +179,20 @@ sudo -u duty sqlite3 -readonly data/db.sqlite3
 브라우저로 보고 싶으면 [sqlite-web](https://github.com/coleifer/sqlite-web) 을 **앱과 따로** 설치해 읽기 전용으로 띄운다(앱 의존성에 넣지 않는다).
 
 ```bash
-sudo python3.12 -m venv /opt/sqlite-web && sudo /opt/sqlite-web/bin/pip install sqlite-web   # 처음 한 번
-sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -x -H 127.0.0.1 -p 8092 /opt/duty_generator/data/db.sqlite3
+sudo python3.12 -m venv /opt/sqlite-web && sudo /opt/sqlite-web/bin/pip install sqlite-web==0.8.2   # 처음 한 번(버전 고정)
+sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -P -x -H 127.0.0.1 -p 8092 /opt/duty_generator/data/db.sqlite3
 # 다 보면 Ctrl+C 로 끈다(켜 둔 채로 두지 않는다)
 ```
 
-- `-r` 읽기 전용, `-x` 브라우저 자동 실행 안 함, `-H 127.0.0.1` 서버 안에서만 열기.
+- `-r` 읽기 전용, `-P` 띄울 때 정한 비밀번호를 물어봄(서버의 다른 사용자가 같은 포트로 들어오지 못하게), `-x` 브라우저 자동 실행 안 함, `-H 127.0.0.1` 서버 안에서만 열기.
+- 단순 조회는 위의 `sqlite3 -readonly` 가 더 안전하다. sqlite-web 은 화면이 필요할 때만 잠깐 띄운다.
 - 내 PC 에서는 SSH 터널로 본다: `ssh -L 8092:127.0.0.1:8092 <서버>` 후 브라우저에서 `http://127.0.0.1:8092`. VS Code 원격 접속 중이면 포트 전달이 자동으로 잡힌다.
 - **Tailscale Funnel 에 올리지 않는다**(실명·봇 토큰이 그대로 보인다). `-H 0.0.0.0` 으로 열지 않는다.
 - `-r` 없이 띄우면 행 추가·수정·삭제와 SQL 실행도 된다. **쓰기는 웬만하면 하지 않는다**: 변경 기록(ChangeLog)·지난 날짜 권한 같은 앱 규칙을 건너뛰고, sqlite-web 은 외래키 검사를 켜지 않아 기록이 남은 사람·회차를 지워도 막히지 않으며, 서비스가 도는 중이면 잠금이 겹친다. 꼭 고쳐야 하면 이 순서로만 한다.
   ```bash
   sudo systemctl stop duty-web duty-worker
   sudo -u duty .venv/bin/python manage.py backup        # 잘못되면 이 파일로 restore
-  sudo -u duty /opt/sqlite-web/bin/sqlite_web -x -H 127.0.0.1 -p 8092 /opt/duty_generator/data/db.sqlite3   # -r 없음
+  sudo -u duty /opt/sqlite-web/bin/sqlite_web -P -x -H 127.0.0.1 -p 8092 /opt/duty_generator/data/db.sqlite3   # -r 없음
   # 고친 뒤 Ctrl+C
   sudo systemctl start duty-web duty-worker
   ```
@@ -237,11 +238,11 @@ sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -x -H 127.0.0.1 -p 8092 /opt/duty
 git pull --ff-only
 DUTY_DEBUG=1 .venv/bin/python manage.py migrate   # 서버 코드와 마이그레이션을 맞춘다(안 맞으면 restore 가 거부한다)
 DUTY_DEBUG=1 .venv/bin/python manage.py backup   # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다)
-scp data/backups/db-<시각>.sqlite3 <서버>:/tmp/duty.sqlite3
+scp data/backups/db-<시각>.sqlite3 <서버>:duty.sqlite3   # 서버의 내 홈 폴더로(/tmp 는 다른 사용자도 본다)
 
 # 서버: "설치"를 migrate 직전까지 한 뒤 (createsuperuser 는 하지 않는다 — 계정은 DB 에 있다)
 sudo systemctl stop duty-web duty-worker 2>/dev/null
-sudo install -o duty -g duty -m 640 /tmp/duty.sqlite3 data/import.sqlite3 && rm /tmp/duty.sqlite3
+sudo install -o duty -g duty -m 600 ~/duty.sqlite3 data/import.sqlite3 && rm ~/duty.sqlite3
 sudo -u duty .venv/bin/python manage.py restore data/import.sqlite3 && sudo rm data/import.sqlite3
 sudo -u duty .venv/bin/python manage.py migrate
 # 이어서 "설치"의 check --deploy 부터
@@ -329,5 +330,9 @@ sudo -u duty .venv/bin/python manage.py migrate
 ## 운영 메모
 
 - 로그인 5회 실패 시 그 계정은 15분 잠긴다. 슈퍼유저가 Admin의 Axes 메뉴에서 해제할 수 있다.
-  잠금은 아이디 기준이라 멤버 코드를 아는 사람은 그 계정을 15분씩 계속 잠글 수 있다. 이때도 슈퍼유저가 Axes 관리 화면에서 풀면 된다.
+  잠금은 아이디 기준이라 멤버 코드를 아는 사람은 그 계정을 15분씩 계속 잠글 수 있다. 잠긴 동안의 시도는 잠금을 늘리지 않는다. 슈퍼유저가 Axes 관리 화면에서 풀거나, 서버에서 바로 푼다:
+  ```bash
+  sudo -u duty .venv/bin/python manage.py axes_reset_username <아이디>
+  ```
+  어드민 계정이 잠겨 관리 화면에 못 들어갈 때도 이 명령으로 푼다.
 - 퇴사자는 사용자의 "재직"을 끈다. 근무표 후보에서 빠지고 로그인도 막힌다(어드민도 예외 없음). 지난 근무·기록·통계에는 그대로 남는다.

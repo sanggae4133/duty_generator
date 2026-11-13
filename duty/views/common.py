@@ -28,4 +28,5 @@ def date_param(request, name: str) -> date | None:
 
 def safe_next(request, fallback: str) -> str:
     nxt = request.POST.get("next") or request.GET.get("next") or ""
-    return nxt if nxt and url_has_allowed_host_and_scheme(nxt, {request.get_host()}) else fallback
+    ok = nxt and url_has_allowed_host_and_scheme(nxt, {request.get_host()}, require_https=request.is_secure())
+    return nxt if ok else fallback
