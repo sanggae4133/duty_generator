@@ -1,5 +1,4 @@
 import json
-import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,7 +6,6 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from ..alarms import senders
 from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
 from ..errors import DutyError
@@ -76,28 +74,9 @@ def _index(request, **extra):
 @require_POST
 @login_required
 def telegram_save(request):
-    raw = request.POST.get("chat_id", "").strip()
-    if not raw:
-        alarms.clear_telegram(request.user)
-        messages.info(request, "텔레그램 연결을 해제했습니다.")
-        return redirect("alarms")
-    if not re.fullmatch(r"\d{1,19}", raw) or not 1 <= int(raw) <= 2**63 - 1:
-        messages.error(request, "개인 채팅 chat_id(양수 숫자)만 입력하세요.")
-    elif not (conf := alarm_settings.current()).telegram_on:
-        messages.error(request, BOT_MISSING)
-    elif not alarms.take_cooldown(request.user):
-        messages.error(request, "잠시 후 다시 시도하세요.")
-    else:
-        try:
-            kind = senders.telegram_check(conf.sender_config(), raw)
-        except senders.SendError:
-            messages.error(request, "테스트 발송 실패: 봇에게 먼저 /start를 보냈는지 확인하세요.")
-        else:
-            if kind != "private":
-                messages.error(request, "개인 채팅이 아닙니다.")
-            else:
-                alarms.set_telegram(request.user, str(int(raw)), verified=True)
-                messages.success(request, "텔레그램이 연결되었습니다. 테스트 메시지를 확인하세요.")
+    """연결 해제만. chat_id 직접 입력은 없앴다(남의 채팅으로 알림을 보낼 수 있어서). 연결은 /start 코드로만."""
+    alarms.clear_telegram(request.user)
+    messages.info(request, "텔레그램 연결을 해제했습니다.")
     return redirect("alarms")
 
 

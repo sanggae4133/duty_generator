@@ -24,6 +24,17 @@ class CsvInvalid(Exception):
         self.errors = errors
 
 
+MAX_ERRORS = 50  # 오류를 끝없이 모아 화면에 그리면 메모리·시간이 폭증한다
+
+
+def add_error(errors: list[CsvError], err: CsvError) -> None:
+    """오류를 더한다. MAX_ERRORS 개가 되면 안내 한 줄을 붙여 바로 멈춘다(CsvInvalid)."""
+    errors.append(err)
+    if len(errors) >= MAX_ERRORS:
+        errors.append(CsvError(0, "", "오류가 너무 많아 여기서 멈췄습니다. 앞의 오류부터 고치세요."))
+        raise CsvInvalid(errors)
+
+
 def decode(raw: bytes) -> str:
     for enc in ("utf-8-sig", "cp949"):  # cp949: 한국어 Windows 엑셀 기본 저장 형식
         try:
@@ -92,10 +103,10 @@ def parse_commute_csv(raw: bytes, shift_keys: list[str]) -> CommuteTable:
         value = row[date_col] if date_col < len(row) else ""
         d = parse_date(value)
         if d is None:
-            errors.append(CsvError(n, "date", f"날짜 형식이 아닙니다: {value!r}"))
+            add_error(errors, CsvError(n, "date", f"날짜 형식이 아닙니다: {value!r}"))
             continue
         if d in table:
-            errors.append(CsvError(n, "date", f"중복된 날짜입니다: {d}"))
+            add_error(errors, CsvError(n, "date", f"중복된 날짜입니다: {d}"))
             continue
         table[d] = {key: split_names(row[i] if i < len(row) else "") for key, i in cols.items()}
     if errors:

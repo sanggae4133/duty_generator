@@ -103,12 +103,6 @@ def _profile(user) -> TelegramAlarmProfile:
     return TelegramAlarmProfile.objects.get_or_create(user=user)[0]
 
 
-def set_telegram(user, chat_id: str, verified: bool) -> None:
-    _profile(user)
-    TelegramAlarmProfile.objects.filter(user=user).update(  # 대기 중인 연결 코드도 폐기
-        chat_id=chat_id, verified_at=timezone.now() if verified else None, link_code=None, link_expires_at=None)
-
-
 def clear_telegram(user) -> None:
     TelegramAlarmProfile.objects.filter(user=user).update(chat_id="", verified_at=None, link_code=None,
                                                           link_expires_at=None)

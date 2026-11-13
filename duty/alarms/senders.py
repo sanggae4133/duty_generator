@@ -114,13 +114,6 @@ def telegram_get_updates(cfg: Config, offset: int | None = None, limit: int = 10
     return result
 
 
-def telegram_check(cfg: Config, chat_id: str) -> str:
-    try:
-        return telegram_send(cfg, chat_id, "[테스트] 당번 알림 연결 확인")["chat"]["type"]
-    except (KeyError, TypeError):
-        raise Temporary() from None
-
-
 def push_send(cfg: Config, sub, title: str, body: str, url: str, ttl: int) -> None:
     from ..errors import DutyError
     from ..services.alarms import check_endpoint  # 순환 import 회피

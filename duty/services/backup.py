@@ -10,6 +10,7 @@ import os
 import time
 import re
 import sqlite3
+import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -27,19 +28,34 @@ DATED = re.compile(r"db-(\d{8})(?:-\d{6})?\.sqlite3")
 def copy_db(src: Path, dest: Path) -> None:
     """src(읽기 전용으로 연다)를 dest 로. 임시 파일에 다 쓴 뒤 이름을 바꿔 반쯤 쓴 파일이 남지 않게."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_name(dest.name + ".tmp")
-    tmp.unlink(missing_ok=True)
+    # 고유 이름에 처음부터 600(실명·해시가 들어간다). 실패하면 어느 단계든 지운다
+    fd, name = tempfile.mkstemp(dir=dest.parent, prefix=dest.name + ".", suffix=".tmp")
+    tmp = Path(name)
+    try:
+        os.close(fd)
+        _backup_to(src, tmp)
+        os.replace(tmp, dest)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def _backup_to(src: Path, tmp: Path) -> None:
     s = sqlite3.connect(f"{Path(src).resolve().as_uri()}?mode=ro", uri=True)
     try:
         d = sqlite3.connect(tmp)
         try:
             s.backup(d)
+            # 세션 키가 있으면 백업을 얻은 사람이 비밀번호 없이 로그인된다 → 지운다(흔적도 남지 않게 secure_delete)
+            if d.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='django_session'").fetchone():
+                d.execute("PRAGMA secure_delete=ON")
+                d.execute("DELETE FROM django_session")
+                d.commit()
             d.execute("PRAGMA journal_mode=DELETE")  # 백업은 단일 파일로(읽기 전용으로 열어도 -wal·-shm 이 안 생기게)
         finally:
             d.close()
     finally:
         s.close()
-    os.replace(tmp, dest)
 
 
 def prune(today: date) -> None:

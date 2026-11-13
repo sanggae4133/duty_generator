@@ -7,6 +7,27 @@ from urllib.parse import unquote
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+LOG_MAX_BYTES = 50 * 1024 * 1024  # 하루 파일 하나의 상한. 넘으면 자정까지 버린다(디스크가 차지 않게)
+
+
+class CappedFileHandler(logging.handlers.TimedRotatingFileHandler):
+    """자정마다 새 파일 + 하루 파일이 max_bytes 를 넘으면 그날은 안내 한 줄만 남기고 버린다."""
+
+    def __init__(self, path, max_bytes=LOG_MAX_BYTES, **kw):
+        super().__init__(path, when="midnight", encoding="utf-8", **kw)
+        self.max_bytes, self.capped = max_bytes, False
+
+    def emit(self, record):
+        full = self.stream is not None and self.stream.tell() >= self.max_bytes and not self.shouldRollover(record)
+        if not full:
+            self.capped = False
+        elif self.capped:
+            return
+        else:
+            self.capped = True
+            record = logging.makeLogRecord({"name": __name__, "levelno": logging.ERROR, "levelname": "ERROR",
+                                            "msg": "로그가 너무 많아 오늘은 더 남기지 않습니다(자정에 다시 남김)"})
+        super().emit(record)
 
 
 def log_to_file(name: str) -> None:
@@ -18,8 +39,7 @@ def log_to_file(name: str) -> None:
     if any(getattr(h, "baseFilename", None) == str(path) for h in root.handlers):
         return
     settings.LOG_DIR.mkdir(parents=True, exist_ok=True)
-    h = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=settings.LOG_KEEP_DAYS,
-                                                  encoding="utf-8")
+    h = CappedFileHandler(path, backupCount=settings.LOG_KEEP_DAYS)
     h.setFormatter(logging.Formatter(LOG_FORMAT, LOG_DATEFMT))
     root.addHandler(h)
 
