@@ -3,7 +3,7 @@ from django.db import transaction
 from django.db.models import Count
 
 from .. import perms
-from ..csv_io import CommuteTable, CsvError, CsvInvalid, export_commute_csv, parse_commute_csv
+from ..csv_io import CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, parse_commute_csv
 from ..errors import DutyError
 from ..models import Commute, Department, Period, User
 from ..shifts import COMMUTE_SHIFTS
@@ -41,27 +41,27 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     for d in sorted(table):
         col = d.isoformat()
         if d not in valid_dates:
-            errors.append(CsvError(0, col, "회차 기간의 평일이 아닙니다."))
+            add_error(errors, CsvError(0, col, "회차 기간의 평일이 아닙니다."))
             continue
         if _norm(table[d]) == _norm(existing.get(d, {})):
             continue  # 변경 없는 날짜는 재검증하지 않는다 (퇴사자 이름이 남아 있어도 다른 수정을 막지 않음)
         seen: dict[str, str] = {}
         for key, names in table[d].items():
             if names and key not in shift_keys:
-                errors.append(CsvError(0, col, f"{dept.name}에는 {COMMUTE_SHIFTS[key]} 출근조가 없습니다."))
+                add_error(errors, CsvError(0, col, f"{dept.name}에는 {COMMUTE_SHIFTS[key]} 출근조가 없습니다."))
                 continue
             for name in names:
                 if name not in members:
-                    errors.append(CsvError(0, col, f"{dept.name}의 재직 멤버가 아닙니다: {name}"))
+                    add_error(errors, CsvError(0, col, f"{dept.name}의 재직 멤버가 아닙니다: {name}"))
                 elif name in seen:
-                    errors.append(CsvError(0, col, f"{name}: {COMMUTE_SHIFTS[seen[name]]}·{COMMUTE_SHIFTS[key]}에 중복"))
+                    add_error(errors, CsvError(0, col, f"{name}: {COMMUTE_SHIFTS[seen[name]]}·{COMMUTE_SHIFTS[key]}에 중복"))
                 else:
                     seen[name] = key
     if not perms.is_admin(user):
         today = perms.today()
         for d in sorted(x for x in set(table) | set(existing) if x < today):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
-                errors.append(CsvError(0, d.isoformat(), "지난 날짜는 어드민만 수정할 수 있습니다."))
+                add_error(errors, CsvError(0, d.isoformat(), "지난 날짜는 어드민만 수정할 수 있습니다."))
     return errors
 
 

@@ -4,7 +4,7 @@ from axes.utils import reset
 from django.db import transaction
 
 from .models import User
-from .services import alarms
+from .services import alarms, calendar
 
 
 def password_changed(user: User) -> None:
@@ -36,4 +36,8 @@ def issue_account(user: User) -> str:
     reset(username=user.username)
     if first:
         alarms.create_defaults(user)
+    else:  # 초기화(탈취 의심 포함): 세션과 무관한 연결도 끊는다. 본인이 다시 연결하면 된다
+        calendar.revoke(user)
+        alarms.clear_telegram(user)
+        alarms.delete_all_subscriptions(user)
     return password

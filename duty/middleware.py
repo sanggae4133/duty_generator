@@ -22,4 +22,7 @@ class ForcePasswordChangeMiddleware:
         # 퇴사(재직 끔) 계정의 세션은 Django 가 익명으로 돌린다(ModelBackend.get_user)
         if request.user.is_authenticated and request.user.must_change_password and request.path not in {reverse("password_change"), reverse("logout")}:
             return redirect("password_change")
-        return self.get_response(request)
+        r = self.get_response(request)
+        if request.user.is_authenticated:  # 로그아웃 뒤 '뒤로 가기'로 화면·입력값이 복원되지 않게(뷰가 정한 값은 그대로)
+            r.headers.setdefault("Cache-Control", "private, no-store")
+        return r

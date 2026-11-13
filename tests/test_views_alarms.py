@@ -85,52 +85,7 @@ def test_others_rule_404(client, me, other):
     assert r.enabled and r.timing == "days"
 
 
-# ---- 텔레그램 직접 입력 ----
-
-@pytest.mark.parametrize("v", ["0", "-5", str(2**63), "abc", "1.5"])
-def test_chat_id_range(client, me, bot, monkeypatch, v):
-    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: pytest.fail("호출되면 안 됨"))
-    r = post(client, "/alarms/telegram/", {"chat_id": v})
-    assert "개인 채팅 chat_id(양수 숫자)만 입력하세요." in msgs(r)
-    assert not TelegramAlarmProfile.objects.filter(user=me, chat_id=v).exists()
-
-
-def test_chat_id_saved_when_private(client, me, bot, monkeypatch):
-    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: "private")
-    post(client, "/alarms/telegram/", {"chat_id": str(2**63 - 1)})
-    p = TelegramAlarmProfile.objects.get(user=me)
-    assert p.chat_id == str(2**63 - 1) and p.verified_at is not None
-
-
-@pytest.mark.parametrize("result,text", [("group", "개인 채팅이 아닙니다."),
-                                         (senders.Permanent(400), "테스트 발송 실패: 봇에게 먼저 /start를 보냈는지 확인하세요.")])
-def test_chat_id_not_saved(client, me, bot, monkeypatch, result, text):
-    def fake(cfg, c):
-        assert cfg.telegram_token == "TOK"  # DB 설정값으로 보낸다
-        if isinstance(result, Exception):
-            raise result
-        return result
-    monkeypatch.setattr(senders, "telegram_check", fake)
-    r = post(client, "/alarms/telegram/", {"chat_id": "123"})
-    assert text in msgs(r)
-    assert not TelegramAlarmProfile.objects.filter(user=me, chat_id="123").exists()
-
-
-def test_bot_not_configured(client, me):
-    r = post(client, "/alarms/telegram/", {"chat_id": "123"})
-    assert "텔레그램 봇이 설정되지 않았습니다." in msgs(r)
-
-
-def test_telegram_cooldown(client, me, bot, monkeypatch):
-    n = []
-    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: n.append(c) or "group")
-    post(client, "/alarms/telegram/", {"chat_id": "123"})
-    r = post(client, "/alarms/telegram/", {"chat_id": "123"})
-    assert "잠시 후 다시 시도하세요." in msgs(r) and len(n) == 1
-    TelegramAlarmProfile.objects.filter(user=me).update(last_test_at=timezone.now() - timedelta(seconds=31))
-    post(client, "/alarms/telegram/", {"chat_id": "123"})
-    assert len(n) == 2
-
+# ---- 텔레그램 연결 해제 ----
 
 def test_empty_clears_regardless_of_cooldown(client, me, bot):
     TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now(), last_test_at=timezone.now())
@@ -264,7 +219,7 @@ def test_link_survives_send_failure(client, me, bot, tgapi):
 def test_help_page(client, me, bot):
     body = client.get("/help/telegram/").content.decode()
     assert "@duty_test_bot" in body and "https://t.me/duty_test_bot" in body
-    assert "연결 코드는 10분 동안 유효하고" in body and "고급" in body and "TOK" not in body
+    assert "연결 코드는 10분 동안 유효하고" in body and "chat_id 직접 입력" not in body and "TOK" not in body
 
 
 # ---- 규칙 ----
@@ -393,14 +348,6 @@ def test_disconnect_invalidates_pending_code(client, me, other, bot, tgapi):
     assert TelegramAlarmProfile.objects.get(user=me).chat_id == ""
 
 
-def test_direct_entry_invalidates_pending_code(client, me, bot, monkeypatch):
-    code_of(me, client)
-    monkeypatch.setattr(senders, "telegram_check", lambda cfg, c: "private")
-    post(client, "/alarms/telegram/", {"chat_id": "77"})
-    p = TelegramAlarmProfile.objects.get(user=me)
-    assert p.chat_id == "77" and p.link_code is None and p.link_expires_at is None
-
-
 def test_expired_relink_for_connected_user(client, me, bot, tgapi):
     TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now() - timedelta(days=3))
     code_of(me, client)
@@ -450,11 +397,11 @@ def test_linked_notified_even_if_later_batch_fails(client, me, bot, tgapi, monke
     assert [c for c, _ in tgapi["sent"]] == ["42"]
 
 
-def test_no_username_still_allows_direct_entry_and_disconnect(client, me):
+def test_no_username_asks_admin_and_allows_disconnect(client, me):
     set_alarm_settings(telegram_bot_token="TOK", telegram_bot_username="")
     TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now())
     body = client.get("/alarms/").content.decode()
-    assert "저장 및 테스트" in body and "연결 해제" in body and "텔레그램 연결</button>" not in body
+    assert "봇 사용자명이 설정되지 않아" in body and "연결 해제" in body and "텔레그램 연결</button>" not in body
     set_alarm_settings(telegram_bot_token="")
     body = client.get("/alarms/").content.decode()
     assert "연결 해제" in body and "저장 및 테스트" not in body

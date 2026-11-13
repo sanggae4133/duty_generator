@@ -56,12 +56,6 @@ def test_telegram_send_request(tg):
     assert r["chat"]["type"] == "private"
 
 
-def test_telegram_check(tg):
-    calls, _ = tg
-    assert senders.telegram_check(CFG, "123") == "private"
-    assert json.loads(calls[0][0].data)["text"] == "[테스트] 당번 알림 연결 확인"
-
-
 @pytest.mark.parametrize("code,exc", [(400, senders.Permanent), (401, senders.Permanent),
                                       (403, senders.Permanent), (404, senders.Permanent),
                                       (500, senders.Temporary), (502, senders.Temporary)])
@@ -196,14 +190,6 @@ def test_telegram_429_odd_body(tg, body):
     with pytest.raises(senders.RetryLater) as e:
         senders.telegram_send(CFG, "1", "x")
     assert e.value.seconds is None
-
-
-@pytest.mark.parametrize("body", [[1], "s", {"ok": True}, {"result": "x"}, {"result": {}}])
-def test_telegram_malformed_success(tg, body):
-    _, state = tg
-    state["result"] = Resp(body)
-    with pytest.raises(senders.Temporary):
-        senders.telegram_check(CFG, "1")
 
 
 def test_telegram_no_token_no_request(tg):
