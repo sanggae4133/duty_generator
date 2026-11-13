@@ -109,8 +109,12 @@ def test_number_settings(monkeypatch, restore_settings):
             reload_with(monkeypatch, **{k: v})
 
 
-def test_deploy_is_two_units():
-    assert sorted(p.name for p in (ROOT / "deploy").iterdir()) == ["duty-web.service", "duty-worker.service"]
+def test_deploy_is_two_units_and_nginx():
+    assert sorted(p.name for p in (ROOT / "deploy").iterdir()) == ["duty-nginx.conf", "duty-web.service",
+                                                                   "duty-worker.service"]
+    nginx = (ROOT / "deploy" / "duty-nginx.conf").read_text(encoding="utf-8")
+    assert "access_log off;" in nginx  # 캘린더 토큰이 접근 로그에 남지 않게
+    assert "listen 127.0.0.1:8008;" in nginx and "proxy_pass http://127.0.0.1:8090;" in nginx
     texts = [p.read_text(encoding="utf-8") for p in (ROOT / "deploy").iterdir()]
     texts.append((ROOT / ".env.example").read_text(encoding="utf-8"))
     for t in texts:

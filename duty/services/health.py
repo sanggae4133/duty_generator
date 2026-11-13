@@ -14,13 +14,14 @@ from ..alarms import senders
 from . import alarm_settings, backup
 
 log = logging.getLogger(__name__)
-WEB_URL = "http://127.0.0.1:8090/login/"  # deploy/duty-web.service 의 --bind 와 같아야 한다
+WEB_URL = "http://127.0.0.1:8008/login/"  # nginx(deploy/duty-nginx.conf 의 listen)를 거쳐 본다 — 사용자가 가는 길
+APP_URL = "http://127.0.0.1:8090/login/"  # gunicorn(deploy/duty-web.service 의 --bind). WEB_URL 이 실패할 때 어느 쪽인지 가른다
 DISK_LIMIT = 90
 
 
-def _web_ok() -> bool:
+def _ok(url) -> bool:
     try:
-        with urllib.request.urlopen(WEB_URL, timeout=10):
+        with urllib.request.urlopen(url, timeout=10):
             return True
     except (OSError, ValueError):  # URLError·HTTPError(4xx/5xx)·timeout
         return False
@@ -37,8 +38,9 @@ def _disk_percent(path) -> int | None:
 
 def problems() -> str:
     out = []
-    if not _web_ok():
-        out.append("웹 응답 없음")
+    if not _ok(WEB_URL):
+        # 문구가 달라야 상태가 바뀐 것으로 보고 다시 알린다(nginx 를 꺼 둔 동안 웹이 죽어도 알 수 있게)
+        out.append("nginx 응답 없음(웹은 정상)" if _ok(APP_URL) else "웹 응답 없음")
     if not backup.has_recent():
         out.append("26시간 안에 만든 백업 없음")
     use = _disk_percent(settings.DATA_DIR)

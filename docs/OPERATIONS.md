@@ -12,7 +12,7 @@
 | `tests/` | pytest 테스트. | 올림 |
 | `requirements.in` / `requirements.lock` / `requirements-dev.txt` | 직접 쓰는 라이브러리(범위) / 운영 설치용 고정 버전 / 개발용 테스트 도구. | 올림 |
 | `pyproject.toml` | pytest 설정만. | 올림 |
-| `deploy/` | 서버용 systemd 유닛 두 개: `duty-web.service`(웹), `duty-worker.service`(작업자). 아래 "서비스 두 개". | 올림 |
+| `deploy/` | 서버용 systemd 유닛 두 개 `duty-web.service`(웹)·`duty-worker.service`(작업자)와 nginx 설정 `duty-nginx.conf`. 아래 "서비스"·"nginx". | 올림 |
 | `docs/ARCHITECTURE.md` | 구조와 도메인 규칙. 코드를 고치기 전에 읽는다. | 올림 |
 | `.env.example` → `.env` | 설정값. 견본을 `.env` 로 복사해 채운다. 개발 PC 와 서버의 차이는 이 파일의 값뿐이다. | `.env` 는 안 올림 |
 | `data/` | 실행 중 생기는 파일 전부: `db.sqlite3`(DB), `backups/`(백업), `logs/`(로그), 잠금 파일. `.env` 의 `DUTY_DATA_DIR` 로 옮길 수 있다. | 안 올림 |
@@ -64,10 +64,17 @@ sudo -u duty .venv/bin/python manage.py check --deploy   # 경고 확인(HTTPS �
 sudo cp deploy/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now duty-web duty-worker
+sudo dnf install -y nginx                                   # 웹 앞단(아래 "nginx")
+sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.orig    # 패키지 기본 설정을 남겨 둔다
+sudo cp deploy/duty-nginx.conf /etc/nginx/nginx.conf        # 기본 설정을 통째로 바꾼다(80 포트 안내 페이지 없음)
+sudo nginx -t                                                # syntax is ok / test is successful
+sudo setsebool -P httpd_can_network_connect 1               # 1~3분 걸린다. getenforce 가 Disabled 면 건너뛴다
+sudo systemctl enable --now nginx
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/   # 200
 ```
 
 - SELinux(기본 enforcing)에서도 기본 정책으로 돈다(서비스는 `/opt` 의 가상환경을 실행하고 `data/` 에만 쓴다). 서비스가 `Permission denied` 로 안 뜨면 `sudo ausearch -m avc -ts recent` 로 거부 기록을 보고, 파일을 다른 곳에서 옮겨 왔다면 `sudo restorecon -R /opt/duty_generator` 로 라벨을 되돌린다.
-- 웹은 `127.0.0.1:8090` 에만 열고 바깥 공개는 Tailscale Funnel 이 맡으므로 firewalld 는 열 것이 없다.
+- 웹(8090)과 nginx(8008)는 `127.0.0.1` 에만 열고 바깥 공개는 Tailscale Funnel 이 맡으므로 firewalld 는 열 것이 없다. nginx 는 패키지 기본 설정(80 포트 안내 페이지)을 쓰지 않고 `deploy/duty-nginx.conf` 로 통째로 바꾸므로 80 도 열지 않는다.
 - `DUTY_SECRET_KEY` 는 `python3 -c "import secrets;print(secrets.token_urlsafe(48))"` 로 만든다.
 - `.env` 를 고친 뒤에는 `sudo systemctl restart duty-web duty-worker`.
 - 서버 명령은 모두 `cd /opt/duty_generator` 에서 실행한다. `manage.py` 는 항상 `sudo -u duty .venv/bin/python manage.py ...` 로 부른다(DB·로그 파일 주인이 `duty` 라서).
@@ -76,21 +83,22 @@ sudo systemctl enable --now duty-web duty-worker
 - `sudo -u duty .venv/bin/python manage.py check --deploy` 가 `DEBUG`·`SECRET_KEY` 경고를 내면 `.env` 의 여섯 줄을 덜 바꾼 것이다.
 - 알림은 관리 화면 → 알림 설정에 봇 토큰을 넣어야 나간다(아래 "알림 켜기").
 
-## 서비스 두 개 (`deploy/`)
+## 서비스 (`deploy/`)
 
-서버에서 도는 건 이 둘뿐이다. 둘 다 `/etc/systemd/system/` 에 복사해서 쓰고, 각 줄의 뜻은 파일 안 주석에 있다.
+앱은 아래 두 유닛이고 `/etc/systemd/system/` 에 복사해서 쓴다. 앞단 nginx 는 RHEL 패키지의 `nginx.service` 를 그대로 쓰고 설정 파일만 넣는다. 각 줄의 뜻은 파일 안 주석에 있다.
 
 | 유닛 | 하는 일 | 로그 |
 |---|---|---|
 | `duty-web.service` | 웹. `gunicorn config.wsgi:application --bind 127.0.0.1:8090 --workers 1 --threads 4` | `data/logs/web.log`, `journalctl -u duty-web` |
+| `nginx.service`(RHEL 패키지) | 웹 앞단. 설정은 `deploy/duty-nginx.conf` → `/etc/nginx/nginx.conf`(아래 "nginx") | `/var/log/nginx/duty-error.log`, `journalctl -u nginx` |
 | `duty-worker.service` | 작업자 `manage.py run_worker`. 1분마다: 알림 발송(매분), DB 백업(하루 한 번 `DUTY_BACKUP_HOUR` 시 이후), 상태 점검(5분마다) | `data/logs/worker.log`, `journalctl -u duty-worker` |
 
 `duty-web.service` 의 줄:
 - `User=duty` — `duty` 사용자로 돈다. 코드는 읽기만 하고 `data/` 에만 쓴다.
 - `WorkingDirectory=/opt/duty_generator` — 여기서 돌아야 `config`·`duty` 를 찾는다(설치 없이 저장소에서 바로 돈다).
-- `ExecStart=... --bind 127.0.0.1:8090` — 서버 안에서만 연다. 바깥 공개는 Tailscale Funnel 이 맡는다. 이 주소를 바꾸면 `duty/services/health.py` 의 `WEB_URL` 도 바꾼다.
+- `ExecStart=... --bind 127.0.0.1:8090` — 서버 안에서만 연다. 앞에 nginx(8008)가 있고 바깥 공개는 Tailscale Funnel 이 맡는다. 이 주소를 바꾸면 `deploy/duty-nginx.conf` 의 `proxy_pass` 도 바꾼다.
 - `--workers 1 --threads 4` — 프로세스 하나에 스레드 4개. `web.log` 를 한 프로세스만 써야 자정에 파일을 넘길 때 꼬이지 않는다. 사용자가 수십 명이라 충분하다.
-  앱 앞의 요청 가드(`duty/guard.py`)가 2MB 넘는 요청은 413, 15초 안에 본문을 다 보내지 않는 요청은 408, 동시에 몰린 로그인 POST 는 429 로 끊는다. 로그에 이런 응답이 많으면 누가 일부러 느리게 보내는 것이다.
+  느린 연결은 앞단 nginx 가 받아 주고, 앱 안의 요청 가드(`duty/guard.py`)는 2MB 넘는 요청 413, 15초 안에 본문이 다 오지 않는 요청 408, 동시에 몰린 로그인 POST 429 로 한 번 더 막는다.
 - 접근 로그(`--access-logfile`)는 켜지 않는다 — 캘린더 구독 주소에 비밀 토큰이 들어 있다.
 - `Restart=always`, `RestartSec=5` — 죽으면 5초 뒤 다시 띄운다.
 - `WantedBy=multi-user.target` — `enable` 해 두면 부팅 때 켜진다.
@@ -101,12 +109,187 @@ sudo systemctl enable --now duty-web duty-worker
 
 유닛을 고쳤거나 새 버전에서 바뀌었으면 `sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload` 후 재시작한다.
 
-## 외부 공개 (Tailscale Funnel)
+## nginx (웹 앞단)
+
+인터넷 → Tailscale Funnel(HTTPS) → **nginx `127.0.0.1:8008`** → gunicorn `127.0.0.1:8090`.
+
+웹(gunicorn)은 스레드가 4개뿐이라, 요청 본문을 아주 느리게 보내는 연결 몇 개만 있어도 사이트 전체가 멈춘다. nginx 는 이런 연결 수천 개를 적은 메모리로 들고 있다가, 요청을 끝까지 다 받은 것만 gunicorn 에 넘긴다. 설정은 저장소의 `deploy/duty-nginx.conf` 하나이고, 서버에서는 패키지 기본 설정 `/etc/nginx/nginx.conf` 를 이 파일로 **통째로 바꿔서** 쓴다(기본 설정에 든 80 포트 안내 페이지를 없애려고. 패키지 업데이트는 이 파일을 덮어쓰지 않는다). 각 줄의 뜻은 파일 안 주석에 있다.
+
+### 이미 운영 중인 서버에 처음 넣기 (한 번만, 20분)
+
+- 이 문서는 **GitHub 웹에서 보면서** 한다(서버의 옛 문서에는 이 절이 없다).
+- 사람이 적게 쓰는 시간(저녁)에 한다. 2단계 동안 1~3분 사이트가 멈춘다(평소 업그레이드와 같다). 나머지 단계 동안은 계속 열려 있다.
+- **한 단계씩** 복사해 실행하고 "보여야 하는 것"과 같은지 확인한 뒤 다음으로 간다. 다르면 멈추고 그 단계의 "다르면"을 본다.
+- 메모장을 하나 열어 둔다. 1·2·5단계에서 적어 둘 것이 있다. 다 끝나도 **"SELinux 원래 값"은 지우지 말고 이 서버 관리 기록에 남긴다**(nginx 를 걷어낼 때 쓴다).
+
+**1. 지금 상태 확인하고 적어 두기**
+
+```bash
+cd /opt/duty_generator
+systemctl is-active duty-web duty-worker
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/login/
+tailscale version
+sudo tailscale funnel status
+```
+보여야 하는 것:
+- `active` 두 줄, 그리고 `200`.
+- `tailscale version` 의 첫 줄이 `1.52` 이상(예: `1.80.2`).
+- `funnel status` 에 `(Funnel on)` 이 붙은 주소 한 줄과 `|-- / proxy http://127.0.0.1:8090`.
+
+**`funnel status` 출력 전체를 메모장에 복사해 둔다**(되돌릴 때 이것과 비교한다).
+
+다르면:
+- `active`·`200` 이 아니면 nginx 작업을 하지 말고 웹부터 살린다(`journalctl -u duty-web -n 50`).
+- 버전이 1.52 보다 낮거나, `funnel status` 의 주소·경로·포트가 위와 다르면(예: `:8443`, `/` 가 아닌 경로) 멈추고 관리자에게 그 출력을 보낸다.
+
+**2. 새 버전 받기**
+
+```bash
+cd /opt/duty_generator
+sudo git log -1 --format=%h
+```
+나온 글자(예: `98ac1fe`)를 **메모장에 "업그레이드 전 버전"으로 적는다.** 그다음 아래 "업그레이드·롤백"의 명령 묶음을 **처음부터 마지막 `systemctl is-active duty-web duty-worker` 줄까지** 한 줄씩 하고(이때 사이트가 1~3분 멈춘다), 여기로 돌아와 아래를 실행한다.
+
+```bash
+ls /opt/duty_generator/deploy/
+```
+보여야 하는 것: `duty-nginx.conf  duty-web.service  duty-worker.service`.
+다르면: `git pull` 이 안 된 것이다. 화면에 나온 오류를 관리자에게 보낸다.
+
+> 이 버전부터 상태 점검이 nginx 주소(8008)를 본다. 그래서 6단계를 마치기 전에 5분 단위 점검 시각(…:00, …:05, …:10)이 오면 **"nginx 응답 없음(웹은 정상)" 장애 알림이 한 번** 온다. 정상이다. 6단계가 끝나면 다음 점검 때 "정상으로 돌아왔습니다"가 온다. 중간에 멈추게 되더라도, 웹이 실제로 죽으면 알림 문구가 "웹 응답 없음"으로 바뀌어 다시 오므로 장애를 놓치지 않는다.
+
+**3. nginx 설치**
+
+```bash
+sudo dnf install -y nginx
+nginx -v
+```
+보여야 하는 것: 맨 끝에 `Complete!`, 그리고 `nginx version: nginx/1.20.1` 같은 줄(숫자는 달라도 된다).
+다르면: `This system is not registered`, `Cannot download repomd.xml` 같은 오류는 서버 패키지 저장소 문제다. 오류 문구를 그대로 관리자에게 보낸다.
+
+**4. 설정 파일 바꾸고 검사** (첫 줄은 패키지 기본 설정을 `nginx.conf.orig` 로 남겨 두는 것이다. 이 단계를 **다시** 할 때는 첫 줄을 건너뛴다 — 다시 하면 남겨 둔 기본 설정이 덮인다)
+
+```bash
+sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.orig
+sudo cp /opt/duty_generator/deploy/duty-nginx.conf /etc/nginx/nginx.conf
+sudo nginx -t
+```
+보여야 하는 것(두 줄):
+```
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+다르면: 오류 줄을 그대로 관리자에게 보낸다. 파일을 손으로 고치지 않는다.
+
+**5. SELinux 허용 (nginx 가 8090 의 웹에 붙을 수 있게)**
+
+```bash
+getenforce
+```
+- `Enforcing` 또는 `Permissive` 가 나오면, 먼저 `getsebool httpd_can_network_connect` 결과(`off` 또는 `on`)를 **메모장에 "SELinux 원래 값"으로 적고** 아래를 실행한다. **프롬프트가 다시 나올 때까지 기다린다**(아무 출력 없이 1~3분 걸릴 수 있다. 중간에 Ctrl+C 를 누르지 않는다).
+  ```bash
+  sudo setsebool -P httpd_can_network_connect 1
+  getsebool httpd_can_network_connect
+  ```
+  보여야 하는 것: `httpd_can_network_connect --> on`.
+- `Disabled` 가 나오면 이 단계는 건너뛴다.
+
+**6. nginx 켜고 확인 (부팅 때도 자동으로 켜진다)**
+
+```bash
+sudo systemctl enable --now nginx
+systemctl is-active nginx
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/
+```
+보여야 하는 것: `Created symlink ...` 한 줄(처음이면 나온다), 그리고 `active`, 그리고 `200`.
+다르면:
+- `active` 가 아니면: `sudo journalctl -u nginx -n 30` 을 관리자에게 보낸다. 그 안에 `Address already in use` 가 있으면 8008 을 다른 프로그램이 쓰고 있는 것이다(`sudo ss -ltnp 'sport = :8008'` 결과도 함께 보낸다).
+- `502` → 5단계(SELinux)를 빠뜨렸거나 웹이 꺼져 있다. `getsebool httpd_can_network_connect` 가 `on` 인지, `systemctl is-active duty-web` 이 `active` 인지 본다.
+- `000` → nginx 가 8008 을 열지 않았다. `grep -c 8008 /etc/nginx/nginx.conf` 가 `1` 이상인지(4단계 파일이 들어갔는지) 본다.
+- 그 밖의 숫자(400·403·504 등)나 위로 해결이 안 되면: 그 숫자와 `sudo tail -5 /var/log/nginx/duty-error.log` 를 관리자에게 보낸다.
+
+여기까지는 사용자에게 아무 변화가 없다(바깥 주소는 아직 8090 으로 바로 간다).
+
+**7. 바깥 주소를 nginx 로 돌리기 (이 순간부터 사용자가 nginx 를 거친다)**
+
+```bash
+sudo tailscale funnel --bg --set-path / http://127.0.0.1:8008
+sudo tailscale funnel status
+```
+- 첫 명령은 `Available on the internet: ...` 와 함께 `To disable the proxy, run: tailscale funnel --https=443 off` 같은 안내를 보여 준다. **그 `off` 명령은 치지 않는다**(바깥 공개가 통째로 꺼진다).
+
+보여야 하는 것: 1단계에서 적어 둔 출력과 **같고**, 마지막 줄만 `|-- / proxy http://127.0.0.1:8008` 로 바뀌어 있다.
+다르면: 바로 아래 "되돌리기"의 1번을 하고 관리자에게 두 출력을 보낸다.
+
+**8. 바깥에서 확인** — 휴대폰의 **와이파이를 끄고**(LTE/5G), 브라우저의 **시크릿(비공개) 창**으로 당번표 주소를 연다. 아이디·비밀번호를 **직접 넣어 로그인**하고 근무표가 보이면 끝이다.
+다르면: 화면에 보이는 숫자나 문구(예: `403`, `502`, `CSRF`)를 적고 "되돌리기"를 한다.
+
+**9. 마무리** — 6단계 뒤 다음 5분 단위 점검 때 장애 알림방에 "정상으로 돌아왔습니다"가 오면(2단계 안내의 알림이 왔었다면) 모두 끝났다. 메모장의 "SELinux 원래 값"은 서버 관리 기록에 옮겨 둔다.
+
+### 되돌리기 (문제가 생겼을 때)
+
+**1. 바깥 주소를 예전처럼 웹으로 바로 보낸다** — 대부분 이것만 하면 된다.
 
 ```bash
 sudo tailscale funnel --bg --set-path / http://127.0.0.1:8090
 sudo tailscale funnel status
 ```
+보여야 하는 것: 1단계에서 적어 둔 출력과 똑같다(`|-- / proxy http://127.0.0.1:8090`). 사이트는 이 직후부터 예전처럼 동작한다.
+7단계 전에 문제가 생겼다면 바깥 주소는 아직 8090 이므로 이 명령을 해도 되고 안 해도 된다.
+
+**2. nginx 는 켜 둔다.** 서버 안(127.0.0.1)에서만 열려 있어 켜 둬도 해가 없고, 상태 점검도 정상으로 돈다. **nginx 자체가 안 뜨는 경우에만** 끈다:
+```bash
+sudo systemctl disable --now nginx
+```
+끄면 장애 알림에 "nginx 응답 없음(웹은 정상)"이 한 번 온다. 그 뒤에 웹이 실제로 죽으면 "웹 응답 없음"으로 다시 온다. 이 상태로 다음 업그레이드를 하면 아래 "평소 운영"의 nginx 설정 갱신은 건너뛴다.
+
+### 평소 운영
+
+**업그레이드 뒤 nginx 설정 갱신** ("업그레이드·롤백" 묶음을 마친 뒤, nginx 를 켜 둔 서버만):
+
+```bash
+cd /opt/duty_generator
+sudo cmp deploy/duty-nginx.conf /etc/nginx/nginx.conf && echo 같음
+```
+- `같음` 이 나오면 할 일이 없다. 끝.
+- `differ` 가 나오면 새 버전에서 설정이 바뀐 것이다. 지금 파일을 남겨 두고 바꾼 뒤 검사한다. **`cp` 두 줄은 아무것도 출력하지 않아야 한다**(오류 문구가 나오면 거기서 멈추고 관리자에게 보낸다):
+  ```bash
+  sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+  sudo cp deploy/duty-nginx.conf /etc/nginx/nginx.conf
+  sudo nginx -t
+  ```
+  - 두 줄(`syntax is ok`, `test is successful`)이 나오면:
+    ```bash
+    sudo systemctl reload nginx
+    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/
+    ```
+    아무 오류 없이 `200` 이 나오면 끝(끊김 없이 새 설정으로 바뀐다).
+  - `nginx -t` 가 두 줄이 아니거나, `reload` 가 오류를 내거나, `200` 이 아니면 **바로 예전 파일로 되돌린다**(그대로 두면 다음 재부팅 때 nginx 가 안 떠 사이트가 끊긴다):
+    ```bash
+    sudo cp /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf
+    sudo nginx -t
+    ```
+    - 두 줄이 나오면: `sudo systemctl restart nginx` 후 `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/` 가 `200` 인지 확인하고 관리자에게 알린다.
+    - 두 줄이 안 나오면: **`restart` 하지 않는다**(지금 돌고 있는 nginx 는 마지막으로 읽어 들인 설정으로 계속 돈다). 그대로 두고 바로 관리자에게 알린다. 재부팅하지 않는다.
+
+그 밖에:
+- **nginx 패키지 업데이트**는 서버 정기 업데이트(`sudo dnf update`)에 같이 들어간다. 따로 할 일은 없다.
+- **로그**: `/var/log/nginx/duty-error.log`(웹에 못 붙음 등). 접근 로그는 끈다(캘린더 주소에 비밀 토큰이 있다). 오래된 로그는 nginx 패키지가 알아서 정리한다(`/etc/logrotate.d/nginx`).
+- **응답 코드 뜻**: `502` = nginx 는 살아 있는데 웹(gunicorn)이 꺼져 있음(`systemctl status duty-web`). `413` = 2MB 넘는 요청.
+- **nginx 만 다시 띄우기**: `sudo systemctl restart nginx`. 웹·작업자는 건드리지 않아도 된다.
+- **패키지 업데이트 뒤 `/etc/nginx/nginx.conf.rpmnew` 가 생겨도** 무시한다(패키지의 새 기본 설정일 뿐, 쓰이지 않는다). `nginx.conf` 를 그것으로 바꾸지 않는다.
+- 앱 안의 요청 가드(`duty/guard.py`)는 그대로 둔다: 로그인 POST 동시 개수 제한(429)은 nginx 가 해 주지 않고, 개발 PC 처럼 nginx 없이 돌 때도 막아 준다.
+- nginx 를 서버에서 완전히 걷어낼 때만: 되돌리기 1·2번 뒤 `sudo cp /etc/nginx/nginx.conf.orig /etc/nginx/nginx.conf`. 그리고 5단계에서 적어 둔 "SELinux 원래 값"이 `off` 였을 때만 `sudo setsebool -P httpd_can_network_connect 0` (`on` 이었으면 다른 프로그램이 쓰고 있을 수 있으니 그대로 둔다).
+
+## 외부 공개 (Tailscale Funnel)
+
+```bash
+sudo tailscale funnel --bg --set-path / http://127.0.0.1:8008   # nginx 로. gunicorn(8090)으로 바로 보내지 않는다
+sudo tailscale funnel status                                     # |-- / proxy http://127.0.0.1:8008
+```
+
+- 같은 경로(`/`)에 다시 실행하면 덮어쓴다. `sudo tailscale funnel reset`(또는 `serve reset`)은 **설정 전체를 지운다** — 쓰지 않는다.
+- Funnel 에 경로를 더 붙일 때는 `tailscale serve` 가 아니라 `tailscale funnel` 을 쓴다(`serve` 로 붙이면 443 의 바깥 공개가 꺼진다).
 
 ## 처음 한 번: 계정 만들기
 
@@ -125,7 +308,7 @@ sudo tailscale funnel status
 
 ```bash
 cd /opt/duty_generator
-git log -1 --format=%h                       # 지금 버전(적어 둔다)
+sudo git log -1 --format=%h                  # 지금 버전(적어 둔다)
 sudo systemctl stop duty-web duty-worker
 sudo -u duty .venv/bin/python manage.py backup   # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다, 적어 둔다)
 sudo git pull --ff-only                      # 특정 버전이면: sudo git fetch && sudo git checkout <버전>
@@ -138,7 +321,8 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 ```
 
 - **롤백**: 위와 같은 순서에서 `git pull` 대신 `sudo git checkout <적어 둔 버전>`. 업그레이드 때 `migrate` 가 무언가 적용했으면 `sudo -u duty .venv/bin/python manage.py migrate` 대신 `sudo -u duty .venv/bin/python manage.py restore <업그레이드 전에 만든 백업>`(아래 "백업·복원")을 한다 — 복원은 백업의 마이그레이션이 지금 코드와 같아야 받아 주므로, 코드를 먼저 되돌린 뒤에 한다.
-- git 이 "dubious ownership" 을 내면 `sudo chown -R root:root /opt/duty_generator/.git` 후 다시 한다.
+- nginx 를 켜 둔 서버는 이 묶음을 마친 뒤 아래 "nginx → 평소 운영"의 **업그레이드 뒤 nginx 설정 갱신**을 한다(대부분 "같음"으로 끝난다).
+- git 이 "dubious ownership" 을 내면 앞에 `sudo` 를 빠뜨린 것이다(코드 폴더는 root 소유). `sudo` 를 붙여 다시 한다. 그래도 나오면 `sudo chown -R root:root /opt/duty_generator/.git` 후 다시 한다.
 - 업그레이드 전 백업도 `db-*` 라 `DUTY_BACKUP_KEEP_DAYS` 일 뒤 자동으로 지워진다. 오래 둘 것은 서버 밖으로 내려받는다.
 
 ## 백업·복원
@@ -208,6 +392,7 @@ sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -P -x -H 127.0.0.1 -p 8092 /opt/d
 | 파일 | 내용 |
 |---|---|
 | `data/logs/web.log` | 웹 앱의 경고·오류(`django.request` 404·500 등, 로그인 잠금) |
+| `/var/log/nginx/duty-error.log` | nginx: gunicorn 에 못 붙음(502) 등. 정리는 nginx 패키지의 logrotate 가 한다 |
 | `data/logs/worker.log` | 작업자: 매분 `alarms tick:` 한 줄, 발송 실패, `backup: db-…`, `health: …`, `worker job failed: …` |
 
 - 자정마다 새 파일로 넘기고(`web.log.2026-11-10` …) `DUTY_LOG_KEEP_DAYS` 일(기본 14)보다 오래된 파일은 지운다.
@@ -220,7 +405,7 @@ sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -P -x -H 127.0.0.1 -p 8092 /opt/d
 
 작업자가 5분마다 아래를 보고, **상태가 바뀔 때만** 관리자 텔레그램으로 알린다(문제가 생겼을 때 한 번, 정상으로 돌아왔을 때 한 번).
 
-- 웹이 응답하지 않음(`http://127.0.0.1:8090/login/`) / 26시간 안에 만든 `db-*` 백업이 없음 / `data/` 디스크 사용 90% 이상
+- 웹이 응답하지 않음: nginx 를 거친 `http://127.0.0.1:8008/login/` 이 실패하면 웹(`127.0.0.1:8090`)을 한 번 더 보고 "nginx 응답 없음(웹은 정상)" 또는 "웹 응답 없음"으로 나눠 알린다 / 26시간 안에 만든 `db-*` 백업이 없음 / `data/` 디스크 사용 90% 이상
 - 보내는 봇은 알림용 텔레그램 봇, 받는 곳은 관리 화면 → 알림 설정의 "장애 알림 받을 chat_id"다. 비우면 `worker.log` 에만 남는다.
   - **단톡방**(추천): 알림 봇을 방에 초대한 뒤, PC 브라우저로 `https://web.telegram.org/a/` 에서 그 방을 열면 주소창 끝 `#-100…` 숫자가 chat_id 다(음수). 다른 봇을 방에 넣어 알아내지 않는다(대화가 바깥 봇에 보인다).
   - **개인**: 텔레그램에서 `@userinfobot` 에게 아무 말이나 보내면 알려 준다(양수).
@@ -229,7 +414,7 @@ sudo -u duty /opt/sqlite-web/bin/sqlite_web -r -P -x -H 127.0.0.1 -p 8092 /opt/d
 - 발송에 실패하면 상태를 저장하지 않아 다음 점검(5분 뒤)에 다시 보낸다.
 - 웹 점검이 `127.0.0.1` 로 부르므로 `DUTY_ALLOWED_HOSTS` 에 `127.0.0.1` 이 있어야 한다.
 - 작업자 자체가 멈추면 이 알림도 멈춘다. `systemctl is-active duty-worker` 와 `worker.log` 의 매분 `alarms tick:` 줄로 확인한다.
-- 시험: `sudo systemctl stop duty-web` → 5분 안에 알림 → `sudo systemctl start duty-web` → 복구 알림.
+- 시험: `sudo systemctl stop duty-web` → 5분 안에 "웹 응답 없음" 알림 → `sudo systemctl start duty-web` → 복구 알림. nginx 만 멈추면(`sudo systemctl stop nginx`) "nginx 응답 없음(웹은 정상)"이 온다(이때 바깥 사용자는 접속이 안 된다).
 
 ## 개발 PC DB 를 서버로 옮기기 (처음 한 번)
 

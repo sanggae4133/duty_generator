@@ -19,7 +19,7 @@ IT 부서의 출근조·장중관제 당번표를 만들고, 바꾸고, 알려 �
 
 ## 기술
 
-Python 3.12 · Django 5.2 · SQLite(WAL) · 서버 렌더링 템플릿 + htmx + Pico.css(빌드 없음) · gunicorn · systemd · Tailscale Funnel · 사내 서버 RHEL 9.4+
+Python 3.12 · Django 5.2 · SQLite(WAL) · 서버 렌더링 템플릿 + htmx + Pico.css(빌드 없음) · gunicorn · nginx · systemd · Tailscale Funnel · 사내 서버 RHEL 9.4+
 
 ## 빠른 시작 (개발 PC)
 
