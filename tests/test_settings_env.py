@@ -130,3 +130,9 @@ def test_no_install_needed():
     t = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "[project]" not in t and "[build-system]" not in t and "[tool.pytest.ini_options]" in t
     assert (ROOT / "requirements.in").exists() and (ROOT / "requirements-dev.txt").exists()
+
+
+def test_sqlite_waits_for_lock():
+    """잠금 대기 20초(파이썬 기본 5초를 넘기면 바로 500 'database is locked')."""
+    from django.conf import settings
+    assert settings.DATABASES["default"]["OPTIONS"]["timeout"] >= 20

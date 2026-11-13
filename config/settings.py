@@ -119,7 +119,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DB_PATH,
-        "OPTIONS": {"init_command": "PRAGMA journal_mode=WAL;", "transaction_mode": "IMMEDIATE"},
+        # timeout: 쓰기 잠금을 기다리는 초(기본 5초를 넘기면 바로 500 "database is locked")
+        "OPTIONS": {"init_command": "PRAGMA journal_mode=WAL;", "transaction_mode": "IMMEDIATE", "timeout": 20},
     }
 }
 

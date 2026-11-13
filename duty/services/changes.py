@@ -1,7 +1,7 @@
 from datetime import date
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef
 
 from .. import perms
 from ..errors import DutyError
@@ -10,10 +10,13 @@ from ..shifts import COMMUTE_SHIFTS, CONTROL_SLOTS, CELLS, DEVELOPER, is_slot_ce
 
 
 def _owner(d: date) -> Period:
+    # EXISTS 로 찾는다. 출근·관제를 둘 다 JOIN 해 DISTINCT 하면 회차마다 출근 행 × 관제 행을 훑어
+    # 배포 회차가 쌓일수록(회차 하나에 약 70ms) 느려지고, 그동안 쓰기 잠금을 쥔다
     p = (
         Period.objects.filter(status=Period.Status.PUBLISHED)
-        .filter(Q(commute__date=d) | Q(controlduty__date=d))
-        .distinct()
+        .filter(Exists(Commute.objects.filter(period=OuterRef("pk"), date=d))
+                | Exists(ControlDuty.objects.filter(period=OuterRef("pk"), date=d)))
+        .order_by("pk")
         .first()
     )
     if p is None:
