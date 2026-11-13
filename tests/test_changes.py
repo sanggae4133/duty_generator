@@ -242,3 +242,29 @@ def test_exchange_with_multi_slot_holder_is_explained(world):
     ControlDuty.objects.create(period=p, date=D, slot=5, member=m["라"])
     with pytest.raises(DutyError, match="여러 칸"):
         changes.exchange(m["가"], D, "slot0", m["가"], m["라"])
+
+
+def test_owner_with_many_published_periods(make_member):
+    """근무 변경 때 날짜의 배포 회차를 찾는 쿼리가 회차 수에 비례해 느려지지 않는다(JOIN 곱 + DISTINCT 대신 EXISTS)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    m = make_member("가")
+    ps = []
+    for i in range(3):
+        d0 = date(2026, 11, 2 + i * 7)
+        p = Period.objects.create(name=f"p{i}", start_date=d0, end_date=d0, status=S.PUBLISHED)
+        Commute.objects.create(period=p, date=d0, member=m, shift="normal")
+        ControlDuty.objects.create(period=p, date=d0, slot=0, member=m)
+        ps.append((p, d0))
+    only_control = Period.objects.create(name="c", start_date=date(2026, 12, 1), end_date=date(2026, 12, 1),
+                                         status=S.PUBLISHED)
+    ControlDuty.objects.create(period=only_control, date=date(2026, 12, 1), slot=0, member=m)
+    for p, d0 in ps:
+        assert changes._owner(d0) == p
+    assert changes._owner(date(2026, 12, 1)) == only_control
+    with pytest.raises(DutyError):
+        changes._owner(date(2027, 1, 1))
+    with CaptureQueriesContext(connection) as q:
+        changes._owner(ps[-1][1])
+    sql = q.captured_queries[0]["sql"].upper()
+    assert "EXISTS" in sql and "DISTINCT" not in sql
