@@ -158,3 +158,10 @@ def test_range_is_capped_and_streamed(client, people, settings, tmp_path):
         assert h.status_code == 206 and h["Content-Length"] == str(1 << 20)
         h = client.head("/help/video/member.mp4")  # Range 없는 HEAD 도
         assert h.status_code == 200 and h["Content-Length"] == str(len(big)) and h["Accept-Ranges"] == "bytes"
+
+
+def test_steps_mention_month_view():
+    """사용법 글에도 월간 보기가 있다(영상에서 보여 주는 것과 같게)."""
+    from duty.help import STEPS
+    assert any("[월간]" in s for s in STEPS["member"])
+    assert any("[월간]" in s for s in STEPS["admin"])
