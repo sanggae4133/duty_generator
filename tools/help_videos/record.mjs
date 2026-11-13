@@ -134,6 +134,12 @@ const VIDEOS = {
     await s.tap('.names button', 1800);
     await s.scroll(500, 1600);
     await s.ev('scrollTo({top: 0})'); await sleep(500);
+    await s.tap('text=월간', 1800);
+    await s.say('[월간]을 누르면 한 달을 달력처럼 한 화면에 봅니다.\n휴대폰에서는 옆으로 밀어서 봅니다.', 3000);
+    await s.ev(`document.querySelector('.roster-scroll').scrollBy({left: 320, behavior: 'smooth'})`); await sleep(1600);
+    await s.ev(`document.querySelector('.roster-scroll').scrollBy({left: -640, behavior: 'smooth'})`); await sleep(1600);
+    await s.say('◀ ▶로 달을 넘기고, [주간]으로 돌아옵니다.', 2400);
+    await s.tap('text=주간', 1500);
     await s.tap('nav.menu a[href="/me/"]', 1500);
     await s.say('내 근무: 앞으로의 내 근무만 모아 봅니다.\n날짜를 누르면 그날 전체 근무가 나옵니다.', 3200);
     await s.tap('nav.menu a[href="/alarms/"]', 1500);
@@ -175,6 +181,10 @@ const VIDEOS = {
     await s.go('/login/');
     await s.say('NXT 당번표 사용법 — 관리자', 2000);
     await s.login('admin');
+    await s.tap('text=월간', 1800);
+    await s.say('근무표: [주간]·[월간]으로 바꿔 봅니다.\n월간은 한 달을 달력처럼 한 화면에 보여 줍니다.', 3200);
+    await s.scroll(500, 1600);
+    await s.ev('scrollTo({top: 0})'); await sleep(500);
     await s.tap('nav.menu a[href="/periods/"]', 1500);
     await s.say('회차: 근무표를 만드는 단위입니다. 상태가 색으로 구분됩니다.\n[+ 새 회차]로 이름과 기간을 정해 만듭니다.', 3600);
     await s.tap('details.new-period summary', 1600);
