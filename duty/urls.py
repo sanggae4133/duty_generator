@@ -16,7 +16,10 @@ class IsoDateConverter:
     regex = r"\d{4}-\d{2}-\d{2}"
 
     def to_python(self, value):
-        return date.fromisoformat(value)
+        d = date.fromisoformat(value)
+        if not 2000 <= d.year <= 2099:  # 범위 밖(예: 9999-12-31)은 날짜 계산이 넘쳐 500 이 났다 → 404
+            raise ValueError(value)
+        return d
 
     def to_url(self, value):
         return value.isoformat()

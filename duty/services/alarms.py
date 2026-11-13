@@ -50,6 +50,9 @@ def create_defaults(user) -> None:
 RULE_FIELDS = ("kind", "timing", "offset", "at_minute", "shifts", "depts", "types")  # 바뀌면 오늘 이후 발송 기록 삭제
 
 
+MAX_RULES = 20  # 사람당 알림 규칙 수(무제한이면 한 사람이 작업자 발송을 몇 시간씩 막을 수 있다)
+
+
 def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
     shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"])
     new = {**data, "shifts": shifts, "depts": depts, "types": types}
@@ -57,6 +60,8 @@ def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
     changed = rule.pk is not None and _key(rule) != tuple(new[f] for f in RULE_FIELDS)
     try:
         with transaction.atomic():
+            if rule.pk is None and AlarmRule.objects.filter(user=user).count() >= MAX_RULES:
+                raise DutyError(f"알림 규칙은 최대 {MAX_RULES}개입니다. 쓰지 않는 규칙을 먼저 지워 주세요.")
             for k, v in new.items():
                 setattr(rule, k, v)
             rule.save()

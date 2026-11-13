@@ -20,9 +20,10 @@ def validate_chat_id(value: int) -> None:
 
 
 def validate_member_name(value: str) -> None:
-    # '>', ',', 줄바꿈, 앞 '+'는 라벨(A>B, +B)·CSV 문법이라 이름에 쓰면 깨진다
-    if any(c in value for c in ">,\n\r") or value.startswith("+"):
-        raise ValidationError("이름에 > , 줄바꿈을 쓸 수 없고 +로 시작할 수 없습니다.")
+    # '>', ',', 줄바꿈, 앞 '+'는 라벨(A>B, +B)·CSV 문법이라 이름에 쓰면 깨진다.
+    # 앞 = - @ 탭은 CSV 를 엑셀로 열 때 수식으로 실행된다
+    if any(c in value for c in ">,\n\r") or value.startswith(("+", "=", "-", "@", "\t")):
+        raise ValidationError("이름에 > , 줄바꿈을 쓸 수 없고 + = - @ 탭으로 시작할 수 없습니다.")
 
 
 class Department(models.Model):

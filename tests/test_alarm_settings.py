@@ -127,7 +127,8 @@ def form(**kw):
 def test_admin_superuser_only(client, admin_user):
     client.force_login(admin_user)  # 스태프지만 슈퍼유저 아님
     alarm_settings.current().save()  # 행을 만들어 둔다
-    assert client.get(change_url()).status_code == 403
+    r = client.get(change_url())
+    assert r.status_code == 302 and "login" in r.url  # 관리 화면 자체가 슈퍼유저 전용
 
 
 def test_admin_changelist_goes_to_single_row(su):

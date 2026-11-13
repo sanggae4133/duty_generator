@@ -146,6 +146,11 @@ LOGOUT_REDIRECT_URL = "/login/"
 SESSION_COOKIE_AGE = 14 * 24 * 3600
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+# HTTPS 는 Funnel 이 맡지만, 브라우저가 http 로 시도하지 않게 HSTS 를 보낸다(tailscaled 가 X-Forwarded-Proto 를 붙이고
+# gunicorn 이 127.0.0.1 의 그 헤더를 믿어 is_secure() 가 참일 때만 붙는다). SSL_REDIRECT 는 켜지 않는다(상태 점검이 http 로 부름)
+SECURE_HSTS_SECONDS = 0 if DEBUG else 30 * 24 * 3600
+# 클라이언트가 보낸 SCRIPT_NAME 헤더(gunicorn 은 127.0.0.1 에서 온 것을 믿는다)로 경로 앞부분을 바꾸지 못하게
+FORCE_SCRIPT_NAME = ""
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # 출근표 표 저장: 260일 × 4칸
 
 AUTHENTICATION_BACKENDS = [
@@ -156,6 +161,8 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = ["username"]  # Funnel 뒤에서는 모든 요청 IP가 127.0.0.1 이라 IP 잠금은 전원 차단이 된다
 AXES_RESET_ON_SUCCESS = True
+# 잠긴 동안의 시도로 잠금을 다시 15분 늘리거나 기록을 쌓지 않는다(피해자가 스스로 잠금을 늘리지 않게, DB 행 비대 방지)
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 AXES_LOCKOUT_TEMPLATE = "duty/locked.html"
 SILENCED_SYSTEM_CHECKS = ["axes.W006"]  # 잠금은 의도적으로 username 만 기준(IP 는 Funnel 뒤에서 전원 동일)
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 임시 비밀번호가 쿠키에 실리지 않게
@@ -174,6 +181,7 @@ LOGGING = {
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "plain"},
         "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
+        "null": {"class": "logging.NullHandler"},
     },
     # 핸들러는 루트에만 단다: duty INFO 와 django.request·axes 경고가 모두 시각과 함께 한 번씩 찍힌다(caplog 도 루트에서 받음)
     "root": {"handlers": ["console"], "level": "WARNING"},
@@ -181,6 +189,8 @@ LOGGING = {
         "duty": {"level": "INFO"},
         "django": {"handlers": [], "level": "WARNING"},  # Django 기본 console(DEBUG 전용)·mail_admins 대신 루트 하나로
         "django.request": {"filters": ["redact_calendar"]},
+        # 허용 안 된 Host 요청은 요청마다 트레이스백(Host 값 4번)을 남겨 디스크를 채울 수 있다 → 남기지 않는다(응답은 그대로 400)
+        "django.security.DisallowedHost": {"handlers": ["null"], "propagate": False},
         "django.server": {**DEFAULT_LOGGING["loggers"]["django.server"], "filters": ["redact_calendar"]},
     },
 }

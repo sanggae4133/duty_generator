@@ -252,6 +252,8 @@ def push_delete_all(request):
 def push_test(request):
     if not alarm_settings.ensure_push_keys().push_on:
         messages.error(request, PUSH_MISSING)
+    elif not alarms.take_cooldown(request.user):
+        messages.error(request, "잠시 후 다시 시도하세요(테스트는 30초에 한 번).")
     else:
         ok, fail = alarms.test_push(request.user)
         messages.info(request, f"테스트 푸시: 성공 {ok} / 실패 {fail}")
