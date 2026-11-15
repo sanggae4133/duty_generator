@@ -144,6 +144,7 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 
 - Pico.css + `base.html`의 공통 스타일. NEXTRADE BI를 따른다: 로고·심볼은 `duty/static/duty/`의 원본 그대로(비율·색 변경 금지), 어두운 배경(다크 모드)은 흰색 단색(CSS `filter`). 지정 서체 Noto Sans KR(없으면 시스템 글꼴, 글꼴 파일은 싣지 않는다).
 - 화면 모드: 상단 버튼으로 시스템·라이트·다크(기기마다 localStorage, `<html data-theme>`). 다크용 색은 `base.html` 맨 위 변수 두 곳(시스템 다크·직접 다크)에만 두고, 화면 규칙은 변수(`--chg`·`--logo-filter` 등)만 쓴다.
+- 글씨 크기: 화면 모드 버튼 옆 [가]로 보통 → 크게(×1.15) → 아주 크게(×1.3)(기기마다 localStorage `duty-size`, `<html data-size="l|xl">`). 화면 모드와 같은 head 스크립트가 스타일보다 먼저 붙여 깜빡이지 않는다. `base.html` 의 `:root[data-size]` 두 줄이 Pico 의 화면 폭별 기본 크기(`--pico-font-size`)에 곱하므로, 화면 규칙은 rem·em 으로 쓰면 함께 커진다. 상단 계정 줄은 넘치면 아래로 내려간다(아주 크게 + 390px).
 - 색: PURPLE `#2B1B40` = 주요 동작 버튼·현재 위치, RED `#E50038`(`--nxt-red`) = 로고·오류·위험 동작, 그리고 "오늘" 표시(달력처럼 읽힌다)만. 일반 버튼에 빨강을 쓰지 않는다(빨강 = 위험으로 읽힌다).
 - 화면마다 다음 단계 하나만 채운 버튼, 되돌리기·다시 하기는 테두리 버튼, 지우기는 맨 아래 "위험 구역"(빨간 테두리) + 확인창.
 - 메시지는 `messages` 종류대로 색과 기호(✓ 성공, ! 오류, ⚠ 경고)로 구분한다. 입력칸은 placeholder 말고 `<label>`(`form.labeled`).
@@ -159,6 +160,7 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 
 ## 보안·개인정보
 
+- 로그인은 90일 유지된다(`SESSION_COOKIE_AGE`, 로그인할 때부터. 요청마다 늘리지 않아 화면을 열 때 세션 DB 쓰기가 없다). 비밀번호를 바꾸면 다른 기기의 로그인이, [계정 발급]으로 초기화하면 모든 로그인이 끊긴다.
 - 로그인 5회 실패 시 그 아이디가 15분 잠긴다(django-axes). 비밀번호 변경의 '지금 비밀번호' 확인도 같이 센다.
 - `config/wsgi.py` 가 Django 앞에 `duty/guard.py` 를 둔다: 본문 2MB 초과 413, 15초 안에 본문이 다 오지 않으면 408, 로그인·비밀번호 변경 POST 는 동시에 2개까지(넘치면 429). nginx 가 느린 연결을 먼저 받아 주고, 가드는 nginx 없이 돌 때(개발 PC)나 nginx 설정이 빠졌을 때의 한 번 더 막는 장치다.
 - 로그인한 화면은 `Cache-Control: private, no-store`(`duty/middleware.py`). 로그 파일은 하루 50MB 를 넘으면 그날은 버린다(`duty/logging.py`).
