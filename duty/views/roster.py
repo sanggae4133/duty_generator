@@ -11,7 +11,7 @@ from .. import perms
 from ..csv_io import split_names
 from ..errors import DutyError
 from ..models import Department, User
-from ..services import boards, changes, prefs
+from ..services import boards, changes, holidays, prefs
 from ..services.roster import find_day, member_schedule, published_days
 from ..shifts import (
     DAY_LABELS, DEVELOPER, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell, ordered, shift_defs,
@@ -175,6 +175,7 @@ def roster(request):
         title = f"{first.year}년 {first.month}월"
     first_day, last_day = weeks[0][0], weeks[-1][-1]
     by_date = {d.date: d for d in published_days(board, first_day, last_day)}
+    closed = holidays.closed(first_day, last_day)  # 휴장일 이름은 회차·배정과 상관없이 칸 맨 위에
 
     def day_cells(d: date) -> dict:
         found = by_date.get(d)
@@ -191,7 +192,7 @@ def roster(request):
         cells = day_cells(d)
         other = view == "month" and d.month != anchor.month
         return {
-            "date": d, "is_today": d == today, "other": other, "empty": d not in by_date,
+            "date": d, "is_today": d == today, "other": other, "empty": d not in by_date, "holiday": closed.get(d, ""),
             "edit": (edit_past if d < today else edit_now) and not other and d in by_date,  # 배포된 근무표가 있는 날만
             "commute": [cells[x.key] for x in shift_defs(defs) if x.key in cells],
             "duty": [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs) if x.key in cells],
@@ -265,6 +266,7 @@ def day(request, d):
     qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
     return render(request, "duty/day.html", {
         "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
+        "holiday": holidays.closed(d, d).get(d, ""),
         "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
         "qs": qs, **_filter_ctx(board, defs, depts, types, shifts, history),
     })

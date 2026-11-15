@@ -18,7 +18,7 @@ from django.utils import timezone
 from duty.alarms import senders
 from duty.errors import DutyError
 from duty.models import AlarmSettings
-from duty.services import alarm_runner, backup, change_notice, health
+from duty.services import alarm_runner, backup, change_notice, health, holidays
 
 Usage = namedtuple("Usage", "total used free")
 
@@ -366,6 +366,7 @@ def jobs(monkeypatch, db, data):
                 raise RuntimeError(name)
         return run
 
+    monkeypatch.setattr(holidays, "sync", job("holidays", fail=True))  # 받는 값은 오늘 날짜
     monkeypatch.setattr(alarm_runner, "tick", job("alarms", fail=True))
     monkeypatch.setattr(backup, "daily", job("backup"))
     monkeypatch.setattr(health, "check", job("health"))
@@ -378,8 +379,10 @@ def test_round_isolates_failures(jobs, caplog):
     run_worker.run_round(NOW)
     # 백업·점검이 먼저: 알림 발송이 네트워크 타임아웃으로 오래 걸려도 백업·점검이 밀리지 않게
     # 내 근무 변경 알림은 정기 알림보다 먼저(정기 발송이 느려도 '바로' 가게)
-    assert [n for n, _ in jobs] == ["backup", "health", "changes", "alarms"] and all(t == NOW for _, t in jobs)
-    assert "worker job failed: alarms" in caplog.text
+    # 휴장일 채우기는 맨 앞, 실패해도 다른 작업은 돈다
+    assert [n for n, _ in jobs] == ["holidays", "backup", "health", "changes", "alarms"]
+    assert jobs[0] == ("holidays", timezone.localdate(NOW)) and all(t == NOW for _, t in jobs[1:])
+    assert "worker job failed: alarms" in caplog.text and "worker job failed: holidays" in caplog.text
 
 
 def test_health_every_five_minutes(jobs):
@@ -401,7 +404,7 @@ def test_once_runs_all_jobs_and_logs_to_file(jobs, data, monkeypatch):
             if h not in before:
                 root.removeHandler(h)
                 h.close()
-    assert [n for n, _ in jobs] == ["backup", "health", "changes", "alarms"]  # --once 는 시각과 상관없이 전부
+    assert [n for n, _ in jobs] == ["holidays", "backup", "health", "changes", "alarms"]  # --once 는 시각과 상관없이 전부
     assert "worker job failed: alarms" in (data.LOG_DIR / "worker.log").read_text(encoding="utf-8")
 
 
@@ -447,7 +450,8 @@ def test_loop_skips_health_on_first_round(jobs, data, monkeypatch):
             if h not in before:
                 root.removeHandler(h)
                 h.close()
-    assert [n for n, _ in jobs] == ["backup", "changes", "alarms", "backup", "health", "changes", "alarms"]
+    assert [n for n, _ in jobs] == ["holidays", "backup", "changes", "alarms",
+                                    "holidays", "backup", "health", "changes", "alarms"]
 
 
 # ---- 파일 로그 ----

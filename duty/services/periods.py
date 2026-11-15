@@ -3,8 +3,10 @@ from datetime import date
 
 from django.db import transaction
 
+from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, Department, DutyAssignment, Period, PeriodEvent
+from . import holidays
 
 S = Period.Status
 
@@ -37,6 +39,7 @@ def save_draft(period: Period, by=None) -> Period:
     else:  # 되돌아온 회차는 출근표가 있을 수 있다: 줄어든 기간 밖은 지운다
         for model in (Commute, DutyAssignment):
             model.objects.filter(period=period).exclude(date__in=period.dates()).delete()
+    holidays.sync(perms.today())  # 저장한 뒤: 이 회차의 해가 범위에 들어야 입력 표가 휴장일을 안다
     return period
 
 

@@ -4,11 +4,12 @@ from collections import defaultdict
 from django.db import transaction
 from django.utils import timezone
 
+from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
 from ..models import Commute, DutyAssignment, Period, User
 from ..shifts import slot_defs
-from . import boards
+from . import boards, holidays
 from .periods import missing_dates, record
 
 S = Period.Status
@@ -19,6 +20,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     period.refresh_from_db()
     if period.status not in {S.CLOSED, S.GENERATED}:
         raise DutyError("마감된 회차만 생성할 수 있습니다.")
+    holidays.sync(perms.today())  # 작업자가 꺼져 있어도 휴장일 표가 비어 있지 않게
     missing = missing_dates(period)
     if missing:
         detail = ", ".join(f"{code} {len(ds)}일" for code, ds in missing.items())

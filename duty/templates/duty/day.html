@@ -5,6 +5,7 @@
   <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong></li></ul>
   <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
 </nav>
+{% if holiday %}<p class="hol">{{ holiday }}</p>{% endif %}
 <form method="get" class="search">
   {% include "duty/_filters.html" %}
 </form>

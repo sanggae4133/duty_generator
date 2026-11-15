@@ -11,7 +11,7 @@ from django.urls import reverse
 from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
-from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, User
+from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, Holiday, User
 from .services import alarm_settings, boards
 from .shifts import shift_defs
 
@@ -204,6 +204,25 @@ class GroupKeeperInline(_ViewOnly, admin.TabularInline):
     """그룹 관리자는 기록만 보인다. 지정·편집과 그룹 화면은 3단계."""
     model = GroupKeeper
     extra = 0
+
+
+@admin.register(Holiday)
+class HolidayAdmin(admin.ModelAdmin):
+    """휴장일(설계 5절): 임시공휴일 추가(직접 추가), 휴장일이 아닌 날은 '휴장'을 끈다. 자동 행은 작업자가 채운다.
+    지우기는 막는다(지운 자동 휴장일은 다음 바퀴에 다시 생긴다). 이미 있는 배정은 바뀌지 않는다."""
+    list_display = ["date", "name", "source", "active"]
+    list_filter = ["active", "source"]
+    list_editable = ["active"]
+    date_hierarchy = "date"
+
+    def get_fields(self, request, obj=None):
+        return ["date", "name", "active"] if obj is None else ["date", "name", "source", "active"]
+
+    def get_readonly_fields(self, request, obj=None):
+        return [] if obj is None else ["date", "source"]  # 날짜를 옮기면 자동 행과 겹친다: 끄고 새로 추가한다
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 그룹 화면(권한 칸)을 바꾼다

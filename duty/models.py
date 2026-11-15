@@ -184,6 +184,8 @@ class Period(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
     overwrite_from = models.DateField(null=True, blank=True)
     board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="periods", verbose_name="근무표")
+    # 휴장일 건너뛰기(설계 5절): 근무표를 만드는 도구가 휴장일을 건너뛴다. 2단계 전 회차는 거짓(마이그레이션 0018), 새 회차는 참
+    skip_holidays = models.BooleanField("휴장일 건너뛰기", default=True)
     # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
     publish_undo = models.JSONField(null=True, blank=True, editable=False)
     # 이 번호 이하의 ChangeLog 는 근무표·알림에 쓰지 않는다(배포 취소 때 그 시점 최대 번호로 정함). 시각 대신 번호라 시계와 무관
@@ -201,6 +203,30 @@ class Period(models.Model):
 
     def dates(self):
         return weekdays(self.start_date, self.end_date)
+
+
+class HolidaySource(models.TextChoices):
+    AUTO = "auto", "자동"
+    MANUAL = "manual", "직접 추가"
+
+
+class Holiday(models.Model):
+    """휴장일(모든 근무표 공통, 설계 5절). auto = services/holidays.sync 가 넣은 행, manual = 슈퍼유저가 관리 화면에서 추가.
+    sync 는 있는 행을 건드리지 않으므로 끈 자동 휴장일은 꺼진 채 남는다."""
+    Source = HolidaySource
+
+    date = models.DateField("날짜", unique=True)
+    name = models.CharField("이름", max_length=64)
+    source = models.CharField("출처", max_length=8, choices=Source.choices, default=Source.MANUAL)
+    active = models.BooleanField("휴장", default=True, help_text="끄면 휴장일이 아닙니다(이미 있는 배정은 그대로).")
+
+    class Meta:
+        verbose_name = verbose_name_plural = "휴장일"
+        ordering = ["date"]
+        constraints = [_one_of("source", HolidaySource.values, "holiday_source_valid")]
+
+    def __str__(self):
+        return f"{self.date} {self.name}"
 
 
 class PeriodEvent(models.Model):

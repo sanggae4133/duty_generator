@@ -1,5 +1,6 @@
 """작업자: 웹과 따로 도는 프로세스 하나(deploy/duty-worker.service). 1분마다 한 바퀴.
 
+- 휴장일 채우기: 매 바퀴 맨 앞(holidays.sync, 없는 날짜만 넣어 가볍다)
 - DB 백업: 하루 한 번, BACKUP_HOUR 시 이후(backup.daily)
 - 상태 점검: 5분마다(health.check)
 - 알림 발송: 매분(alarm_runner.tick)
@@ -15,7 +16,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from duty.logging import log_to_file
-from duty.services import alarm_runner, backup, change_notice, health
+from duty.services import alarm_runner, backup, change_notice, health, holidays
 
 log = logging.getLogger("duty.worker")
 HEALTH_EVERY = 5  # 분
@@ -23,7 +24,8 @@ HEALTH_EVERY = 5  # 분
 
 def run_round(now, everything=False, skip_health=False) -> None:
     # 백업·점검을 먼저: 알림 발송은 건마다 최대 10초라 네트워크가 느리면 오래 걸린다(그동안 백업·점검이 밀리지 않게)
-    jobs = [("backup", backup.daily)]
+    # 휴장일이 맨 앞: 영업일 기준 알림·근무표가 읽기 전에 올해·내년 휴장일이 표에 있게
+    jobs = [("holidays", lambda t: holidays.sync(timezone.localdate(t))), ("backup", backup.daily)]
     if everything or (not skip_health and timezone.localtime(now).minute % HEALTH_EVERY == 0):
         jobs.append(("health", health.check))
     jobs.append(("changes", change_notice.tick))  # 내 근무가 바뀌면 알림: 정기 알림보다 먼저('바로' 가게)
