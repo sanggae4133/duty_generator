@@ -6,10 +6,12 @@
   <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
 </nav>
 {% if holiday %}<p class="hol">{{ holiday }}</p>{% endif %}
+{% if note and not note.no_work %}<p class="memo">{{ note.text|linebreaksbr }}</p>{% endif %}
+{% if memo_admin %}<p><a class="memo-btn" href="{% url 'memo' 'day' d %}" hx-get="{% url 'memo' 'day' d %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">[메모]</a></p>{% endif %}
 <form method="get" class="search">
   {% include "duty/_filters.html" %}
 </form>
-{% if not found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
+{% if note.no_work %}<p class="nowork">{{ note.text|default:"근무 없음"|linebreaksbr }}</p>{% elif not found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
 {% for s in sections %}
 {% ifchanged s.slot %}<h4 class="grp">{% if s.slot %}장중관제{% else %}출근조{% endif %}</h4>{% endifchanged %}
 <article id="{{ s.cell }}" class="dcell">

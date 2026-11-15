@@ -69,6 +69,14 @@
     table.roster .add { opacity: .35; font-weight: 700; }
     table.roster .none { margin: .5rem 0 0; font-size: .8rem; opacity: .5; }
     .hol { margin: .2rem 0; font-weight: 700; color: var(--nxt-red); }  /* 휴장일 이름: 날짜 칸 맨 위·하루 화면 제목 아래 */
+    /* 메모: 날 메모는 휴장일 아래 한 줄, 근무 없음은 칸 전체를 덮는다. 주·달 메모는 표 위·아래(월간 주 메모는 그 주 행 아래) */
+    .memo { margin: .2rem 0 0; font-weight: 600; }
+    .nowork { margin: .4rem 0 0; padding: 1.2rem .4rem; border-radius: .3rem; text-align: center; font-weight: 700; background: var(--duty-line); }
+    .memo-btn { margin-left: .3rem; font-size: .8rem; white-space: nowrap; }
+    .memo-note { margin: .3rem 0 .6rem; }
+    .memo-note > small { margin-right: .3rem; opacity: .7; }
+    table.roster tr.wmemo td { padding: .2rem .5rem; }
+    table.roster tr.wmemo .memo-note { margin: 0; }
     .legend { margin: .5rem 0 0; opacity: .8; }
     /* 필터: 좁은 화면은 접어 둔다 */
     details.filters { flex-basis: 100%; margin: 0; }

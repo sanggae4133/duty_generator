@@ -6,13 +6,15 @@ from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, User
 from ..shifts import Def, by_key, cell_label, is_slot_cell
-from . import boards
+from . import boards, memos
 
 
 def _owner(board, d: date) -> Period:
     p = boards.owner(board, d)  # 그날의 주인(설계 6.1): 기간·배포 순번으로 정한다. 행이 없는 날도 주인이 있다
     if p is None:
         raise DutyError("배포된 근무표에 없는 날짜입니다.")
+    if memos.no_work_days(board, d, d):  # 근무 없음 날은 늘 비어 있다(설계 6.4). 휴장일은 막지 않는다
+        raise DutyError("근무 없는 날입니다.")
     return p
 
 

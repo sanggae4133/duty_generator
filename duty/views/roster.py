@@ -10,8 +10,8 @@ from django.urls import reverse
 from .. import perms
 from ..csv_io import split_names
 from ..errors import DutyError
-from ..models import Department, User
-from ..services import boards, changes, holidays, prefs
+from ..models import Department, Memo, User
+from ..services import boards, changes, holidays, memos, prefs
 from ..services.roster import find_day, member_schedule, published_days
 from ..shifts import (
     DAY_LABELS, DEVELOPER, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell, ordered, shift_defs,
@@ -176,6 +176,7 @@ def roster(request):
     first_day, last_day = weeks[0][0], weeks[-1][-1]
     by_date = {d.date: d for d in published_days(board, first_day, last_day)}
     closed = holidays.closed(first_day, last_day)  # 휴장일 이름은 회차·배정과 상관없이 칸 맨 위에
+    notes = memos.for_range(board, first_day, last_day)  # 메모도 회차가 아니라 (근무표, 날짜)에 붙는다
 
     def day_cells(d: date) -> dict:
         found = by_date.get(d)
@@ -191,21 +192,29 @@ def roster(request):
     def day_info(d: date) -> dict:
         cells = day_cells(d)
         other = view == "month" and d.month != anchor.month
+        note = notes["day"].get(d)
+        no_work = bool(note and note.no_work)
         return {
             "date": d, "is_today": d == today, "other": other, "empty": d not in by_date, "holiday": closed.get(d, ""),
-            "edit": (edit_past if d < today else edit_now) and not other and d in by_date,  # 배포된 근무표가 있는 날만
+            "memo": note.text if note else "", "no_work": no_work,
+            "week_memo": notes["week"].get(d),  # 월요일 칸에만 붙는다(week.0 = 그 주 월요일)
+            # 배포된 근무표가 있는 날만, 근무 없음 날은 못 바꾼다
+            "edit": (edit_past if d < today else edit_now) and not other and d in by_date and not no_work,
             "commute": [cells[x.key] for x in shift_defs(defs) if x.key in cells],
             "duty": [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs) if x.key in cells],
         }
 
     days = [[day_info(d) for d in w] for w in weeks]
+    months = sorted({d.replace(day=1) for w in weeks for d in w if view == "week" or d.month == anchor.month})
     ctx = {
         "view": view, "title": title, "names": names, "date": anchor, "today_link": (link(view, today) or f"?view={view}&date={today.isoformat()}") + "#today",
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
         "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs),
     }
-    ctx.update(_filter_ctx(board, defs, depts, types, shifts, history), weeks=days)
+    ctx.update(_filter_ctx(board, defs, depts, types, shifts, history), weeks=days,
+               memo_admin=perms.is_board_admin(request.user, board),
+               month_memos=[{"date": m, "memo": notes["month"].get(m)} for m in months])
     return render(request, "duty/roster.html", ctx)
 
 
@@ -250,11 +259,13 @@ def day(request, d):
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
     found = find_day(board, d)
-    editable = perms.can_edit(request.user, board, d)
+    note = memos.for_range(board, d, d)["day"].get(d)
+    no_work = bool(note and note.no_work)  # 근무 없음 날은 칸 대신 메모 글만, 바꾸기 없음
+    editable = perms.can_edit(request.user, board, d) and not no_work
     members = _active_members(board, depts, types)
     keep, shown = _keeper(depts, types), _shown(shifts)
     sections = []
-    if found:
+    if found and not no_work:
         for k in filter(shown, [x.key for x in display_order(defs)]):  # 출근조 먼저, 관제는 뒤에 묶어서
             ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
@@ -266,9 +277,39 @@ def day(request, d):
     qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
     return render(request, "duty/day.html", {
         "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
-        "holiday": holidays.closed(d, d).get(d, ""),
+        "holiday": holidays.closed(d, d).get(d, ""), "note": note,
+        "memo_admin": perms.is_board_admin(request.user, board),
         "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
         "qs": qs, **_filter_ctx(board, defs, depts, types, shifts, history),
+    })
+
+
+@login_required
+def memo(request, scope, d):
+    """[메모] 팝업(근무 변경 창과 같은 방식). 근무표 관리 그룹만."""
+    board = _board(request.user)
+    if scope not in Memo.Scope.values or not perms.is_board_admin(request.user, board):
+        raise Http404
+    d = memos.normalize(scope, d)
+    fallback = reverse("day", args=[d]) if scope == Memo.Scope.DAY else reverse("roster")
+    if request.method == "POST":
+        try:
+            if request.POST.get("delete"):
+                memos.delete(request.user, board, scope, d)
+                msg = "메모를 지웠습니다."
+            else:
+                cleared = memos.save(request.user, board, scope, d, request.POST.get("text", ""),
+                                     no_work=bool(request.POST.get("no_work")), confirm=bool(request.POST.get("confirm")))
+                msg = f"메모를 저장했습니다. {cleared}명의 근무를 지웠습니다." if cleared else "메모를 저장했습니다."
+        except DutyError as e:
+            messages.error(request, str(e))
+        else:
+            messages.success(request, msg)
+        return redirect(safe_next(request, fallback))
+    return render(request, "duty/_memo_form.html", {
+        "scope": scope, "d": d, "memo": memos.for_range(board, d, d)[scope].get(d), "next": safe_next(request, fallback),
+        "title": {"day": f"{d:%Y-%m-%d} 메모", "week": f"{d.month}/{d.day} 주 메모", "month": f"{d.year}년 {d.month}월 메모"}[scope],
+        "affected": memos.affected(board, d) if scope == Memo.Scope.DAY else 0,
     })
 
 

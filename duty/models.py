@@ -3,7 +3,8 @@ from django.contrib.auth.models import AbstractUser, Group, UserManager as Djang
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Func, Q, Value
+from django.db.models.lookups import Exact
 
 from .shifts import DEVELOPER, KEYS, SHIFT_KEYS, SLOT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
 
@@ -227,6 +228,42 @@ class Holiday(models.Model):
 
     def __str__(self):
         return f"{self.date} {self.name}"
+
+
+def _strftime(fmt: str):
+    """SQLite strftime(fmt, date). %w: 일요일 0 … 월요일 1, %d: 01~31."""
+    return Func(Value(fmt), F("date"), function="strftime", output_field=models.CharField())
+
+
+class MemoScope(models.TextChoices):
+    DAY = "day", "날"
+    WEEK = "week", "주"
+    MONTH = "month", "달"
+
+
+class Memo(models.Model):
+    """메모(설계 4.8·6.5): 회차가 아니라 (근무표, 날짜)에 붙는다. week = 그 주 월요일, month = 그 달 1일에 저장한다.
+    no_work(근무 없음)는 날 메모에만: 그날은 배정이 늘 비어 있고 근무 변경을 막는다(services/memos.save 가 배정을 지운다)."""
+    Scope = MemoScope
+
+    board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="memos", verbose_name="근무표")
+    scope = models.CharField("범위", max_length=8, choices=Scope.choices)
+    date = models.DateField("날짜")
+    text = models.CharField("내용", max_length=500, blank=True)
+    no_work = models.BooleanField("근무 없음", default=False)
+
+    class Meta:
+        verbose_name = verbose_name_plural = "메모"
+        constraints = [
+            models.UniqueConstraint(fields=["board", "scope", "date"], name="memo_one_per_date"),
+            _one_of("scope", MemoScope.values, "memo_scope_valid"),
+            models.CheckConstraint(name="memo_no_work_day_only", condition=Q(no_work=False) | Q(scope="day")),
+            models.CheckConstraint(name="memo_not_empty", condition=Q(no_work=True) | ~Q(text="")),
+            # 주 메모는 월요일, 달 메모는 1일에만(서비스가 맞춰 저장한다). __week_day 같은 lookup 은 Django 가 연결마다
+            # 등록하는 함수(django_date_extract)를 CHECK 에 넣어 sqlite3 셸에서 쓰기가 깨지므로 SQLite 내장 strftime 으로
+            models.CheckConstraint(name="memo_date_aligned", condition=(
+                Q(scope="day") | Q(Exact(_strftime("%w"), "1"), scope="week") | Q(Exact(_strftime("%d"), "01"), scope="month"))),
+        ]
 
 
 class PeriodEvent(models.Model):

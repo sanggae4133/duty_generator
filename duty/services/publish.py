@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, PeriodEvent, User
-from . import boards
+from . import boards, memos
 from .periods import record
 
 S = Period.Status
@@ -89,7 +89,13 @@ def unpublish_info(period: Period) -> UnpublishInfo:
            .order_by("-id").select_related("period").first())
     if top and top.period_id != period.pk:
         return blocked(f"나중에 배포된 회차({top.period.name})부터 배포 취소해야 합니다.")
-    return UnpublishInfo(None, len(period.publish_undo), ChangeLog.objects.filter(period=period, at__gte=period.published_at).count())
+    return UnpublishInfo(None, len(_restorable(period)), ChangeLog.objects.filter(period=period, at__gte=period.published_at).count())
+
+
+def _restorable(period: Period) -> list:
+    """배포 취소로 되살릴 행: 그 근무표의 근무 없음 날짜 행은 빼고(근무 없음 날은 늘 비어 있다, 설계 6.1)."""
+    closed = {x.isoformat() for x in memos.no_work_days(period.board, date.min, date.max)}
+    return [r for r in period.publish_undo if r[2] not in closed]
 
 
 @transaction.atomic
@@ -99,7 +105,7 @@ def unpublish(period: Period, by=None) -> None:
     info = unpublish_info(period)
     if info.blocker:
         raise DutyError(info.blocker)
-    undo = period.publish_undo
+    undo = _restorable(period)
     if User.objects.filter(pk__in={r[3] for r in undo}).count() != len({r[3] for r in undo}):
         raise DutyError("되살릴 근무의 사용자가 삭제되어 배포를 취소할 수 없습니다.")
     for key, (model, field) in _MODELS.items():
