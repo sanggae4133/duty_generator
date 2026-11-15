@@ -25,7 +25,7 @@ def save_draft(period: Period, by=None) -> Period:
     clash = (
         Period.objects.exclude(pk=period.pk)
         .exclude(status=S.PUBLISHED)
-        .filter(start_date__lte=period.end_date, end_date__gte=period.start_date)
+        .filter(board_id=period.board_id, start_date__lte=period.end_date, end_date__gte=period.start_date)
         .first()
     )
     if clash:
@@ -73,11 +73,12 @@ def delete(period: Period) -> None:
 
 
 def missing_dates(period: Period) -> dict[str, list[date]]:
+    """그 근무표 부서마다 출근표가 하나도 없는 평일."""
     have: dict[str, set[date]] = defaultdict(set)
     for code, d in Commute.objects.filter(period=period).values_list("member__department", "date"):
         have[code].add(d)
     out = {}
-    for dept in Department.objects.order_by("code"):
+    for dept in Department.objects.filter(board_id=period.board_id).order_by("code"):
         missing = [d for d in period.dates() if d not in have[dept.code]]
         if missing:
             out[dept.code] = missing

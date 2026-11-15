@@ -125,4 +125,5 @@ def progress(period: Period) -> dict[str, tuple[int, int]]:
         .annotate(n=Count("date", distinct=True))
         .values_list("member__department", "n")
     )
-    return {d.code: (filled.get(d.code, 0), total) for d in Department.objects.order_by("code")}
+    depts = Department.objects.filter(board_id=period.board_id).order_by("code")
+    return {d.code: (filled.get(d.code, 0), total) for d in depts}

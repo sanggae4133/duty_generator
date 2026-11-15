@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, PeriodEvent, User
+from . import boards
 from .periods import record
 
 S = Period.Status
@@ -28,22 +29,22 @@ def _validate(period: Period, overwrite_from: date) -> None:
 
 
 def _others(period: Period):
-    return Period.objects.filter(status=S.PUBLISHED).exclude(pk=period.pk)
+    # 근무표 필터가 빠지면 다른 근무표를 배포할 때 이 근무표의 같은 기간 행이 지워진다(설계 6.1)
+    return Period.objects.filter(status=S.PUBLISHED, board_id=period.board_id).exclude(pk=period.pk)
 
 
 def preview_publish(period: Period, overwrite_from: date) -> PublishPreview:
     _validate(period, overwrite_from)
-    rng = {"date__gte": overwrite_from, "date__lte": period.end_date}
-    names = set(Commute.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
-    names |= set(DutyAssignment.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
-    # 이미 덮어써져 행이 없는 날짜의 옛 이력은 세지 않는다
-    live = set(Commute.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
-    live |= set(DutyAssignment.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
+    # 덮어쓸 대상 = 범위 안 날짜마다의 주인(설계 6.1). 이 회차는 배포 전이라 주인이 아니다
+    own = boards.owners(period.board, overwrite_from, period.end_date)
+    # 이미 덮어써져 그날의 주인이 아닌 회차의 옛 이력은 세지 않는다
     discarded = sum(
-        1 for key in ChangeLog.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date")
-        if key in live
+        1 for pid, d in ChangeLog.objects.filter(
+            period__in=_others(period), date__gte=overwrite_from, date__lte=period.end_date,
+        ).values_list("period_id", "date")
+        if d in own and own[d].pk == pid
     )
-    return PublishPreview(overwrite_from, period.end_date, sorted(names), discarded)
+    return PublishPreview(overwrite_from, period.end_date, sorted({p.name for p in own.values()}), discarded)
 
 
 _MODELS = {"c": (Commute, "shift"), "a": (DutyAssignment, "cell")}  # 옛 "k"(관제 숫자) 행은 마이그레이션 0013 이 "a" 로 바꿨다
@@ -83,7 +84,8 @@ def unpublish_info(period: Period) -> UnpublishInfo:
     if period.publish_undo is None:
         return blocked("이 기능 전에 배포된 회차라 되돌릴 정보가 없습니다.")
     # 배포 순서는 시계가 아니라 상태 기록 순번으로 정한다(같은 시각·시계 보정에도 맞게)
-    top = (PeriodEvent.objects.filter(to_status=S.PUBLISHED, period__status=S.PUBLISHED)
+    top = (PeriodEvent.objects.filter(to_status=S.PUBLISHED, period__status=S.PUBLISHED,
+                                      period__board_id=period.board_id)  # 배포 취소 순서는 근무표마다
            .order_by("-id").select_related("period").first())
     if top and top.period_id != period.pk:
         return blocked(f"나중에 배포된 회차({top.period.name})부터 배포 취소해야 합니다.")
