@@ -10,7 +10,7 @@ python3 -m venv .venv
 cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 .venv/bin/pytest -W error   # 테스트는 .env 를 읽지 않는다
 .venv/bin/python manage.py migrate   # data/db.sqlite3 를 만든다
-.venv/bin/python manage.py createsuperuser
+.venv/bin/python manage.py createsuperuser   # 그다음 관리 화면 → 사용자 → 내 계정 → 그룹 칸에 "IT 근무표 관리"(OPERATIONS "처음 한 번")
 .venv/bin/python manage.py runserver
 ```
 
@@ -61,6 +61,7 @@ kill $SRV; rm -rf $W
 
 - 자막·순서는 `tools/help_videos/record.mjs` 의 `VIDEOS` 에서 고치고, 같은 내용의 글(`duty/help.py` 의 `STEPS`, 도움말의 "글로 보기")도 같이 고친다.
 - 영상 하나만 다시 뽑으려면 끝에 이름(`member` 등)을 붙인다. 단 `admin` 은 담당자 영상이 채우는 출근표를 쓰므로 `manager admin` 으로 함께 뽑는다(새 데이터에서).
+- 가짜 데이터는 마이그레이션이 만든 IT 근무표(`boards.it_board()`)에 부서(order 0~3: MEMS·TMCH·MD·UI)·회차를 붙이고, admin 을 "IT 근무표 관리" 그룹에, manager 를 MEMS 입력 그룹에 넣는다(관리자·담당자 판정이 그룹이라서). `tests/test_help_seed.py` 가 seed.py 가 끝까지 도는지 확인한다.
 - Chrome·Node 가 필요하다. 영상은 휴대폰 화면(390×844, 2배율), 관리자 영상만 PC 화면(1280×800)이다.
 
 ## 의존성 고정
