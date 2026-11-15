@@ -10,9 +10,15 @@ from ..shifts import by_key, shift_defs
 from . import boards
 
 
+def _same_board(period: Period, dept: Department) -> None:
+    if period.board_id != dept.board_id:
+        raise DutyError("이 회차의 근무표에 속한 부서가 아닙니다.")
+
+
 def _require_input(user, period: Period, dept: Department) -> None:
     if not perms.can_input_department(user, dept):
         raise PermissionDenied("이 부서의 출근표를 입력할 권한이 없습니다.")
+    _same_board(period, dept)
     if period.status != Period.Status.COLLECTING:
         raise DutyError("취합 중인 회차가 아닙니다.")
 
@@ -35,6 +41,7 @@ def shift_names(dept: Department) -> dict[str, str]:
 
 
 def load_table(period: Period, dept: Department) -> CommuteTable:
+    _same_board(period, dept)
     table: CommuteTable = {}
     rows = (
         Commute.objects.filter(period=period, member__department=dept)
@@ -81,7 +88,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
                     add_error(errors, CsvError(0, col, f"{name}: {labels[seen[name]].name}·{labels[key].name}에 중복"))
                 else:
                     seen[name] = key
-    if not perms.is_admin(user):
+    if not perms.is_board_admin(user, period.board):
         today = perms.today()
         for d in sorted(x for x in set(table) | set(existing) if x < today):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
@@ -114,6 +121,7 @@ def apply_csv(user, period: Period, dept: Department, raw: bytes) -> int:
 
 
 def export_csv(period: Period, dept: Department) -> bytes:
+    _same_board(period, dept)
     return export_commute_csv(period.dates(), shift_names(dept), load_table(period, dept))
 
 

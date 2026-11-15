@@ -86,3 +86,67 @@ def test_slot_keys_and_types_come_from_definitions(ops):
     run_generation(p, seed=1)
     assert set(DutyAssignment.objects.filter(period=p).values_list("cell", "member")) == {("slot3", m.pk)}
     assert DutyAssignment.objects.filter(period=p).count() == 5
+
+
+# ── 출근표 취합(6.2) ──
+
+@pytest.fixture
+def collecting(depts, make_member, fixed_today, it_board):
+    fixed_today(date(2026, 11, 1))
+    p = Period.objects.create(board=it_board, name="p", start_date=NOV9, end_date=NOV13, status=S.COLLECTING)
+    mgr = make_member("담당", user=True)
+    depts["MEMS"].managers.add(mgr)
+    for n in ["가", "나", "다"]:
+        make_member(n)
+    return p, depts["MEMS"], mgr
+
+
+def test_department_of_other_board_rejected(collecting, ops, make_member):
+    p, _, _ = collecting
+    board, dept = ops
+    ops_admin = make_member("운영관리", user=True)
+    board.admin_group.user_set.add(ops_admin)  # 운영팀 부서는 입력할 수 있다
+    with pytest.raises(DutyError, match="이 회차의 근무표에 속한 부서가 아닙니다"):
+        collect.apply_table(ops_admin, p, dept, {})
+    with pytest.raises(DutyError):
+        collect.apply_csv(ops_admin, p, dept, "date,주간\n".encode())
+
+
+@pytest.fixture
+def other_admin(collecting, ops, make_member):
+    """운영팀 관리자이면서 IT 부서(MEMS) 입력 담당. IT 근무표 관리자는 아니다(is_admin 은 참)."""
+    _, dept, _ = collecting
+    u = make_member("남관리", user=True)
+    ops[0].admin_group.user_set.add(u)
+    dept.managers.add(u)
+    return u
+
+
+def test_past_dates_need_this_board_admin(collecting, other_admin, fixed_today):
+    p, dept, mgr = collecting
+    collect.apply_csv(mgr, p, dept, CSV.encode())
+    fixed_today(date(2026, 11, 11))
+    with pytest.raises(CsvInvalid) as e:
+        collect.apply_csv(other_admin, p, dept, "date,새벽,정상,석식교대,야간\n2026-11-09,나,가,,\n".encode())
+    assert "지난 날짜" in " / ".join(x.reason for x in e.value.errors)
+
+
+def test_past_rows_locked_for_other_board_admin(client, collecting, other_admin, fixed_today):
+    p, _, _ = collecting
+    fixed_today(date(2026, 11, 11))
+    client.force_login(other_admin)
+    body = client.get(f"/collect/{p.pk}/MEMS/").content.decode()
+    assert 'name="c_2026-11-09_normal" value="" readonly' in body
+    assert 'name="c_2026-11-11_normal" value="" >' in body
+
+
+def test_other_board_department_page_and_csv_are_404(client, collecting, ops, make_member):
+    p, _, _ = collecting
+    board, dept = ops
+    u = make_member("운영관리", user=True)
+    board.admin_group.user_set.add(u)  # 운영팀 부서는 입력할 수 있다
+    client.force_login(u)
+    assert client.get(f"/collect/{p.pk}/OPS/").status_code == 404  # IT 회차에 운영팀 부서 표는 없다
+    assert client.get(f"/collect/{p.pk}/OPS/export.csv").status_code == 404
+    with pytest.raises(DutyError, match="이 회차의 근무표에 속한 부서가 아닙니다"):
+        collect.export_csv(p, dept)

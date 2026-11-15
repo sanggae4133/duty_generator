@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -33,12 +33,14 @@ def _load(request, pid, code):
     dept = get_object_or_404(Department, code=code)
     if not perms.can_input_department(request.user, dept):
         raise PermissionDenied
+    if period.board_id != dept.board_id:  # 다른 근무표 부서의 표·CSV 는 없는 주소로(서비스는 같은 DutyError)
+        raise Http404
     return period, dept
 
 
 def _render_table(request, period, dept, table, errors):
     keys = collect.input_keys(dept)
-    today, admin = perms.today(), perms.is_admin(request.user)
+    today, admin = perms.today(), perms.is_board_admin(request.user, period.board)
     rows = [
         {
             "date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin,
