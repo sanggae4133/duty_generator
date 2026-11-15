@@ -16,13 +16,18 @@ from .services import alarm_settings, boards
 from .shifts import shift_defs
 
 
+def _input_users(dept):
+    """부서 입력 그룹 멤버. 새 부서·직접 입력 근무표 부서(그룹 없음)는 빈 목록."""
+    return dept.input_group.user_set.all() if dept.input_group_id else User.objects.none()
+
+
 class DepartmentForm(forms.ModelForm):
     # DB에는 지금처럼 "normal,dinner,night" 문자열로 저장하고, 입력만 체크박스로 받는다
     shifts = forms.MultipleChoiceField(
         label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "출근조를 하나 이상 선택하세요."},
     )
-    # 1단계 호환: 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
+    # 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
     managers = forms.ModelMultipleChoiceField(
         label="입력 담당자", queryset=User.objects.none(), required=False,
         widget=FilteredSelectMultiple("입력 담당자", is_stacked=False),
@@ -39,7 +44,7 @@ class DepartmentForm(forms.ModelForm):
         board = self.instance.board if self.instance.board_id else boards.it_board()  # 1단계: 새 부서는 IT
         self.fields["shifts"].choices = [(x.key, x.name) for x in shift_defs(boards.active_defs(board))]
         # 후보는 roster()만. 지금 담당자는 퇴사·부서 해제됐어도 보여야 저장할 때 조용히 빠지지 않는다
-        current = self.instance.managers.all()  # 새 부서·직접 입력 근무표 부서는 빈 목록
+        current = _input_users(self.instance)
         self.fields["managers"].queryset = (User.objects.roster() | current).distinct()
         self.initial.setdefault("managers", list(current))
         if self.instance.pk:
@@ -80,7 +85,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 
     @admin.display(description="입력 담당자")
     def manager_names(self, obj):
-        return ", ".join(m.name for m in obj.managers.all()) or "(없음)"
+        return ", ".join(m.name for m in _input_users(obj)) or "(없음)"
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)

@@ -19,7 +19,7 @@ def videos(settings, tmp_path):
 def people(make_member, admin_user, depts):
     member = make_member("가", user=True)
     manager = make_member("나", user=True)
-    depts["MEMS"].managers.add(manager)
+    depts["MEMS"].input_group.user_set.add(manager)
     return {"member": member, "manager": manager, "admin": admin_user}
 
 

@@ -144,11 +144,6 @@ class Department(models.Model):
     def shift_keys(self) -> list[str]:
         return [s for s in self.shifts.split(",") if s]
 
-    @property
-    def managers(self):
-        """1단계 호환(2단계 끝에 지운다): 출근표 입력 담당 = 입력 그룹 멤버. 그룹이 없으면(직접 입력 근무표) 빈 목록."""
-        return self.input_group.user_set if self.input_group_id else User.objects.none()
-
 
 class UserManager(DjangoUserManager):
     def roster(self):

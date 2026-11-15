@@ -84,7 +84,7 @@ def test_missing_dates_old_period_counts_holiday(period, make_member):
 @pytest.fixture
 def mems(period, depts, make_member):
     mgr = make_member("담당", user=True)
-    depts["MEMS"].managers.add(mgr)
+    depts["MEMS"].input_group.user_set.add(mgr)
     for n in ["가", "나"]:
         make_member(n)
     return period, depts["MEMS"], mgr

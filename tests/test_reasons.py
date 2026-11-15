@@ -81,7 +81,7 @@ def collecting(depts, make_member, fixed_today, it_board):
     fixed_today(date(2026, 11, 1))
     p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=date(2026, 11, 13), status=S.COLLECTING)
     mgr = make_member("담당", user=True)
-    depts["MEMS"].managers.add(mgr)
+    depts["MEMS"].input_group.user_set.add(mgr)
     for n in ["가", "나", "다"]:
         make_member(n)
     return p, depts["MEMS"], mgr
