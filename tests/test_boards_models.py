@@ -42,7 +42,6 @@ def test_department_save_creates_input_group_for_collect_board(it_board):
 def test_department_without_collect_board_has_no_input_group(db):
     ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
     assert Department.objects.create(code="OPS", name="운영", shifts="normal", board=ops).input_group is None
-    assert Department.objects.create(code="NB", name="무소속", shifts="normal").input_group is None
 
 
 def test_depts_fixture_on_it_board_with_input_groups(depts, it_board):

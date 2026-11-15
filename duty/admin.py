@@ -34,7 +34,6 @@ class DepartmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["board"].required = True  # 부서는 근무표 하나에 속한다(DB NOT NULL 은 Task 6)
         if self.instance.board_id:  # 1단계: 저장된 부서의 근무표는 바꿀 수 없다(옮기기는 필요해지면 별도 기능, 설계 4.4)
             self.fields["board"].disabled = True
         board = self.instance.board if self.instance.board_id else boards.it_board()  # 1단계: 새 부서는 IT

@@ -103,8 +103,7 @@ class Department(models.Model):
     code = models.CharField("코드", max_length=8, primary_key=True)
     name = models.CharField("이름", max_length=32, unique=True)
     shifts = models.CharField("가능한 출근조", max_length=64, help_text="쉼표 구분: dawn,normal,dinner,night")
-    board = models.ForeignKey(Board, on_delete=models.PROTECT, null=True, blank=True, related_name="departments",
-                              verbose_name="근무표")
+    board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="departments", verbose_name="근무표")
     order = models.IntegerField("순서", default=99, help_text="근무표 부서 필터 순서(작은 값이 앞, 기본 99는 맨 뒤)")
     input_group = models.OneToOneField(Group, on_delete=models.PROTECT, null=True, blank=True, editable=False,
                                        related_name="input_department", verbose_name="입력 그룹")
@@ -184,8 +183,7 @@ class Period(models.Model):
     generated_at = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
     overwrite_from = models.DateField(null=True, blank=True)
-    board = models.ForeignKey(Board, on_delete=models.PROTECT, null=True, blank=True, related_name="periods",
-                              verbose_name="근무표")
+    board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="periods", verbose_name="근무표")
     # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
     publish_undo = models.JSONField(null=True, blank=True, editable=False)
     # 이 번호 이하의 ChangeLog 는 근무표·알림에 쓰지 않는다(배포 취소 때 그 시점 최대 번호로 정함). 시각 대신 번호라 시계와 무관
