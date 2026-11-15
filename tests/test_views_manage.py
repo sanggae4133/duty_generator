@@ -228,3 +228,31 @@ def test_admin_pages_need_admin_group_not_staff(client, staff_only, it_board, ur
     assert client.get(url).status_code == 403
     it_board.admin_group.user_set.add(staff_only)
     assert client.get(url).status_code == 200
+
+
+def test_admin_menu_follows_group(client, it_board, make_member, staff_only):
+    client.force_login(staff_only)
+    assert 'href="/periods/"' not in client.get("/").content.decode()  # 스태프 표시만으로는 아님
+    m = make_member("가", user=True)
+    client.force_login(m)
+    assert 'href="/periods/"' not in client.get("/").content.decode()
+    it_board.admin_group.user_set.add(m)
+    body = client.get("/").content.decode()
+    assert all(f'href="{u}"' in body for u in ("/periods/", "/stats/", "/changes/", "/collect/"))
+
+
+def test_stats_menu_only_for_boards_with_slots(client, it_board, make_member):
+    """설계 7절: 통계는 slot* 정의가 있는 근무표의 관리 그룹만. 정의 없는 근무표 관리자는 회차·이력만."""
+    m = make_member("가", user=True)
+    Board.objects.create(code="ops", name="운영팀", input_mode="direct").admin_group.user_set.add(m)
+    client.force_login(m)
+    body = client.get("/").content.decode()
+    assert 'href="/periods/"' in body and 'href="/changes/"' in body and 'href="/stats/"' not in body
+
+
+def test_superuser_is_not_admin_automatically(client, it_board):
+    root = User.objects.create_superuser("root", password="unused-Pw-123", name="루트")
+    client.force_login(root)
+    body = client.get("/").content.decode()
+    assert '<a href="/admin/">관리</a>' in body and 'href="/periods/"' not in body
+    assert client.get("/periods/").status_code == 403

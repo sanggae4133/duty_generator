@@ -481,3 +481,29 @@ def test_views_use_own_board_departments_and_definitions(client, world, it_board
     assert client.get(f"/cell/{D}/dinner/").status_code == 404  # 운영팀 정의에 없는 칸
     client.force_login(a)
     assert "OPS001" not in client.get(f"/cell/{D}/normal/").content.decode()  # IT 칸 To 후보에 운영팀 사람 없음
+
+
+@pytest.mark.parametrize("who,editable", [("it_admin", True), ("staff", False), ("ops_admin", False)])
+def test_past_edit_follows_board_admin_group(client, world, fixed_today, it_board, who, editable):
+    a, _ = world
+    fixed_today(date(2026, 11, 12))
+    if who == "it_admin":
+        it_board.admin_group.user_set.add(a)
+    elif who == "staff":
+        a.is_staff = True
+        a.save()
+    else:  # 다른 근무표의 관리자라고 IT 근무표의 지난 날을 고칠 수는 없다
+        Board.objects.create(code="ops", name="운영팀", input_mode="direct").admin_group.user_set.add(a)
+    client.force_login(a)
+    assert ("/cell/2026-11-10/" in client.get("/?date=2026-11-10").content.decode()) == editable
+    assert ("바꾸기</summary>" in client.get("/day/2026-11-10/").content.decode()) == editable
+
+
+def test_member_without_department_cannot_edit(client, world, admin_user):
+    """부서 없는 계정은 근무표가 없어 보기만 한다(관리 그룹이면 고친다). 오늘 날짜도 같다."""
+    nodept = User.objects.create_user("x", password="unused-Pw-123", name="무소속")
+    client.force_login(nodept)
+    assert "/cell/2026-11-10/" not in client.get("/?date=2026-11-10").content.decode()
+    assert "바꾸기</summary>" not in client.get("/day/2026-11-10/").content.decode()
+    client.force_login(admin_user)
+    assert "바꾸기</summary>" in client.get("/day/2026-11-10/").content.decode()

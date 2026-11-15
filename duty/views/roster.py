@@ -138,9 +138,11 @@ def _month_shift(d: date, step: int) -> date:
 def roster(request):
     names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
-    today, admin = perms.today(), perms.is_admin(request.user)
+    today = perms.today()
     board = _board(request.user)
     defs = boards.defs(board)
+    # 칸 링크 권한: 날짜마다 묻지 않고 지난 날·오늘 이후 두 번만 묻는다
+    edit_past, edit_now = (perms.can_edit(request.user, board, x) for x in (today - timedelta(days=1), today))
     pref = prefs.resolve(request.user, request.GET, board)
     view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
@@ -190,7 +192,7 @@ def roster(request):
         other = view == "month" and d.month != anchor.month
         return {
             "date": d, "is_today": d == today, "other": other, "empty": d not in by_date,
-            "edit": (admin or d >= today) and not other and d in by_date,  # 배포된 근무표가 있는 날만
+            "edit": (edit_past if d < today else edit_now) and not other and d in by_date,  # 배포된 근무표가 있는 날만
             "commute": [cells[x.key] for x in shift_defs(defs) if x.key in cells],
             "duty": [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs) if x.key in cells],
         }
@@ -247,7 +249,7 @@ def day(request, d):
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
     found = find_day(d)
-    editable = perms.is_admin(request.user) or d >= perms.today()
+    editable = perms.can_edit(request.user, board, d)
     members = _active_members(board, depts, types)
     keep, shown = _keeper(depts, types), _shown(shifts)
     sections = []
