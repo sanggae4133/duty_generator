@@ -52,3 +52,13 @@ def test_stops_before_anything_when_name_ends_with_reason(old_apps):
     with connection.cursor() as c:  # 0018 이 통째로 되돌려져 표도 칸도 없다
         assert "duty_holiday" not in connection.introspection.table_names(c)
     User.objects.filter(pk=u.pk).delete()  # 정리해야 픽스처가 최신 스키마로 올릴 수 있다
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_reverse_refuses_when_holidays_exist(old_apps):
+    """2단계부터 되돌리기는 백업 복원으로만(설계 10절): 휴장일이 있으면 0017로 되돌리지 않고 멈춘다."""
+    apps = _migrate(AFTER)
+    apps.get_model("duty", "Holiday").objects.create(date=date(2026, 12, 25), name="가상 휴일")
+    with pytest.raises(RuntimeError, match="백업"):
+        _migrate(BEFORE)
+    assert MigrationExecutor(connection).loader.applied_migrations.get(("duty", "0018_holidays"))

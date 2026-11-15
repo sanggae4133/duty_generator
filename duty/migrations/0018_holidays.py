@@ -17,6 +17,13 @@ def check_names(apps, schema_editor):
             '(docs/OPERATIONS.md "업그레이드·롤백") 옛 버전 관리 화면에서 그 이름을 바꾸고 업그레이드를 다시 하세요.')
 
 
+def refuse_reverse(apps, schema_editor):
+    """되돌릴 때 휴장일(사람이 고친 값 포함)을 조용히 지우지 않는다. 표가 비어 있으면(새 DB·테스트) 그냥 지나간다."""
+    if apps.get_model("duty", "Holiday").objects.exists():
+        raise RuntimeError('휴장일이 있어 되돌리지 않습니다. 2단계부터 되돌리기는 업그레이드 전 백업 복원으로만 합니다'
+                           '(docs/OPERATIONS.md "업그레이드·롤백").')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -52,4 +59,5 @@ class Migration(migrations.Migration):
                 'constraints': [models.CheckConstraint(condition=models.Q(('source__in', ['auto', 'manual'])), name='holiday_source_valid')],
             },
         ),
+        migrations.RunPython(migrations.RunPython.noop, refuse_reverse),  # 되돌릴 때 가장 먼저 돈다
     ]
