@@ -7,7 +7,7 @@ from django.db import IntegrityError, transaction
 
 from duty.models import Board, BoardShift, Department, GroupKeeper
 from duty.shifts import KEYS
-from tests.it_defs import IT_DEFS
+from tests.it_defs import IT_DEFS2
 
 
 def _bad(fn):
@@ -16,12 +16,12 @@ def _bad(fn):
 
 
 def test_it_defs_match_keys_order():
-    assert [d.key for d in IT_DEFS] == KEYS
+    assert [d.key for d in IT_DEFS2] == KEYS
 
 
 def test_it_board_fixture_has_14_defs_and_admin_group(it_board):
     assert it_board.code == "it" and it_board.input_mode == "collect"
-    assert sorted(it_board.shifts.values_list("key", flat=True)) == sorted(KEYS)
+    assert sorted(it_board.shifts.values_list("key", flat=True)) == sorted(k for k in KEYS if k != "lunch")
     assert it_board.admin_group_id is not None
 
 

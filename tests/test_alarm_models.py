@@ -59,7 +59,7 @@ def test_delivery_constraints(user):
     _bad(lambda: _delivery(r))
     _delivery(r, destination="2")  # 목적지가 다르면 허용
     _bad(lambda: _delivery(r, channel="sms", cell="normal"))
-    _bad(lambda: _delivery(r, cell="lunch"))
+    _bad(lambda: _delivery(r, cell="slot10"))
     _bad(lambda: _delivery(r, cell="normal", status="x"))
     _bad(lambda: _delivery(r, cell="normal", attempts=-1))
     _delivery(r, cell="report", status="failed", attempts=1, next_attempt_at=timezone.now())

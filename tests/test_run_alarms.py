@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from duty.alarms import senders
-from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Commute, Period, PushAlarmSubscription,
+from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Commute, Holiday, Period, PushAlarmSubscription,
                          TelegramAlarmProfile)
 from duty.services import alarm_runner, alarms, boards
 
@@ -503,3 +503,19 @@ def test_push_owner_changed_during_send(member, fake, make_member):
     alarm_runner.tick(SUN18)
     assert fake.dests() == ["111"]
     assert not AlarmDelivery.objects.filter(destination=f"sub:{s.id}").exists()
+
+
+def test_bizdays_rule_uses_holiday_table(member, fake, fixed_today):
+    """작업자는 휴장일 표(켜진 것)를 계획에 넘긴다: 금요일이 휴장일이면 '1영업일 전'은 목요일."""
+    verify(member)
+    keep = AlarmRule.objects.filter(user=member).first()
+    AlarmRule.objects.exclude(pk=keep.pk).delete()
+    AlarmRule.objects.filter(pk=keep.pk).update(timing="bizdays", offset=1, at_minute=17 * 60, shifts=["dawn"])
+    fixed_today(date(2026, 11, 12))
+    thu17 = at(2026, 11, 12, 17)
+    assert alarm_runner.tick(thu17) == (0, 0, 0)
+    h = Holiday.objects.create(date=date(2026, 11, 13), name="시험 휴장", active=False)
+    assert alarm_runner.tick(thu17) == (0, 0, 0)  # 꺼진 휴장일은 영업일
+    h.active = True
+    h.save()
+    assert alarm_runner.tick(thu17) == (1, 1, 0)

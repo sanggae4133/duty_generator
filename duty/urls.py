@@ -34,6 +34,7 @@ urlpatterns = [
     path("", roster_views.roster, name="roster"),
     path("day/<isodate:d>/", roster_views.day, name="day"),
     path("cell/<isodate:d>/<str:cell>/", roster_views.cell, name="cell"),
+    path("memo/<str:scope>/<isodate:d>/", roster_views.memo, name="memo"),
     path("me/", roster_views.me, name="me"),
     path("collect/", collect_views.index, name="collect_index"),
     path("collect/<int:pid>/<str:code>/", collect_views.table, name="collect_table"),

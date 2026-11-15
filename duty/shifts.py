@@ -1,6 +1,7 @@
 """칸 키와 근무 정의(Def) 헬퍼. ORM 없음.
 
-칸 키(KEYS)는 고정 목록이고 키 글자가 성격을 정한다: dawn·normal·dinner·night = 근무조, slot* = 장중관제.
+칸 키(KEYS)는 고정 목록이고 키 글자가 성격을 정한다: dawn·normal·dinner·night = 근무조, slot* = 장중관제,
+lunch = 점심당번.
 이름·시각·자격은 근무표마다 DB(BoardShift)에 있고, 아래 헬퍼는 그 정의 목록(defs)을 인자로 받는다(기본값 없음).
 """
 
@@ -9,15 +10,21 @@ from datetime import date, time, timedelta
 
 SHIFT_KEYS = ("dawn", "normal", "dinner", "night")  # 근무조 키(한 사람 하루 하나)
 SLOT_KEYS = tuple(f"slot{i}" for i in range(10))  # 장중관제 칸 키(자동 생성, 칸당 1명)
-# 근무표가 쓸 수 있는 키 전부. 순서 = 알림·캘린더 칸 순회 순서(바꾸면 알림 hash 가 달라져 다시 나간다)
-KEYS: list[str] = ["dawn", "normal", "dinner", *SLOT_KEYS, "night"]
+# 점심당번: 혼자인 당번 칸. 그 근무표의 가장 이른 근무조에 근무로 친 사람이 기본, 인원 제한 없음.
+# 정의에는 시각이 없고(화면은 "점심당번"만) 알림·캘린더 시각은 사람 부서의 Department.lunch_start/end
+LUNCH = "lunch"
+DUTY_KEYS = (*SLOT_KEYS, LUNCH)  # 당번 칸 키(DutyAssignment.cell)
+# 근무표가 쓸 수 있는 키 전부. 순서 = 알림·캘린더 칸 순회 순서(바꾸면 알림 hash 가 달라져 다시 나간다). lunch 는 2단계에 끝에 붙였다
+KEYS: list[str] = ["dawn", "normal", "dinner", *SLOT_KEYS, "night", LUNCH]
 SLOT_GROUP, SLOT_GROUP_NAME, SLOT_GROUP_SHORT = "slots", "장중관제", "관제"  # 장중관제 묶음 키·이름·짧은 이름
+SHIFT, SLOT, SOLO = "shift", "slot", "solo"  # 키의 성격: 근무조 / 묶음 당번 칸(장중관제) / 혼자인 당번 칸(점심당번)
 
 DEVELOPER = "개발자"
 STAFF = "직원"
 TARGET_SPREAD = 2
 MAX_SWAP_ITERATIONS = 10000
 DAY_LABELS = "월화수목금토일"
+REASONS = ("휴가", "출장", "교육")  # 사유: 붙으면 그날 근무로 치지 않는다(설계 2절). 표·CSV 에는 "이름(휴가)"
 
 
 @dataclass(frozen=True)
@@ -35,6 +42,11 @@ class Def:
 
 def is_slot_cell(cell: str) -> bool:
     return cell.startswith("slot")
+
+
+def kind(key: str) -> str:
+    """키의 성격(SHIFT·SLOT·SOLO). 같은 성격끼리만 맞교환하고, 알림 문구 틀도 이것으로 고른다."""
+    return SLOT if is_slot_cell(key) else SOLO if key == LUNCH else SHIFT
 
 
 def slot_index(cell: str) -> int:
@@ -60,9 +72,14 @@ def slot_defs(defs: list[Def]) -> list[Def]:
     return ordered([x for x in defs if is_slot_cell(x.key)])
 
 
+def lunch_defs(defs: list[Def]) -> list[Def]:
+    """점심당번 정의(없으면 빈 목록)."""
+    return [x for x in defs if x.key == LUNCH]
+
+
 def display_order(defs: list[Def]) -> list[Def]:
-    """화면 순서: 근무조(시작 시각 순) → 장중관제(키 순)."""
-    return shift_defs(defs) + slot_defs(defs)
+    """화면 순서: 근무조(시작 시각 순) → 점심당번 → 장중관제(키 순)."""
+    return shift_defs(defs) + lunch_defs(defs) + slot_defs(defs)
 
 
 def cell_label(defs: list[Def], cell: str) -> str:

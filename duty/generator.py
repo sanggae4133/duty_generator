@@ -7,7 +7,7 @@ Phase 2 Swap:   최다 배정자의 slot을 최소 배정자(그 slot 자격 있
 """
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from .shifts import MAX_SWAP_ITERATIONS, TARGET_SPREAD
@@ -34,6 +34,7 @@ class GenerationOutput:
     counts: dict[str, int]
     spread: int
     reached: bool
+    warnings: list[str] = field(default_factory=list)  # 생성은 했지만 알려야 할 것(점심당번을 못 채운 날 등)
 
 
 def _allowed(members_by_type: dict[str, set[str]], types: tuple[str, ...]) -> set[str]:

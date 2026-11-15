@@ -96,7 +96,7 @@ def collecting(depts, make_member, fixed_today, it_board):
     fixed_today(date(2026, 11, 1))
     p = Period.objects.create(board=it_board, name="p", start_date=NOV9, end_date=NOV13, status=S.COLLECTING)
     mgr = make_member("담당", user=True)
-    depts["MEMS"].managers.add(mgr)
+    depts["MEMS"].input_group.user_set.add(mgr)
     for n in ["가", "나", "다"]:
         make_member(n)
     return p, depts["MEMS"], mgr
@@ -119,7 +119,7 @@ def other_admin(collecting, ops, make_member):
     _, dept, _ = collecting
     u = make_member("남관리", user=True)
     ops[0].admin_group.user_set.add(u)
-    dept.managers.add(u)
+    dept.input_group.user_set.add(u)
     return u
 
 

@@ -27,4 +27,7 @@ IT_DEFS: list[Def] = [  # KEYS 순. active 는 기본값 True(IT 정의는 모�
     Def("night", "야간", time(13, 30), time(21, 30), default_alarm=True),
 ]
 
+IT_LUNCH = Def("lunch", "점심당번", None, None)  # 2단계 점심당번 정의(마이그레이션 0022, conftest lunch 픽스처와 같은 값)
+IT_DEFS2: list[Def] = [*IT_DEFS, IT_LUNCH]  # 2단계 IT 정의(KEYS 순)
+
 IT_SLOTS = [(x.name, x.eligible_shifts, x.eligible_types) for x in slot_defs(IT_DEFS)]  # generator 칸 목록(옛 CONTROL_SLOTS 의 값·순서 + 개발자)

@@ -20,8 +20,9 @@
   <fieldset class="filter"><legend>스케줄</legend>{{ form.shifts }}</fieldset>
   {% if multi_board %}<fieldset class="filter" data-kind="report"><legend>근무표</legend>{{ form.board }}</fieldset>
   {% endif %}<fieldset class="filter" data-kind="report"><legend>부서</legend>{{ form.depts }}</fieldset>
-  <fieldset class="filter" data-kind="report"><legend>유형</legend>{{ form.types }}</fieldset>
-  <small>모두 해제하면 전부</small>
+  {% if "types" in form.fields %}<fieldset class="filter" data-kind="report"><legend>유형</legend>{{ form.types }}</fieldset>
+  {% endif %}<small>모두 해제하면 전부</small>
+  <button name="redraw" value="1" formnovalidate hidden></button>
   <div class="row-btns"><button>저장</button><a href="{% url 'alarms' %}" role="button" class="secondary">취소</a></div>
 </form>
 <style>
@@ -48,7 +49,14 @@
       f.querySelectorAll("[data-timing]").forEach(el => el.hidden = !el.dataset.timing.split(" ").includes(timing));
       document.getElementById("days-unit").textContent = timing === "bizdays" ? "영업일 전" : "일 전";
     };
-    f.addEventListener("change", sync);
+    f.addEventListener("change", e => {
+      // 근무표가 둘 이상이면 종류·근무표에 따라 스케줄·부서 선택지가 달라진다: 저장하지 않고 다시 그린다
+      if ({{ multi_board|yesno:"true,false" }} && (e.target.name === "kind" || e.target.name === "board")) {
+        f.requestSubmit(f.querySelector("button[name=redraw]"));
+        return;
+      }
+      sync();
+    });
     sync();
   })();
 </script>

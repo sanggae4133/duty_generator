@@ -15,12 +15,13 @@ from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
 from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Board, Department,
                       PushAlarmSubscription, TelegramAlarmProfile, User)
-from . import alarm_settings, boards
+from . import alarm_settings, boards, holidays, prefs
 from .alarms import RULE_FIELDS
 from .roster import published_days
 
 log = logging.getLogger(__name__)
 HORIZON = timedelta(days=45)
+BIZ_BACK = timedelta(days=90)  # 영업일 기준 최대 30영업일 전 + 긴 연휴 여유: 이만큼 앞의 휴장일까지 읽는다
 KEEP = timedelta(days=7)
 LIMIT = 4000  # 텔레그램 본문 최대 길이
 
@@ -80,13 +81,19 @@ def _valid(rule, today) -> bool:
     return True
 
 
+def _lunch(rule):
+    """개인 규칙 주인 부서의 점심 시각(점심당번 알림 시작·문구). 보고서·시각 없는 부서는 None."""
+    dept = rule.user.department if rule.kind == "personal" and rule.user.department_id else None
+    return (dept.lunch_start, dept.lunch_end) if dept and dept.lunch_start else None
+
+
 def collect(now):
     """보낼 (Due, 기존 기록, 규칙 스냅숏) 목록. 근무표마다 그 근무표의 근무표·규칙으로 따로 계획한다
     (개인 = 주인 부서의 근무표, 보고서 = 규칙의 근무표). 같은 내용의 backoff 중인 것은 뺀다."""
     if timezone.is_naive(now):
         raise ValueError("now는 aware datetime이어야 합니다.")
     today = perms.today()
-    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True).select_related("user__department")
+    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True).select_related("user__department__board")
              if _valid(r, today)]
     snaps = {r.id: _snap(r) for r in rules}
     # 개인 알림 대상은 근무표 대상 계정(부서 있음)만. 부서 없는 어드민의 개인 규칙은 어느 근무표에도 넣지 않는다
@@ -102,19 +109,32 @@ def collect(now):
     destinations = _destinations(rules, alarm_settings.current())
     dept_names = dict(Department.objects.values_list("code", "name"))
     local_now = timezone.localtime(now).replace(tzinfo=None)
+    closed = frozenset(holidays.closed(today - BIZ_BACK, today + HORIZON))  # 모든 근무표 공통(설계 5)
     dues = []
+    homes = {}  # 사용자별 내 근무표. 매분 도는 작업자가 규칙마다 부서·관리 그룹을 다시 조회하지 않게
+
+    def query(r, board) -> str:
+        """알림 링크의 ?board=(설계 8.1): 남의 근무표 보고서만. 개인 규칙은 주인 부서의 근무표에서만 돌아 늘 ""."""
+        if r.kind != "report":
+            return ""
+        if r.user_id not in homes:
+            homes[r.user_id] = boards.home(r.user)
+        return boards.link_query(homes[r.user_id], board)
+
     for board in Board.objects.filter(pk__in=list(by_board)).order_by("id"):
         group = by_board[board.id]
         ids = {r.id for r in group}
+        typed = prefs.has_types(boards.active_defs(board))  # 관제 없는 근무표는 저장된 유형을 무시(= 전부)
         specs = [RuleSpec(r.id, r.user.name if r.user.department_id else None, r.kind, r.timing, r.offset,
                           r.at_minute, tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
-                          tuple(r.shifts), tuple(r.depts), tuple(r.types)) for r in group]
+                          tuple(r.shifts), tuple(r.depts), tuple(r.types) if typed else (), _lunch(r),
+                          query(r, board)) for r in group]
         # 주인은 있어도 배정이 하나도 없는 날은 넘기지 않는다(빈 보고서 방지, 설계 6.1).
         # 그날의 옛 발송 기록은 extra_dates 의 빈 날로 계산돼 취소가 나간다(지금과 같다)
         days = [d for d in published_days(board, today, today + HORIZON) if any(d.members.values())]
         dues += plan(boards.defs(board), specs, days, info, deliveries, local_now,
                      destinations=destinations, dept_names=dept_names,
-                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today)
+                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today, closed=closed)
     out = []
     for due in dues:
         row = rows.get((due.rule_id, due.date, due.cell, due.channel, due.destination))

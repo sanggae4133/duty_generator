@@ -118,13 +118,24 @@ const VIDEOS = {
     await s.say('NXT 당번표 사용법 — 모든 사용자\n아이디(멤버 코드)와 받은 비밀번호로 로그인합니다.', 2200);
     await s.login('member');
     await s.say('근무표: 이번 주 근무를 하루씩 봅니다.\n빨간 테두리가 오늘입니다.', 3000);
-    await s.scroll(700, 1500);
+    await s.tap('#size-btn', 900);
+    await s.say('오른쪽 위 [가]를 누를 때마다 글씨가\n크게 → 아주 크게 → 보통으로 바뀝니다.', 2200);
+    await s.tap('#size-btn', 1500);
+    await s.tap('#size-btn', 900);  // 보통으로 돌려 놓는다
+    // seed.py: 휴장일(이번 주 또는 다음 주 금요일), 오늘(주말이면 다음 평일)의 날 메모·사유·바뀐 칸·점심당번
+    await s.ev(`(document.querySelector('.hol') || document.querySelector('.memo')).scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
+    await s.say('날짜 칸 맨 위에 휴장일 이름과 날 메모가 보입니다.\n주 메모는 표 위, 달 메모는 표 아래에 있습니다.', 3400);
+    await s.ev(`document.querySelector('.rsn').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
+    await s.say('이름 뒤 (휴가)는 그날 근무로 치지 않는 사람입니다.\n근무조 아래 점심당번 줄이 그날 점심당번입니다.', 3400);
     await s.say('굵은 기울임 글씨는 배포 뒤에 바뀐 근무,\n취소선은 빠진 사람입니다.', 3000);
     await s.say('바꿀 칸을 누릅니다.', 1200);
-    await s.tap('a.cell[hx-get*="/normal/"]', 1600, -1);
+    await s.tap('a.cell[hx-get*="/normal/"]', 1600);  // 첫 번째 바꿀 수 있는 날(오늘)
     await s.say('From(이 칸 사람)과 To(바꿀 사람)를 고르면\n두 사람의 근무를 서로 맞바꿉니다.', 3400);
     await s.pick('#dlg select[name=after]', '');
     await s.say('To 목록 괄호 안이 그 사람의 그날 근무입니다.\n근무가 없는 사람이면 From 대신 들어갑니다.', 3400);
+    await s.say('\'점심당번도 같이 넘기기\'(기본 켬)로\nFrom의 점심당번을 To에게 함께 넘깁니다.', 3000);
+    await s.ev(`document.querySelector('#dlg [name=set_reason]').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1000);
+    await s.say('창 아래 [사유 저장]으로 휴가·출장·교육 사유를 붙입니다.\n사유가 붙으면 알림·캘린더에서 빠집니다.', 3400);
     await s.tap('#dlg form button', 1800);
     await s.say('저장하면 바로 반영되고 이력에 남습니다.\n지난 날짜는 관리자만 바꿀 수 있습니다.', 3200);
     await s.ev('scrollTo({top: 0})'); await sleep(600);

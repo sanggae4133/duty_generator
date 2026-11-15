@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .. import perms
+from ..csv_io import join_reason
 from ..errors import DutyError
 from ..generator import GenerationError
 from ..models import Board, ChangeLog, Period
@@ -110,13 +111,15 @@ def period_action(request, pid, action):
     if action not in actions:
         raise Http404
     try:
-        actions[action](period, by=request.user)
+        result = actions[action](period, by=request.user)
     except GenerationError as e:
         return _render_detail(request, period, e.failures)
     except DutyError as e:
         messages.error(request, str(e))
     else:
         messages.success(request, "완료했습니다.")
+        for w in getattr(result, "warnings", ()):  # 생성: 점심당번을 못 채운 날
+            messages.warning(request, w)
     return redirect("period_detail", pid)
 
 
@@ -184,8 +187,12 @@ def stats_view(request):
 
 @admin_required
 def change_log(request):
-    qs = (ChangeLog.objects.filter(period__board__in=perms.admin_boards(request.user))  # 내가 관리하는 근무표만(설계 9절)
-          .select_related("by", "before", "after", "period").order_by("-at", "-id"))
+    mine = list(perms.admin_boards(request.user).order_by("id"))
+    qs = (ChangeLog.objects.filter(period__board__in=mine)  # 내가 관리하는 근무표만(설계 9절)
+          .select_related("by", "before", "after", "period__board").order_by("-at", "-id"))
+    board_code = request.GET.get("board", "")
+    if board_code:  # 근무표 필터(내가 관리하는 근무표가 둘 이상일 때 보인다). 남의 근무표 코드는 빈 결과
+        qs = qs.filter(period__board__code=board_code)
     start, end = date_param(request, "from"), date_param(request, "to")
     if start:
         qs = qs.filter(date__gte=start)
@@ -201,10 +208,13 @@ def change_log(request):
     logs = [
         {
             "at": log.at, "by": (log.by.name or log.by.username) if log.by else "시트 가져오기", "date": log.date,
-            "cell": cell_label(defs[log.period.board_id], log.cell), "before": log.before.name if log.before else "",
-            "after": log.after.name if log.after else "", "period": log.period.name,
+            "cell": cell_label(defs[log.period.board_id], log.cell),
+            "before": join_reason(log.before.name, log.reason_before) if log.before else "",
+            "after": join_reason(log.after.name, log.reason_after) if log.after else "", "period": log.period.name,
+            "board": log.period.board.name,
         }
         for log in qs[:500]
     ]
-    return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end})
+    return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end,
+                                                 "board_choices": mine if len(mine) > 1 else [], "board_code": board_code})
 

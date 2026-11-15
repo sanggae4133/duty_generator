@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, PeriodEvent, User
-from . import boards
+from . import boards, memos
 from .periods import record
 
 S = Period.Status
@@ -47,7 +47,9 @@ def preview_publish(period: Period, overwrite_from: date) -> PublishPreview:
     return PublishPreview(overwrite_from, period.end_date, sorted({p.name for p in own.values()}), discarded)
 
 
-_MODELS = {"c": (Commute, "shift"), "a": (DutyAssignment, "cell")}  # 옛 "k"(관제 숫자) 행은 마이그레이션 0013 이 "a" 로 바꿨다
+# 행 종류 → (모델, 넷째 칸부터의 필드). 옛 "k"(관제 숫자) 행은 마이그레이션 0013 이 "a" 로 바꿨다.
+# c 행의 여섯째 칸(reason)은 2단계부터: 그 전에 배포한 회차의 다섯 칸짜리 c 행은 사유 없음으로 되살린다
+_MODELS = {"c": (Commute, ("shift", "reason")), "a": (DutyAssignment, ("cell",))}
 
 
 @transaction.atomic
@@ -55,12 +57,13 @@ def publish(period: Period, overwrite_from: date, by=None) -> None:
     period.refresh_from_db()  # 화면이 트랜잭션 밖에서 읽은 상태를 믿지 않는다(동시 배포)
     _validate(period, overwrite_from)
     undo = []
-    for key, (model, field) in _MODELS.items():
+    for key, (model, fields) in _MODELS.items():
         doomed = (
             model.objects.filter(period__in=_others(period), date__gte=overwrite_from, date__lte=period.end_date)
             | model.objects.filter(period=period, date__lt=overwrite_from)
         )
-        undo += [[key, p, d.isoformat(), m, v] for p, d, m, v in doomed.values_list("period_id", "date", "member_id", field)]
+        undo += [[key, p, d.isoformat(), m, *vals]
+                 for p, d, m, *vals in doomed.values_list("period_id", "date", "member_id", *fields)]
         doomed.delete()
     period.status, period.overwrite_from, period.published_at = S.PUBLISHED, overwrite_from, timezone.now()
     period.publish_undo = undo
@@ -89,7 +92,13 @@ def unpublish_info(period: Period) -> UnpublishInfo:
            .order_by("-id").select_related("period").first())
     if top and top.period_id != period.pk:
         return blocked(f"나중에 배포된 회차({top.period.name})부터 배포 취소해야 합니다.")
-    return UnpublishInfo(None, len(period.publish_undo), ChangeLog.objects.filter(period=period, at__gte=period.published_at).count())
+    return UnpublishInfo(None, len(_restorable(period)), ChangeLog.objects.filter(period=period, at__gte=period.published_at).count())
+
+
+def _restorable(period: Period) -> list:
+    """배포 취소로 되살릴 행: 그 근무표의 근무 없음 날짜 행은 빼고(근무 없음 날은 늘 비어 있다, 설계 6.1)."""
+    closed = {x.isoformat() for x in memos.no_work_days(period.board, date.min, date.max)}
+    return [r for r in period.publish_undo if r[2] not in closed]
 
 
 @transaction.atomic
@@ -99,13 +108,13 @@ def unpublish(period: Period, by=None) -> None:
     info = unpublish_info(period)
     if info.blocker:
         raise DutyError(info.blocker)
-    undo = period.publish_undo
+    undo = _restorable(period)
     if User.objects.filter(pk__in={r[3] for r in undo}).count() != len({r[3] for r in undo}):
         raise DutyError("되살릴 근무의 사용자가 삭제되어 배포를 취소할 수 없습니다.")
-    for key, (model, field) in _MODELS.items():
+    for key, (model, fields) in _MODELS.items():
         model.objects.bulk_create(
-            model(period_id=p, date=date.fromisoformat(d), member_id=m, **{field: v})
-            for k, p, d, m, v in undo if k == key
+            model(period_id=p, date=date.fromisoformat(d), member_id=m, **dict(zip(fields, vals)))
+            for k, p, d, m, *vals in undo if k == key
         )
     period.status, period.overwrite_from, period.published_at, period.publish_undo = S.GENERATED, None, None, None
     period.log_floor = ChangeLog.objects.aggregate(m=Max("id"))["m"] or 0  # 지금까지의 기록은 다시 배포해도 쓰지 않는다

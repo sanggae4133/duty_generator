@@ -129,6 +129,21 @@ def test_rule_form_two_boards(depts, it_board, ops):
     assert [c for c, _ in f.fields["shifts"].choices] == ["dawn", "normal", "dinner"]  # 개인 = 주인의 근무표
 
 
+def test_rule_types_only_on_board_with_slots(client, depts, it_board, ops, admin_user):
+    """유형은 켜진 관제 정의가 있는 근무표에만(근무표 화면과 같은 규칙). 없는 근무표는 칸을 숨기고 보낸 값은 버린다."""
+    board, _ = ops
+    f = RuleForm({**FORM, "kind": "report", "board": str(board.pk), "types": ["직원"]})
+    assert "types" not in f.fields and f.is_valid(), f.errors
+    assert f.cleaned_data["rule"]["types"] == []
+    assert "types" in RuleForm({**FORM, "kind": "report", "board": str(it_board.pk)}).fields
+    assert alarms.save_rule(admin_user, report_base(board.pk, types=["직원"])).types == []
+    client.force_login(admin_user)
+    page = client.post("/alarms/rules/new/", {**FORM, "kind": "report", "board": str(board.pk), "redraw": "1"})
+    assert "<legend>유형</legend>" not in page.content.decode()
+    page = client.post("/alarms/rules/new/", {**FORM, "kind": "report", "board": str(it_board.pk), "redraw": "1"})
+    assert "<legend>유형</legend>" in page.content.decode()
+
+
 def test_rule_page_board_field_only_with_two_boards(client, depts, request):
     client.force_login(User.objects.create_user("u9", password="unused-Pw-123", name="가상구"))
     assert "<legend>근무표</legend>" not in client.get("/alarms/rules/new/").content.decode()
@@ -143,6 +158,15 @@ def test_rule_list_names_shifts_by_rule_board(client, depts, ops, admin_user):
                              at_minute=18 * 60, telegram=True, shifts=["dawn"], depts=[], types=[])
     client.force_login(admin_user)
     assert "스케줄: 오전" in client.get("/alarms/").content.decode()
+
+
+def test_rule_list_ignores_stored_types_on_board_without_slots(client, depts, ops, admin_user):
+    """관제 없는 근무표의 보고서 규칙은 저장된 유형이 남아 있어도 목록에 '유형: 전부'."""
+    board, _ = ops
+    AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
+                             at_minute=18 * 60, telegram=True, shifts=["dawn"], depts=[], types=["개발자"])
+    client.force_login(admin_user)
+    assert "유형: 전부" in client.get("/alarms/").content.decode()
 
 
 # ---- 정기 알림 ----
@@ -169,6 +193,19 @@ def test_report_rule_reads_only_its_board(env, depts, it_board, ops, admin_user)
     published(board, (op, "dawn"))
     AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
                              at_minute=18 * 60, telegram=True, shifts=[], depts=[], types=[])
+    TelegramAlarmProfile.objects.create(user=admin_user, chat_id="999", verified_at=timezone.now())
+    alarm_runner.tick(SUN18)
+    assert env == [("999", "[출근표] 11/16(월)\n오전(07:30~) 가상운영\n주간(09:00~) -\n오후(11:00~) -")]
+
+
+def test_report_ignores_stored_types_on_board_without_slots(env, depts, it_board, ops, admin_user):
+    """관제 없는 근무표에선 저장된 유형이 남아 있어도 모든 유형을 넣는다."""
+    board, dept = ops
+    op = person("가상운영", dept, "222")
+    AlarmRule.objects.filter(user=op).delete()
+    published(board, (op, "dawn"))
+    AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
+                             at_minute=18 * 60, telegram=True, shifts=[], depts=[], types=["개발자"])
     TelegramAlarmProfile.objects.create(user=admin_user, chat_id="999", verified_at=timezone.now())
     alarm_runner.tick(SUN18)
     assert env == [("999", "[출근표] 11/16(월)\n오전(07:30~) 가상운영\n주간(09:00~) -\n오후(11:00~) -")]

@@ -4,8 +4,10 @@ from datetime import date
 from django.db.models import Exists, F, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 
+from .. import perms
 from ..models import Board, BoardShift, Period, PeriodEvent
 from ..shifts import Def, ordered, weekdays
+from . import holidays, memos
 
 
 def it_board() -> Board:
@@ -28,6 +30,23 @@ def active_defs(board: Board) -> list[Def]:
 def board_of(user) -> Board | None:
     dept = getattr(user, "department", None)  # 익명·부서 없는 계정은 근무표가 없다
     return dept.board if dept else None
+
+
+def home(user) -> Board | None:
+    """내 근무표(설계 7): 내 부서의 근무표 → 내가 관리하는 첫 근무표 → 첫 근무표.
+    ?board= 없는 /day/·/cell/·/memo/·/me/ 가 보는 근무표이고, 링크에 ?board= 를 붙일지 정하는 기준이다."""
+    return board_of(user) or perms.admin_boards(user).order_by("id").first() or Board.objects.order_by("id").first()
+
+
+def link_query(mine: Board | None, board: Board) -> str:
+    """board 가 내 근무표(mine)가 아닐 때만 "?board=<code>". 내 근무표를 이미 아는 호출이 다시 조회하지 않게 나눴다."""
+    return "" if mine is not None and mine.pk == board.pk else f"?board={board.code}"
+
+
+def board_query(user, board: Board) -> str:
+    """보이는 근무표가 내 근무표가 아닐 때만 "?board=<code>"(날짜 이동·필터 폼·htmx·변경 POST·알림 링크 공통).
+    내 근무표면 "" 라 IT 사람의 링크·알림 주소는 1단계 그대로다."""
+    return link_query(home(user), board)
 
 
 def _ranked(board):
@@ -66,3 +85,17 @@ def owners(board, start: date | None, end: date | None) -> dict[date, Period]:
         if p is not None:
             out[x] = p
     return out
+
+
+def skip_reasons(period: Period) -> dict[date, str]:
+    """만드는 도구(입력 표·CSV·생성·빈 날 검사)가 건너뛰는 날 {날짜: 까닭}(설계 5·6.5).
+    근무 없음 날은 늘(까닭 = 메모 글), 휴장일은 period.skip_holidays 일 때만(2단계 전 회차는 거짓)."""
+    out = holidays.closed(period.start_date, period.end_date) if period.skip_holidays else {}
+    for x, memo in memos.for_range(period.board, period.start_date, period.end_date)[memos.DAY].items():
+        if memo.no_work:
+            out[x] = memo.text or "근무 없음"
+    return out
+
+
+def skip_dates(period: Period) -> set[date]:
+    return set(skip_reasons(period))

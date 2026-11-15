@@ -11,9 +11,14 @@ from django.urls import reverse
 from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
-from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, User
+from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, Holiday, User
 from .services import alarm_settings, boards
 from .shifts import shift_defs
+
+
+def _input_users(dept):
+    """부서 입력 그룹 멤버. 새 부서·직접 입력 근무표 부서(그룹 없음)는 빈 목록."""
+    return dept.input_group.user_set.all() if dept.input_group_id else User.objects.none()
 
 
 class DepartmentForm(forms.ModelForm):
@@ -22,7 +27,7 @@ class DepartmentForm(forms.ModelForm):
         label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "출근조를 하나 이상 선택하세요."},
     )
-    # 1단계 호환: 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
+    # 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
     managers = forms.ModelMultipleChoiceField(
         label="입력 담당자", queryset=User.objects.none(), required=False,
         widget=FilteredSelectMultiple("입력 담당자", is_stacked=False),
@@ -30,7 +35,7 @@ class DepartmentForm(forms.ModelForm):
 
     class Meta:
         model = Department
-        fields = ["code", "name", "board", "order", "shifts"]
+        fields = ["code", "name", "board", "order", "shifts", "lunch_start", "lunch_end"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -39,7 +44,7 @@ class DepartmentForm(forms.ModelForm):
         board = self.instance.board if self.instance.board_id else boards.it_board()  # 1단계: 새 부서는 IT
         self.fields["shifts"].choices = [(x.key, x.name) for x in shift_defs(boards.active_defs(board))]
         # 후보는 roster()만. 지금 담당자는 퇴사·부서 해제됐어도 보여야 저장할 때 조용히 빠지지 않는다
-        current = self.instance.managers.all()  # 새 부서·직접 입력 근무표 부서는 빈 목록
+        current = _input_users(self.instance)
         self.fields["managers"].queryset = (User.objects.roster() | current).distinct()
         self.initial.setdefault("managers", list(current))
         if self.instance.pk:
@@ -80,7 +85,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 
     @admin.display(description="입력 담당자")
     def manager_names(self, obj):
-        return ", ".join(m.name for m in obj.managers.all()) or "(없음)"
+        return ", ".join(m.name for m in _input_users(obj)) or "(없음)"
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
@@ -204,6 +209,25 @@ class GroupKeeperInline(_ViewOnly, admin.TabularInline):
     """그룹 관리자는 기록만 보인다. 지정·편집과 그룹 화면은 3단계."""
     model = GroupKeeper
     extra = 0
+
+
+@admin.register(Holiday)
+class HolidayAdmin(admin.ModelAdmin):
+    """휴장일(설계 5절): 임시공휴일 추가(직접 추가), 휴장일이 아닌 날은 '휴장'을 끈다. 자동 행은 작업자가 채운다.
+    지우기는 막는다(지운 자동 휴장일은 다음 바퀴에 다시 생긴다). 이미 있는 배정은 바뀌지 않는다."""
+    list_display = ["date", "name", "source", "active"]
+    list_filter = ["active", "source"]
+    list_editable = ["active"]
+    date_hierarchy = "date"
+
+    def get_fields(self, request, obj=None):
+        return ["date", "name", "active"] if obj is None else ["date", "name", "source", "active"]
+
+    def get_readonly_fields(self, request, obj=None):
+        return [] if obj is None else ["date", "source"]  # 날짜를 옮기면 자동 행과 겹친다: 끄고 새로 추가한다
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 그룹 화면(권한 칸)을 바꾼다

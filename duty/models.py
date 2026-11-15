@@ -3,9 +3,15 @@ from django.contrib.auth.models import AbstractUser, Group, UserManager as Djang
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Func, Q, Value
+from django.db.models.lookups import Exact
 
-from .shifts import DEVELOPER, KEYS, SHIFT_KEYS, SLOT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
+from .csv_io import split_reason
+from .shifts import (
+    DEVELOPER, DUTY_KEYS, KEYS, LUNCH, REASONS, SHIFT_KEYS, STAFF, is_slot_cell, slot_index, weekdays,
+)
+
+REASON_CHOICES = [("", "없음"), *((r, r) for r in REASONS)]
 
 
 def _one_of(field: str, values, name: str) -> models.CheckConstraint:
@@ -24,6 +30,8 @@ def validate_member_name(value: str) -> None:
     # 앞 = - @ 탭은 CSV 를 엑셀로 열 때 수식으로 실행된다
     if any(c in value for c in ">,\n\r") or value.startswith(("+", "=", "-", "@", "\t")):
         raise ValidationError("이름에 > , 줄바꿈을 쓸 수 없고 + = - @ 탭으로 시작할 수 없습니다.")
+    if split_reason(value)[1]:  # 표·CSV 의 "이름(휴가)"와 헷갈린다
+        raise ValidationError("이름이 (휴가)·(출장)·(교육)으로 끝날 수 없습니다.")
 
 
 class InputMode(models.TextChoices):
@@ -57,6 +65,8 @@ class Board(models.Model):
 
 def _key_label(key: str) -> str:
     # 관리 화면 표시는 중립적으로(시장운영실이 dawn 을 '새벽'으로 오해하지 않게). DB 값은 키 그대로
+    if key == LUNCH:
+        return "점심당번"
     return f"관제 {slot_index(key) + 1}" if is_slot_cell(key) else f"근무조 {SHIFT_KEYS.index(key) + 1}"
 
 
@@ -79,9 +89,10 @@ class BoardShift(models.Model):
             # 이름은 CSV 열 이름·화면 라벨이 된다. 겹치면 CSV 열이 하나로 합쳐져 값이 사라지므로 DB 가 막는다
             models.UniqueConstraint(fields=["board", "name"], name="boardshift_one_per_name"),
             _one_of("key", KEYS, "boardshift_key_valid"),
-            # 1단계 키(근무조·관제)는 시각이 필수이고 당일 근무만(2단계에 시각 없는 점심당번을 더한다)
-            models.CheckConstraint(name="boardshift_times_valid",
-                                   condition=Q(start__isnull=False, end__isnull=False, start__lt=models.F("end"))),
+            # 근무조·관제는 시각이 필수이고 당일 근무만. 점심당번은 시각을 비운다(시각은 부서마다 Department.lunch_*)
+            models.CheckConstraint(name="boardshift_times_valid", condition=(
+                Q(key=LUNCH, start__isnull=True, end__isnull=True)
+                | (~Q(key=LUNCH) & Q(start__isnull=False, end__isnull=False, start__lt=models.F("end"))))),
         ]
 
     def __str__(self):
@@ -107,10 +118,19 @@ class Department(models.Model):
     order = models.IntegerField("순서", default=99, help_text="근무표 부서 필터 순서(작은 값이 앞, 기본 99는 맨 뒤)")
     input_group = models.OneToOneField(Group, on_delete=models.PROTECT, null=True, blank=True, editable=False,
                                        related_name="input_department", verbose_name="입력 그룹")
+    # 점심당번 시각(개인 알림·캘린더). 비우면 시각 기준 알림·캘린더 일정에서 점심당번이 빠진다
+    lunch_start = models.TimeField("점심 시작", null=True, blank=True)
+    lunch_end = models.TimeField("점심 끝", null=True, blank=True)
 
     class Meta:
         verbose_name = verbose_name_plural = "부서"
         ordering = ["code"]
+        constraints = [models.CheckConstraint(
+            name="department_lunch_valid",
+            condition=Q(lunch_start__isnull=True, lunch_end__isnull=True)
+            | Q(lunch_start__isnull=False, lunch_end__isnull=False, lunch_start__lt=F("lunch_end")),
+            violation_error_message="점심 시각은 둘 다 비우거나, 둘 다 넣고 시작을 끝보다 이르게 하세요.",
+        )]
 
     def __str__(self):
         return self.name
@@ -123,11 +143,6 @@ class Department(models.Model):
 
     def shift_keys(self) -> list[str]:
         return [s for s in self.shifts.split(",") if s]
-
-    @property
-    def managers(self):
-        """1단계 호환(2단계 끝에 지운다): 출근표 입력 담당 = 입력 그룹 멤버. 그룹이 없으면(직접 입력 근무표) 빈 목록."""
-        return self.input_group.user_set if self.input_group_id else User.objects.none()
 
 
 class UserManager(DjangoUserManager):
@@ -184,7 +199,10 @@ class Period(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
     overwrite_from = models.DateField(null=True, blank=True)
     board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="periods", verbose_name="근무표")
-    # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
+    # 휴장일 건너뛰기(설계 5절): 근무표를 만드는 도구가 휴장일을 건너뛴다. 2단계 전 회차는 거짓(마이그레이션 0018), 새 회차는 참
+    skip_holidays = models.BooleanField("휴장일 건너뛰기", default=True)
+    # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조, 사유] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다.
+    # 사유 칸이 없는 옛 c 행(2단계 전 배포)도 읽는다. null = 되돌릴 정보 없음
     publish_undo = models.JSONField(null=True, blank=True, editable=False)
     # 이 번호 이하의 ChangeLog 는 근무표·알림에 쓰지 않는다(배포 취소 때 그 시점 최대 번호로 정함). 시각 대신 번호라 시계와 무관
     log_floor = models.BigIntegerField(default=0, editable=False)
@@ -201,6 +219,66 @@ class Period(models.Model):
 
     def dates(self):
         return weekdays(self.start_date, self.end_date)
+
+
+class HolidaySource(models.TextChoices):
+    AUTO = "auto", "자동"
+    MANUAL = "manual", "직접 추가"
+
+
+class Holiday(models.Model):
+    """휴장일(모든 근무표 공통, 설계 5절). auto = services/holidays.sync 가 넣은 행, manual = 슈퍼유저가 관리 화면에서 추가.
+    sync 는 있는 행을 건드리지 않으므로 끈 자동 휴장일은 꺼진 채 남는다."""
+    Source = HolidaySource
+
+    date = models.DateField("날짜", unique=True)
+    name = models.CharField("이름", max_length=64)
+    source = models.CharField("출처", max_length=8, choices=Source.choices, default=Source.MANUAL)
+    active = models.BooleanField("휴장", default=True, help_text="끄면 휴장일이 아닙니다(이미 있는 배정은 그대로).")
+
+    class Meta:
+        verbose_name = verbose_name_plural = "휴장일"
+        ordering = ["date"]
+        constraints = [_one_of("source", HolidaySource.values, "holiday_source_valid")]
+
+    def __str__(self):
+        return f"{self.date} {self.name}"
+
+
+def _strftime(fmt: str):
+    """SQLite strftime(fmt, date). %w: 일요일 0 … 월요일 1, %d: 01~31."""
+    return Func(Value(fmt), F("date"), function="strftime", output_field=models.CharField())
+
+
+class MemoScope(models.TextChoices):
+    DAY = "day", "날"
+    WEEK = "week", "주"
+    MONTH = "month", "달"
+
+
+class Memo(models.Model):
+    """메모(설계 4.8·6.5): 회차가 아니라 (근무표, 날짜)에 붙는다. week = 그 주 월요일, month = 그 달 1일에 저장한다.
+    no_work(근무 없음)는 날 메모에만: 그날은 배정이 늘 비어 있고 근무 변경을 막는다(services/memos.save 가 배정을 지운다)."""
+    Scope = MemoScope
+
+    board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="memos", verbose_name="근무표")
+    scope = models.CharField("범위", max_length=8, choices=Scope.choices)
+    date = models.DateField("날짜")
+    text = models.CharField("내용", max_length=500, blank=True)
+    no_work = models.BooleanField("근무 없음", default=False)
+
+    class Meta:
+        verbose_name = verbose_name_plural = "메모"
+        constraints = [
+            models.UniqueConstraint(fields=["board", "scope", "date"], name="memo_one_per_date"),
+            _one_of("scope", MemoScope.values, "memo_scope_valid"),
+            models.CheckConstraint(name="memo_no_work_day_only", condition=Q(no_work=False) | Q(scope="day")),
+            models.CheckConstraint(name="memo_not_empty", condition=Q(no_work=True) | ~Q(text="")),
+            # 주 메모는 월요일, 달 메모는 1일에만(서비스가 맞춰 저장한다). __week_day 같은 lookup 은 Django 가 연결마다
+            # 등록하는 함수(django_date_extract)를 CHECK 에 넣어 sqlite3 셸에서 쓰기가 깨지므로 SQLite 내장 strftime 으로
+            models.CheckConstraint(name="memo_date_aligned", condition=(
+                Q(scope="day") | Q(Exact(_strftime("%w"), "1"), scope="week") | Q(Exact(_strftime("%d"), "01"), scope="month"))),
+        ]
 
 
 class PeriodEvent(models.Model):
@@ -225,20 +303,22 @@ class Commute(models.Model):
     date = models.DateField()
     member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     shift = models.CharField(max_length=8, choices=[(k, k) for k in SHIFT_KEYS])
+    reason = models.CharField(max_length=4, choices=REASON_CHOICES, blank=True, default="")  # 있으면 근무로 치지 않는다
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["period", "date", "member"], name="commute_one_shift_per_day"),
             _one_of("shift", SHIFT_KEYS, "commute_shift_valid"),
+            _one_of("reason", ["", *REASONS], "commute_reason_valid"),
         ]
         indexes = [models.Index(fields=["date"])]
 
 
 class DutyAssignment(models.Model):
-    """당번 배정 한 칸(1단계는 장중관제 slot0~slot9). 생성이 만들고 근무 변경이 바꾼다."""
+    """당번 배정 한 칸(장중관제 slot0~slot9, 점심당번 lunch). 생성이 만들고 근무 변경이 바꾼다."""
     period = models.ForeignKey(Period, on_delete=models.CASCADE, related_name="duty_assignments")
     date = models.DateField()
-    cell = models.CharField(max_length=8, choices=[(k, k) for k in SLOT_KEYS])
+    cell = models.CharField(max_length=8, choices=[(k, k) for k in DUTY_KEYS])
     member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
@@ -247,7 +327,7 @@ class DutyAssignment(models.Model):
             # 관제 칸은 칸당 한 명(DB가 계속 보장)
             models.UniqueConstraint(fields=["period", "date", "cell"], condition=Q(cell__startswith="slot"),
                                     name="dutyassignment_one_per_slot"),
-            _one_of("cell", SLOT_KEYS, "dutyassignment_cell_valid"),
+            _one_of("cell", DUTY_KEYS, "dutyassignment_cell_valid"),
         ]
         indexes = [models.Index(fields=["date"])]
 
@@ -257,15 +337,20 @@ class ChangeLog(models.Model):
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = 예전 시트 가져오기 기록. 계정은 삭제 대신 비활성화
     period = models.ForeignKey(Period, on_delete=models.PROTECT)  # 변경 기록은 남긴다: 기록 있는 회차는 삭제 불가
     date = models.DateField()
-    cell = models.CharField(max_length=8)  # dawn|normal|dinner|night|slot0..slot9
+    cell = models.CharField(max_length=8)  # KEYS 중 하나(근무조·slot0..slot9·lunch)
     before = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     after = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     notified = models.BooleanField(default=False)  # 당사자에게 '근무 변경' 알림을 보냈는지(작업자가 표시)
+    # 사유(근무조 칸만). 사유만 바뀐 기록은 before == after: 이력에만 보이고 화면 변경 표시·변경 알림은 건너뛴다
+    reason_before = models.CharField(max_length=4, choices=REASON_CHOICES, blank=True, default="")
+    reason_after = models.CharField(max_length=4, choices=REASON_CHOICES, blank=True, default="")
 
     class Meta:
         ordering = ["at", "id"]
         constraints = [
             _one_of("cell", KEYS, "changelog_cell_valid"),
+            _one_of("reason_before", ["", *REASONS], "changelog_reason_before_valid"),
+            _one_of("reason_after", ["", *REASONS], "changelog_reason_after_valid"),
             models.CheckConstraint(condition=models.Q(before__isnull=False) | models.Q(after__isnull=False), name="changelog_not_empty"),
         ]
 

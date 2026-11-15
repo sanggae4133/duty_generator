@@ -3,6 +3,7 @@ from itertools import count
 import pytest
 
 from duty.models import Board, BoardShift, Department, User
+from duty.shifts import LUNCH
 from tests.it_defs import IT_DEFS
 
 DEPTS = [
@@ -21,7 +22,15 @@ def it_board(db):
         BoardShift.objects.get_or_create(board=board, key=d.key, defaults=dict(
             name=d.name, start=d.start, end=d.end, eligible_shifts=list(d.eligible_shifts),
             eligible_types=list(d.eligible_types), default_alarm=d.default_alarm))
+    # 마이그레이션 0022 가 넣은 점심당번 정의는 뺀다: 기본 테스트는 1단계 IT 정의로 돌고, 점심당번 테스트는 lunch 픽스처로 켠다
+    BoardShift.objects.filter(board=board, key=LUNCH).delete()
     return board
+
+
+@pytest.fixture
+def lunch(it_board):
+    """IT 근무표에 점심당번 정의(시각 없음, 운영 마이그레이션 0022 와 같은 값)."""
+    return BoardShift.objects.create(board=it_board, key=LUNCH, name="점심당번")
 
 
 @pytest.fixture

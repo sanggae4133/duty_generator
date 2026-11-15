@@ -9,7 +9,7 @@ from .. import perms
 from ..csv_io import CsvInvalid, split_names
 from ..errors import DutyError
 from ..models import Department, Period, User
-from ..services import collect
+from ..services import boards, collect
 from ..shifts import DAY_LABELS
 
 MAX_UPLOAD = 1_000_000
@@ -41,9 +41,10 @@ def _load(request, pid, code):
 def _render_table(request, period, dept, table, errors):
     keys = collect.input_keys(dept)
     today, admin = perms.today(), perms.is_board_admin(request.user, period.board)
+    skip = boards.skip_reasons(period)  # 건너뛰는 날: 칸을 잠그고(disabled 라 보내지 않는다) 까닭을 보인다
     rows = [
         {
-            "date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin,
+            "date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin, "closed": skip.get(d, ""),
             "cells": [{"name": f"c_{d.isoformat()}_{k}", "value": ", ".join(table.get(d, {}).get(k, []))} for k in keys],
         }
         for d in period.dates()

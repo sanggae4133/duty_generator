@@ -1,7 +1,8 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <div class="cal-nav">
-  <h3 class="cal-title">{{ title }}</h3>
+  <h3 class="cal-title">{{ title }}{% if view_only %} <small>보기 전용</small>{% endif %}</h3>
+  {% if board_links %}<span class="seg" role="group" aria-label="근무표">{% for b in board_links %}<a href="{{ b.href }}"{% if b.current %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</span>{% endif %}
   <span class="seg" role="group" aria-label="보기">
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>
@@ -17,6 +18,7 @@
   {% endfor %}<button>검색</button></span>
   {% include "duty/_filters.html" with nested=True %}
   </div></details></form>
+{% if view == 'week' %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=weeks.0.0.week_memo %}{% endif %}
 <div class="grid-wrap roster-scroll">
 <table class="roster month{% if view == 'week' %} stack{% endif %}" id="roster">
   <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
@@ -29,10 +31,12 @@
       </td>
     {% endfor %}
     </tr>
+    {% if view == 'month' %}{% if week.0.week_memo or memo_admin %}<tr class="wmemo"><td colspan="5">{% include "duty/_memo.html" with scope="week" md=week.0.date m=week.0.week_memo %}</td></tr>{% endif %}{% endif %}
   {% endfor %}
   </tbody>
 </table>
 </div>
+{% for mm in month_memos %}{% include "duty/_memo.html" with scope="month" md=mm.date m=mm.memo %}{% endfor %}
 {% if history %}<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람{% if weeks.0.0.edit or weeks.0.4.edit %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>{% endif %}
 <script>
   const today = document.getElementById("today");

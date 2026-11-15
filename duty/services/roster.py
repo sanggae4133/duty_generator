@@ -1,11 +1,12 @@
 """배포된 근무표 읽기 모델. 화면·통계·알림·캘린더가 공통으로 쓴다."""
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from django.db.models import F
 
+from ..csv_io import join_reason
 from ..models import ChangeLog, Commute, DutyAssignment, User
 from ..shifts import SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
 from . import boards
@@ -27,6 +28,15 @@ class Day:
     cells: dict[str, Cell]
     members: dict[str, list[str]]
     replaced: dict[tuple[str, str], str]
+    reasons: dict[tuple[str, str], str] = field(default_factory=dict)  # (칸, 이름) → 사유. 있으면 근무로 치지 않는다
+
+    def excused(self, name: str) -> bool:
+        """그날 어느 근무조 배정에든 사유가 있으면 그 사람은 그날 전체를 근무로 치지 않는다(모든 칸)."""
+        return any(n == name for _, n in self.reasons)
+
+    def reason(self, cell: str, name: str) -> str:
+        """칸에 보일 사유: 그 칸의 사유, 없으면 그 사람의 그날 다른 사유."""
+        return self.reasons.get((cell, name)) or next((w for (_, n), w in self.reasons.items() if n == name), "")
 
 
 def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], dict[str, str]]:
@@ -56,18 +66,25 @@ def published_days(board, start: date | None = None, end: date | None = None) ->
     rng = {"period_id__in": set(owner_id.values()), "date__gte": min(owner_id), "date__lte": max(owner_id)}
 
     names: dict[tuple[date, str], list[str]] = defaultdict(list)
-    for model, field in ((Commute, "shift"), (DutyAssignment, "cell")):
-        rows = model.objects.filter(**rng).order_by("date", "member__username")
-        for d, pid, cell, name in rows.values_list("date", "period_id", field, "member__name"):
-            if owner_id.get(d) == pid:
-                names[(d, cell)].append(name)
+    reasons: dict[date, dict[tuple[str, str], str]] = defaultdict(dict)
+    rows = Commute.objects.filter(**rng).order_by("date", "member__username")
+    for d, pid, cell, name, why in rows.values_list("date", "period_id", "shift", "member__name", "reason"):
+        if owner_id.get(d) == pid:
+            names[(d, cell)].append(name)
+            if why:
+                reasons[d][(cell, name)] = why
+    rows = DutyAssignment.objects.filter(**rng).order_by("date", "member__username")
+    for d, pid, cell, name in rows.values_list("date", "period_id", "cell", "member__name"):
+        if owner_id.get(d) == pid:
+            names[(d, cell)].append(name)
 
     logs: dict[tuple[date, str], list[Log]] = defaultdict(list)
     # 배포 취소 이전 기록(log_floor 이하)은 다시 배포해도 쓰지 않는다(그사이 출근표·생성이 바뀌었을 수 있다)
     rows = (ChangeLog.objects.filter(**rng, id__gt=F("period__log_floor"))
             .order_by("at", "id").values_list("date", "period_id", "cell", "before__name", "after__name"))
     for d, pid, cell, before, after in rows:
-        if owner_id.get(d) == pid:  # 덮어쓰인 회차의 이력은 숨긴다
+        # 덮어쓰인 회차의 이력은 숨긴다. 사유만 바뀐 기록(before == after)은 변경 표시(A>B·취소선)에서 뺀다
+        if owner_id.get(d) == pid and before != after:
             logs[(d, cell)].append((before, after))
 
     days = []
@@ -80,7 +97,7 @@ def published_days(board, start: date | None = None, end: date | None = None) ->
             cells[cell] = Cell(labels, removed, bool(cell_logs))
             members[cell] = current
             replaced.update({(cell, name): prev for name, prev in rep.items()})
-        days.append(Day(d, owner_id[d], cells, members, replaced))
+        days.append(Day(d, owner_id[d], cells, members, replaced, reasons[d]))
     return days
 
 
@@ -93,7 +110,8 @@ def member_schedule(board, member: User, start: date, shown=lambda cell: True) -
     defs = boards.defs(board)
     out = []
     for day in published_days(board, start, None):
-        labels = [f"{SLOT_GROUP_NAME} {cell_label(defs, c)}" if is_slot_cell(c) else cell_label(defs, c)
+        labels = [f"{SLOT_GROUP_NAME} {cell_label(defs, c)}" if is_slot_cell(c)
+                  else join_reason(cell_label(defs, c), day.reason(c, member.name))  # 정상(휴가)
                   for c, names in day.members.items() if shown(c) and member.name in names]
         if labels:
             out.append((day.date, labels))

@@ -19,7 +19,7 @@ def test_past_date_is_admin_only(fixed_today, make_member, admin_user, it_board)
 
 def test_can_input_department(depts, make_member, admin_user):
     m = make_member("가", user=True)
-    depts["MEMS"].managers.add(m)
+    depts["MEMS"].input_group.user_set.add(m)
     assert perms.can_input_department(m, depts["MEMS"])
     assert not perms.can_input_department(m, depts["MD"])
     assert perms.can_input_department(admin_user, depts["MD"])
@@ -27,7 +27,7 @@ def test_can_input_department(depts, make_member, admin_user):
 
 def test_managed_departments(depts, make_member, admin_user):
     m = make_member("가", user=True)
-    depts["MD"].managers.add(m)
+    depts["MD"].input_group.user_set.add(m)
     assert list(perms.managed_departments(m)) == [depts["MD"]]
     assert perms.managed_departments(admin_user).count() == 4
     assert perms.managed_departments(AnonymousUser()).count() == 0
@@ -53,7 +53,7 @@ def test_admin_is_group_member_not_staff_or_superuser(it_board, ops, make_member
 
 def test_managed_departments_is_input_groups_plus_admin_boards(it_board, ops, depts, make_member):
     m = make_member("가")
-    depts["MD"].managers.add(m)          # 입력 그룹
+    depts["MD"].input_group.user_set.add(m)          # 입력 그룹
     ops[0].admin_group.user_set.add(m)   # 운영팀 관리자 → 운영팀의 모든 부서
     assert list(perms.managed_departments(m)) == [depts["MD"], ops[1]]
     assert perms.can_input_department(m, ops[1]) and not perms.can_input_department(m, depts["UI"])

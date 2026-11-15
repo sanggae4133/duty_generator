@@ -32,11 +32,12 @@ def _names(vals, labels: dict) -> str:
     return "·".join(labels.get(v, v) for v in vals) or "전부"
 
 
-def condition_label(r, dept_names: dict, shift_names: dict) -> str:
+def condition_label(r, dept_names: dict, shift_names: dict, typed: bool = True) -> str:
+    """typed=False: 관제 없는 근무표라 저장된 유형을 무시한다(발송과 같게 '전부')."""
     s = f"스케줄: {_names(r.shifts, shift_names)}"
     if r.kind == "personal":
         return s
-    return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types, {})} / {s}"
+    return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types if typed else [], {})} / {s}"
 
 
 def _bot_link(conf) -> str:
@@ -50,16 +51,19 @@ def index(request):
 
 def _index(request, **extra):
     dept_names = dict(Department.objects.values_list("code", "name"))
-    names_of = {}  # 근무표 → 스케줄 이름(규칙마다 그 규칙의 근무표: 개인 = 내 근무표, 보고서 = 규칙의 근무표)
+    names_of = {}  # 근무표 → (스케줄 이름, 유형 필터 여부)(규칙마다 그 규칙의 근무표: 개인 = 내 근무표, 보고서 = 규칙의 근무표)
+
+    def board_info(board):
+        if board.pk not in names_of:
+            names_of[board.pk] = (prefs.choices(boards.defs(board)), prefs.has_types(boards.active_defs(board)))
+        return names_of[board.pk]
 
     def shift_names(board):
-        if board.pk not in names_of:
-            names_of[board.pk] = prefs.choices(boards.defs(board))
-        return names_of[board.pk]
+        return board_info(board)[0]
 
     rules = [
         {"r": r, "timing": timing_label(r),
-         "cond": condition_label(r, dept_names, shift_names(alarms.rule_board(request.user, r.kind, r.board_id))),
+         "cond": condition_label(r, dept_names, *board_info(alarms.rule_board(request.user, r.kind, r.board_id))),
          "channels": "·".join(n for n, on in (("텔레그램", r.telegram), ("푸시", r.push)) if on)}
         for r in AlarmRule.objects.filter(user=request.user)
     ]
@@ -109,7 +113,9 @@ def telegram_link_check(request):
 
 
 def _rule_form(request, rule=None):
-    if request.method == "POST":
+    if request.method == "POST" and request.POST.get("redraw"):  # 종류·근무표를 바꿈: 저장하지 않고 다시 그린다
+        form = RuleForm.redraw(request.POST, user=request.user)
+    elif request.method == "POST":
         form = RuleForm(request.POST, user=request.user)
         if form.is_valid():
             try:
@@ -118,7 +124,9 @@ def _rule_form(request, rule=None):
                 form.add_error(None, str(e))
             else:
                 defs = boards.defs(alarms.rule_board(request.user, saved.kind, saved.board_id))
-                notice = same_day_notice(defs, saved.kind, saved.timing, saved.offset, saved.at_minute, saved.shifts)
+                dept = request.user.department if saved.kind == "personal" else None
+                notice = same_day_notice(defs, saved.kind, saved.timing, saved.offset, saved.at_minute, saved.shifts,
+                                         lunch=dept.lunch_start if dept else None)
                 messages.success(request, "규칙을 저장했습니다.")
                 if notice:
                     messages.warning(request, notice)

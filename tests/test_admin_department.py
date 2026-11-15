@@ -46,7 +46,7 @@ def test_change_page_renders_korean_checkboxes(su_client, depts):
 def test_changelist_shows_labels_count_and_managers(su_client, make_member):
     m = make_member("가", dept="UI")
     make_member("나", dept="UI")
-    m.department.managers.add(m)
+    m.department.input_group.user_set.add(m)
     html = su_client.get(reverse("admin:duty_department_changelist")).content.decode()
     assert "정상·석식교대·야간" in html
     assert ">2<" in html  # UI 인원
@@ -61,14 +61,14 @@ def test_shift_choices_and_labels_come_from_board_definitions(su_client, depts, 
     assert "정상·늦은조·야간" in html
 
 
-def test_managers_is_input_group_not_a_field(depts, make_member):
+def test_managers_compat_removed(depts):
+    """2단계 끝: 1단계 호환 property 를 지웠다. 입력 담당자 = 입력 그룹 멤버(관리 화면 폼 칸 이름만 managers)."""
     with pytest.raises(FieldDoesNotExist):
         Department._meta.get_field("managers")
-    a = make_member("가")
-    depts["UI"].managers.add(a)
-    assert list(depts["UI"].input_group.user_set.all()) == [a]
+    assert not hasattr(Department, "managers")
     direct = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
-    assert list(Department.objects.create(code="OPS", name="운영", shifts="normal", board=direct).managers.all()) == []
+    dept = Department.objects.create(code="OPS", name="운영", shifts="normal", board=direct)
+    assert dept.input_group_id is None and list(DepartmentForm(instance=dept).initial["managers"]) == []
 
 
 def test_form_initial_managers_from_input_group(depts, make_member):

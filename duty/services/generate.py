@@ -4,11 +4,12 @@ from collections import defaultdict
 from django.db import transaction
 from django.utils import timezone
 
+from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
 from ..models import Commute, DutyAssignment, Period, User
-from ..shifts import slot_defs
-from . import boards
+from ..shifts import LUNCH, by_key, shift_defs, slot_defs
+from . import boards, holidays
 from .periods import missing_dates, record
 
 S = Period.Status
@@ -19,6 +20,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     period.refresh_from_db()
     if period.status not in {S.CLOSED, S.GENERATED}:
         raise DutyError("마감된 회차만 생성할 수 있습니다.")
+    holidays.sync(perms.today())  # 작업자가 꺼져 있어도 휴장일 표가 비어 있지 않게
     missing = missing_dates(period)
     if missing:
         detail = ", ".join(f"{code} {len(ds)}일" for code, ds in missing.items())
@@ -26,16 +28,20 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     if seed is None:
         seed = random.SystemRandom().randrange(2**31)
 
-    slots = slot_defs(boards.active_defs(period.board))  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
+    skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
+    dates = [d for d in period.dates() if d not in skip]
+    active = boards.active_defs(period.board)
+    slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
         commutes: dict = defaultdict(lambda: defaultdict(set))
-        for d, shift, code in Commute.objects.filter(period=period).values_list("date", "shift", "member__username"):
+        rows = Commute.objects.filter(period=period, reason="").exclude(date__in=skip)  # 사유가 있으면 후보가 아니다
+        for d, shift, code in rows.values_list("date", "shift", "member__username"):
             commutes[d][shift].add(code)
         members_by_type: dict = defaultdict(set)  # 그 근무표 부서 재직자. 칸별 유형 거르기는 generator 가 한다
         for typ, code in User.objects.roster().filter(department__board=period.board).values_list("type", "username"):
             members_by_type[typ].add(code)
         out = generate_control_duty(
-            period.dates(), commutes, dict(members_by_type), seed,
+            dates, commutes, dict(members_by_type), seed,
             [(x.name, x.eligible_shifts, x.eligible_types) for x in slots],
         )  # GenerationError 전파
     else:  # 장중관제 정의가 없는 근무표는 생성기를 부르지 않는다
@@ -48,8 +54,25 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
         for d, picked in out.assignments.items()
         for i, code in enumerate(picked)
     )
+    if LUNCH in by_key(active) and shift_defs(active):
+        out.warnings += _fill_lunch(period, dates, skip, shift_defs(active)[0])
     old = period.status
     period.status, period.seed, period.generated_at = S.GENERATED, seed, timezone.now()
     period.save()
     record(period, old, by, "재생성" if old == S.GENERATED else "")
     return out
+
+
+def _fill_lunch(period: Period, dates: list, skip: set, early) -> list[str]:
+    """점심당번 = 날짜마다 가장 이른 근무조(early)에 근무로 친(사유 없는) 출근을 한 사람 전원(설계 6.3). 무작위 없음.
+    아무도 없는 날은 비우고 경고 한 줄."""
+    by_day: dict = defaultdict(list)
+    rows = Commute.objects.filter(period=period, shift=early.key, reason="").exclude(date__in=skip)
+    for d, member_id in rows.order_by("date", "member__username").values_list("date", "member_id"):
+        by_day[d].append(member_id)
+    DutyAssignment.objects.bulk_create(
+        DutyAssignment(period=period, date=d, cell=LUNCH, member_id=m) for d in dates for m in by_day[d])
+    empty = [d for d in dates if not by_day[d]]
+    if not empty:
+        return []
+    return [f"점심당번을 채우지 못한 날({early.name} 출근 없음): {', '.join(f'{d.month}/{d.day}' for d in empty)}"]

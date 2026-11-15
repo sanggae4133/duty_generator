@@ -50,7 +50,7 @@ def test_department_manager_choices_are_roster(depts, make_member, admin_user):
 
 def test_department_keeps_current_manager_outside_roster(depts, make_member):
     a, gone = make_member("가"), make_member("나", active=False)
-    depts["UI"].managers.add(gone)
+    depts["UI"].input_group.user_set.add(gone)
     assert set(DepartmentForm(instance=depts["UI"]).fields["managers"].queryset) == {a, gone}
     assert list(DepartmentForm(instance=depts["MD"]).fields["managers"].queryset) == [a]
 

@@ -39,7 +39,7 @@ def test_cell_times():
 
 
 def test_cells_of():
-    assert cells_of(IT_DEFS, []) == KEYS
+    assert cells_of(IT_DEFS, []) == [k for k in KEYS if k != "lunch"]
     assert cells_of(IT_DEFS, ["night", "dawn"]) == ["dawn", "night"]
     assert cells_of(IT_DEFS, ["slots"]) == [f"slot{i}" for i in range(10)]
 
