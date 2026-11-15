@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from .shifts import COMMUTE_SHIFTS, DAY_LABELS
+from .shifts import DAY_LABELS
 
 CommuteTable = dict[date, dict[str, list[str]]]
 
@@ -74,7 +74,8 @@ def parse_date(s: str) -> date | None:
     return None
 
 
-def parse_commute_csv(raw: bytes, shift_keys: list[str]) -> CommuteTable:
+def parse_commute_csv(raw: bytes, names: dict[str, str]) -> CommuteTable:
+    """names = {출근조 키: 열 이름(근무 정의 이름)}. 열 제목은 줄바꿈·'(' 앞까지만 맞춘다."""
     try:
         rows = list(csv.reader(io.StringIO(decode(raw))))
     except csv.Error as e:
@@ -86,8 +87,7 @@ def parse_commute_csv(raw: bytes, shift_keys: list[str]) -> CommuteTable:
     if "date" not in header:
         errors.append(CsvError(1, "date", "date 열이 없습니다."))
     cols: dict[str, int] = {}
-    for key in shift_keys:
-        label = COMMUTE_SHIFTS[key]
+    for key, label in names.items():
         if label in header:
             cols[key] = header.index(label)
         else:
@@ -114,11 +114,11 @@ def parse_commute_csv(raw: bytes, shift_keys: list[str]) -> CommuteTable:
     return table
 
 
-def export_commute_csv(dates: list[date], shift_keys: list[str], table: CommuteTable) -> bytes:
+def export_commute_csv(dates: list[date], names: dict[str, str], table: CommuteTable) -> bytes:
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["date", "day", *[COMMUTE_SHIFTS[k] for k in shift_keys]])
+    w.writerow(["date", "day", *names.values()])
     for d in dates:
         day = table.get(d, {})
-        w.writerow([d.isoformat(), DAY_LABELS[d.weekday()], *[", ".join(day.get(k, [])) for k in shift_keys]])
+        w.writerow([d.isoformat(), DAY_LABELS[d.weekday()], *[", ".join(day.get(k, [])) for k in names]])
     return buf.getvalue().encode("utf-8-sig")

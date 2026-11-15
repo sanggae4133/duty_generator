@@ -5,7 +5,7 @@ from django.core.exceptions import PermissionDenied
 
 from duty.csv_io import CsvInvalid
 from duty.errors import DutyError
-from duty.models import Period
+from duty.models import BoardShift, Commute, Period
 from duty.services import collect
 
 S = Period.Status
@@ -135,3 +135,29 @@ def test_unchanged_date_skips_member_check(setup, make_member):
     with pytest.raises(CsvInvalid) as e:
         collect.apply_csv(user, p, dept, changed)
     assert "재직 멤버가 아닙니다" in reasons(e)
+
+
+def test_csv_columns_follow_board_definitions(setup, it_board):
+    p, dept, user = setup
+    assert collect.shift_names(dept) == {"dawn": "새벽", "normal": "정상", "dinner": "석식교대", "night": "야간"}
+    BoardShift.objects.filter(board=it_board, key="dinner").update(name="늦은조")
+    assert collect.export_csv(p, dept).decode("utf-8-sig").splitlines()[0] == "date,day,새벽,정상,늦은조,야간"
+    raw = 'date,새벽,정상,늦은조,야간\n2026-11-09,가,,나,\n'.encode()
+    assert collect.apply_csv(user, p, dept, raw) == 2
+
+
+def test_inactive_shift_left_out_of_input_but_kept_on_save(setup, it_board, client):
+    p, dept, user = setup
+    collect.apply_csv(user, p, dept, 'date,새벽,정상,석식교대,야간\n2026-11-09,가,나,,\n'.encode())
+    BoardShift.objects.filter(board=it_board, key="dawn").update(active=False)
+    assert collect.input_keys(dept) == ["normal", "dinner", "night"] == list(collect.shift_names(dept))
+    assert collect.export_csv(p, dept).decode("utf-8-sig").splitlines()[0] == "date,day,정상,석식교대,야간"
+    client.force_login(user)
+    assert 'name="c_2026-11-09_dawn"' not in client.get(f"/collect/{p.pk}/MEMS/").content.decode()  # 입력 칸 없음
+    collect.apply_csv(user, p, dept, 'date,정상,석식교대,야간\n2026-11-09,다,,\n'.encode())
+    # 입력 키(정상·석식교대·야간)의 행만 바뀌고, 꺼진 새벽의 기존 배정은 지워지지 않는다
+    assert dict(Commute.objects.filter(period=p).values_list("member__name", "shift")) == {"가": "dawn", "다": "normal"}
+    # 꺼진 근무조에 남은 사람을 그날 켜진 근무조에 다시 넣으면 검증 오류(하루 한 출근 제약에 걸리기 전에)
+    with pytest.raises(CsvInvalid) as e:
+        collect.apply_csv(user, p, dept, 'date,정상,석식교대,야간\n2026-11-09,가,,\n'.encode())
+    assert any("이미 사용하지 않는 근무조에 배정돼 있습니다" in err.reason for err in e.value.errors)

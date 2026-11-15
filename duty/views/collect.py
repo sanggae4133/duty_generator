@@ -10,7 +10,7 @@ from ..csv_io import CsvInvalid, split_names
 from ..errors import DutyError
 from ..models import Department, Period, User
 from ..services import collect
-from ..shifts import COMMUTE_SHIFTS, DAY_LABELS
+from ..shifts import DAY_LABELS
 
 MAX_UPLOAD = 1_000_000
 
@@ -36,7 +36,7 @@ def _load(request, pid, code):
 
 
 def _render_table(request, period, dept, table, errors):
-    keys = dept.shift_keys()
+    keys = collect.input_keys(dept)
     today, admin = perms.today(), perms.is_admin(request.user)
     rows = [
         {
@@ -47,7 +47,7 @@ def _render_table(request, period, dept, table, errors):
     ]
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
-        "shift_labels": [COMMUTE_SHIFTS[k] for k in keys],
+        "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
         "is_open": period.status == Period.Status.COLLECTING,
     }, status=400 if errors else 200)
@@ -59,7 +59,7 @@ def table(request, pid, code):
     if request.method == "POST":
         posted = {}
         for d in period.dates():
-            day = {k: split_names(request.POST.get(f"c_{d.isoformat()}_{k}", "")) for k in dept.shift_keys()}
+            day = {k: split_names(request.POST.get(f"c_{d.isoformat()}_{k}", "")) for k in collect.input_keys(dept)}
             if any(day.values()):
                 posted[d] = day
         try:

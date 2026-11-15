@@ -3,8 +3,16 @@ from datetime import date
 import pytest
 
 from duty.csv_io import CsvInvalid, export_commute_csv, parse_commute_csv, parse_date, split_names
+from duty.shifts import by_key
+from tests.it_defs import IT_DEFS
 
-KEYS = ["dawn", "normal", "dinner", "night"]
+
+def _names(keys: list[str]) -> dict[str, str]:
+    """IT 정의의 {키: 이름}(CSV 열 이름)."""
+    return {k: by_key(IT_DEFS)[k].name for k in keys}
+
+
+KEYS = _names(["dawn", "normal", "dinner", "night"])
 SAMPLE = (
     'date,day,"새벽\n(06:30~15:30)",정상,석식교대,야간\n'
     '2026-11-09,월,"가, 나",다,라,마\n'
@@ -53,7 +61,7 @@ def test_missing_column():
 
 def test_ui_without_dawn_column_is_fine():
     raw = "date,정상,석식교대,야간\n2026-11-09,가,,\n".encode()
-    t = parse_commute_csv(raw, ["normal", "dinner", "night"])
+    t = parse_commute_csv(raw, _names(["normal", "dinner", "night"]))
     assert t[date(2026, 11, 9)]["normal"] == ["가"]
 
 
@@ -71,3 +79,10 @@ def test_export_roundtrip():
     back = parse_commute_csv(raw, KEYS)
     assert back[date(2026, 11, 9)] == {"dawn": ["가", "나"], "normal": ["다"], "dinner": [], "night": []}
     assert back[date(2026, 11, 10)] == {"dawn": [], "normal": [], "dinner": [], "night": []}
+
+
+def test_columns_follow_given_names():
+    names = {"dawn": "이른조", "night": "늦은조"}
+    raw = export_commute_csv([date(2026, 11, 9)], names, {date(2026, 11, 9): {"dawn": ["가"]}})
+    assert raw.decode("utf-8-sig").splitlines()[0] == "date,day,이른조,늦은조"
+    assert parse_commute_csv(raw, names)[date(2026, 11, 9)] == {"dawn": ["가"], "night": []}
