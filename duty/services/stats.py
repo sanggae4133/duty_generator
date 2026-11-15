@@ -77,7 +77,8 @@ def period_duty_counts(period: Period) -> tuple[list[tuple[str, int]], int, bool
     # 회차의 출근표가 곧 그 근무표 사람(퇴사자도 출근이 있으면 0회로 남는다). 사유가 있는 출근은 생성 후보가 아니다
     pool = Commute.objects.filter(q, period=period, reason="")
     n: dict[str, int] = dict.fromkeys(pool.values_list("member__name", flat=True), 0)
-    for name in DutyAssignment.objects.filter(period=period).values_list("member__name", flat=True):
+    # 장중관제 칸만 센다(점심당번은 횟수에 넣지 않는다, 설계 8.3)
+    for name in DutyAssignment.objects.filter(period=period, cell__startswith="slot").values_list("member__name", flat=True):
         n[name] = n.get(name, 0) + 1
     counts = sorted(n.items(), key=lambda x: (x[1], x[0]))
     spread = counts[-1][1] - counts[0][1] if counts else 0

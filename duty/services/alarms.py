@@ -14,7 +14,7 @@ from .. import perms
 from ..alarms import senders
 from ..errors import DutyError
 from ..models import AlarmRule, Board, Department, PushAlarmSubscription, TelegramAlarmProfile, User
-from ..shifts import DEVELOPER, STAFF, shift_defs
+from ..shifts import DEVELOPER, LUNCH, STAFF, shift_defs
 from . import alarm_settings, boards, prefs
 
 DEFAULT_RULES = [
@@ -76,6 +76,8 @@ def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
     board_id = data.get("board_id") if data["kind"] == "report" else None
     shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"],
                                      rule_board(user, data["kind"], board_id))
+    if data["kind"] == "report" and shifts == [LUNCH]:  # 보고서 발송 창은 시각 있는 칸으로 정한다(설계 8.1)
+        raise DutyError("보고서는 시각이 있는 근무를 하나 이상 고르세요. 점심당번만으로는 보낼 수 없습니다.")
     new = {**data, "board_id": board_id, "shifts": shifts, "depts": depts, "types": types}
     rule = rule or AlarmRule(user=user)
     changed = rule.pk is not None and _key(rule) != tuple(new[f] for f in RULE_FIELDS)

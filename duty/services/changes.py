@@ -5,7 +5,7 @@ from django.db import transaction
 from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, User
-from ..shifts import REASONS, SLOT_GROUP_NAME, Def, by_key, cell_label, is_slot_cell
+from ..shifts import LUNCH, REASONS, SHIFT, SLOT_GROUP_NAME, Def, by_key, cell_label, is_slot_cell, kind
 from . import boards, memos
 
 
@@ -63,8 +63,21 @@ def _check_candidate(board, m: User | None) -> None:
         raise DutyError(f"{m.name}은(는) 근무표 대상이 아닙니다.")
 
 
+def _carry_lunch(user, period: Period, d: date, before: User, after: User) -> None:
+    """점심당번도 같이 넘기기(설계 6.4): 떠나는 사람이 그날 점심당번이고 들어오는 사람은 아니면 넘긴다.
+    기록은 근무조 기록 **뒤에** 남긴다(맞교환 기록 둘 사이에 끼면 변경 알림의 짝짓기가 깨진다)."""
+    rows = DutyAssignment.objects.filter(period=period, date=d, cell=LUNCH)
+    row = rows.filter(member=before).first()
+    if row is None or rows.filter(member=after).exists():
+        return
+    row.member = after
+    row.save()
+    ChangeLog.objects.create(by=user, period=period, date=d, cell=LUNCH, before=before, after=after)
+
+
 @transaction.atomic
-def change_cell(user, board, d: date, cell: str, before: User | None, after: User | None) -> list[str]:
+def change_cell(user, board, d: date, cell: str, before: User | None, after: User | None,
+                carry_lunch: bool = True) -> list[str]:
     perms.assert_can_edit(user, board, d)
     period = _owner(board, d)
     defs = boards.defs(board)
@@ -86,6 +99,17 @@ def change_cell(user, board, d: date, cell: str, before: User | None, after: Use
         if others:
             labels = ", ".join(cell_label(defs, o.cell) for o in others)
             warnings.append(f"{after.name}은(는) 그날 다른 관제 칸({labels})도 맡고 있습니다.")
+    elif cell == LUNCH:  # 혼자인 당번 칸: 넣기·빼기·교체, 인원 제한 없음
+        rows = DutyAssignment.objects.filter(period=period, date=d, cell=cell)
+        row = rows.filter(member=before).first() if before is not None else None
+        if before is not None and row is None:
+            raise DutyError(f"{before.name}은(는) 이 칸에 없습니다.")
+        if after is not None and rows.filter(member=after).exists():
+            raise DutyError(f"{after.name}은(는) 이미 이 칸에 있습니다.")
+        if row is not None:
+            row.delete()
+        if after is not None:
+            DutyAssignment.objects.create(period=period, date=d, cell=cell, member=after)
     else:
         row = None
         if before is not None:
@@ -101,6 +125,8 @@ def change_cell(user, board, d: date, cell: str, before: User | None, after: Use
         warnings = _duty_warnings(defs, period, d, [before, after])
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell, before=before, after=after,
                              reason_before=getattr(row, "reason", ""))  # 빠진 사람의 사유는 기록에 남긴다(관제 행에는 없다)
+    if carry_lunch and kind(cell) == SHIFT and before is not None and after is not None:
+        _carry_lunch(user, period, d, before, after)
     return warnings
 
 
@@ -131,12 +157,14 @@ def set_reason(user, board, d: date, member: User, reason: str) -> list[str]:
 
 
 @transaction.atomic
-def exchange(user, board, d: date, cell: str, before: User | None, after: User | None) -> list[str]:
+def exchange(user, board, d: date, cell: str, before: User | None, after: User | None,
+             carry_lunch: bool = True) -> list[str]:
     """근무 변경 창의 저장. 둘 다 있으면 기본은 맞교환: To 가 그날 같은 묶음 다른 칸에 있으면 서로 바꾸고,
-    없으면 From 대신 들어간다. 한쪽만 있으면 넣기·빼기(change_cell)."""
+    없으면 From 대신 들어간다. 한쪽만 있으면 넣기·빼기(change_cell). 점심당번은 묶음이 혼자라 늘 교체.
+    carry_lunch: 근무조 칸에서 From 이 점심당번이면 To 에게 넘긴다."""
     perms.assert_can_edit(user, board, d)
     if before is None or after is None:
-        return change_cell(user, board, d, cell, before, after)
+        return change_cell(user, board, d, cell, before, after, carry_lunch)
     _check_cell(boards.defs(board), cell)
     period = _owner(board, d)
     if is_slot_cell(cell):
@@ -147,17 +175,19 @@ def exchange(user, board, d: date, cell: str, before: User | None, after: User |
         if DutyAssignment.objects.filter(period=period, date=d, cell=cell, member=after).exists():
             raise DutyError(f"{after.name}은(는) 이미 이 칸에 있습니다.")
         other = rows[0].cell if rows else None
+    elif cell == LUNCH:
+        other = None  # 같은 묶음에 다른 칸이 없다(관제와 맞교환하지 않는다)
     else:
         other = Commute.objects.filter(period=period, date=d, member=after).values_list("shift", flat=True).first()
     if other == cell:
         raise DutyError(f"{after.name}은(는) 이미 이 칸에 있습니다.")
     if other:
-        return swap(user, board, d, cell, before, other, after)
-    return change_cell(user, board, d, cell, before, after)
+        return swap(user, board, d, cell, before, other, after, carry_lunch)
+    return change_cell(user, board, d, cell, before, after, carry_lunch)
 
 
 @transaction.atomic
-def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User) -> list[str]:
+def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User, carry_lunch: bool = True) -> list[str]:
     perms.assert_can_edit(user, board, d)
     period = _owner(board, d)
     defs = boards.defs(board)
@@ -166,7 +196,7 @@ def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User) -> li
     _check_candidate(board, b)
     if a == b or cell_a == cell_b:
         raise DutyError("서로 다른 두 칸의 서로 다른 사람을 골라 주세요.")
-    if is_slot_cell(cell_a) != is_slot_cell(cell_b):
+    if kind(cell_a) != kind(cell_b):  # 점심당번끼리는 위의 같은 칸 검사에 걸린다(혼자인 칸)
         raise DutyError("출근조끼리 또는 관제 칸끼리만 맞교환할 수 있습니다.")
     warnings: list[str] = []
     why_a = why_b = ""  # 사유는 사람을 따라간다(근무조 행만 있다). 두 기록 모두에 남긴다
@@ -194,4 +224,7 @@ def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User) -> li
                              reason_before=why_a, reason_after=why_b)
     ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_b, before=b, after=a,
                              reason_before=why_b, reason_after=why_a)
+    if carry_lunch and kind(cell_a) == SHIFT:  # 맞교환은 두 사람 다 떠나는 사람: 점심당번인 쪽이 상대에게 넘긴다
+        holder, other = (a, b) if DutyAssignment.objects.filter(period=period, date=d, cell=LUNCH, member=a).exists() else (b, a)
+        _carry_lunch(user, period, d, holder, other)
     return warnings

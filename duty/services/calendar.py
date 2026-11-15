@@ -14,7 +14,7 @@ from django.utils import timezone
 from .. import ics, perms
 from ..errors import DutyError
 from ..models import CalendarFeed, ChangeLog, Period
-from ..shifts import SLOT_GROUP, SLOT_GROUP_NAME, is_slot_cell, ordered
+from ..shifts import LUNCH, SLOT_GROUP, SLOT_GROUP_NAME, is_slot_cell, ordered
 from . import boards, roster
 
 logger = logging.getLogger(__name__)
@@ -99,12 +99,19 @@ def _events(member, shifts=()) -> list[ics.Event]:
     for day in days:
         for x in ordered(defs):  # KEYS 순(옛 CELLS 와 같다). 모르는 키는 정의에 없어 조용히 빠진다
             cell = x.key
-            if member.name not in day.members.get(cell, ()) or (cell, member.name) in day.reasons or \
+            if member.name not in day.members.get(cell, ()) or day.excused(cell, member.name) or \
                     (shifts and (SLOT_GROUP if is_slot_cell(cell) else cell) not in shifts):
                 continue
-            summary = f"{SLOT_GROUP_NAME} {x.name}" if is_slot_cell(cell) else f"{x.name} 출근 {x.start:%H:%M}~{x.end:%H:%M}"
+            start, end = x.start, x.end
+            if cell == LUNCH:  # 점심당번 = 부서 점심 시각. 시각이 없는 부서는 일정을 만들지 않는다
+                start, end = member.department.lunch_start, member.department.lunch_end
+                if start is None:
+                    continue
+                summary = x.name
+            else:
+                summary = f"{SLOT_GROUP_NAME} {x.name}" if is_slot_cell(cell) else f"{x.name} 출근 {x.start:%H:%M}~{x.end:%H:%M}"
             events.append(ics.Event(
                 uid=f"{day.date:%Y%m%d}-{cell}-{member.pk}@duty-generator", dtstamp=dtstamp,
-                start=datetime.combine(day.date, x.start, tz), end=datetime.combine(day.date, x.end, tz),
+                start=datetime.combine(day.date, start, tz), end=datetime.combine(day.date, end, tz),
                 summary=summary, url=url))
     return events

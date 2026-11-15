@@ -14,8 +14,8 @@ from ..models import Department, Memo, User
 from ..services import boards, changes, holidays, memos, prefs
 from ..services.roster import find_day, member_schedule, published_days
 from ..shifts import (
-    DAY_LABELS, DEVELOPER, REASONS, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell, ordered,
-    shift_defs, slot_defs,
+    DAY_LABELS, DEVELOPER, LUNCH, REASONS, SHIFT, SLOT, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell,
+    kind, lunch_defs, ordered, shift_defs, slot_defs,
 )
 from .common import date_param, safe_next
 
@@ -121,8 +121,9 @@ def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types
     current = day.members[cell] if day else []
     qs = User.objects.filter(name__in=current).order_by("name")
     why = _why(day, cell)
-    # To 목록에 그날 같은 종류 근무를 붙인다(맞교환이 기본이라 무엇과 바뀌는지 보이게)
-    kinds = [x.key for x in ordered(defs) if is_slot_cell(x.key) == is_slot_cell(cell)]
+    # To 목록에 그날 같은 종류 근무를 붙인다(맞교환이 기본이라 무엇과 바뀌는지 보이게). 점심당번 칸은 그날 근무조를
+    want = SLOT if is_slot_cell(cell) else SHIFT
+    kinds = [x.key for x in ordered(defs) if kind(x.key) == want]
     where = {}
     for k in kinds:
         for n in (day.members[k] if day else []):
@@ -132,6 +133,9 @@ def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types
         m.reason = why.get(m.name, "")  # 사유 선택의 지금 값 표시
     return {
         "d": d, "cell": cell, "label": cell_label(defs, cell), "slot": is_slot_cell(cell),
+        "lunch": cell == LUNCH,  # 사유 선택 없음, 늘 교체
+        # 근무조 칸: "점심당번도 같이 넘기기"(그 근무표에 켜진 점심당번 정의가 있을 때만)
+        "carry": kind(cell) == SHIFT and any(x.key == LUNCH and x.active for x in defs),
         "current_members": current_members, "reason_choices": REASONS,
         "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
                         "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
@@ -213,7 +217,7 @@ def roster(request):
             "week_memo": notes["week"].get(d),  # 월요일 칸에만 붙는다(week.0 = 그 주 월요일)
             # 배포된 근무표가 있는 날만, 근무 없음 날은 못 바꾼다
             "edit": (edit_past if d < today else edit_now) and not other and d in by_date and not no_work,
-            "commute": [cells[x.key] for x in shift_defs(defs) if x.key in cells],
+            "commute": [cells[x.key] for x in shift_defs(defs) + lunch_defs(defs) if x.key in cells],  # 근무조 → 점심당번
             "duty": [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs) if x.key in cells],
         }
 
@@ -251,7 +255,8 @@ def cell(request, d, cell):
                 # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
                 before, after = request.POST.get("before"), request.POST.get("after")
                 result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
-                                          _member(None if after == "-" else after))
+                                          _member(None if after == "-" else after),
+                                          carry_lunch=request.POST.get("carry_lunch") == "1")
         except DutyError as e:
             messages.error(request, str(e))
         else:

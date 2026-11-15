@@ -8,7 +8,7 @@ from django.db.models import F
 
 from ..csv_io import join_reason
 from ..models import ChangeLog, Commute, DutyAssignment, User
-from ..shifts import SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
+from ..shifts import LUNCH, SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
 from . import boards
 
 Log = tuple[str | None, str | None]
@@ -29,6 +29,10 @@ class Day:
     members: dict[str, list[str]]
     replaced: dict[tuple[str, str], str]
     reasons: dict[tuple[str, str], str] = field(default_factory=dict)  # (칸, 이름) → 사유. 있으면 근무로 치지 않는다
+
+    def excused(self, cell: str, name: str) -> bool:
+        """그 칸의 그 사람을 근무로 치지 않는가: 사유가 붙은 근무조 배정, 그날 사유가 있는 사람의 점심당번."""
+        return (cell, name) in self.reasons or (cell == LUNCH and any(n == name for _, n in self.reasons))
 
 
 def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], dict[str, str]]:

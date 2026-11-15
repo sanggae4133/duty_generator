@@ -1,15 +1,17 @@
 from ..models import Department, RosterPref
-from ..shifts import DEVELOPER, SLOT_GROUP, SLOT_GROUP_NAME, STAFF, shift_defs, slot_defs
+from ..shifts import DEVELOPER, SLOT_GROUP, SLOT_GROUP_NAME, STAFF, lunch_defs, shift_defs, slot_defs
 from . import boards
 
 _KEYS = ("f", "dept", "type", "shift", "hist")
 
 
 def choices(defs) -> dict[str, str]:
-    """스케줄 선택지 {키: 이름}. 근무조(시작 시각 순) → 장중관제 묶음(관제 칸이 있을 때). 화면 순서 = 키 순서."""
+    """스케줄 선택지 {키: 이름}. 근무조(시작 시각 순) → 장중관제 묶음(관제 칸이 있을 때) → 점심당번(있을 때).
+    화면 순서 = 키 순서."""
     out = {x.key: x.name for x in shift_defs(defs)}
     if slot_defs(defs):
         out[SLOT_GROUP] = SLOT_GROUP_NAME
+    out.update({x.key: x.name for x in lunch_defs(defs)})
     return out
 
 

@@ -111,7 +111,7 @@ def test_published_days_includes_owned_days_without_rows(it_board, make_member):
     days = published_days(it_board, d(11, 9), d(11, 10))
     assert [x.date for x in days] == [d(11, 9), d(11, 10)]
     assert days[1].period_id == p.pk and not any(days[1].members.values())
-    assert list(days[0].cells) == shifts.KEYS  # 칸 순회 순서 = KEYS(알림 hash 불변)
+    assert list(days[0].cells) == [k for k in shifts.KEYS if k != shifts.LUNCH]  # 칸 순회 순서 = KEYS(알림 hash 불변)
 
 
 def test_published_days_uses_only_owner_rows(it_board, make_member):

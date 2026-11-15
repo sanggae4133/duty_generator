@@ -1,7 +1,7 @@
 """알림 발송 시각 계산. ORM 없음, Asia/Seoul naive datetime. 칸 시각·이름은 근무표 정의 목록(defs)에서."""
 from datetime import date, datetime, time, timedelta
 
-from ..shifts import SLOT_GROUP_NAME, cell_end, cell_label, cell_start, cells_of, is_slot_cell
+from ..shifts import LUNCH, SLOT_GROUP_NAME, cell_end, cell_label, cell_start, cells_of, is_slot_cell
 
 
 def bizdays_back(d: date, n: int, closed=frozenset()) -> date:
@@ -37,7 +37,7 @@ def same_day_notice(defs, kind: str, timing: str, offset: int, at_minute: int, s
     """당일 발송 규칙에서 발송 시각이 근무 시작 이후라 빠지는 칸 안내. 없으면 None."""
     if timing != "days" or offset != 0:
         return None
-    cells = cells_of(defs, shifts)
+    cells = [c for c in cells_of(defs, shifts) if c != LUNCH]  # 점심당번은 정의에 시각이 없어 안내에서 뺀다
     if not cells:  # 이 근무표에 없는 키만 골랐다(plan 도 조용히 무시한다)
         return None
     starts = {c: cell_start(defs, c).hour * 60 + cell_start(defs, c).minute for c in cells}

@@ -7,7 +7,7 @@ from tests.it_defs import IT_DEFS
 def test_it_board_defs_match_it_definitions(it_board):
     assert boards.it_board() == it_board
     got = boards.defs(it_board)
-    assert [d.key for d in got] == KEYS
+    assert [d.key for d in got] == [k for k in KEYS if k != "lunch"]
     assert by_key(got) == by_key(IT_DEFS)
 
 

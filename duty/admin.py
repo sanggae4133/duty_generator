@@ -30,7 +30,7 @@ class DepartmentForm(forms.ModelForm):
 
     class Meta:
         model = Department
-        fields = ["code", "name", "board", "order", "shifts"]
+        fields = ["code", "name", "board", "order", "shifts", "lunch_start", "lunch_end"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

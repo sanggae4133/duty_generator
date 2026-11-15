@@ -81,6 +81,12 @@ def _valid(rule, today) -> bool:
     return True
 
 
+def _lunch(rule):
+    """개인 규칙 주인 부서의 점심 시각(점심당번 알림 시작·문구). 보고서·시각 없는 부서는 None."""
+    dept = rule.user.department if rule.kind == "personal" and rule.user.department_id else None
+    return (dept.lunch_start, dept.lunch_end) if dept and dept.lunch_start else None
+
+
 def collect(now):
     """보낼 (Due, 기존 기록, 규칙 스냅숏) 목록. 근무표마다 그 근무표의 근무표·규칙으로 따로 계획한다
     (개인 = 주인 부서의 근무표, 보고서 = 규칙의 근무표). 같은 내용의 backoff 중인 것은 뺀다."""
@@ -110,7 +116,7 @@ def collect(now):
         ids = {r.id for r in group}
         specs = [RuleSpec(r.id, r.user.name if r.user.department_id else None, r.kind, r.timing, r.offset,
                           r.at_minute, tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
-                          tuple(r.shifts), tuple(r.depts), tuple(r.types)) for r in group]
+                          tuple(r.shifts), tuple(r.depts), tuple(r.types), _lunch(r)) for r in group]
         # 주인은 있어도 배정이 하나도 없는 날은 넘기지 않는다(빈 보고서 방지, 설계 6.1).
         # 그날의 옛 발송 기록은 extra_dates 의 빈 날로 계산돼 취소가 나간다(지금과 같다)
         days = [d for d in published_days(board, today, today + HORIZON) if any(d.members.values())]

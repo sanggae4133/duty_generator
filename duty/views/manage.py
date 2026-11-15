@@ -111,13 +111,15 @@ def period_action(request, pid, action):
     if action not in actions:
         raise Http404
     try:
-        actions[action](period, by=request.user)
+        result = actions[action](period, by=request.user)
     except GenerationError as e:
         return _render_detail(request, period, e.failures)
     except DutyError as e:
         messages.error(request, str(e))
     else:
         messages.success(request, "완료했습니다.")
+        for w in getattr(result, "warnings", ()):  # 생성: 점심당번을 못 채운 날
+            messages.warning(request, w)
     return redirect("period_detail", pid)
 
 

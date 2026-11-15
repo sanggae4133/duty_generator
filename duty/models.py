@@ -7,7 +7,9 @@ from django.db.models import F, Func, Q, Value
 from django.db.models.lookups import Exact
 
 from .csv_io import split_reason
-from .shifts import DEVELOPER, KEYS, REASONS, SHIFT_KEYS, SLOT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
+from .shifts import (
+    DEVELOPER, DUTY_KEYS, KEYS, LUNCH, REASONS, SHIFT_KEYS, STAFF, is_slot_cell, slot_index, weekdays,
+)
 
 REASON_CHOICES = [("", "없음"), *((r, r) for r in REASONS)]
 
@@ -63,6 +65,8 @@ class Board(models.Model):
 
 def _key_label(key: str) -> str:
     # 관리 화면 표시는 중립적으로(시장운영실이 dawn 을 '새벽'으로 오해하지 않게). DB 값은 키 그대로
+    if key == LUNCH:
+        return "점심당번"
     return f"관제 {slot_index(key) + 1}" if is_slot_cell(key) else f"근무조 {SHIFT_KEYS.index(key) + 1}"
 
 
@@ -85,9 +89,10 @@ class BoardShift(models.Model):
             # 이름은 CSV 열 이름·화면 라벨이 된다. 겹치면 CSV 열이 하나로 합쳐져 값이 사라지므로 DB 가 막는다
             models.UniqueConstraint(fields=["board", "name"], name="boardshift_one_per_name"),
             _one_of("key", KEYS, "boardshift_key_valid"),
-            # 1단계 키(근무조·관제)는 시각이 필수이고 당일 근무만(2단계에 시각 없는 점심당번을 더한다)
-            models.CheckConstraint(name="boardshift_times_valid",
-                                   condition=Q(start__isnull=False, end__isnull=False, start__lt=models.F("end"))),
+            # 근무조·관제는 시각이 필수이고 당일 근무만. 점심당번은 시각을 비운다(시각은 부서마다 Department.lunch_*)
+            models.CheckConstraint(name="boardshift_times_valid", condition=(
+                Q(key=LUNCH, start__isnull=True, end__isnull=True)
+                | (~Q(key=LUNCH) & Q(start__isnull=False, end__isnull=False, start__lt=models.F("end"))))),
         ]
 
     def __str__(self):
@@ -113,10 +118,19 @@ class Department(models.Model):
     order = models.IntegerField("순서", default=99, help_text="근무표 부서 필터 순서(작은 값이 앞, 기본 99는 맨 뒤)")
     input_group = models.OneToOneField(Group, on_delete=models.PROTECT, null=True, blank=True, editable=False,
                                        related_name="input_department", verbose_name="입력 그룹")
+    # 점심당번 시각(개인 알림·캘린더). 비우면 시각 기준 알림·캘린더 일정에서 점심당번이 빠진다
+    lunch_start = models.TimeField("점심 시작", null=True, blank=True)
+    lunch_end = models.TimeField("점심 끝", null=True, blank=True)
 
     class Meta:
         verbose_name = verbose_name_plural = "부서"
         ordering = ["code"]
+        constraints = [models.CheckConstraint(
+            name="department_lunch_valid",
+            condition=Q(lunch_start__isnull=True, lunch_end__isnull=True)
+            | Q(lunch_start__isnull=False, lunch_end__isnull=False, lunch_start__lt=F("lunch_end")),
+            violation_error_message="점심 시각은 둘 다 비우거나, 둘 다 넣고 시작을 끝보다 이르게 하세요.",
+        )]
 
     def __str__(self):
         return self.name
@@ -306,10 +320,10 @@ class Commute(models.Model):
 
 
 class DutyAssignment(models.Model):
-    """당번 배정 한 칸(1단계는 장중관제 slot0~slot9). 생성이 만들고 근무 변경이 바꾼다."""
+    """당번 배정 한 칸(장중관제 slot0~slot9, 점심당번 lunch). 생성이 만들고 근무 변경이 바꾼다."""
     period = models.ForeignKey(Period, on_delete=models.CASCADE, related_name="duty_assignments")
     date = models.DateField()
-    cell = models.CharField(max_length=8, choices=[(k, k) for k in SLOT_KEYS])
+    cell = models.CharField(max_length=8, choices=[(k, k) for k in DUTY_KEYS])
     member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
@@ -318,7 +332,7 @@ class DutyAssignment(models.Model):
             # 관제 칸은 칸당 한 명(DB가 계속 보장)
             models.UniqueConstraint(fields=["period", "date", "cell"], condition=Q(cell__startswith="slot"),
                                     name="dutyassignment_one_per_slot"),
-            _one_of("cell", SLOT_KEYS, "dutyassignment_cell_valid"),
+            _one_of("cell", DUTY_KEYS, "dutyassignment_cell_valid"),
         ]
         indexes = [models.Index(fields=["date"])]
 
@@ -328,7 +342,7 @@ class ChangeLog(models.Model):
     by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)  # null = 예전 시트 가져오기 기록. 계정은 삭제 대신 비활성화
     period = models.ForeignKey(Period, on_delete=models.PROTECT)  # 변경 기록은 남긴다: 기록 있는 회차는 삭제 불가
     date = models.DateField()
-    cell = models.CharField(max_length=8)  # dawn|normal|dinner|night|slot0..slot9
+    cell = models.CharField(max_length=8)  # KEYS 중 하나(근무조·slot0..slot9·lunch)
     before = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     after = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     notified = models.BooleanField(default=False)  # 당사자에게 '근무 변경' 알림을 보냈는지(작업자가 표시)

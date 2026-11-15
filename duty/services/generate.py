@@ -8,7 +8,7 @@ from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
 from ..models import Commute, DutyAssignment, Period, User
-from ..shifts import slot_defs
+from ..shifts import LUNCH, by_key, shift_defs, slot_defs
 from . import boards, holidays
 from .periods import missing_dates, record
 
@@ -30,7 +30,8 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
 
     skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
     dates = [d for d in period.dates() if d not in skip]
-    slots = slot_defs(boards.active_defs(period.board))  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
+    active = boards.active_defs(period.board)
+    slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
         commutes: dict = defaultdict(lambda: defaultdict(set))
         rows = Commute.objects.filter(period=period, reason="").exclude(date__in=skip)  # 사유가 있으면 후보가 아니다
@@ -53,8 +54,25 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
         for d, picked in out.assignments.items()
         for i, code in enumerate(picked)
     )
+    if LUNCH in by_key(active) and shift_defs(active):
+        out.warnings += _fill_lunch(period, dates, skip, shift_defs(active)[0])
     old = period.status
     period.status, period.seed, period.generated_at = S.GENERATED, seed, timezone.now()
     period.save()
     record(period, old, by, "재생성" if old == S.GENERATED else "")
     return out
+
+
+def _fill_lunch(period: Period, dates: list, skip: set, early) -> list[str]:
+    """점심당번 = 날짜마다 가장 이른 근무조(early)에 근무로 친(사유 없는) 출근을 한 사람 전원(설계 6.3). 무작위 없음.
+    아무도 없는 날은 비우고 경고 한 줄."""
+    by_day: dict = defaultdict(list)
+    rows = Commute.objects.filter(period=period, shift=early.key, reason="").exclude(date__in=skip)
+    for d, member_id in rows.order_by("date", "member__username").values_list("date", "member_id"):
+        by_day[d].append(member_id)
+    DutyAssignment.objects.bulk_create(
+        DutyAssignment(period=period, date=d, cell=LUNCH, member_id=m) for d in dates for m in by_day[d])
+    empty = [d for d in dates if not by_day[d]]
+    if not empty:
+        return []
+    return [f"점심당번을 채우지 못한 날({early.name} 출근 없음): {', '.join(f'{d.month}/{d.day}' for d in empty)}"]
