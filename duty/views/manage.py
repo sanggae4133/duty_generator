@@ -9,10 +9,10 @@ from django.views.decorators.http import require_POST
 from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationError
-from ..models import ChangeLog, Period
-from ..services import collect, generate, periods, stats
+from ..models import Board, ChangeLog, Period
+from ..services import boards, collect, generate, periods, stats
 from ..services import publish as publishing
-from ..shifts import LEGACY_DEFS, CONTROL_SLOTS, cell_label
+from ..shifts import cell_label, slot_defs
 from .common import admin_required, date_param
 
 
@@ -44,6 +44,7 @@ def period_list(request):
 
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
+    slot_names = [x.name for x in slot_defs(boards.defs(period.board))]  # generator 의 칸 번호 = 관제 정의 순서
     return render(request, "duty/period_detail.html", {
         "period": period, "S": Period.Status,
         "steps": Period.Status.choices, "movable": [] if period.status == Period.Status.PUBLISHED
@@ -52,7 +53,7 @@ def _render_detail(request, period, failures):
         "undo": publishing.unpublish_info(period) if period.status == Period.Status.PUBLISHED else None,
         "progress": collect.progress(period), "missing": periods.missing_dates(period),
         "counts": counts, "spread": spread, "reached": reached,
-        "failures": [{"date": f.date, "slot": CONTROL_SLOTS[f.slot][0], "candidates": f.candidates} for f in failures],
+        "failures": [{"date": f.date, "slot": slot_names[f.slot], "candidates": f.candidates} for f in failures],
     })
 
 
@@ -168,10 +169,11 @@ def change_log(request):
     by = request.GET.get("by", "").strip()
     if by:
         qs = qs.filter(Q(by__username=by) | Q(by__name=by))
+    defs = {b.pk: boards.defs(b) for b in Board.objects.all()}  # 근무표마다 한 번만 읽는다
     logs = [
         {
             "at": log.at, "by": (log.by.name or log.by.username) if log.by else "시트 가져오기", "date": log.date,
-            "cell": cell_label(LEGACY_DEFS, log.cell), "before": log.before.name if log.before else "",
+            "cell": cell_label(defs[log.period.board_id], log.cell), "before": log.before.name if log.before else "",
             "after": log.after.name if log.after else "", "period": log.period.name,
         }
         for log in qs[:500]

@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from duty.models import Board, ChangeLog, Commute, Period, User
+from duty.models import BoardShift
 
 
 @pytest.fixture
@@ -195,3 +196,22 @@ def test_period_detail_with_event_without_user(admin_client_ok, it_board):
     from duty.services import periods
     p = periods.save_draft(Period(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13)))  # by 없음
     assert admin_client_ok.get(f"/periods/{p.pk}/").status_code == 200
+
+
+def test_change_log_label_from_board_definitions(admin_client_ok, make_member, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9),
+                              status=Period.Status.PUBLISHED)
+    m = make_member("가")
+    ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=m)
+    BoardShift.objects.filter(board=it_board, key="dawn").update(name="이른조")
+    assert "이른조" in admin_client_ok.get("/changes/").content.decode()
+
+
+def test_generation_failure_label_from_board_definitions(admin_client_ok, make_member, it_board):
+    BoardShift.objects.filter(board=it_board, key="slot0").update(name="관제첫칸")
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9),
+                              status=Period.Status.CLOSED)
+    for code in ["MEMS", "TMCH", "MD", "UI"]:
+        Commute.objects.create(period=p, date=date(2026, 11, 9), member=make_member(f"직{code}", dept=code, type="직원"), shift="normal")
+    r = admin_client_ok.post(f"/periods/{p.pk}/action/generate/")
+    assert r.status_code == 200 and "관제첫칸" in r.content.decode()
