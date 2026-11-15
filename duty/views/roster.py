@@ -268,7 +268,6 @@ def day(request, d):
     })
 
 
-
 @login_required
 def me(request):
     member = request.user if request.user.department_id else None
