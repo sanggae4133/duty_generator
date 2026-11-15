@@ -3,6 +3,15 @@
 from django.db import migrations, models
 
 
+def refuse_reverse(apps, schema_editor):
+    """되돌릴 때 사유를 조용히 지우지 않는다. 사유가 하나도 없으면 지나간다."""
+    ChangeLog = apps.get_model("duty", "ChangeLog")
+    if (apps.get_model("duty", "Commute").objects.exclude(reason="").exists()
+            or ChangeLog.objects.exclude(reason_before="", reason_after="").exists()):
+        raise RuntimeError('사유가 있어 되돌리지 않습니다. 2단계부터 되돌리기는 업그레이드 전 백업 복원으로만 합니다'
+                           '(docs/OPERATIONS.md "업그레이드·롤백").')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -37,4 +46,5 @@ class Migration(migrations.Migration):
             model_name='commute',
             constraint=models.CheckConstraint(condition=models.Q(('reason__in', ['', '휴가', '출장', '교육'])), name='commute_reason_valid'),
         ),
+        migrations.RunPython(migrations.RunPython.noop, refuse_reverse),  # 되돌릴 때 가장 먼저 돈다
     ]
