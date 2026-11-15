@@ -57,7 +57,7 @@ def reverse_if_unused(apps, schema_editor):
     used = used or BoardShift.objects.filter(others, key="lunch").exists()
     used = used or Department.objects.filter(others, lunch_start__isnull=False).exists()
     if used:
-        raise RuntimeError("점심당번 배정·기록이 있어 되돌릴 수 없습니다. 업그레이드 전 백업으로 복원하세요"
+        raise RuntimeError("점심당번 배정·기록이나 점심당번을 고른 알림·캘린더·근무표 필터가 있어 되돌릴 수 없습니다. 업그레이드 전 백업으로 복원하세요"
                            '(docs/OPERATIONS.md "업그레이드·롤백").')
     BoardShift.objects.filter(board_id=it, key="lunch").delete()
     Department.objects.filter(board_id=it).update(lunch_start=None, lunch_end=None)
