@@ -123,9 +123,8 @@ def _filter_ctx(board, defs, depts, types, shifts, history: bool = True, mine: b
         "history": history,
         "filterable": mine,  # 내 근무표가 아니면 부서·유형·스케줄 필터를 그리지 않는다(늘 전체)
         "filter_on": bool(depts or types or shifts),
-        # 유형 필터는 켜진 관제 정의가 있는 근무표에만(prefs.clean 과 같은 규칙)
         "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)]
-        if slot_defs([x for x in defs if x.active]) else [],
+        if prefs.has_types(defs) else [],
         "dept_choices": [
             {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
             for d in Department.objects.filter(board=board).order_by("order", "code")  # 그 근무표 부서만

@@ -36,6 +36,8 @@ class RuleForm(forms.Form):
             del self.fields["board"]
         board = self._shift_board(all_boards, user)
         self.fields["shifts"].choices = list(prefs.choices(boards.active_defs(board)).items())
+        if not prefs.has_types(boards.active_defs(board)):  # 유형은 관제 있는 근무표에만(근무표 화면과 같은 규칙)
+            del self.fields["types"]
         # 부서 선택지 = 고른 근무표의 부서(설계 8.1). 개인 규칙은 부서 칸을 숨기고 저장 때 버리므로 막지 않는다
         report = (self.data if self.is_bound else self.initial).get("kind") == "report"
         depts = Department.objects.filter(board=board) if self.fixed_board or report else Department.objects.all()
@@ -101,5 +103,5 @@ class RuleForm(forms.Form):
             raise forms.ValidationError("텔레그램이나 푸시 중 하나 이상 선택하세요.")
         c["rule"] = dict(enabled=c["enabled"], kind=c["kind"], board_id=board.pk if board else None,
                          timing=c["timing"], offset=offset, at_minute=at_minute, telegram=c["telegram"],
-                         push=c["push"], shifts=c["shifts"], depts=c["depts"], types=c["types"])
+                         push=c["push"], shifts=c["shifts"], depts=c["depts"], types=c.get("types", []))
         return c

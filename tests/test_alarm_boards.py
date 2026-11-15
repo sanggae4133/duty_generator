@@ -129,6 +129,21 @@ def test_rule_form_two_boards(depts, it_board, ops):
     assert [c for c, _ in f.fields["shifts"].choices] == ["dawn", "normal", "dinner"]  # 개인 = 주인의 근무표
 
 
+def test_rule_types_only_on_board_with_slots(client, depts, it_board, ops, admin_user):
+    """유형은 켜진 관제 정의가 있는 근무표에만(근무표 화면과 같은 규칙). 없는 근무표는 칸을 숨기고 보낸 값은 버린다."""
+    board, _ = ops
+    f = RuleForm({**FORM, "kind": "report", "board": str(board.pk), "types": ["직원"]})
+    assert "types" not in f.fields and f.is_valid(), f.errors
+    assert f.cleaned_data["rule"]["types"] == []
+    assert "types" in RuleForm({**FORM, "kind": "report", "board": str(it_board.pk)}).fields
+    assert alarms.save_rule(admin_user, report_base(board.pk, types=["직원"])).types == []
+    client.force_login(admin_user)
+    page = client.post("/alarms/rules/new/", {**FORM, "kind": "report", "board": str(board.pk), "redraw": "1"})
+    assert "<legend>유형</legend>" not in page.content.decode()
+    page = client.post("/alarms/rules/new/", {**FORM, "kind": "report", "board": str(it_board.pk), "redraw": "1"})
+    assert "<legend>유형</legend>" in page.content.decode()
+
+
 def test_rule_page_board_field_only_with_two_boards(client, depts, request):
     client.force_login(User.objects.create_user("u9", password="unused-Pw-123", name="가상구"))
     assert "<legend>근무표</legend>" not in client.get("/alarms/rules/new/").content.decode()

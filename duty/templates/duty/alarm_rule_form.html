@@ -20,8 +20,8 @@
   <fieldset class="filter"><legend>스케줄</legend>{{ form.shifts }}</fieldset>
   {% if multi_board %}<fieldset class="filter" data-kind="report"><legend>근무표</legend>{{ form.board }}</fieldset>
   {% endif %}<fieldset class="filter" data-kind="report"><legend>부서</legend>{{ form.depts }}</fieldset>
-  <fieldset class="filter" data-kind="report"><legend>유형</legend>{{ form.types }}</fieldset>
-  <small>모두 해제하면 전부</small>
+  {% if "types" in form.fields %}<fieldset class="filter" data-kind="report"><legend>유형</legend>{{ form.types }}</fieldset>
+  {% endif %}<small>모두 해제하면 전부</small>
   <button name="redraw" value="1" formnovalidate hidden></button>
   <div class="row-btns"><button>저장</button><a href="{% url 'alarms' %}" role="button" class="secondary">취소</a></div>
 </form>

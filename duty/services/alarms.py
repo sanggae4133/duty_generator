@@ -45,7 +45,7 @@ def normalize(kind, shifts, depts, types, board):
 
     s = pick(shifts, list(prefs.choices(boards.active_defs(board))))  # 꺼진 정의는 새 규칙에 넣지 않는다
     d = pick(depts, sorted(Department.objects.filter(board=board).values_list("code", flat=True)))
-    t = pick(types, [STAFF, DEVELOPER])
+    t = pick(types, [STAFF, DEVELOPER]) if prefs.has_types(boards.active_defs(board)) else []  # 관제 없는 근무표는 버린다
     return (s, [], []) if kind == "personal" else (s, d, t)
 
 
@@ -74,9 +74,10 @@ MAX_RULES = 20  # 사람당 알림 규칙 수(무제한이면 한 사람이 작�
 
 def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
     board_id = data.get("board_id") if data["kind"] == "report" else None
-    shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"],
-                                     rule_board(user, data["kind"], board_id))
-    if data["kind"] == "report" and shifts == [LUNCH]:  # 보고서 발송 창은 시각 있는 칸으로 정한다(설계 8.1)
+    board = rule_board(user, data["kind"], board_id)
+    shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"], board)
+    # 보고서 발송 창은 시각 있는 칸으로 정한다(설계 8.1). [] = 그 근무표의 켜진 정의 전부로 펼쳐 본다
+    if data["kind"] == "report" and all(k == LUNCH for k in shifts or prefs.choices(boards.active_defs(board))):
         raise DutyError("보고서는 시각이 있는 근무를 하나 이상 고르세요. 점심당번만으로는 보낼 수 없습니다.")
     new = {**data, "board_id": board_id, "shifts": shifts, "depts": depts, "types": types}
     rule = rule or AlarmRule(user=user)

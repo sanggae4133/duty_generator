@@ -379,6 +379,17 @@ def test_report_rule_needs_timed_cell(lunch, admin_user, it_board):
     assert alarms.save_rule(admin_user, {**base, "shifts": ["lunch", "dawn"]}).shifts == ["dawn", "lunch"]
 
 
+def test_report_rule_all_on_lunch_only_board_refused(admin_user, it_board):
+    """켜진 정의가 점심당번뿐인 근무표에서 '전체'(빈 목록)도 점심당번만이라 막는다."""
+    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    BoardShift.objects.create(board=board, key="lunch", name="점심당번")
+    base = dict(enabled=True, kind="report", timing="days", offset=1, at_minute=18 * 60, telegram=True, push=False,
+                depts=[], types=[], board_id=board.pk)
+    for shifts in ([], ["lunch"]):
+        with pytest.raises(DutyError, match="점심당번만으로는"):
+            alarms.save_rule(admin_user, {**base, "shifts": shifts})
+
+
 def test_runner_uses_department_lunch_time(pub, it_board, fixed_today):
     p, m = pub
     fixed_today(T - timedelta(days=1))

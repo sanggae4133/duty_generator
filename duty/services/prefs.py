@@ -15,6 +15,11 @@ def choices(defs) -> dict[str, str]:
     return out
 
 
+def has_types(defs) -> bool:
+    """유형(직원·개발자) 필터는 켜진 관제 정의가 있는 근무표에만(관제 후보를 고르는 구분이라). 꺼진 정의는 무시한다."""
+    return bool(slot_defs([x for x in defs if x.active]))
+
+
 def clean(board, depts, types, shifts) -> tuple[list[str], list[str], list[str]]:
     """유효한 값만 남긴다(부서·스케줄은 그 근무표 것만). 전부 선택했거나 남은 게 없으면 [](= 전체)."""
     active = boards.active_defs(board)
@@ -25,8 +30,7 @@ def clean(board, depts, types, shifts) -> tuple[list[str], list[str], list[str]]
 
     return (
         pick(depts, set(Department.objects.filter(board=board).values_list("code", flat=True))),
-        # 유형 필터는 켜진 관제 정의가 있는 근무표에만(관제 후보를 고르는 구분이라). 없으면 저장값도 무시
-        pick(types, {STAFF, DEVELOPER}) if slot_defs(active) else [],
+        pick(types, {STAFF, DEVELOPER}) if has_types(active) else [],  # 없으면 저장값도 무시
         pick(shifts, set(choices(active))),  # 꺼진 정의는 새로 고를 수 없다
     )
 
