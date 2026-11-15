@@ -7,7 +7,7 @@ from datetime import date
 from django.db.models import F
 
 from ..models import ChangeLog, Commute, DutyAssignment, Period, User
-from ..shifts import CELLS, cell_label, is_slot_cell
+from ..shifts import LEGACY_DEFS, CELLS, cell_label, is_slot_cell
 
 Log = tuple[str | None, str | None]
 
@@ -95,7 +95,7 @@ def find_day(d: date) -> Day | None:
 def member_schedule(member: User, start: date, shown=lambda cell: True) -> list[tuple[date, list[str]]]:
     out = []
     for day in published_days(start, None):
-        labels = [f"장중관제 {cell_label(c)}" if is_slot_cell(c) else cell_label(c)
+        labels = [f"장중관제 {cell_label(LEGACY_DEFS, c)}" if is_slot_cell(c) else cell_label(LEGACY_DEFS, c)
                   for c in CELLS if shown(c) and member.name in day.members[c]]
         if labels:
             out.append((day.date, labels))

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from ..services.roster import Day
-from ..shifts import CELLS, cell_start, cells_of
+from ..shifts import LEGACY_DEFS, CELLS, cell_start, cells_of
 from . import messages as m
 from .schedule import send_at
 
@@ -60,8 +60,8 @@ def plan(rules, days, info, deliveries, now, destinations=None, dept_names=None,
     out: list[Due] = []
     for day in sorted(by_date.values(), key=lambda x: x.date):
         for r in rules:
-            cells = cells_of(list(r.shifts))
-            starts = {c: datetime.combine(day.date, cell_start(c)) for c in cells}
+            cells = cells_of(LEGACY_DEFS, list(r.shifts))
+            starts = {c: datetime.combine(day.date, cell_start(LEGACY_DEFS, c)) for c in cells}
             if r.kind == "personal":
                 if r.member_name:
                     out += _personal(r, day, cells, starts, deliveries, now, destinations, today)

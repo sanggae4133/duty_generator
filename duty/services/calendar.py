@@ -14,7 +14,7 @@ from django.utils import timezone
 from .. import ics, perms
 from ..errors import DutyError
 from ..models import CalendarFeed, ChangeLog, Period
-from ..shifts import CELLS, COMMUTE_SHIFTS, cell_end, cell_label, cell_start, is_slot_cell
+from ..shifts import LEGACY_DEFS, CELLS, COMMUTE_SHIFTS, cell_end, cell_label, cell_start, is_slot_cell
 from . import roster
 
 logger = logging.getLogger(__name__)
@@ -97,8 +97,8 @@ def _events(member, shifts=()) -> list[ics.Event]:
         for cell in CELLS:
             if member.name not in day.members[cell] or (shifts and ("slots" if is_slot_cell(cell) else cell) not in shifts):
                 continue
-            start, end = cell_start(cell), cell_end(cell)
-            summary = f"장중관제 {cell_label(cell)}" if is_slot_cell(cell) else \
+            start, end = cell_start(LEGACY_DEFS, cell), cell_end(LEGACY_DEFS, cell)
+            summary = f"장중관제 {cell_label(LEGACY_DEFS, cell)}" if is_slot_cell(cell) else \
                 f"{COMMUTE_SHIFTS[cell]} 출근 {start:%H:%M}~{end:%H:%M}"
             events.append(ics.Event(
                 uid=f"{day.date:%Y%m%d}-{cell}-{member.pk}@duty-generator", dtstamp=dtstamp,

@@ -12,7 +12,7 @@ from ..generator import GenerationError
 from ..models import ChangeLog, Period
 from ..services import collect, generate, periods, stats
 from ..services import publish as publishing
-from ..shifts import CONTROL_SLOTS, cell_label
+from ..shifts import LEGACY_DEFS, CONTROL_SLOTS, cell_label
 from .common import admin_required, date_param
 
 
@@ -171,7 +171,7 @@ def change_log(request):
     logs = [
         {
             "at": log.at, "by": (log.by.name or log.by.username) if log.by else "시트 가져오기", "date": log.date,
-            "cell": cell_label(log.cell), "before": log.before.name if log.before else "",
+            "cell": cell_label(LEGACY_DEFS, log.cell), "before": log.before.name if log.before else "",
             "after": log.after.name if log.after else "", "period": log.period.name,
         }
         for log in qs[:500]

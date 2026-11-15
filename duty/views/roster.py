@@ -13,7 +13,7 @@ from ..errors import DutyError
 from ..models import Department, User
 from ..services import changes, prefs
 from ..services.roster import find_day, member_schedule, published_days
-from ..shifts import CELLS, COMMUTE_SHIFTS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
+from ..shifts import LEGACY_DEFS, CELLS, COMMUTE_SHIFTS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
 from .common import date_param, safe_next
 
 
@@ -110,9 +110,9 @@ def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list
     where = {}
     for k in kinds:
         for n in (day.members[k] if day else []):
-            where[n] = f"{where[n]}·{cell_label(k)}" if n in where else cell_label(k)  # 관제 여러 칸이면 모두
+            where[n] = f"{where[n]}·{cell_label(LEGACY_DEFS, k)}" if n in where else cell_label(LEGACY_DEFS, k)  # 관제 여러 칸이면 모두
     return {
-        "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
+        "d": d, "cell": cell, "label": cell_label(LEGACY_DEFS, cell), "slot": is_slot_cell(cell),
         "current_members": list(_filtered(qs, depts or [], types or [])),
         "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
                         "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
@@ -169,7 +169,7 @@ def roster(request):
         found = by_date.get(d)
         return {
             k: {
-                "key": k, "slot": is_slot_cell(k), "label": cell_label(k),
+                "key": k, "slot": is_slot_cell(k), "label": cell_label(LEGACY_DEFS, k),
                 "lines": _lines(show([x for x in found.cells[k].labels if keep(x)]), names) if found else [],
                 "removed": _lines([x for x in found.cells[k].removed if keep(x)], names, True) if found and history else [],
             }

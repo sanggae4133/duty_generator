@@ -1,7 +1,7 @@
 """알림 문구. ORM 없음."""
 from datetime import date
 
-from ..shifts import DAY_LABELS, cell_end, cell_label, cell_start, is_slot_cell
+from ..shifts import LEGACY_DEFS, DAY_LABELS, cell_end, cell_label, cell_start, is_slot_cell
 
 CUT = "…(이하 생략, 웹에서 확인)"
 PERSONAL_TITLE, CANCEL_TITLE, REPORT_TITLE = "당번 알림", "당번 변경", "출근표"
@@ -18,16 +18,16 @@ def relative_day(d: date, today: date) -> str:
 def cell_span(cell: str) -> str:
     """'새벽 06:30~15:30' 또는 '10:30~11:30'."""
     if is_slot_cell(cell):
-        return cell_label(cell)
-    return f"{cell_label(cell)} {cell_start(cell):%H:%M}~{cell_end(cell):%H:%M}"
+        return cell_label(LEGACY_DEFS, cell)
+    return f"{cell_label(LEGACY_DEFS, cell)} {cell_start(LEGACY_DEFS, cell):%H:%M}~{cell_end(LEGACY_DEFS, cell):%H:%M}"
 
 
 def _kind(cell: str) -> str:
-    return "장중관제" if is_slot_cell(cell) else f"{cell_label(cell)} 당번"
+    return "장중관제" if is_slot_cell(cell) else f"{cell_label(LEGACY_DEFS, cell)} 당번"
 
 
 def _where(cell: str) -> str:
-    return f"장중관제 {cell_label(cell)}" if is_slot_cell(cell) else cell_label(cell)
+    return f"장중관제 {cell_label(LEGACY_DEFS, cell)}" if is_slot_cell(cell) else cell_label(LEGACY_DEFS, cell)
 
 
 def change_notice(d: date, cell: str, before: str | None, after: str | None, by: str) -> tuple[str, str]:
@@ -57,7 +57,7 @@ def report_header(d: date, cond: str, changed: bool) -> str:
 
 
 def report_line(cell: str, names: list[str]) -> str:
-    label = cell_label(cell) if is_slot_cell(cell) else f"{cell_label(cell)}({cell_start(cell):%H:%M}~)"
+    label = cell_label(LEGACY_DEFS, cell) if is_slot_cell(cell) else f"{cell_label(LEGACY_DEFS, cell)}({cell_start(LEGACY_DEFS, cell):%H:%M}~)"
     return f"{label} {', '.join(names) if names else '-'}"
 
 
