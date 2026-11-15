@@ -21,8 +21,8 @@
 <table class="roster">
   <thead><tr><th>날짜</th><th>요일</th>{% for s in shift_labels %}<th>{{ s }}</th>{% endfor %}</tr></thead>
   <tbody>{% for r in rows %}
-    <tr><td class="nw">{{ r.date|date:"Y-m-d" }}</td><td>{{ r.weekday }}</td>
-      {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}" {% if r.locked %}readonly{% endif %}></td>{% endfor %}
+    <tr><td class="nw">{{ r.date|date:"Y-m-d" }}{% if r.closed %}<br><small class="hol" title="{{ r.closed }}">{{ r.closed|truncatechars:12 }}</small>{% endif %}</td><td>{{ r.weekday }}</td>
+      {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}" {% if r.closed %}disabled{% elif r.locked %}readonly{% endif %}></td>{% endfor %}
     </tr>{% endfor %}</tbody>
 </table>
 </div>

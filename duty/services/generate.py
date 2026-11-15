@@ -28,16 +28,19 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     if seed is None:
         seed = random.SystemRandom().randrange(2**31)
 
+    skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
+    dates = [d for d in period.dates() if d not in skip]
     slots = slot_defs(boards.active_defs(period.board))  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
         commutes: dict = defaultdict(lambda: defaultdict(set))
-        for d, shift, code in Commute.objects.filter(period=period).values_list("date", "shift", "member__username"):
+        rows = Commute.objects.filter(period=period).exclude(date__in=skip)
+        for d, shift, code in rows.values_list("date", "shift", "member__username"):
             commutes[d][shift].add(code)
         members_by_type: dict = defaultdict(set)  # 그 근무표 부서 재직자. 칸별 유형 거르기는 generator 가 한다
         for typ, code in User.objects.roster().filter(department__board=period.board).values_list("type", "username"):
             members_by_type[typ].add(code)
         out = generate_control_duty(
-            period.dates(), commutes, dict(members_by_type), seed,
+            dates, commutes, dict(members_by_type), seed,
             [(x.name, x.eligible_shifts, x.eligible_types) for x in slots],
         )  # GenerationError 전파
     else:  # 장중관제 정의가 없는 근무표는 생성기를 부르지 않는다

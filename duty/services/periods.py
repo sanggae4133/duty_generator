@@ -6,7 +6,7 @@ from django.db import transaction
 from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, Department, DutyAssignment, Period, PeriodEvent
-from . import holidays
+from . import boards, holidays
 
 S = Period.Status
 
@@ -76,13 +76,14 @@ def delete(period: Period) -> None:
 
 
 def missing_dates(period: Period) -> dict[str, list[date]]:
-    """그 근무표 부서마다 출근표가 하나도 없는 평일."""
+    """그 근무표 부서마다 출근표가 하나도 없는 평일. 건너뛰는 날(근무 없음·휴장일)은 빼고 본다."""
     have: dict[str, set[date]] = defaultdict(set)
     for code, d in Commute.objects.filter(period=period).values_list("member__department", "date"):
         have[code].add(d)
+    skip = boards.skip_dates(period)
     out = {}
     for dept in Department.objects.filter(board_id=period.board_id).order_by("code"):
-        missing = [d for d in period.dates() if d not in have[dept.code]]
+        missing = [d for d in period.dates() if d not in have[dept.code] and d not in skip]
         if missing:
             out[dept.code] = missing
     return out

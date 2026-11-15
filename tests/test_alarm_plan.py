@@ -249,3 +249,10 @@ def test_report_hash_covers_condition_text():
     h = run([r], d, SUN18, dept_names={"MEMS": "매칭엔진실"})[0].content_hash
     ch = run([r], d, SUN18, {K("report"): h}, dept_names={"MEMS": "새이름실"})
     assert len(ch) == 1 and ch[0].text.startswith("[출근표 변경]") and ch[0].content_hash.startswith("report:")
+
+
+def test_bizdays_rule_moves_before_holiday():
+    r = rule(timing="bizdays", offset=1, at_minute=17 * 60, shifts=("dawn",))
+    thu17 = datetime(2026, 11, 12, 17)
+    assert run([r], [day(dawn=["가"])], thu17) == []
+    assert len(run([r], [day(dawn=["가"])], thu17, closed={date(2026, 11, 13)})) == 1

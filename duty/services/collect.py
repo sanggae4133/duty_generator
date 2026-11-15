@@ -67,10 +67,15 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     existing = {d: {k: v for k, v in day.items() if k not in kept_keys} for d, day in loaded.items()}
     kept = {d: {n for k, v in day.items() if k in kept_keys for n in v} for d, day in loaded.items()}
     members = set(User.objects.roster().filter(department=dept).values_list("name", flat=True))
+    skip = boards.skip_reasons(period)
     for d in sorted(table):
         col = d.isoformat()
         if d not in valid_dates:
             add_error(errors, CsvError(0, col, "회차 기간의 평일이 아닙니다."))
+            continue
+        if d in skip:  # 건너뛰는 날은 비워 둔다. 이미 있는 행은 저장해도 남는다(apply_table)
+            if any(table[d].values()):
+                add_error(errors, CsvError(0, col, f"{skip[d]}: 근무를 넣지 않는 날입니다."))
             continue
         if _norm(table[d]) == _norm(existing.get(d, {})):
             continue  # 변경 없는 날짜는 재검증하지 않는다 (퇴사자 이름이 남아 있어도 다른 수정을 막지 않음)
@@ -90,7 +95,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
                     seen[name] = key
     if not perms.is_board_admin(user, period.board):
         today = perms.today()
-        for d in sorted(x for x in set(table) | set(existing) if x < today):
+        for d in sorted(x for x in set(table) | set(existing) if x < today and x not in skip):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
                 add_error(errors, CsvError(0, d.isoformat(), "지난 날짜는 어드민만 수정할 수 있습니다."))
     return errors
@@ -104,7 +109,8 @@ def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> 
     if errors:
         raise CsvInvalid(errors)
     by_name = {m.name: m for m in User.objects.filter(department=dept)}
-    Commute.objects.filter(period=period, member__department=dept).exclude(shift__in=_kept_keys(dept)).delete()
+    (Commute.objects.filter(period=period, member__department=dept)
+     .exclude(shift__in=_kept_keys(dept)).exclude(date__in=boards.skip_dates(period)).delete())
     rows = [
         Commute(period=period, date=d, member=by_name[n], shift=key)
         for d, day in table.items()
@@ -122,13 +128,17 @@ def apply_csv(user, period: Period, dept: Department, raw: bytes) -> int:
 
 def export_csv(period: Period, dept: Department) -> bytes:
     _same_board(period, dept)
-    return export_commute_csv(period.dates(), shift_names(dept), load_table(period, dept))
+    skip = boards.skip_dates(period)  # 건너뛰는 날은 빈 줄로(내려받은 그대로 다시 올려도 오류가 없게)
+    table = {d: day for d, day in load_table(period, dept).items() if d not in skip}
+    return export_commute_csv(period.dates(), shift_names(dept), table)
 
 
 def progress(period: Period) -> dict[str, tuple[int, int]]:
-    total = len(period.dates())
+    """부서마다 (출근표가 있는 날 수, 입력할 날 수). 건너뛰는 날은 양쪽에서 뺀다."""
+    skip = boards.skip_dates(period)
+    total = len([d for d in period.dates() if d not in skip])
     filled = dict(
-        Commute.objects.filter(period=period)
+        Commute.objects.filter(period=period).exclude(date__in=skip)
         .values("member__department")
         .annotate(n=Count("date", distinct=True))
         .values_list("member__department", "n")

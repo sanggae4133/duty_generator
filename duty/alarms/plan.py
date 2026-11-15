@@ -47,8 +47,8 @@ def _hash(prefix: str, text: str) -> str:
 
 
 def plan(defs, rules, days, info, deliveries, now, destinations=None, dept_names=None, extra_dates=None,
-         today=None) -> list[Due]:
-    """defs: 이 근무표의 정의. destinations: (rule_id, channel) → 목적지 목록.
+         today=None, closed=frozenset()) -> list[Due]:
+    """defs: 이 근무표의 정의. destinations: (rule_id, channel) → 목적지 목록. closed: 휴장일 날짜 집합(영업일 계산).
     deliveries: (rule_id, date, cell, channel, destination) → 그 목적지에 마지막으로 성공한 내용 hash(없으면 None)."""
     today = today or now.date()
     destinations = destinations or {}
@@ -66,10 +66,10 @@ def plan(defs, rules, days, info, deliveries, now, destinations=None, dept_names
             starts = {c: datetime.combine(day.date, cell_start(defs, c)) for c in cells}
             if r.kind == "personal":
                 if r.member_name:
-                    out += _personal(defs, r, day, cells, starts, deliveries, now, destinations, today)
+                    out += _personal(defs, r, day, cells, starts, deliveries, now, destinations, today, closed)
             elif r.kind == "report":
                 out += _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, day.date in synthetic,
-                               destinations)
+                               destinations, closed)
     return out
 
 
@@ -94,11 +94,11 @@ def _targets(r, destinations):
     return [(ch, dest) for ch in r.channels for dest in destinations.get((r.id, ch), ())]
 
 
-def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today):
+def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today, closed):
     out = []
     for c in cells:
         start = starts[c]
-        if not send_at(r.timing, r.offset, r.at_minute, day.date, start) <= now < start:
+        if not send_at(r.timing, r.offset, r.at_minute, day.date, start, closed) <= now < start:
             continue
         inside = r.member_name in day.members.get(c, [])
         if inside:
@@ -119,9 +119,9 @@ def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today)
     return out
 
 
-def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations):
+def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations, closed):
     first, last_start = min(starts.values()), max(starts.values())
-    if not send_at(r.timing, r.offset, r.at_minute, day.date, first) <= now < last_start:
+    if not send_at(r.timing, r.offset, r.at_minute, day.date, first, closed) <= now < last_start:
         return []
 
     def keep(name):

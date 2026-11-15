@@ -4,23 +4,24 @@ from datetime import date, datetime, time, timedelta
 from ..shifts import SLOT_GROUP_NAME, cell_end, cell_label, cell_start, cells_of, is_slot_cell
 
 
-def bizdays_back(d: date, n: int) -> date:
+def bizdays_back(d: date, n: int, closed=frozenset()) -> date:
+    """d 에서 n 영업일 전. 영업일 = 평일 중 closed(휴장일 날짜 집합)에 없는 날."""
     if n < 0:
         raise ValueError("영업일 수는 0 이상이어야 합니다.")
     while n:
         d -= timedelta(days=1)
-        if d.weekday() < 5:
+        if d.weekday() < 5 and d not in closed:
             n -= 1
     return d
 
 
-def send_at(timing: str, offset: int, at_minute: int, day: date, start: datetime) -> datetime:
+def send_at(timing: str, offset: int, at_minute: int, day: date, start: datetime, closed=frozenset()) -> datetime:
     if timing == "before_start":
         return start - timedelta(minutes=offset)
     if timing == "days":
         base = day - timedelta(days=offset)
     elif timing == "bizdays":
-        base = bizdays_back(day, offset)
+        base = bizdays_back(day, offset, closed)
     else:
         raise ValueError("알 수 없는 발송 시점입니다.")
     return datetime.combine(base, time(at_minute // 60, at_minute % 60))

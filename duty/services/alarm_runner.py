@@ -15,12 +15,13 @@ from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
 from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Board, Department,
                       PushAlarmSubscription, TelegramAlarmProfile, User)
-from . import alarm_settings, boards
+from . import alarm_settings, boards, holidays
 from .alarms import RULE_FIELDS
 from .roster import published_days
 
 log = logging.getLogger(__name__)
 HORIZON = timedelta(days=45)
+BIZ_BACK = timedelta(days=90)  # 영업일 기준 최대 30영업일 전 + 긴 연휴 여유: 이만큼 앞의 휴장일까지 읽는다
 KEEP = timedelta(days=7)
 LIMIT = 4000  # 텔레그램 본문 최대 길이
 
@@ -102,6 +103,7 @@ def collect(now):
     destinations = _destinations(rules, alarm_settings.current())
     dept_names = dict(Department.objects.values_list("code", "name"))
     local_now = timezone.localtime(now).replace(tzinfo=None)
+    closed = frozenset(holidays.closed(today - BIZ_BACK, today + HORIZON))  # 모든 근무표 공통(설계 5)
     dues = []
     for board in Board.objects.filter(pk__in=list(by_board)).order_by("id"):
         group = by_board[board.id]
@@ -114,7 +116,7 @@ def collect(now):
         days = [d for d in published_days(board, today, today + HORIZON) if any(d.members.values())]
         dues += plan(boards.defs(board), specs, days, info, deliveries, local_now,
                      destinations=destinations, dept_names=dept_names,
-                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today)
+                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today, closed=closed)
     out = []
     for due in dues:
         row = rows.get((due.rule_id, due.date, due.cell, due.channel, due.destination))

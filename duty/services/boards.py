@@ -6,6 +6,7 @@ from django.db.models.functions import Coalesce
 
 from ..models import Board, BoardShift, Period, PeriodEvent
 from ..shifts import Def, ordered, weekdays
+from . import holidays, memos
 
 
 def it_board() -> Board:
@@ -66,3 +67,17 @@ def owners(board, start: date | None, end: date | None) -> dict[date, Period]:
         if p is not None:
             out[x] = p
     return out
+
+
+def skip_reasons(period: Period) -> dict[date, str]:
+    """만드는 도구(입력 표·CSV·생성·빈 날 검사)가 건너뛰는 날 {날짜: 까닭}(설계 5·6.5).
+    근무 없음 날은 늘(까닭 = 메모 글), 휴장일은 period.skip_holidays 일 때만(2단계 전 회차는 거짓)."""
+    out = holidays.closed(period.start_date, period.end_date) if period.skip_holidays else {}
+    for x, memo in memos.for_range(period.board, period.start_date, period.end_date)[memos.DAY].items():
+        if memo.no_work:
+            out[x] = memo.text or "근무 없음"
+    return out
+
+
+def skip_dates(period: Period) -> set[date]:
+    return set(skip_reasons(period))
