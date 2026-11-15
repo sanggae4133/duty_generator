@@ -120,7 +120,9 @@ def _rule_form(request, rule=None):
                 form.add_error(None, str(e))
             else:
                 defs = boards.defs(alarms.rule_board(request.user, saved.kind, saved.board_id))
-                notice = same_day_notice(defs, saved.kind, saved.timing, saved.offset, saved.at_minute, saved.shifts)
+                dept = request.user.department if saved.kind == "personal" else None
+                notice = same_day_notice(defs, saved.kind, saved.timing, saved.offset, saved.at_minute, saved.shifts,
+                                         lunch=dept.lunch_start if dept else None)
                 messages.success(request, "규칙을 저장했습니다.")
                 if notice:
                     messages.warning(request, notice)

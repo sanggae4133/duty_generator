@@ -13,7 +13,7 @@
 </form>
 {% if note.no_work %}<p class="nowork">{{ note.text|default:"근무 없음"|linebreaksbr }}</p>{% elif not found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
 {% for s in sections %}
-{% ifchanged s.slot %}<h4 class="grp">{% if s.slot %}장중관제{% else %}출근조{% endif %}</h4>{% endifchanged %}
+{% ifchanged s.slot s.lunch %}<h4 class="grp">{% if s.slot %}장중관제{% elif s.lunch %}당번{% else %}출근조{% endif %}</h4>{% endifchanged %}
 <article id="{{ s.cell }}" class="dcell">
   <strong>{{ s.label }}</strong>
   <p>{% with line=s.items %}{% include "duty/_labels.html" %}{% endwith %}{% if not s.items %}-{% endif %}{% if s.removed_items %} {% with line=s.removed_items %}{% include "duty/_labels.html" %}{% endwith %}{% endif %}</p>

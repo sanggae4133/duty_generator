@@ -258,6 +258,8 @@ def test_roster_and_day_order(pub, client):
     body = client.get("/day/2026-11-10/").content.decode()
     assert body.index("<strong>야간</strong>") < body.index("<strong>점심당번</strong>") < body.index("<strong>08:30~09:30</strong>")
     assert "11:30~12:30</strong>" not in body.split("<strong>점심당번</strong>")[1][:50]  # 시각 없이
+    grp = body.split('<h4 class="grp">')
+    assert [g.split("<")[0] for g in grp[1:]] == ["출근조", "당번", "장중관제"]  # 점심당번은 출근조 아래가 아니다
 
 
 def test_schedule_filter_and_me(pub, client):
@@ -418,3 +420,16 @@ def test_calendar_lunch_event(pub, it_board, settings):
     assert events[1].uid.startswith("20261110-lunch-")
     changes.set_reason(m["다"], it_board, T, m["가"], "휴가")
     assert calendar._events(m["가"]) == []  # 사유가 있는 날은 빠진다
+
+
+def test_same_day_notice_personal_counts_lunch_by_department_time():
+    """개인 규칙: 점심당번은 부서 점심 시각으로 따진다(시각이 없으면 그날 끝까지 가므로 빠지지 않는다)."""
+    from datetime import time
+    # 07:00 발송, 새벽(06:30)+점심당번(11:30): 새벽만 빠지고 점심당번은 간다
+    assert same_day_notice(IT_DEFS2, "personal", "days", 0, 7 * 60, ["dawn", "lunch"], lunch=time(11, 30)) == \
+        "새벽은 발송 시각이 근무 시작 이후라 제외됩니다."
+    assert same_day_notice(IT_DEFS2, "personal", "days", 0, 7 * 60, ["dawn", "lunch"]) == \
+        "새벽은 발송 시각이 근무 시작 이후라 제외됩니다."
+    # 13:00 발송: 부서 점심 11:30 이면 둘 다 빠진다
+    assert same_day_notice(IT_DEFS2, "personal", "days", 0, 13 * 60, ["dawn", "lunch"], lunch=time(11, 30)) == \
+        "현재 선택으로는 발송되는 근무가 없습니다."
