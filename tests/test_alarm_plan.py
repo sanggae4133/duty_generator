@@ -256,3 +256,14 @@ def test_bizdays_rule_moves_before_holiday():
     thu17 = datetime(2026, 11, 12, 17)
     assert run([r], [day(dawn=["가"])], thu17) == []
     assert len(run([r], [day(dawn=["가"])], thu17, closed={date(2026, 11, 13)})) == 1
+
+
+def test_bizdays_report_moves_before_holiday_same_hash():
+    """보고서형도 영업일에서 휴장일을 뺀다. 휴장일은 발송 시각만 바꾸고 내용(hash)은 그대로."""
+    r = rep(timing="bizdays", offset=1, at_minute=17 * 60, shifts=("dawn",))
+    thu17 = datetime(2026, 11, 12, 17)
+    d = [day(dawn=["가"])]
+    assert run([r], d, thu17) == []
+    due = run([r], d, thu17, closed={date(2026, 11, 13)})
+    assert len(due) == 1 and due[0].cell == "report"
+    assert due[0].content_hash == run([r], d, datetime(2026, 11, 13, 17))[0].content_hash
