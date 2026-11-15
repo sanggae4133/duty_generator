@@ -437,7 +437,8 @@ def test_integrity_error_other_than_duplicate_reraised(me):
 
 def test_same_day_notice_collapses_slots():
     from duty.alarms.schedule import same_day_notice
-    assert same_day_notice("personal", "days", 0, 10 * 60, []) == \
+    from tests.it_defs import IT_DEFS
+    assert same_day_notice(IT_DEFS, "personal", "days", 0, 10 * 60, []) == \
         "새벽·정상·석식교대·장중관제 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."
 
 

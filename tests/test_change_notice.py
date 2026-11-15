@@ -7,6 +7,7 @@ from django.utils import timezone
 from duty.alarms import messages as m
 from duty.models import ChangeLog, Commute, Period, PushAlarmSubscription, TelegramAlarmProfile, User
 from duty.services import alarm_settings, boards, change_notice, changes
+from tests.it_defs import IT_DEFS
 
 D = date(2026, 11, 10)
 NOW = timezone.make_aware(datetime(2026, 11, 10, 9, 0))
@@ -68,10 +69,10 @@ def test_old_or_past_changes_are_skipped(world, fixed_today):
 
 
 def test_message_text():
-    title, text = m.change_notice(D, "slot0", "가", "나", "관리자")
+    title, text = m.change_notice(IT_DEFS, D, "slot0", "가", "나", "관리자")
     assert title == "근무 변경" and "11/10(화)" in text and "장중관제 08:30~09:30" in text
     assert "가 → 나" in text and "관리자" in text
-    assert "+나" in m.change_notice(D, "normal", None, "나", "관리자")[1]
+    assert "+나" in m.change_notice(IT_DEFS, D, "normal", None, "나", "관리자")[1]
 
 
 def test_toggle_view(client, world):

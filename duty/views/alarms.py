@@ -117,7 +117,8 @@ def _rule_form(request, rule=None):
             except DutyError as e:
                 form.add_error(None, str(e))
             else:
-                notice = same_day_notice(saved.kind, saved.timing, saved.offset, saved.at_minute, saved.shifts)
+                defs = boards.defs(alarms.rule_board(request.user, saved.kind, saved.board_id))
+                notice = same_day_notice(defs, saved.kind, saved.timing, saved.offset, saved.at_minute, saved.shifts)
                 messages.success(request, "규칙을 저장했습니다.")
                 if notice:
                     messages.warning(request, notice)

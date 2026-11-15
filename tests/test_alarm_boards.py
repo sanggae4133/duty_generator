@@ -1,15 +1,19 @@
 """근무표가 둘일 때 알림 규칙·정기 알림·변경 알림·캘린더가 서로 영향 없음(1단계)."""
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 
 import pytest
+from django.utils import timezone
 
+from duty.alarms import senders
 from duty.alarms.forms import RuleForm
 from duty.errors import DutyError
-from duty.models import AlarmDelivery, AlarmRule, Board, BoardShift, Department, User
-from duty.services import alarms
+from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Board, BoardShift, ChangeLog, Commute, Department,
+                         Period, PeriodEvent, TelegramAlarmProfile, User)
+from duty.services import alarm_runner, alarms, calendar, change_notice
 
 D = date(2026, 11, 16)  # 월
 SUN = date(2026, 11, 15)
+SUN18 = timezone.make_aware(datetime(2026, 11, 15, 18))
 OPS_DEFS = [("dawn", "오전", time(7, 30), time(16, 30)), ("normal", "주간", time(9), time(18)),
             ("dinner", "오후", time(11), time(20))]
 FORM = dict(enabled="on", timing="before_start", hours="2", minutes="0", telegram="on")
@@ -23,6 +27,35 @@ def ops(it_board):
         BoardShift.objects.create(board=board, key=key, name=name, start=start, end=end, default_alarm=True)
     dept = Department.objects.create(code="OPS", name="운영팀", shifts="dawn,normal,dinner", board=board, order=0)
     return board, dept
+
+
+@pytest.fixture
+def env(settings, fixed_today, monkeypatch, db):
+    """텔레그램만 켜고 보낸 것을 (chat_id, 본문)으로 모은다(실제 호출 없음)."""
+    AlarmSettings.objects.update_or_create(pk=1, defaults=dict(telegram_bot_token="t"))
+    settings.SITE_URL = ""
+    fixed_today(SUN)
+    sent = []
+    monkeypatch.setattr(senders, "telegram_send", lambda cfg, chat, text: sent.append((chat, text)) or {})
+    monkeypatch.setattr(senders, "push_send", lambda *a, **k: pytest.fail("푸시는 보내지 않는다"))
+    return sent
+
+
+def person(name, dept, chat):
+    """발급된 계정(기본 알림 규칙 포함) + 확인된 텔레그램."""
+    u = User.objects.create_user(f"{dept.code}{chat}", password="unused-Pw-123", name=name, department=dept,
+                                 type="직원")
+    alarms.create_defaults(u)
+    TelegramAlarmProfile.objects.create(user=u, chat_id=chat, verified_at=timezone.now())
+    return u
+
+
+def published(board, *rows):
+    p = Period.objects.create(board=board, name=board.code, start_date=D, end_date=D, overwrite_from=D,
+                              status=Period.Status.PUBLISHED, published_at=timezone.now())
+    for member, shift in rows:
+        Commute.objects.create(period=p, date=D, member=member, shift=shift)
+    return p
 
 
 def report_base(board_id, **kw):
@@ -107,3 +140,85 @@ def test_rule_list_names_shifts_by_rule_board(client, depts, ops, admin_user):
                              at_minute=18 * 60, telegram=True, shifts=["dawn"], depts=[], types=[])
     client.force_login(admin_user)
     assert "스케줄: 오전" in client.get("/alarms/").content.decode()
+
+
+# ---- 정기 알림 ----
+
+def test_same_date_on_two_boards_no_cross_cancel(env, depts, it_board, ops):
+    """같은 날짜에 다른 근무표가 있어도 IT 개인 규칙에 취소 알림이 나가지 않는다."""
+    board, dept = ops
+    it, op = person("가상아이", depts["MEMS"], "111"), person("가상운영", dept, "222")
+    published(it_board, (it, "dawn"))
+    published(board, (op, "dawn"))
+    assert alarm_runner.tick(SUN18) == (2, 2, 0)
+    assert sorted(env) == [("111", "[당번 알림] 11/16(월) 새벽 06:30~15:30\n가상아이님, 내일 새벽 당번입니다."),
+                           ("222", "[당번 알림] 11/16(월) 오전 07:30~16:30\n가상운영님, 내일 오전 당번입니다.")]
+    env.clear()
+    assert alarm_runner.tick(SUN18 + timedelta(minutes=1)) == (0, 0, 0)
+    assert env == []
+
+
+def test_report_rule_reads_only_its_board(env, depts, it_board, ops, admin_user):
+    board, dept = ops
+    it, op = person("가상아이", depts["MEMS"], "111"), person("가상운영", dept, "222")
+    AlarmRule.objects.filter(user__in=[it, op]).delete()
+    published(it_board, (it, "dawn"))
+    published(board, (op, "dawn"))
+    AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
+                             at_minute=18 * 60, telegram=True, shifts=[], depts=[], types=[])
+    TelegramAlarmProfile.objects.create(user=admin_user, chat_id="999", verified_at=timezone.now())
+    alarm_runner.tick(SUN18)
+    assert env == [("999", "[출근표] 11/16(월)\n오전(07:30~) 가상운영\n주간(09:00~) -\n오후(11:00~) -")]
+
+
+def test_owned_day_without_rows_sends_no_report(env, depts, it_board, admin_user):
+    """그날의 주인은 있어도 배정이 하나도 없는 날은 정기 알림에 넘기지 않는다(빈 보고서 방지)."""
+    published(it_board)
+    AlarmRule.objects.create(user=admin_user, kind="report", board=it_board, timing="days", offset=1,
+                             at_minute=18 * 60, telegram=True, shifts=[], depts=[], types=[])
+    TelegramAlarmProfile.objects.create(user=admin_user, chat_id="999", verified_at=timezone.now())
+    assert alarm_runner.tick(SUN18) == (0, 0, 0)
+
+
+# ---- 변경 알림 ----
+
+def test_change_notice_uses_period_board_names(env, depts, ops):
+    board, dept = ops
+    a, b = person("가상운영", dept, "222"), person("가상운영둘", dept, "333")
+    p = published(board, (b, "dawn"))
+    ChangeLog.objects.create(period=p, date=D, cell="dawn", before=a, after=b)
+    change_notice.tick(timezone.now())
+    assert sorted(env) == [(c, "[근무 변경] 11/16(월) 오전\n가상운영 → 가상운영둘\n바꾼 사람: -") for c in ("222", "333")]
+
+
+def test_change_notice_sent_when_period_owns_empty_day(env, depts, it_board):
+    """배정이 다 빠진 날도 그 회차가 그날의 주인이면 보낸다."""
+    a = person("가상아이", depts["MEMS"], "111")
+    p = published(it_board)
+    ChangeLog.objects.create(period=p, date=D, cell="dawn", before=a, after=None)
+    change_notice.tick(timezone.now())
+    assert env == [("111", "[근무 변경] 11/16(월) 새벽\n가상아이 빠짐\n바꾼 사람: -")]
+
+
+def test_change_notice_skipped_when_newer_period_owns_day(env, depts, it_board):
+    a = person("가상아이", depts["MEMS"], "111")
+    old, new = published(it_board, (a, "dawn")), published(it_board, (a, "dawn"))
+    PeriodEvent.objects.create(period=old, from_status="generated", to_status="published")
+    PeriodEvent.objects.create(period=new, from_status="generated", to_status="published")
+    ChangeLog.objects.create(period=old, date=D, cell="dawn", before=a, after=None)
+    change_notice.tick(timezone.now())
+    assert env == []
+
+
+# ---- 캘린더 ----
+
+def test_calendar_uses_member_board_definitions(env, depts, it_board, ops):
+    board, dept = ops
+    it, op = person("가상아이", depts["MEMS"], "111"), person("가상운영", dept, "222")
+    published(it_board, (it, "normal"))
+    published(board, (op, "normal"))
+    [e] = calendar._events(op)
+    assert (e.summary, e.start.time(), e.end.time(), e.uid) == (
+        "주간 출근 09:00~18:00", time(9), time(18), f"20261116-normal-{op.pk}@duty-generator")
+    [e] = calendar._events(it)
+    assert e.summary == "정상 출근 08:00~17:00"

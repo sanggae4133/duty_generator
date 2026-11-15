@@ -1,7 +1,7 @@
 from datetime import date, time
 
 from duty.shifts import (
-    CELLS, LEGACY_DEFS, Def, by_key, cell_end, cell_label, cell_start, cells_of, display_order, is_slot_cell,
+    KEYS, Def, by_key, cell_end, cell_label, cell_start, cells_of, display_order, is_slot_cell,
     ordered, shift_defs, slot_defs, slot_index, weekdays,
 )
 from tests.it_defs import IT_DEFS
@@ -39,7 +39,7 @@ def test_cell_times():
 
 
 def test_cells_of():
-    assert cells_of(IT_DEFS, []) == CELLS
+    assert cells_of(IT_DEFS, []) == KEYS
     assert cells_of(IT_DEFS, ["night", "dawn"]) == ["dawn", "night"]
     assert cells_of(IT_DEFS, ["slots"]) == [f"slot{i}" for i in range(10)]
 
@@ -67,9 +67,3 @@ def test_helpers_read_only_given_defs():
     assert cells_of(defs, []) == ["dawn", "dinner", "night"]
     assert cells_of(defs, ["slots"]) == []
     assert cell_label(defs, "dinner") == "이른" and cell_start(defs, "night") == time(11)
-
-
-def test_legacy_defs_equal_it_defs():
-    # 1단계 이행용 LEGACY_DEFS(알림·캘린더가 임시로 씀)가 IT 정의와 한 글자도 다르지 않다
-    assert by_key(LEGACY_DEFS) == by_key(IT_DEFS)
-    assert [d.key for d in LEGACY_DEFS] == [d.key for d in ordered(IT_DEFS)]

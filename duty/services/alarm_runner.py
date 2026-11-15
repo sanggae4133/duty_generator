@@ -13,7 +13,7 @@ from ..alarms import messages as m
 from ..alarms import senders
 from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
-from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department,
+from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Board, Department,
                       PushAlarmSubscription, TelegramAlarmProfile, User)
 from . import alarm_settings, boards
 from .alarms import RULE_FIELDS
@@ -81,27 +81,40 @@ def _valid(rule, today) -> bool:
 
 
 def collect(now):
-    """보낼 (Due, 기존 기록, 규칙 스냅숏) 목록. 같은 내용의 backoff 중인 것은 뺀다."""
+    """보낼 (Due, 기존 기록, 규칙 스냅숏) 목록. 근무표마다 그 근무표의 근무표·규칙으로 따로 계획한다
+    (개인 = 주인 부서의 근무표, 보고서 = 규칙의 근무표). 같은 내용의 backoff 중인 것은 뺀다."""
     if timezone.is_naive(now):
         raise ValueError("now는 aware datetime이어야 합니다.")
     today = perms.today()
-    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True).select_related("user")
+    rules = [r for r in AlarmRule.objects.filter(enabled=True, user__is_active=True).select_related("user__department")
              if _valid(r, today)]
     snaps = {r.id: _snap(r) for r in rules}
-    # 개인 알림 대상은 근무표 대상 계정(부서 있음)만. 부서 없는 어드민은 보고서형만 받는다
-    specs = [RuleSpec(r.id, r.user.name if r.user.department_id else None, r.kind, r.timing, r.offset, r.at_minute,
-                      tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
-                      tuple(r.shifts), tuple(r.depts), tuple(r.types)) for r in rules]
+    # 개인 알림 대상은 근무표 대상 계정(부서 있음)만. 부서 없는 어드민의 개인 규칙은 어느 근무표에도 넣지 않는다
+    by_board = defaultdict(list)
+    for r in rules:
+        board_id = r.board_id if r.kind == "report" else (r.user.department.board_id if r.user.department_id else None)
+        if board_id is not None:
+            by_board[board_id].append(r)
     rows = {(d.rule_id, d.date, d.cell, d.channel, d.destination): d
             for d in AlarmDelivery.objects.filter(date__gte=today)}
     info = {n: (dept, typ) for n, dept, typ in User.objects.values_list("name", "department__code", "type")}
-    # 1단계: IT 근무표 하나. 배정이 없는 날은 넘기지 않는다(빈 보고서 방지, 설계 6.1). 근무표마다 plan 은 Task 8
-    days = [d for d in published_days(boards.it_board(), today, today + HORIZON) if any(d.members.values())]
-    dues = plan(specs, days, info,
-                {k: d.last_sent_hash for k, d in rows.items()}, timezone.localtime(now).replace(tzinfo=None),
-                destinations=_destinations(rules, alarm_settings.current()),
-                dept_names=dict(Department.objects.values_list("code", "name")),
-                extra_dates={k[1] for k in rows}, today=today)
+    deliveries = {k: d.last_sent_hash for k, d in rows.items()}
+    destinations = _destinations(rules, alarm_settings.current())
+    dept_names = dict(Department.objects.values_list("code", "name"))
+    local_now = timezone.localtime(now).replace(tzinfo=None)
+    dues = []
+    for board in Board.objects.filter(pk__in=list(by_board)).order_by("id"):
+        group = by_board[board.id]
+        ids = {r.id for r in group}
+        specs = [RuleSpec(r.id, r.user.name if r.user.department_id else None, r.kind, r.timing, r.offset,
+                          r.at_minute, tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
+                          tuple(r.shifts), tuple(r.depts), tuple(r.types)) for r in group]
+        # 주인은 있어도 배정이 하나도 없는 날은 넘기지 않는다(빈 보고서 방지, 설계 6.1).
+        # 그날의 옛 발송 기록은 extra_dates 의 빈 날로 계산돼 취소가 나간다(지금과 같다)
+        days = [d for d in published_days(board, today, today + HORIZON) if any(d.members.values())]
+        dues += plan(boards.defs(board), specs, days, info, deliveries, local_now,
+                     destinations=destinations, dept_names=dept_names,
+                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today)
     out = []
     for due in dues:
         row = rows.get((due.rule_id, due.date, due.cell, due.channel, due.destination))

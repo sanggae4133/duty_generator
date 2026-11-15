@@ -11,7 +11,6 @@ SHIFT_KEYS = ("dawn", "normal", "dinner", "night")  # 근무조 키(한 사람 �
 SLOT_KEYS = tuple(f"slot{i}" for i in range(10))  # 장중관제 칸 키(자동 생성, 칸당 1명)
 # 근무표가 쓸 수 있는 키 전부. 순서 = 알림·캘린더 칸 순회 순서(바꾸면 알림 hash 가 달라져 다시 나간다)
 KEYS: list[str] = ["dawn", "normal", "dinner", *SLOT_KEYS, "night"]
-CELLS = KEYS  # 1단계 동안 남기는 옛 이름
 SLOT_GROUP, SLOT_GROUP_NAME, SLOT_GROUP_SHORT = "slots", "장중관제", "관제"  # 장중관제 묶음 키·이름·짧은 이름
 
 DEVELOPER = "개발자"
@@ -32,10 +31,6 @@ class Def:
     eligible_types: tuple[str, ...] = ()
     default_alarm: bool = False
     active: bool = True  # 꺼진 정의: 새 입력·생성·선택지에서 빠지고(boards.active_defs) 이름 찾기에는 남는다(boards.defs)
-
-
-def slot_cell(i: int) -> str:
-    return f"slot{i}"
 
 
 def is_slot_cell(cell: str) -> bool:
@@ -97,47 +92,3 @@ def weekdays(start: date, end: date) -> list[date]:
             out.append(d)
         d += timedelta(days=1)
     return out
-
-
-# ---- 1단계 이행용 옛 상수. 변경·생성·통계·알림·캘린더 작업(Task 5·7·8)이 근무표 정의를 받게 되면 지운다 ----
-
-COMMUTE_SHIFTS: dict[str, str] = {  # 순서 = 화면 표시 순서
-    "dawn": "새벽",
-    "normal": "정상",
-    "dinner": "석식교대",
-    "night": "야간",
-}
-
-_BOTH = ("normal", "dinner")
-CONTROL_SLOTS: list[tuple[str, tuple[str, ...]]] = [  # (라벨, 자격 출근조)
-    ("08:30~09:30", ("normal",)),
-    ("09:30~10:30", _BOTH),
-    ("10:30~11:30", _BOTH),
-    ("11:30~12:30", _BOTH),
-    ("12:30~13:30", _BOTH),
-    ("13:30~14:30", _BOTH),
-    ("14:30~15:30", _BOTH),
-    ("15:30~16:30", _BOTH),
-    ("16:30~17:00", _BOTH),
-    ("17:00~18:00", ("dinner",)),
-]
-
-SHIFT_TIMES: dict[str, tuple[str, str]] = {  # 9시=석식교대, 저녁=야간
-    "dawn": ("06:30", "15:30"),
-    "normal": ("08:00", "17:00"),
-    "dinner": ("09:00", "18:00"),
-    "night": ("13:30", "21:30"),
-}
-
-
-def _legacy_defs() -> list[Def]:
-    t = time.fromisoformat
-    out = [Def(k, n, t(SHIFT_TIMES[k][0]), t(SHIFT_TIMES[k][1]), default_alarm=k in ("dawn", "dinner", "night"))
-           for k, n in COMMUTE_SHIFTS.items()]
-    for i, (label, allowed) in enumerate(CONTROL_SLOTS):
-        a, b = label.split("~")
-        out.append(Def(slot_cell(i), label, t(a), t(b), eligible_shifts=allowed, eligible_types=(DEVELOPER,)))
-    return ordered(out)
-
-
-LEGACY_DEFS: list[Def] = _legacy_defs()  # IT 정의와 같다(tests/test_shifts.py 가 IT_DEFS 와 비교)
