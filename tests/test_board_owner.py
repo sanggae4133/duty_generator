@@ -152,3 +152,67 @@ def test_cell_to_options_only_board_members(client, it_board, ops, make_member, 
     body = client.get("/cell/2026-11-10/normal/").content.decode()
     assert 'name="after"' in body and "나 · " in body  # 같은 근무표 사람은 To 에 있다
     assert "운영가" not in body
+
+
+# ── 근무표 단위 근무 변경 ──
+
+@pytest.fixture
+def two(it_board, ops, make_member, fixed_today):
+    fixed_today(d(11, 10))
+    board, dept = ops
+    it = published(it_board, "IT", d(11, 10), d(11, 11))  # pk 가 작다(옛 _owner 는 근무표 구분 없이 pk 순으로 골랐다)
+    op = published(board, "운영", d(11, 10), d(11, 11))
+    ga = make_member("가", user=True)
+    oa, ob = ops_member(dept, "운영가"), ops_member(dept, "운영나")
+    Commute.objects.create(period=it, date=d(11, 10), member=ga, shift="normal")
+    Commute.objects.create(period=op, date=d(11, 10), member=oa, shift="normal")
+    return it, op, ga, oa, ob
+
+
+def test_change_on_ops_board_uses_ops_owner(two, ops, it_board):
+    it, op, ga, oa, ob = two
+    board, _ = ops
+    changes.change_cell(oa, board, d(11, 10), "normal", oa, ob)
+    assert Commute.objects.get(member=ob).period == op
+    assert ChangeLog.objects.get().period == op
+    assert Commute.objects.get(member=ga).period == it  # IT 근무표는 그대로
+    assert find_day(it_board, d(11, 10)).members["normal"] == ["가"]
+
+
+def test_add_on_owned_day_without_rows(two, ops):
+    _, op, _, oa, ob = two
+    board, _ = ops
+    changes.change_cell(oa, board, d(11, 11), "normal", None, ob)  # 행이 없어도 기간으로 주인이 있다
+    assert Commute.objects.get(member=ob, date=d(11, 11)).period == op
+
+
+def test_other_board_member_cannot_be_assigned(two, it_board):
+    _, _, ga, oa, _ = two
+    with pytest.raises(DutyError, match="운영가은\\(는\\) 근무표 대상이 아닙니다"):
+        changes.change_cell(ga, it_board, d(11, 10), "normal", ga, oa)
+    assert not ChangeLog.objects.exists()
+
+
+def test_other_board_user_cannot_edit(two, it_board):
+    _, _, ga, oa, _ = two
+    with pytest.raises(PermissionDenied, match="이 근무표를 바꿀 권한이 없습니다"):
+        changes.exchange(oa, it_board, d(11, 10), "normal", ga, None)
+    assert Commute.objects.filter(member=ga).exists()
+
+
+def test_cell_must_be_defined_on_board(two, ops):
+    _, _, _, oa, ob = two
+    board, _ = ops
+    with pytest.raises(DutyError, match="알 수 없는 칸"):
+        changes.change_cell(oa, board, d(11, 10), "dawn", None, ob)
+
+
+def test_eligibility_warning_reads_board_defs(two, ops):
+    _, op, _, oa, ob = two
+    board, dept = ops
+    dev = ops_member(dept, "운영개발", type="개발자")
+    DutyAssignment.objects.create(period=op, date=d(11, 10), cell="slot0", member=oa)
+    w = changes.change_cell(oa, board, d(11, 10), "slot0", oa, dev)
+    assert w == ["운영개발의 그날 출근조(없음)는 점검A 관제 자격이 아닙니다."]
+    w = changes.change_cell(oa, board, d(11, 10), "slot0", dev, ob)
+    assert w == ["운영나은(는) 개발자가 아닙니다.", "운영나의 그날 출근조(없음)는 점검A 관제 자격이 아닙니다."]

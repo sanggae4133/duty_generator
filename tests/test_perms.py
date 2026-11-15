@@ -8,13 +8,13 @@ from duty import perms
 from duty.models import Board, Department, User
 
 
-def test_past_date_is_admin_only(fixed_today, make_member, admin_user):
+def test_past_date_is_admin_only(fixed_today, make_member, admin_user, it_board):
     fixed_today(date(2026, 11, 10))
     m = make_member("가", user=True)
-    perms.assert_can_edit_date(m, date(2026, 11, 10))  # 오늘은 누구나
+    perms.assert_can_edit(m, it_board, date(2026, 11, 10))  # 오늘은 누구나
     with pytest.raises(PermissionDenied):
-        perms.assert_can_edit_date(m, date(2026, 11, 9))
-    perms.assert_can_edit_date(admin_user, date(2026, 11, 9))
+        perms.assert_can_edit(m, it_board, date(2026, 11, 9))
+    perms.assert_can_edit(admin_user, it_board, date(2026, 11, 9))
 
 
 def test_can_input_department(depts, make_member, admin_user):
@@ -85,11 +85,3 @@ def test_board_admin_edits_past_of_that_board_only(fixed_today, it_board, ops):
     ops[0].admin_group.user_set.add(a)
     assert perms.can_edit(a, ops[0], date(2026, 11, 9))  # 부서가 없어도 관리 그룹이면
     assert not perms.can_edit(a, it_board, date(2026, 11, 10))
-
-
-def test_assert_can_edit_date_is_it_board(fixed_today, ops):
-    """Task 5 가 changes 에 board 를 넘길 때까지의 임시 함수: IT 근무표 기준."""
-    fixed_today(date(2026, 11, 10))
-    o = User.objects.create_user("OPS001", name="운영가", department=ops[1], type="직원")
-    with pytest.raises(PermissionDenied, match="이 근무표를 바꿀 권한이 없습니다"):
-        perms.assert_can_edit_date(o, date(2026, 11, 10))

@@ -219,7 +219,7 @@ def cell(request, d, cell):
         try:
             # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
             before, after = request.POST.get("before"), request.POST.get("after")
-            result = changes.exchange(request.user, d, cell, _member(None if before == "+" else before),
+            result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
                                       _member(None if after == "-" else after))
         except DutyError as e:
             messages.error(request, str(e))

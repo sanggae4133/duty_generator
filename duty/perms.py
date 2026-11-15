@@ -11,7 +11,6 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import Board, Department
-from .services import boards
 
 
 def today() -> date:
@@ -66,8 +65,3 @@ def can_edit(user, board, d: date) -> bool:
     except PermissionDenied:
         return False
     return True
-
-
-def assert_can_edit_date(user, d: date) -> None:
-    """임시(Task 5 가 지운다): changes 가 아직 근무표를 받지 않아 IT 근무표로 검사한다."""
-    assert_can_edit(user, boards.it_board(), d)

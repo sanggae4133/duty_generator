@@ -163,11 +163,11 @@ def test_unchanged_get_does_not_write(client, world):
 
 @pytest.fixture
 def changed(world, make_member):
-    from duty.services import changes
+    from duty.services import boards, changes
     a, b = world
     c = make_member("다", user=True)
-    changes.change_cell(a, D, "normal", a, c)       # 가>다
-    changes.change_cell(a, D, "dinner", b, None)    # 나 빠짐(취소선)
+    changes.change_cell(a, boards.it_board(), D, "normal", a, c)       # 가>다
+    changes.change_cell(a, boards.it_board(), D, "dinner", b, None)    # 나 빠짐(취소선)
     return a
 
 

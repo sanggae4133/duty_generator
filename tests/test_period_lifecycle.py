@@ -136,7 +136,7 @@ def test_unpublish_keeps_edits_and_counts_them(abc, admin_user):
     from duty.services import changes
     na = Commute.objects.filter(period=b).first().member
     other = Commute.objects.filter(period=a).first().member
-    changes.change_cell(admin_user, d(11, 19), "normal", na, other)
+    changes.change_cell(admin_user, boards.it_board(), d(11, 19), "normal", na, other)
     info = unpublish_info(b)
     assert info.later_changes == 1 and info.restored_rows > 0 and info.blocker is None
     unpublish(b)
@@ -200,7 +200,7 @@ def test_changes_before_unpublish_not_replayed(abc, admin_user):
     a, b, _ = abc
     publish(b, d(11, 16))
     na = Commute.objects.filter(period=b, date=d(11, 19)).first().member
-    changes.change_cell(admin_user, d(11, 19), "normal", na, None)  # 제거
+    changes.change_cell(admin_user, boards.it_board(), d(11, 19), "normal", na, None)  # 제거
     assert find_day(boards.it_board(), d(11, 19)).cells["normal"].removed == [na.name]
     unpublish(b)
     Commute.objects.create(period=b, date=d(11, 19), member=na, shift="normal")  # 다시 입력
@@ -224,11 +224,11 @@ def test_unpublish_cutoff_ignores_clock(abc, admin_user):
     _, b, _ = abc
     publish(b, d(11, 16))
     m = Commute.objects.filter(period=b, date=d(11, 19)).first().member
-    changes.change_cell(admin_user, d(11, 19), "normal", m, None)
+    changes.change_cell(admin_user, boards.it_board(), d(11, 19), "normal", m, None)
     unpublish(b)
     Commute.objects.create(period=b, date=d(11, 19), member=m, shift="normal")
     publish(b, d(11, 16))
-    changes.change_cell(admin_user, d(11, 20), "normal", m, None)  # 새 주기의 변경
+    changes.change_cell(admin_user, boards.it_board(), d(11, 20), "normal", m, None)  # 새 주기의 변경
     ChangeLog.objects.filter(date=d(11, 20)).update(at=ChangeLog.objects.get(date=d(11, 19)).at - timedelta(days=1))
     assert find_day(boards.it_board(), d(11, 20)).cells["normal"].removed == [m.name]  # 시각이 과거여도 보인다
     assert find_day(boards.it_board(), d(11, 19)).cells["normal"].removed == []
@@ -252,7 +252,7 @@ def test_delete_refuses_published_and_logged(abc, admin_user):
     with pytest.raises(DutyError, match="배포"):
         periods.delete(Period.objects.get(pk=b.pk))
     m = Commute.objects.filter(period=b, date=d(11, 19)).first().member
-    changes.change_cell(admin_user, d(11, 19), "normal", m, None)
+    changes.change_cell(admin_user, boards.it_board(), d(11, 19), "normal", m, None)
     unpublish(b)
     with pytest.raises(DutyError, match="기록"):
         periods.delete(Period.objects.get(pk=b.pk))
