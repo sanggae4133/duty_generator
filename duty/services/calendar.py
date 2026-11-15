@@ -15,7 +15,7 @@ from .. import ics, perms
 from ..errors import DutyError
 from ..models import CalendarFeed, ChangeLog, Period
 from ..shifts import LEGACY_DEFS, CELLS, COMMUTE_SHIFTS, cell_end, cell_label, cell_start, is_slot_cell
-from . import roster
+from . import boards, roster
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,8 @@ def feed(token: str) -> bytes | None:
 
 def _events(member, shifts=()) -> list[ics.Event]:
     since = perms.today() - WINDOW
-    days = roster.published_days(since, None)
+    # 1단계 동작 유지: 배정이 하나도 없는 날은 넣지 않는다(그날 기록이 DTSTAMP 를 바꾸지 않게). 근무표별 캘린더는 Task 8
+    days = [d for d in roster.published_days(boards.board_of(member), since, None) if any(d.members.values())]
     published = dict(Period.objects.filter(pk__in={d.period_id for d in days}).values_list("pk", "published_at"))
     for pid in sorted(pk for pk, at in published.items() if at is None):
         logger.warning("calendar feed: published_at 없는 배포 회차 %s 제외", pid)

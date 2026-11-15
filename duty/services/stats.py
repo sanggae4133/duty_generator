@@ -4,6 +4,7 @@ from datetime import date
 
 from ..models import Commute, DutyAssignment, Period, User
 from ..shifts import CONTROL_SLOTS, DEVELOPER, TARGET_SPREAD, is_slot_cell
+from . import boards
 from .roster import published_days
 
 
@@ -34,7 +35,7 @@ def _summary(values: list[int]) -> Summary | None:
 
 
 def member_stats(start: date | None, end: date | None):
-    days = published_days(start, end)
+    days = published_days(boards.it_board(), start, end)  # 근무표별 통계(member_stats(board, ...))는 Task 7
     stats = {n: MemberStat(n) for n in User.objects.roster().filter(type=DEVELOPER).values_list("name", flat=True)}
     # 퇴사·부서 해제된 개발자도 이 기간에 근무가 있으면 통계에 남긴다(역사는 그대로)
     developers = set(User.objects.filter(type=DEVELOPER).values_list("name", flat=True))

@@ -5,7 +5,7 @@ from django.core.exceptions import PermissionDenied
 
 from duty.errors import DutyError
 from duty.models import ChangeLog, Commute, DutyAssignment, Period
-from duty.services import changes
+from duty.services import boards, changes
 from duty.services.roster import find_day
 from duty.shifts import slot_index
 
@@ -31,7 +31,7 @@ def test_replace_commute(world):
     p, m = world
     changes.change_cell(m["다"], D, "normal", m["가"], m["다"])
     assert Commute.objects.get(period=p, date=D, member=m["다"]).shift == "normal"
-    assert find_day(D).cells["normal"].labels == ["가>다"]
+    assert find_day(boards.it_board(), D).cells["normal"].labels == ["가>다"]
     assert ChangeLog.objects.get().by == m["다"]
 
 
@@ -39,13 +39,13 @@ def test_removing_commute_warns_when_member_has_duty(world):
     _, m = world
     r = changes.change_cell(m["가"], D, "normal", m["가"], None)
     assert any("관제" in w for w in r)
-    assert find_day(D).cells["normal"].removed == ["가"]
+    assert find_day(boards.it_board(), D).cells["normal"].removed == ["가"]
 
 
 def test_add_commute(world):
     _, m = world
     changes.change_cell(m["다"], D, "dawn", None, m["다"])
-    assert find_day(D).cells["dawn"].labels == ["+다"]
+    assert find_day(boards.it_board(), D).cells["dawn"].labels == ["+다"]
 
 
 def test_after_already_in_other_shift_rejected(world):
@@ -94,7 +94,7 @@ def test_swap_commute(world):
     p, m = world
     changes.swap(m["가"], D, "normal", m["가"], "night", m["나"])
     assert Commute.objects.get(period=p, date=D, member=m["가"]).shift == "night"
-    day = find_day(D)
+    day = find_day(boards.it_board(), D)
     assert day.cells["normal"].labels == ["가>나"] and day.cells["night"].labels == ["나>가"]
     assert ChangeLog.objects.count() == 2
 
@@ -180,7 +180,7 @@ def test_inactive_existing_assignment_shown_and_removable(world):
     _, m = world
     m["가"].is_active = False
     m["가"].save()
-    day = find_day(D)
+    day = find_day(boards.it_board(), D)
     assert "가" in day.members["normal"] and "가" in day.members["slot0"]
     changes.change_cell(m["라"], D, "slot0", m["가"], m["다"])  # 퇴사자를 빼는 교체는 된다
     changes.change_cell(m["라"], D, "normal", m["가"], None)

@@ -1,6 +1,7 @@
 from datetime import date
 
 from duty.models import Board, ChangeLog, Commute, DutyAssignment, Period
+from duty.services import boards
 from duty.services.roster import chain, member_schedule, published_days
 
 S = Period.Status
@@ -32,7 +33,7 @@ def make_published(make_member):
 
 def test_published_days_builds_cells(make_member):
     make_published(make_member)
-    [day] = published_days()
+    [day] = published_days(boards.it_board())
     assert day.members["normal"] == ["직원1", "나"]
     assert day.cells["normal"].labels == ["직원1", "가>나"] and day.cells["normal"].changed
     assert day.cells["slot0"].labels == ["나"] and not day.cells["slot0"].changed
@@ -42,14 +43,14 @@ def test_unpublished_is_hidden(make_member):
     p = make_published(make_member)
     p.status = S.GENERATED
     p.save()
-    assert published_days() == []
+    assert published_days(boards.it_board()) == []
 
 
 def test_member_schedule(make_member):
     make_published(make_member)
     from duty.models import User
 
-    assert member_schedule(User.objects.get(name="나"), D) == [(D, ["정상", "장중관제 08:30~09:30"])]
+    assert member_schedule(boards.it_board(), User.objects.get(name="나"), D) == [(D, ["정상", "장중관제 08:30~09:30"])]
 
 
 def test_chain_replaced_cleared_when_readded():

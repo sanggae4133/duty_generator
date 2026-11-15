@@ -23,6 +23,7 @@ def world(make_member, fixed_today, it_board):
 def publish_more(member, *days):
     """world 의 배포 회차에 날짜를 더한다(배포된 근무표가 있는 날만 편집 링크가 생긴다)."""
     p = Period.objects.get()
+    p.start_date = min(p.start_date, *days)  # 기간 밖 행은 그날의 주인(설계 6.1)이 없어 보이지 않는다
     p.end_date = date(2026, 12, 31)
     p.save()
     for x in days:

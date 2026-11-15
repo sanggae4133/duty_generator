@@ -174,7 +174,7 @@ def roster(request):
         prev_d, next_d = _month_shift(first, -1), _month_shift(first, 1)
         title = f"{first.year}년 {first.month}월"
     first_day, last_day = weeks[0][0], weeks[-1][-1]
-    by_date = {d.date: d for d in published_days(first_day, last_day)}
+    by_date = {d.date: d for d in published_days(board, first_day, last_day)}
 
     def day_cells(d: date) -> dict:
         found = by_date.get(d)
@@ -229,7 +229,7 @@ def cell(request, d, cell):
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
     depts, types = _filters(request, board)
-    ctx = _cell_context(defs, find_day(d), cell, d, depts, types, _active_members(board, depts, types))
+    ctx = _cell_context(defs, find_day(board, d), cell, d, depts, types, _active_members(board, depts, types))
     ctx.update(next=safe_next(request, fallback))
     return render(request, "duty/_cell_form.html", ctx)
 
@@ -248,7 +248,7 @@ def day(request, d):
     pref = prefs.resolve(request.user, request.GET, board, with_view=False)
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
-    found = find_day(d)
+    found = find_day(board, d)
     editable = perms.can_edit(request.user, board, d)
     members = _active_members(board, depts, types)
     keep, shown = _keeper(depts, types), _shown(shifts)
@@ -275,7 +275,7 @@ def me(request):
     member = request.user if request.user.department_id else None
     board = _board(request.user)
     _, _, shifts = prefs.clean(board, [], [], request.GET.getlist("shift"))
-    items = member_schedule(member, perms.today(), _shown(shifts)) if member else []
+    items = member_schedule(board, member, perms.today(), _shown(shifts)) if member else []
     return render(request, "duty/me.html", {
         "member": member,
         "shift_choices": _shift_choices(boards.defs(board), shifts),

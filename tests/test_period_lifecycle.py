@@ -4,7 +4,7 @@ import pytest
 
 from duty.errors import DutyError
 from duty.models import Board, ChangeLog, Commute, DutyAssignment, Period, PeriodEvent
-from duty.services import periods
+from duty.services import boards, periods
 from duty.services.publish import publish, unpublish, unpublish_info
 from duty.services.roster import find_day
 from duty.shifts import weekdays
@@ -104,13 +104,13 @@ def test_unpublish_restores_previous_rows(abc, admin_user):
     publish(a, d(11, 2))
     before_a, before_b = rows(a), rows(b)
     publish(b, d(11, 18))
-    assert find_day(d(11, 19)).period_id == b.pk
+    assert find_day(boards.it_board(), d(11, 19)).period_id == b.pk
     unpublish(b, by=admin_user)
     b.refresh_from_db()
     assert b.status == S.GENERATED and b.published_at is None and b.overwrite_from is None
     assert rows(a) == before_a and rows(b) == before_b
-    assert find_day(d(11, 19)).period_id == a.pk
-    assert find_day(d(12, 1)) is None
+    assert find_day(boards.it_board(), d(11, 19)).period_id == a.pk
+    assert find_day(boards.it_board(), d(12, 1)) is None
     assert PeriodEvent.objects.filter(period=b, to_status=S.GENERATED, from_status=S.PUBLISHED).exists()
 
 
@@ -201,11 +201,11 @@ def test_changes_before_unpublish_not_replayed(abc, admin_user):
     publish(b, d(11, 16))
     na = Commute.objects.filter(period=b, date=d(11, 19)).first().member
     changes.change_cell(admin_user, d(11, 19), "normal", na, None)  # 제거
-    assert find_day(d(11, 19)).cells["normal"].removed == [na.name]
+    assert find_day(boards.it_board(), d(11, 19)).cells["normal"].removed == [na.name]
     unpublish(b)
     Commute.objects.create(period=b, date=d(11, 19), member=na, shift="normal")  # 다시 입력
     publish(b, d(11, 16))
-    cell = find_day(d(11, 19)).cells["normal"]
+    cell = find_day(boards.it_board(), d(11, 19)).cells["normal"]
     assert cell.removed == [] and not cell.changed and cell.labels == [na.name]
     assert ChangeLog.objects.filter(period=b).count() == 1  # 기록은 남는다
 
@@ -230,8 +230,8 @@ def test_unpublish_cutoff_ignores_clock(abc, admin_user):
     publish(b, d(11, 16))
     changes.change_cell(admin_user, d(11, 20), "normal", m, None)  # 새 주기의 변경
     ChangeLog.objects.filter(date=d(11, 20)).update(at=ChangeLog.objects.get(date=d(11, 19)).at - timedelta(days=1))
-    assert find_day(d(11, 20)).cells["normal"].removed == [m.name]  # 시각이 과거여도 보인다
-    assert find_day(d(11, 19)).cells["normal"].removed == []
+    assert find_day(boards.it_board(), d(11, 20)).cells["normal"].removed == [m.name]  # 시각이 과거여도 보인다
+    assert find_day(boards.it_board(), d(11, 19)).cells["normal"].removed == []
 
 
 # ── 회차 삭제 ──

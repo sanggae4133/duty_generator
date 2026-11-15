@@ -6,8 +6,9 @@ from datetime import date
 
 from django.db.models import F
 
-from ..models import ChangeLog, Commute, DutyAssignment, Period, User
-from ..shifts import LEGACY_DEFS, CELLS, cell_label, is_slot_cell
+from ..models import ChangeLog, Commute, DutyAssignment, User
+from ..shifts import SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
+from . import boards
 
 Log = tuple[str | None, str | None]
 
@@ -45,58 +46,55 @@ def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], di
     return [label.get(n, n) for n in current], removed, replaced
 
 
-def published_days(start: date | None = None, end: date | None = None) -> list[Day]:
-    def scoped(qs):
-        qs = qs.filter(period__status=Period.Status.PUBLISHED)
-        if start:
-            qs = qs.filter(date__gte=start)
-        if end:
-            qs = qs.filter(date__lte=end)
-        return qs
+def published_days(board, start: date | None = None, end: date | None = None) -> list[Day]:
+    """그 근무표에서 주인(boards.owners)이 있는 평일마다 Day 하나. 주인 회차의 행·기록만 쓴다(행이 없으면 빈 칸).
+    칸 순서 = 정의의 KEYS 순(알림 내용 hash 가 이 순서에 걸려 있다)."""
+    owner_id = {d: p.pk for d, p in boards.owners(board, start, end).items()}
+    if not owner_id:
+        return []
+    keys = [x.key for x in ordered(boards.defs(board))]
+    rng = {"period_id__in": set(owner_id.values()), "date__gte": min(owner_id), "date__lte": max(owner_id)}
 
-    raw: dict[date, dict] = {}
-
-    def slot(d, pid):
-        return raw.setdefault(d, {"period": pid, "cells": defaultdict(list)})
-
-    commutes = scoped(Commute.objects).order_by("date", "member__username")
-    for d, pid, shift, name in commutes.values_list("date", "period_id", "shift", "member__name"):
-        slot(d, pid)["cells"][shift].append(name)
-    for d, pid, cell, name in scoped(DutyAssignment.objects).values_list("date", "period_id", "cell", "member__name"):
-        slot(d, pid)["cells"][cell].append(name)
+    names: dict[tuple[date, str], list[str]] = defaultdict(list)
+    for model, field in ((Commute, "shift"), (DutyAssignment, "cell")):
+        rows = model.objects.filter(**rng).order_by("date", "member__username")
+        for d, pid, cell, name in rows.values_list("date", "period_id", field, "member__name"):
+            if owner_id.get(d) == pid:
+                names[(d, cell)].append(name)
 
     logs: dict[tuple[date, str], list[Log]] = defaultdict(list)
     # 배포 취소 이전 기록(log_floor 이하)은 다시 배포해도 쓰지 않는다(그사이 출근표·생성이 바뀌었을 수 있다)
-    rows = (scoped(ChangeLog.objects).filter(id__gt=F("period__log_floor"))
+    rows = (ChangeLog.objects.filter(**rng, id__gt=F("period__log_floor"))
             .order_by("at", "id").values_list("date", "period_id", "cell", "before__name", "after__name"))
     for d, pid, cell, before, after in rows:
-        if d in raw and raw[d]["period"] == pid:  # 덮어쓰인 회차의 이력은 숨긴다
+        if owner_id.get(d) == pid:  # 덮어쓰인 회차의 이력은 숨긴다
             logs[(d, cell)].append((before, after))
 
     days = []
-    for d in sorted(raw):
+    for d in sorted(owner_id):
         cells, members, replaced = {}, {}, {}
-        for cell in CELLS:
-            current = raw[d]["cells"].get(cell, [])
+        for cell in keys:
+            current = names.get((d, cell), [])
             cell_logs = logs.get((d, cell), [])
             labels, removed, rep = chain(current, cell_logs)
             cells[cell] = Cell(labels, removed, bool(cell_logs))
             members[cell] = current
             replaced.update({(cell, name): prev for name, prev in rep.items()})
-        days.append(Day(d, raw[d]["period"], cells, members, replaced))
+        days.append(Day(d, owner_id[d], cells, members, replaced))
     return days
 
 
-def find_day(d: date) -> Day | None:
-    days = published_days(d, d)
+def find_day(board, d: date) -> Day | None:
+    days = published_days(board, d, d)
     return days[0] if days else None
 
 
-def member_schedule(member: User, start: date, shown=lambda cell: True) -> list[tuple[date, list[str]]]:
+def member_schedule(board, member: User, start: date, shown=lambda cell: True) -> list[tuple[date, list[str]]]:
+    defs = boards.defs(board)
     out = []
-    for day in published_days(start, None):
-        labels = [f"장중관제 {cell_label(LEGACY_DEFS, c)}" if is_slot_cell(c) else cell_label(LEGACY_DEFS, c)
-                  for c in CELLS if shown(c) and member.name in day.members[c]]
+    for day in published_days(board, start, None):
+        labels = [f"{SLOT_GROUP_NAME} {cell_label(defs, c)}" if is_slot_cell(c) else cell_label(defs, c)
+                  for c, names in day.members.items() if shown(c) and member.name in names]
         if labels:
             out.append((day.date, labels))
     return out

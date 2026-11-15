@@ -15,7 +15,7 @@ from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
 from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Department,
                       PushAlarmSubscription, TelegramAlarmProfile, User)
-from . import alarm_settings
+from . import alarm_settings, boards
 from .alarms import RULE_FIELDS
 from .roster import published_days
 
@@ -95,7 +95,9 @@ def collect(now):
     rows = {(d.rule_id, d.date, d.cell, d.channel, d.destination): d
             for d in AlarmDelivery.objects.filter(date__gte=today)}
     info = {n: (dept, typ) for n, dept, typ in User.objects.values_list("name", "department__code", "type")}
-    dues = plan(specs, published_days(today, today + HORIZON), info,
+    # 1단계: IT 근무표 하나. 배정이 없는 날은 넘기지 않는다(빈 보고서 방지, 설계 6.1). 근무표마다 plan 은 Task 8
+    days = [d for d in published_days(boards.it_board(), today, today + HORIZON) if any(d.members.values())]
+    dues = plan(specs, days, info,
                 {k: d.last_sent_hash for k, d in rows.items()}, timezone.localtime(now).replace(tzinfo=None),
                 destinations=_destinations(rules, alarm_settings.current()),
                 dept_names=dict(Department.objects.values_list("code", "name")),
