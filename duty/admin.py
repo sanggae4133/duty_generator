@@ -1,7 +1,9 @@
 from django import forms
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import redirect
@@ -20,18 +22,27 @@ class DepartmentForm(forms.ModelForm):
         label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "출근조를 하나 이상 선택하세요."},
     )
+    # 1단계 호환: 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
+    managers = forms.ModelMultipleChoiceField(
+        label="입력 담당자", queryset=User.objects.none(), required=False,
+        widget=FilteredSelectMultiple("입력 담당자", is_stacked=False),
+    )
 
     class Meta:
         model = Department
-        fields = ["code", "name", "shifts", "managers"]
+        fields = ["code", "name", "board", "order", "shifts"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["board"].required = True  # 부서는 근무표 하나에 속한다(DB NOT NULL 은 Task 6)
+        if self.instance.board_id:  # 1단계: 저장된 부서의 근무표는 바꿀 수 없다(옮기기는 필요해지면 별도 기능, 설계 4.4)
+            self.fields["board"].disabled = True
         board = self.instance.board if self.instance.board_id else boards.it_board()  # 1단계: 새 부서는 IT
         self.fields["shifts"].choices = [(x.key, x.name) for x in shift_defs(boards.active_defs(board))]
         # 후보는 roster()만. 지금 담당자는 퇴사·부서 해제됐어도 보여야 저장할 때 조용히 빠지지 않는다
-        current = self.instance.managers.all() if self.instance.pk else User.objects.none()
+        current = self.instance.managers.all()  # 새 부서·직접 입력 근무표 부서는 빈 목록
         self.fields["managers"].queryset = (User.objects.roster() | current).distinct()
+        self.initial.setdefault("managers", list(current))
         if self.instance.pk:
             self.initial["shifts"] = self.instance.shift_keys()
 
@@ -39,15 +50,25 @@ class DepartmentForm(forms.ModelForm):
         picked = set(self.cleaned_data["shifts"])
         return ",".join(k for k, _ in self.fields["shifts"].choices if k in picked)  # 화면 순서(시작 시각 순)로 저장
 
+    def clean(self):
+        c = super().clean()
+        board, name = c.get("board"), c.get("name")
+        # Department.save 가 만들 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
+        group = f"{name} 출근표 입력"
+        if (board and name and board.input_mode == board.InputMode.COLLECT and not self.instance.input_group_id
+                and Group.objects.filter(name=group).exists()):
+            self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
+        return c
+
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     form = DepartmentForm
     list_display = ["code", "name", "shift_labels", "member_count", "manager_names"]
-    filter_horizontal = ["managers"]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_n=Count("members", distinct=True)).prefetch_related("managers")
+        return (super().get_queryset(request).annotate(_n=Count("members", distinct=True))
+                .prefetch_related("input_group__user_set"))
 
     @admin.display(description="가능한 출근조")
     def shift_labels(self, obj):
@@ -61,6 +82,11 @@ class DepartmentAdmin(admin.ModelAdmin):
     @admin.display(description="입력 담당자")
     def manager_names(self, obj):
         return ", ".join(m.name for m in obj.managers.all()) or "(없음)"
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if form.instance.input_group_id:  # 직접 입력 근무표의 부서는 입력 그룹이 없다
+            form.instance.input_group.user_set.set(form.cleaned_data["managers"])
 
 
 class UserAddForm(forms.ModelForm):

@@ -103,7 +103,6 @@ class Department(models.Model):
     code = models.CharField("코드", max_length=8, primary_key=True)
     name = models.CharField("이름", max_length=32, unique=True)
     shifts = models.CharField("가능한 출근조", max_length=64, help_text="쉼표 구분: dawn,normal,dinner,night")
-    managers = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="managed_departments", verbose_name="입력 담당자")
     board = models.ForeignKey(Board, on_delete=models.PROTECT, null=True, blank=True, related_name="departments",
                               verbose_name="근무표")
     order = models.IntegerField("순서", default=99, help_text="근무표 부서 필터 순서(작은 값이 앞, 기본 99는 맨 뒤)")
@@ -125,6 +124,11 @@ class Department(models.Model):
 
     def shift_keys(self) -> list[str]:
         return [s for s in self.shifts.split(",") if s]
+
+    @property
+    def managers(self):
+        """1단계 호환(2단계 끝에 지운다): 출근표 입력 담당 = 입력 그룹 멤버. 그룹이 없으면(직접 입력 근무표) 빈 목록."""
+        return self.input_group.user_set if self.input_group_id else User.objects.none()
 
 
 class UserManager(DjangoUserManager):

@@ -215,3 +215,16 @@ def test_generation_failure_label_from_board_definitions(admin_client_ok, make_m
         Commute.objects.create(period=p, date=date(2026, 11, 9), member=make_member(f"직{code}", dept=code, type="직원"), shift="normal")
     r = admin_client_ok.post(f"/periods/{p.pk}/action/generate/")
     assert r.status_code == 200 and "관제첫칸" in r.content.decode()
+
+
+@pytest.fixture
+def staff_only(db):
+    return User.objects.create_user("st", password="unused-Pw-123", name="스태프", is_staff=True)
+
+
+@pytest.mark.parametrize("url", ["/periods/", "/stats/", "/changes/"])
+def test_admin_pages_need_admin_group_not_staff(client, staff_only, it_board, url):
+    client.force_login(staff_only)
+    assert client.get(url).status_code == 403
+    it_board.admin_group.user_set.add(staff_only)
+    assert client.get(url).status_code == 200
