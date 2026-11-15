@@ -189,3 +189,19 @@ def test_unpublish_after_fill_restores_commutes_and_lunch(old_apps, fixed_today)
     assert models.DutyAssignment.objects.filter(period_id=later.pk).values_list("date", "member_id", "cell").get() == (
         date(2026, 11, 17), m["나"].pk, "lunch")
     assert models.Period.objects.get(pk=later.pk).status == "generated"
+
+
+@pytest.mark.parametrize("model", ["AlarmRule", "CalendarFeed", "RosterPref"])
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_no_reverse_when_lunch_saved_in_filters(old_apps, model):
+    """알림 규칙·캘린더·근무표 필터에 점심당번(lunch)이 저장돼 있으면 되돌리지 않는다(지우면 저장값이 깨진다)."""
+    apps = _migrate(AFTER)
+    member = apps.get_model("duty", "User").objects.create(username="T9", name="가상구")
+    extra = dict(kind="personal", timing="days", offset=1, at_minute=18 * 60, telegram=True) if model == "AlarmRule" else {}
+    if model == "CalendarFeed":
+        extra = dict(token_hash="0" * 64, issued_at=timezone.now())
+    row = apps.get_model("duty", model).objects.create(user=member, shifts=["dawn", "lunch"], **extra)
+    with pytest.raises(RuntimeError, match="백업"):
+        _migrate(BEFORE)
+    row.delete()  # 다른 테스트의 fixture 가 최신으로 다시 올라갈 수 있게
+    member.delete()

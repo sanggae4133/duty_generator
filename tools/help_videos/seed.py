@@ -15,6 +15,9 @@ FREE = "문하늘 배다온 노은별".split()  # 근무가 없는 사람(근무
 SHIFTS = ["normal", "dinner", "normal", "dinner", "normal", "night", "dawn", "dinner"]  # 7번째(MD 부서) = 새벽 → 점심당번
 LUNCH = (time(11, 30), time(12, 30))  # 운영 마이그레이션 0022 가 IT 부서에 넣는 점심 시각과 같다
 
+if User.objects.exists():  # 고정 비밀번호 계정을 만드니 운영 DB 에서 돌면 안 된다
+    raise SystemExit("빈 임시 DB 에서만 돌립니다. 이미 계정이 있는 DB 입니다(DUTY_DATA_DIR 을 새 빈 폴더로 지정하세요).")
+
 it = boards.it_board()  # 마이그레이션이 빈 DB 에도 만들어 둔 IT 당번표
 depts = {code: Department.objects.create(code=code, name=code, shifts=sh, board=it, order=i, lunch_start=LUNCH[0], lunch_end=LUNCH[1])
          for i, (code, sh) in enumerate([

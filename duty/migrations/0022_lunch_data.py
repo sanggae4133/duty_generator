@@ -40,7 +40,7 @@ def fill(apps, schema_editor):
 
 
 def reverse_if_unused(apps, schema_editor):
-    """되돌리기 없음. 점심당번이 한 번도 쓰이지 않은 DB 만 이 마이그레이션이 넣은 것(IT 정의·IT 부서 시각)을 지우고
+    """되돌리기 없음. 점심당번이 한 번도 쓰이지 않은(배정·기록·발송 기록·필터 저장값 없음) DB 만 이 마이그레이션이 넣은 것(IT 정의·IT 부서 시각)을 지우고
     내려간다(0021 의 제약이 통과하게). 다른 근무표의 점심당번 정의·부서 시각은 지우지 않고 멈춘다."""
     Board, BoardShift, Department, Period = (apps.get_model("duty", n)
                                              for n in ("Board", "BoardShift", "Department", "Period"))
@@ -50,6 +50,9 @@ def reverse_if_unused(apps, schema_editor):
     used = used or any(r[0] == "a" and r[4] == "lunch"
                        for undo in Period.objects.exclude(publish_undo=None).values_list("publish_undo", flat=True)
                        for r in undo)
+    used = used or any("lunch" in (shifts or [])  # 알림 규칙·캘린더·근무표 필터에 저장된 점심당번
+                       for n in ("AlarmRule", "CalendarFeed", "RosterPref")
+                       for shifts in apps.get_model("duty", n).objects.values_list("shifts", flat=True))
     others = Q() if it is None else ~Q(board_id=it)
     used = used or BoardShift.objects.filter(others, key="lunch").exists()
     used = used or Department.objects.filter(others, lunch_start__isnull=False).exists()

@@ -15,7 +15,7 @@ from ..alarms.plan import RuleSpec, plan
 from ..alarms.schedule import send_at
 from ..models import (AlarmDelivery, AlarmDeliveryStatus, AlarmRule, Board, Department,
                       PushAlarmSubscription, TelegramAlarmProfile, User)
-from . import alarm_settings, boards, holidays
+from . import alarm_settings, boards, holidays, prefs
 from .alarms import RULE_FIELDS
 from .roster import published_days
 
@@ -124,9 +124,10 @@ def collect(now):
     for board in Board.objects.filter(pk__in=list(by_board)).order_by("id"):
         group = by_board[board.id]
         ids = {r.id for r in group}
+        typed = prefs.has_types(boards.active_defs(board))  # 관제 없는 근무표는 저장된 유형을 무시(= 전부)
         specs = [RuleSpec(r.id, r.user.name if r.user.department_id else None, r.kind, r.timing, r.offset,
                           r.at_minute, tuple(ch for ch in ("telegram", "push") if getattr(r, ch)),
-                          tuple(r.shifts), tuple(r.depts), tuple(r.types), _lunch(r),
+                          tuple(r.shifts), tuple(r.depts), tuple(r.types) if typed else (), _lunch(r),
                           query(r, board)) for r in group]
         # 주인은 있어도 배정이 하나도 없는 날은 넘기지 않는다(빈 보고서 방지, 설계 6.1).
         # 그날의 옛 발송 기록은 extra_dates 의 빈 날로 계산돼 취소가 나간다(지금과 같다)

@@ -160,6 +160,15 @@ def test_rule_list_names_shifts_by_rule_board(client, depts, ops, admin_user):
     assert "스케줄: 오전" in client.get("/alarms/").content.decode()
 
 
+def test_rule_list_ignores_stored_types_on_board_without_slots(client, depts, ops, admin_user):
+    """관제 없는 근무표의 보고서 규칙은 저장된 유형이 남아 있어도 목록에 '유형: 전부'."""
+    board, _ = ops
+    AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
+                             at_minute=18 * 60, telegram=True, shifts=["dawn"], depts=[], types=["개발자"])
+    client.force_login(admin_user)
+    assert "유형: 전부" in client.get("/alarms/").content.decode()
+
+
 # ---- 정기 알림 ----
 
 def test_same_date_on_two_boards_no_cross_cancel(env, depts, it_board, ops):
@@ -184,6 +193,19 @@ def test_report_rule_reads_only_its_board(env, depts, it_board, ops, admin_user)
     published(board, (op, "dawn"))
     AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
                              at_minute=18 * 60, telegram=True, shifts=[], depts=[], types=[])
+    TelegramAlarmProfile.objects.create(user=admin_user, chat_id="999", verified_at=timezone.now())
+    alarm_runner.tick(SUN18)
+    assert env == [("999", "[출근표] 11/16(월)\n오전(07:30~) 가상운영\n주간(09:00~) -\n오후(11:00~) -")]
+
+
+def test_report_ignores_stored_types_on_board_without_slots(env, depts, it_board, ops, admin_user):
+    """관제 없는 근무표에선 저장된 유형이 남아 있어도 모든 유형을 넣는다."""
+    board, dept = ops
+    op = person("가상운영", dept, "222")
+    AlarmRule.objects.filter(user=op).delete()
+    published(board, (op, "dawn"))
+    AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
+                             at_minute=18 * 60, telegram=True, shifts=[], depts=[], types=["개발자"])
     TelegramAlarmProfile.objects.create(user=admin_user, chat_id="999", verified_at=timezone.now())
     alarm_runner.tick(SUN18)
     assert env == [("999", "[출근표] 11/16(월)\n오전(07:30~) 가상운영\n주간(09:00~) -\n오후(11:00~) -")]

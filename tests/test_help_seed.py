@@ -43,3 +43,12 @@ def test_seed_uses_it_board_and_groups(it_board, lunch, fixed_today, capsys):
     assert Commute.objects.filter(period=now).exclude(reason="").count() == 1
     assert DutyAssignment.objects.filter(period=now, cell="lunch").exists()
     assert Department.objects.exclude(lunch_start=None).count() == 4
+
+
+@pytest.mark.django_db
+def test_seed_refuses_non_empty_db(it_board):
+    """계정이 하나라도 있는 DB(운영 DB 등)에서는 아무것도 쓰지 않고 멈춘다."""
+    User.objects.create_user("someone", password=None, name="가상사람")
+    with pytest.raises(SystemExit, match="빈 임시 DB"):
+        exec(compile(SEED.read_text(encoding="utf-8"), str(SEED), "exec"), {"__name__": "seed"})
+    assert User.objects.count() == 1 and not Department.objects.exists()

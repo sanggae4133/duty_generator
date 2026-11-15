@@ -32,10 +32,10 @@
 
 {% if movable %}
 <details class="move-box"><summary>다른 상태로 옮기기</summary>
-<form method="post" action="{% url 'period_move' period.pk %}" class="move"{% if period.status == S.GENERATED %} onsubmit="return confirm('생성된 장중관제가 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}
+<form method="post" action="{% url 'period_move' period.pk %}" class="move"{% if period.status == S.GENERATED %} onsubmit="return confirm('장중관제·점심당번 생성 결과가 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}
   <select id="move-to" name="to" aria-label="옮길 상태">{% for code, label in movable %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
   <button class="outline">옮기기</button>
-  <small>출근표는 그대로 남습니다. 생성됨에서 나가면 장중관제 생성 결과만 지웁니다.</small>
+  <small>출근표는 그대로 남습니다. 생성됨에서 나가면 장중관제·점심당번 생성 결과만 지웁니다.</small>
 </form>
 </details>
 {% endif %}

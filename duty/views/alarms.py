@@ -32,11 +32,12 @@ def _names(vals, labels: dict) -> str:
     return "·".join(labels.get(v, v) for v in vals) or "전부"
 
 
-def condition_label(r, dept_names: dict, shift_names: dict) -> str:
+def condition_label(r, dept_names: dict, shift_names: dict, typed: bool = True) -> str:
+    """typed=False: 관제 없는 근무표라 저장된 유형을 무시한다(발송과 같게 '전부')."""
     s = f"스케줄: {_names(r.shifts, shift_names)}"
     if r.kind == "personal":
         return s
-    return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types, {})} / {s}"
+    return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types if typed else [], {})} / {s}"
 
 
 def _bot_link(conf) -> str:
@@ -50,16 +51,19 @@ def index(request):
 
 def _index(request, **extra):
     dept_names = dict(Department.objects.values_list("code", "name"))
-    names_of = {}  # 근무표 → 스케줄 이름(규칙마다 그 규칙의 근무표: 개인 = 내 근무표, 보고서 = 규칙의 근무표)
+    names_of = {}  # 근무표 → (스케줄 이름, 유형 필터 여부)(규칙마다 그 규칙의 근무표: 개인 = 내 근무표, 보고서 = 규칙의 근무표)
+
+    def board_info(board):
+        if board.pk not in names_of:
+            names_of[board.pk] = (prefs.choices(boards.defs(board)), prefs.has_types(boards.active_defs(board)))
+        return names_of[board.pk]
 
     def shift_names(board):
-        if board.pk not in names_of:
-            names_of[board.pk] = prefs.choices(boards.defs(board))
-        return names_of[board.pk]
+        return board_info(board)[0]
 
     rules = [
         {"r": r, "timing": timing_label(r),
-         "cond": condition_label(r, dept_names, shift_names(alarms.rule_board(request.user, r.kind, r.board_id))),
+         "cond": condition_label(r, dept_names, *board_info(alarms.rule_board(request.user, r.kind, r.board_id))),
          "channels": "·".join(n for n, on in (("텔레그램", r.telegram), ("푸시", r.push)) if on)}
         for r in AlarmRule.objects.filter(user=request.user)
     ]
