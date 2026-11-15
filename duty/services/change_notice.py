@@ -22,6 +22,7 @@ def tick(now) -> int:
     ChangeLog.objects.filter(pk__in=[r.pk for r in rows]).update(notified=True)
     conf, today, sent, i = alarm_settings.current(), perms.today(), 0, 0
     defs_of = {}  # 근무표 id → 정의(문구는 그 기록의 회차 근무표 이름으로)
+    homes = {}  # 받는 사람별 내 근무표(관리 그룹은 select_related 로 못 가져와 기록마다 다시 조회하지 않게)
     while i < len(rows):
         r = rows[i]
         if r.before_id == r.after_id:  # 사유만 바뀐 기록: 알림 없음(설계 6.4)
@@ -43,7 +44,9 @@ def tick(now) -> int:
                                           r.after and r.after.name, by)
         for u in {r.before, r.after} - {None, r.by}:
             if u.is_active and u.notify_changes:
-                sent += _send(conf, u, title, text, f"/day/{r.date.isoformat()}/{boards.board_query(u, board)}")
+                if u.pk not in homes:
+                    homes[u.pk] = boards.home(u)
+                sent += _send(conf, u, title, text, f"/day/{r.date.isoformat()}/{boards.link_query(homes[u.pk], board)}")
     if sent:
         log.info("change notices: sent=%d", sent)
     return sent

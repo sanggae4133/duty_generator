@@ -10,7 +10,7 @@
 </form>
 {% if memo %}<section class="danger">
   <h4>위험 구역</h4>
-  <form method="post" action="{% url 'memo' scope d %}" onsubmit="return confirm('메모를 지울까요?')">{% csrf_token %}
+  <form method="post" action="{% url 'memo' scope d %}{{ bq }}" onsubmit="return confirm('메모를 지울까요?')">{% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
     <button name="delete" value="1" class="danger-btn">메모 지우기</button>
   </form>
