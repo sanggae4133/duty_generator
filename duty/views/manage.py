@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -27,11 +28,32 @@ def _form_period(post, period: Period | None = None) -> Period:
     return period
 
 
+def _new_board(post, mine: list[Board]) -> Board:
+    """새 회차의 근무표: 관리하는 근무표가 하나면 그것, 여럿이면 폼에서 고른 것(내 근무표 중에서만)."""
+    if len(mine) == 1:
+        return mine[0]
+    picked = [b for b in mine if str(b.pk) == post.get("board", "")]
+    if not picked:
+        raise ValueError("근무표를 고르세요.")
+    return picked[0]
+
+
+def _period(request, pid) -> Period:
+    """회차 뷰 공통: 내가 관리하는 근무표의 회차만. 아니면 없는 회차처럼 404(설계 9절)."""
+    period = get_object_or_404(Period.objects.select_related("board"), pk=pid)
+    if not perms.is_board_admin(request.user, period.board):
+        raise Http404
+    return period
+
+
 @admin_required
 def period_list(request):
+    mine = list(perms.admin_boards(request.user).order_by("id"))  # admin_required 를 지났으니 비어 있지 않다
     if request.method == "POST":
         try:
-            p = periods.save_draft(_form_period(request.POST), by=request.user)
+            period = _form_period(request.POST)
+            period.board = _new_board(request.POST, mine)
+            p = periods.save_draft(period, by=request.user)
         except (KeyError, ValueError):
             messages.error(request, "이름과 기간을 확인해 주세요.")
         except DutyError as e:
@@ -39,7 +61,9 @@ def period_list(request):
         else:
             return redirect("period_detail", p.pk)
         return redirect("periods")
-    return render(request, "duty/periods.html", {"periods": Period.objects.order_by("-start_date")})
+    return render(request, "duty/periods.html", {
+        "periods": Period.objects.filter(board__in=mine).order_by("-start_date"), "boards": mine,
+    })
 
 
 def _render_detail(request, period, failures):
@@ -59,7 +83,7 @@ def _render_detail(request, period, failures):
 
 @admin_required
 def period_detail(request, pid):
-    period = get_object_or_404(Period, pk=pid)
+    period = _period(request, pid)
     if request.method == "POST":
         try:
             periods.save_draft(_form_period(request.POST, period))
@@ -76,7 +100,7 @@ def period_detail(request, pid):
 @admin_required
 @require_POST
 def period_action(request, pid, action):
-    period = get_object_or_404(Period, pk=pid)
+    period = _period(request, pid)
     actions = {
         "open": lambda p, by: periods.move(p, Period.Status.COLLECTING, by),
         "close": lambda p, by: periods.move(p, Period.Status.CLOSED, by),
@@ -99,7 +123,7 @@ def period_action(request, pid, action):
 @admin_required
 @require_POST
 def period_delete(request, pid):
-    period = get_object_or_404(Period, pk=pid)
+    period = _period(request, pid)
     try:
         periods.delete(period)
     except DutyError as e:
@@ -112,7 +136,7 @@ def period_delete(request, pid):
 @admin_required
 @require_POST
 def period_move(request, pid):
-    period = get_object_or_404(Period, pk=pid)
+    period = _period(request, pid)
     try:
         periods.move(period, request.POST.get("to", ""), by=request.user)
     except DutyError as e:
@@ -124,7 +148,7 @@ def period_move(request, pid):
 
 @admin_required
 def period_publish(request, pid):
-    period = get_object_or_404(Period, pk=pid)
+    period = _period(request, pid)
     raw = request.POST.get("from") or request.GET.get("from")
     default = min(max(perms.today(), period.start_date), period.end_date)
     try:
@@ -149,7 +173,10 @@ def period_publish(request, pid):
 @admin_required
 def stats_view(request):
     start, end = date_param(request, "from"), date_param(request, "to")
-    rows, duty_summary, total_summary = stats.member_stats(start, end)
+    board = perms.stats_boards(request.user).order_by("id").first()  # 관제가 있는 내 근무표 중 첫 것(고르기는 2단계)
+    if board is None:
+        raise PermissionDenied
+    rows, duty_summary, total_summary = stats.member_stats(board, start, end)
     return render(request, "duty/stats.html", {
         "rows": rows, "duty": duty_summary, "total": total_summary, "start": start, "end": end,
     })
@@ -157,7 +184,8 @@ def stats_view(request):
 
 @admin_required
 def change_log(request):
-    qs = ChangeLog.objects.select_related("by", "before", "after", "period").order_by("-at", "-id")
+    qs = (ChangeLog.objects.filter(period__board__in=perms.admin_boards(request.user))  # 내가 관리하는 근무표만(설계 9절)
+          .select_related("by", "before", "after", "period").order_by("-at", "-id"))
     start, end = date_param(request, "from"), date_param(request, "to")
     if start:
         qs = qs.filter(date__gte=start)

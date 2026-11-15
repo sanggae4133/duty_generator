@@ -1,6 +1,7 @@
 from datetime import date
 
 from duty.models import Board, Commute, DutyAssignment, Period
+from duty.services import boards
 from duty.services.stats import member_stats, period_duty_counts
 
 S = Period.Status
@@ -22,7 +23,7 @@ def setup_period(make_member, status=S.PUBLISHED):
 
 def test_member_stats(make_member):
     setup_period(make_member)
-    rows, duty, total = member_stats(None, None)
+    rows, duty, total = member_stats(boards.it_board(), None, None)
     by = {r.name: r for r in rows}
     assert set(by) == {"가", "나"}  # 직원 제외
     assert (by["가"].duty, by["가"].dawn, by["가"].night, by["가"].total) == (1, 1, 1, 3)
@@ -33,7 +34,7 @@ def test_member_stats(make_member):
 
 def test_member_stats_date_range(make_member):
     setup_period(make_member)
-    rows, _, _ = member_stats(D2, D2)
+    rows, _, _ = member_stats(boards.it_board(), D2, D2)
     assert {r.name: r.duty for r in rows} == {"가": 1, "나": 1}
 
 
@@ -48,7 +49,7 @@ def test_departed_member_history_stays_in_stats(make_member):
     setup_period(make_member)
     from duty.models import User
     User.objects.filter(name="나").update(is_active=False)
-    by = {r.name: r for r in member_stats(None, None)[0]}
+    by = {r.name: r for r in member_stats(boards.it_board(), None, None)[0]}
     assert by["나"].duty == 2
 
 
@@ -59,5 +60,5 @@ def test_departed_developer_with_only_dawn_night_stays_in_stats(make_member):
     Commute.objects.create(period=p, date=D2, member=c, shift="night")
     from duty.models import User
     User.objects.filter(name="다").update(is_active=False)
-    by = {r.name: r for r in member_stats(None, None)[0]}
+    by = {r.name: r for r in member_stats(boards.it_board(), None, None)[0]}
     assert (by["다"].duty, by["다"].dawn, by["다"].night) == (0, 1, 1)

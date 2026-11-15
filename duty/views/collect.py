@@ -21,9 +21,10 @@ def index(request):
     if not depts:
         raise PermissionDenied
     items = []
-    for p in Period.objects.filter(status=Period.Status.COLLECTING).order_by("start_date"):
-        prog = collect.progress(p)
-        items.append({"period": p, "depts": [(d, prog[d.code]) for d in depts]})
+    mine = {d.board_id for d in depts}
+    for p in Period.objects.filter(status=Period.Status.COLLECTING, board_id__in=mine).order_by("start_date"):
+        prog = collect.progress(p)  # 그 회차 근무표의 부서만 있다
+        items.append({"period": p, "depts": [(d, prog[d.code]) for d in depts if d.board_id == p.board_id]})
     return render(request, "duty/collect_index.html", {"items": items})
 
 
