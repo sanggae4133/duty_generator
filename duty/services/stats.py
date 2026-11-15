@@ -2,7 +2,7 @@ import statistics
 from dataclasses import dataclass
 from datetime import date
 
-from ..models import Commute, ControlDuty, Period, User
+from ..models import Commute, DutyAssignment, Period, User
 from ..shifts import CONTROL_SLOTS, DEVELOPER, TARGET_SPREAD, is_slot_cell
 from .roster import published_days
 
@@ -64,7 +64,7 @@ def period_duty_counts(period: Period) -> tuple[list[tuple[str, int]], int, bool
     eligible = {s for _, allowed in CONTROL_SLOTS for s in allowed}
     pool = Commute.objects.filter(period=period, shift__in=eligible, member__type=DEVELOPER)
     n: dict[str, int] = dict.fromkeys(pool.values_list("member__name", flat=True), 0)
-    for name in ControlDuty.objects.filter(period=period).values_list("member__name", flat=True):
+    for name in DutyAssignment.objects.filter(period=period).values_list("member__name", flat=True):
         n[name] = n.get(name, 0) + 1
     counts = sorted(n.items(), key=lambda x: (x[1], x[0]))
     spread = counts[-1][1] - counts[0][1] if counts else 0

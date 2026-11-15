@@ -6,8 +6,8 @@ from django.utils import timezone
 
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
-from ..models import Commute, ControlDuty, Period, User
-from ..shifts import DEVELOPER
+from ..models import Commute, DutyAssignment, Period, User
+from ..shifts import DEVELOPER, slot_cell
 from .periods import missing_dates, record
 
 S = Period.Status
@@ -32,9 +32,9 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     out = generate_control_duty(period.dates(), commutes, developers, seed)  # GenerationError 전파
 
     by_code = {m.username: m for m in User.objects.filter(username__in=out.counts)}
-    ControlDuty.objects.filter(period=period).delete()
-    ControlDuty.objects.bulk_create(
-        ControlDuty(period=period, date=d, slot=i, member=by_code[code])
+    DutyAssignment.objects.filter(period=period).delete()
+    DutyAssignment.objects.bulk_create(
+        DutyAssignment(period=period, date=d, cell=slot_cell(i), member=by_code[code])
         for d, picked in out.assignments.items()
         for i, code in enumerate(picked)
     )

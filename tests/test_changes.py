@@ -4,9 +4,10 @@ import pytest
 from django.core.exceptions import PermissionDenied
 
 from duty.errors import DutyError
-from duty.models import ChangeLog, Commute, ControlDuty, Period
+from duty.models import ChangeLog, Commute, DutyAssignment, Period
 from duty.services import changes
 from duty.services.roster import find_day
+from duty.shifts import slot_index
 
 S = Period.Status
 D = date(2026, 11, 10)
@@ -21,8 +22,8 @@ def world(make_member, fixed_today, it_board):
     Commute.objects.create(period=p, date=D, member=m["가"], shift="normal")
     Commute.objects.create(period=p, date=D, member=m["나"], shift="night")
     Commute.objects.create(period=p, date=D, member=m["라"], shift="dinner")
-    ControlDuty.objects.create(period=p, date=D, slot=0, member=m["가"])
-    ControlDuty.objects.create(period=p, date=D, slot=1, member=m["라"])
+    DutyAssignment.objects.create(period=p, date=D, cell="slot0", member=m["가"])
+    DutyAssignment.objects.create(period=p, date=D, cell="slot1", member=m["라"])
     return p, m
 
 
@@ -62,7 +63,7 @@ def test_before_not_in_cell_rejected(world):
 def test_duty_replace_warns_on_ineligible(world):
     p, m = world
     r = changes.change_cell(m["가"], D, "slot0", m["가"], m["직원"])
-    assert ControlDuty.objects.get(period=p, date=D, slot=0).member == m["직원"]
+    assert DutyAssignment.objects.get(period=p, date=D, cell="slot0").member == m["직원"]
     assert len(r) == 2  # 개발자 아님 + 출근조 없음
 
 
@@ -75,16 +76,17 @@ def test_duty_only_replace(world):
 def test_duty_replace_into_second_slot_warns(world):
     p, m = world
     r = changes.change_cell(m["가"], D, "slot0", m["가"], m["라"])
-    assert ControlDuty.objects.filter(period=p, date=D, member=m["라"]).count() == 2
+    assert DutyAssignment.objects.filter(period=p, date=D, member=m["라"]).count() == 2
     assert any("다른 관제 칸" in w and "09:30~10:30" in w for w in r)
 
 
 def test_swap_duty_when_member_holds_two_slots(world):
     p, m = world
-    ControlDuty.objects.create(period=p, date=D, slot=2, member=m["나"])
+    DutyAssignment.objects.create(period=p, date=D, cell="slot2", member=m["나"])
     changes.change_cell(m["가"], D, "slot0", m["가"], m["라"])  # 라: slot0, slot1
     changes.swap(m["가"], D, "slot0", m["라"], "slot2", m["나"])
-    slots = lambda n: set(ControlDuty.objects.filter(period=p, date=D, member=m[n]).values_list("slot", flat=True))
+    slots = lambda n: {slot_index(c) for c in
+                       DutyAssignment.objects.filter(period=p, date=D, member=m[n]).values_list("cell", flat=True)}
     assert slots("라") == {1, 2} and slots("나") == {0}
 
 
@@ -100,8 +102,8 @@ def test_swap_commute(world):
 def test_swap_duty(world):
     p, m = world
     changes.swap(m["가"], D, "slot0", m["가"], "slot1", m["라"])
-    assert ControlDuty.objects.get(period=p, date=D, slot=0).member == m["라"]
-    assert ControlDuty.objects.get(period=p, date=D, slot=1).member == m["가"]
+    assert DutyAssignment.objects.get(period=p, date=D, cell="slot0").member == m["라"]
+    assert DutyAssignment.objects.get(period=p, date=D, cell="slot1").member == m["가"]
 
 
 def test_swap_across_kinds_rejected(world):
@@ -188,12 +190,12 @@ def test_inactive_existing_assignment_shown_and_removable(world):
 @pytest.mark.parametrize("cell,before", [("dawn", None), ("normal", "가"), ("slot0", "가")])
 def test_no_department_user_cannot_be_assigned(world, admin_user, cell, before):
     _, m = world
-    rows = (Commute.objects.count(), ControlDuty.objects.count(), ChangeLog.objects.count())
+    rows = (Commute.objects.count(), DutyAssignment.objects.count(), ChangeLog.objects.count())
     with pytest.raises(DutyError, match="관리자은\\(는\\) 근무표 대상이 아닙니다"):
         changes.change_cell(m["라"], D, cell, m[before] if before else None, admin_user)
-    assert (Commute.objects.count(), ControlDuty.objects.count(), ChangeLog.objects.count()) == rows
+    assert (Commute.objects.count(), DutyAssignment.objects.count(), ChangeLog.objects.count()) == rows
     assert not Commute.objects.filter(member=admin_user).exists()
-    assert not ControlDuty.objects.filter(member=admin_user).exists()
+    assert not DutyAssignment.objects.filter(member=admin_user).exists()
 
 
 # ── 근무 변경 창의 기본 = 맞교환(exchange) ──
@@ -223,10 +225,10 @@ def test_exchange_same_cell_rejected(world):
 def test_exchange_slots(world):
     p, m = world  # 가=slot0, 라=slot1, 나=관제 없음
     changes.exchange(m["가"], D, "slot0", m["가"], m["라"])
-    assert ControlDuty.objects.get(period=p, date=D, slot=0).member == m["라"]
-    assert ControlDuty.objects.get(period=p, date=D, slot=1).member == m["가"]
+    assert DutyAssignment.objects.get(period=p, date=D, cell="slot0").member == m["라"]
+    assert DutyAssignment.objects.get(period=p, date=D, cell="slot1").member == m["가"]
     changes.exchange(m["가"], D, "slot1", m["가"], m["나"])  # 관제 없는 사람이면 교체
-    assert ControlDuty.objects.get(period=p, date=D, slot=1).member == m["나"]
+    assert DutyAssignment.objects.get(period=p, date=D, cell="slot1").member == m["나"]
 
 
 def test_exchange_add_or_remove_only(world):
@@ -239,7 +241,7 @@ def test_exchange_add_or_remove_only(world):
 
 def test_exchange_with_multi_slot_holder_is_explained(world):
     p, m = world  # 라=slot1
-    ControlDuty.objects.create(period=p, date=D, slot=5, member=m["라"])
+    DutyAssignment.objects.create(period=p, date=D, cell="slot5", member=m["라"])
     with pytest.raises(DutyError, match="여러 칸"):
         changes.exchange(m["가"], D, "slot0", m["가"], m["라"])
 
@@ -254,11 +256,11 @@ def test_owner_with_many_published_periods(make_member, it_board):
         d0 = date(2026, 11, 2 + i * 7)
         p = Period.objects.create(board=it_board, name=f"p{i}", start_date=d0, end_date=d0, status=S.PUBLISHED)
         Commute.objects.create(period=p, date=d0, member=m, shift="normal")
-        ControlDuty.objects.create(period=p, date=d0, slot=0, member=m)
+        DutyAssignment.objects.create(period=p, date=d0, cell="slot0", member=m)
         ps.append((p, d0))
     only_control = Period.objects.create(board=it_board, name="c", start_date=date(2026, 12, 1), end_date=date(2026, 12, 1),
                                          status=S.PUBLISHED)
-    ControlDuty.objects.create(period=only_control, date=date(2026, 12, 1), slot=0, member=m)
+    DutyAssignment.objects.create(period=only_control, date=date(2026, 12, 1), cell="slot0", member=m)
     for p, d0 in ps:
         assert changes._owner(d0) == p
     assert changes._owner(date(2026, 12, 1)) == only_control

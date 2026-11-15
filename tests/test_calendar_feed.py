@@ -10,7 +10,7 @@ from django.test import Client, RequestFactory
 from config.site_url import validate_site_url
 from duty.errors import DutyError
 from duty.logging import RedactCalendarFeed
-from duty.models import Board, CalendarFeed, ChangeLog, Commute, ControlDuty, Period, User
+from duty.models import Board, CalendarFeed, ChangeLog, Commute, DutyAssignment, Period, User
 from duty.services import calendar
 
 S = Period.Status
@@ -134,8 +134,8 @@ def test_only_own_assignments(client, me, make_member):
     p = period()
     commute(p, me, "normal")
     commute(p, other, "dinner")
-    ControlDuty.objects.create(period=p, date=D, slot=1, member=me)
-    ControlDuty.objects.create(period=p, date=D, slot=2, member=other)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot1", member=me)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot2", member=other)
     _, token = issue(me)
     evs = vevents(feed(client, token))
     assert [e["SUMMARY"] for e in evs] == ["정상 출근 08:00~17:00", "장중관제 09:30~10:30"]
@@ -151,7 +151,7 @@ def test_dinner_summary(client, me):
 def test_times_in_utc(client, me):
     p = period()
     commute(p, me, "dawn")
-    ControlDuty.objects.create(period=p, date=D, slot=1, member=me)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot1", member=me)
     _, token = issue(me)
     dawn, slot = vevents(feed(client, token))
     assert (dawn["DTSTART"], dawn["DTEND"]) == ("20261111T213000Z", "20261112T063000Z")
@@ -425,10 +425,10 @@ def _summaries(client, token):
 
 
 def test_feed_filters_by_chosen_shifts(client, me):
-    from duty.models import ControlDuty
+    from duty.models import DutyAssignment
     p = period()
     commute(p, me, "normal")
-    ControlDuty.objects.create(period=p, date=D, slot=0, member=me)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot0", member=me)
     _, token = issue(me)
     assert len(_summaries(client, token)) == 2  # 기본 = 전부
     calendar.set_shifts(me, ["slots"])

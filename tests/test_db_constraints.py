@@ -5,7 +5,7 @@ import pytest
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 
-from duty.models import ChangeLog, Commute, ControlDuty, Period, RosterPref, User
+from duty.models import ChangeLog, Commute, DutyAssignment, Period, RosterPref, User
 
 D = date(2026, 11, 9)
 
@@ -37,8 +37,8 @@ def test_commute_shift(period, make_member):
 
 def test_control_slot_range(period, make_member):
     m = make_member("가")
-    _bad(lambda: ControlDuty.objects.create(period=period, date=D, slot=10, member=m))
-    ControlDuty.objects.create(period=period, date=D, slot=9, member=m)
+    _bad(lambda: DutyAssignment.objects.create(period=period, date=D, cell="slot10", member=m))
+    DutyAssignment.objects.create(period=period, date=D, cell="slot9", member=m)
 
 
 def test_changelog_cell_and_nonempty(period, make_member):

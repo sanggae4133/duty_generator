@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from duty.models import Commute, ControlDuty, Period
+from duty.models import Commute, DutyAssignment, Period
 
 D = date(2026, 11, 10)
 
@@ -15,7 +15,7 @@ def world(make_member, fixed_today, it_board):
     a, b = make_member("가", user=True), make_member("나", user=True)
     Commute.objects.create(period=p, date=D, member=a, shift="normal")
     Commute.objects.create(period=p, date=D, member=b, shift="dinner")
-    ControlDuty.objects.create(period=p, date=D, slot=0, member=a)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot0", member=a)
     return a, b
 
 

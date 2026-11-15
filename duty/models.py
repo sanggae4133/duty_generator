@@ -5,7 +5,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 
-from .shifts import CONTROL_SLOTS, DEVELOPER, KEYS, SHIFT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
+from .shifts import DEVELOPER, KEYS, SHIFT_KEYS, SLOT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
 
 
 def _one_of(field: str, values, name: str) -> models.CheckConstraint:
@@ -182,7 +182,7 @@ class Period(models.Model):
     overwrite_from = models.DateField(null=True, blank=True)
     board = models.ForeignKey(Board, on_delete=models.PROTECT, null=True, blank=True, related_name="periods",
                               verbose_name="근무표")
-    # 배포가 지운 행 [[모델 c|k, 회차 id, 날짜, 멤버 id, 출근조|칸]]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
+    # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
     publish_undo = models.JSONField(null=True, blank=True, editable=False)
     # 이 번호 이하의 ChangeLog 는 근무표·알림에 쓰지 않는다(배포 취소 때 그 시점 최대 번호로 정함). 시각 대신 번호라 시계와 무관
     log_floor = models.BigIntegerField(default=0, editable=False)
@@ -232,16 +232,20 @@ class Commute(models.Model):
         indexes = [models.Index(fields=["date"])]
 
 
-class ControlDuty(models.Model):
-    period = models.ForeignKey(Period, on_delete=models.CASCADE)
+class DutyAssignment(models.Model):
+    """당번 배정 한 칸(1단계는 장중관제 slot0~slot9). 생성이 만들고 근무 변경이 바꾼다."""
+    period = models.ForeignKey(Period, on_delete=models.CASCADE, related_name="duty_assignments")
     date = models.DateField()
-    slot = models.PositiveSmallIntegerField()
+    cell = models.CharField(max_length=8, choices=[(k, k) for k in SLOT_KEYS])
     member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["period", "date", "slot"], name="duty_one_member_per_slot"),
-            models.CheckConstraint(condition=models.Q(slot__lt=len(CONTROL_SLOTS)), name="duty_slot_range"),
+            models.UniqueConstraint(fields=["period", "date", "cell", "member"], name="dutyassignment_once"),
+            # 관제 칸은 칸당 한 명(DB가 계속 보장)
+            models.UniqueConstraint(fields=["period", "date", "cell"], condition=Q(cell__startswith="slot"),
+                                    name="dutyassignment_one_per_slot"),
+            _one_of("cell", SLOT_KEYS, "dutyassignment_cell_valid"),
         ]
         indexes = [models.Index(fields=["date"])]
 

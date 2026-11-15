@@ -1,6 +1,6 @@
 from datetime import date
 
-from duty.models import Board, Commute, ControlDuty, Period
+from duty.models import Board, Commute, DutyAssignment, Period
 from duty.services.stats import member_stats, period_duty_counts
 
 S = Period.Status
@@ -14,9 +14,9 @@ def setup_period(make_member, status=S.PUBLISHED):
     make_member("직원", type="직원")
     Commute.objects.create(period=p, date=D1, member=a, shift="dawn")
     Commute.objects.create(period=p, date=D2, member=a, shift="night")
-    ControlDuty.objects.create(period=p, date=D1, slot=0, member=b)
-    ControlDuty.objects.create(period=p, date=D2, slot=0, member=b)
-    ControlDuty.objects.create(period=p, date=D2, slot=1, member=a)
+    DutyAssignment.objects.create(period=p, date=D1, cell="slot0", member=b)
+    DutyAssignment.objects.create(period=p, date=D2, cell="slot0", member=b)
+    DutyAssignment.objects.create(period=p, date=D2, cell="slot1", member=a)
     return p
 
 

@@ -4,7 +4,7 @@ import pytest
 
 from duty.errors import DutyError
 from duty.generator import GenerationError
-from duty.models import Commute, ControlDuty, Period
+from duty.models import Commute, DutyAssignment, Period
 from duty.services.generate import run_generation
 
 S = Period.Status
@@ -29,15 +29,15 @@ def test_generation_writes_duties(closed_period):
     out = run_generation(closed_period, seed=5)
     closed_period.refresh_from_db()
     assert closed_period.status == S.GENERATED and closed_period.seed == 5
-    assert ControlDuty.objects.filter(period=closed_period).count() == 5 * 10
-    assert not ControlDuty.objects.filter(period=closed_period, member__type="직원").exists()
+    assert DutyAssignment.objects.filter(period=closed_period).count() == 5 * 10
+    assert not DutyAssignment.objects.filter(period=closed_period, member__type="직원").exists()
     assert out.reached
 
 
 def test_regenerate_replaces(closed_period):
     run_generation(closed_period, seed=1)
     run_generation(closed_period, seed=2)
-    assert ControlDuty.objects.filter(period=closed_period).count() == 50
+    assert DutyAssignment.objects.filter(period=closed_period).count() == 50
 
 
 def test_missing_department_dates_block_generation(closed_period):

@@ -5,7 +5,7 @@ from django.db.models import Exists, OuterRef
 
 from .. import perms
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, ControlDuty, Period, User
+from ..models import ChangeLog, Commute, DutyAssignment, Period, User
 from ..shifts import COMMUTE_SHIFTS, CONTROL_SLOTS, CELLS, DEVELOPER, is_slot_cell, slot_index
 
 
@@ -15,7 +15,7 @@ def _owner(d: date) -> Period:
     p = (
         Period.objects.filter(status=Period.Status.PUBLISHED)
         .filter(Exists(Commute.objects.filter(period=OuterRef("pk"), date=d))
-                | Exists(ControlDuty.objects.filter(period=OuterRef("pk"), date=d)))
+                | Exists(DutyAssignment.objects.filter(period=OuterRef("pk"), date=d)))
         .order_by("pk")
         .first()
     )
@@ -41,8 +41,8 @@ def _duty_warnings(period: Period, d: date, members) -> list[str]:
     for m in members:
         if m is None:
             continue
-        for duty in ControlDuty.objects.filter(period=period, date=d, member=m):
-            out += _eligibility_warnings(period, d, duty.slot, m)
+        for duty in DutyAssignment.objects.filter(period=period, date=d, member=m):
+            out += _eligibility_warnings(period, d, slot_index(duty.cell), m)
     return out
 
 
@@ -76,15 +76,16 @@ def change_cell(user, d: date, cell: str, before: User | None, after: User | Non
         slot = slot_index(cell)
         if before is None or after is None:
             raise DutyError("관제 칸은 교체만 할 수 있습니다.")
-        row = ControlDuty.objects.filter(period=period, date=d, slot=slot).first()
+        row = DutyAssignment.objects.filter(period=period, date=d, cell=cell).first()
         if row is None or row.member_id != before.pk:
             raise DutyError(f"{before.name}은(는) 이 칸에 없습니다.")
         row.member = after
         row.save()
         warnings = _eligibility_warnings(period, d, slot, after)
-        others = ControlDuty.objects.filter(period=period, date=d, member=after).exclude(slot=slot).order_by("slot")
+        # slot0~slot9 는 숫자가 한 자리라 글자 순서가 칸 순서다
+        others = DutyAssignment.objects.filter(period=period, date=d, member=after).exclude(cell=cell).order_by("cell")
         if others:
-            labels = ", ".join(CONTROL_SLOTS[o.slot][0] for o in others)
+            labels = ", ".join(CONTROL_SLOTS[slot_index(o.cell)][0] for o in others)
             warnings.append(f"{after.name}은(는) 그날 다른 관제 칸({labels})도 맡고 있습니다.")
     else:
         row = None
@@ -112,13 +113,13 @@ def exchange(user, d: date, cell: str, before: User | None, after: User | None) 
     _check_cell(cell)
     period = _owner(d)
     if is_slot_cell(cell):
-        rows = list(ControlDuty.objects.filter(period=period, date=d, member=after).exclude(slot=slot_index(cell)))
+        rows = list(DutyAssignment.objects.filter(period=period, date=d, member=after).exclude(cell=cell))
         if len(rows) > 1:
             raise DutyError(f"{after.name}은(는) 그날 장중관제가 여러 칸이라 맞바꿀 칸을 정할 수 없습니다. "
                             f"{after.name}의 칸을 눌러 거기서 바꿔 주세요.")
-        if ControlDuty.objects.filter(period=period, date=d, slot=slot_index(cell), member=after).exists():
+        if DutyAssignment.objects.filter(period=period, date=d, cell=cell, member=after).exists():
             raise DutyError(f"{after.name}은(는) 이미 이 칸에 있습니다.")
-        other = f"slot{rows[0].slot}" if rows else None
+        other = rows[0].cell if rows else None
     else:
         other = Commute.objects.filter(period=period, date=d, member=after).values_list("shift", flat=True).first()
     if other == cell:
@@ -142,14 +143,14 @@ def swap(user, d: date, cell_a: str, a: User, cell_b: str, b: User) -> list[str]
     warnings: list[str] = []
     if is_slot_cell(cell_a):
         sa, sb = slot_index(cell_a), slot_index(cell_b)
-        ra = ControlDuty.objects.filter(period=period, date=d, slot=sa, member=a).first()
-        rb = ControlDuty.objects.filter(period=period, date=d, slot=sb, member=b).first()
+        ra = DutyAssignment.objects.filter(period=period, date=d, cell=cell_a, member=a).first()
+        rb = DutyAssignment.objects.filter(period=period, date=d, cell=cell_b, member=b).first()
         if ra is None or rb is None:
             raise DutyError("선택한 사람이 해당 칸에 없습니다.")
         ra.delete()
         rb.delete()
-        ControlDuty.objects.create(period=period, date=d, slot=sa, member=b)
-        ControlDuty.objects.create(period=period, date=d, slot=sb, member=a)
+        DutyAssignment.objects.create(period=period, date=d, cell=cell_a, member=b)
+        DutyAssignment.objects.create(period=period, date=d, cell=cell_b, member=a)
         warnings = _eligibility_warnings(period, d, sa, b) + _eligibility_warnings(period, d, sb, a)
     else:
         ra = Commute.objects.filter(period=period, date=d, member=a, shift=cell_a).first()

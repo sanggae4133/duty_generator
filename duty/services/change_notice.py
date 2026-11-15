@@ -5,7 +5,7 @@ from datetime import timedelta
 from .. import perms
 from ..alarms import messages as m
 from ..alarms import senders
-from ..models import ChangeLog, Commute, ControlDuty, Period, PushAlarmSubscription, TelegramAlarmProfile
+from ..models import ChangeLog, Commute, DutyAssignment, Period, PushAlarmSubscription, TelegramAlarmProfile
 from . import alarm_settings
 from .alarm_runner import telegram_text
 
@@ -50,7 +50,7 @@ def _live(r, now, today) -> bool:
     p = r.period
     return (r.at >= now - FRESH and r.date >= today and p.status == Period.Status.PUBLISHED and r.id > p.log_floor
             and (Commute.objects.filter(period=p, date=r.date).exists()
-                 or ControlDuty.objects.filter(period=p, date=r.date).exists()))
+                 or DutyAssignment.objects.filter(period=p, date=r.date).exists()))
 
 
 def _send(conf, user, title, text, url) -> int:

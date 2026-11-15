@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from duty.errors import DutyError
-from duty.models import Board, ChangeLog, Commute, ControlDuty, Period, PeriodEvent
+from duty.models import Board, ChangeLog, Commute, DutyAssignment, Period, PeriodEvent
 from duty.services import periods
 from duty.services.publish import publish, unpublish, unpublish_info
 from duty.services.roster import find_day
@@ -21,13 +21,13 @@ def make_period(name, start, end, status, member):
     p = Period.objects.create(board=it_board, name=name, start_date=start, end_date=end, status=status)
     for x in weekdays(start, end):
         Commute.objects.create(period=p, date=x, member=member, shift="normal")
-        ControlDuty.objects.create(period=p, date=x, slot=0, member=member)
+        DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=member)
     return p
 
 
 def rows(p):
     c = sorted(Commute.objects.filter(period=p).values_list("date", "member_id", "shift"))
-    k = sorted(ControlDuty.objects.filter(period=p).values_list("date", "member_id", "slot"))
+    k = sorted(DutyAssignment.objects.filter(period=p).values_list("date", "member_id", "cell"))
     return c, k
 
 
@@ -41,7 +41,7 @@ def test_move_from_generated_drops_control_duty_and_logs(make_member, admin_user
     periods.move(p, to, by=admin_user)
     p.refresh_from_db()
     assert p.status == to and p.seed is None and p.generated_at is None
-    assert not ControlDuty.objects.filter(period=p).exists()
+    assert not DutyAssignment.objects.filter(period=p).exists()
     assert Commute.objects.filter(period=p).count() == 5  # 출근표는 그대로
     ev = PeriodEvent.objects.get(period=p)
     assert (ev.from_status, ev.to_status, ev.by) == (S.GENERATED, to, admin_user)
@@ -73,7 +73,7 @@ def test_move_rejects_same_status_and_published(it_board):
 
 def test_draft_shrink_drops_commutes_outside(make_member):
     p = make_period("p", d(11, 9), d(11, 20), S.DRAFT, make_member("가"))
-    ControlDuty.objects.filter(period=p).delete()
+    DutyAssignment.objects.filter(period=p).delete()
     p.end_date = d(11, 13)
     periods.save_draft(p)
     assert sorted({x for x, *_ in rows(p)[0]}) == weekdays(d(11, 9), d(11, 13))
@@ -242,7 +242,7 @@ def test_delete_unpublished_period(make_member, admin_user, status):
     periods.record(p, "", admin_user)
     periods.delete(p)
     assert not Period.objects.filter(pk=p.pk).exists()
-    assert not Commute.objects.exists() and not ControlDuty.objects.exists() and not PeriodEvent.objects.exists()
+    assert not Commute.objects.exists() and not DutyAssignment.objects.exists() and not PeriodEvent.objects.exists()
 
 
 def test_delete_refuses_published_and_logged(abc, admin_user):

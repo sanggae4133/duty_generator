@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from django.db import IntegrityError
 
-from duty.models import Commute, ControlDuty, Period
+from duty.models import Commute, DutyAssignment, Period
 
 
 def test_department_shift_keys(depts):
@@ -31,16 +31,16 @@ def test_one_commute_per_member_per_day(make_member, it_board):
 def test_one_member_per_duty_slot(make_member, it_board):
     p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13))
     a, b = make_member("가"), make_member("나")
-    ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=0, member=a)
+    DutyAssignment.objects.create(period=p, date=date(2026, 11, 9), cell="slot0", member=a)
     with pytest.raises(IntegrityError):
-        ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=0, member=b)
+        DutyAssignment.objects.create(period=p, date=date(2026, 11, 9), cell="slot0", member=b)
 
 
 def test_member_may_hold_several_duty_slots_per_day(make_member, it_board):
     p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13))
     a = make_member("가")
-    ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=0, member=a)
-    ControlDuty.objects.create(period=p, date=date(2026, 11, 9), slot=1, member=a)
+    DutyAssignment.objects.create(period=p, date=date(2026, 11, 9), cell="slot0", member=a)
+    DutyAssignment.objects.create(period=p, date=date(2026, 11, 9), cell="slot1", member=a)
 
 
 @pytest.mark.parametrize("bad", ["가>나", "가,나", "+가", "가\n나"])

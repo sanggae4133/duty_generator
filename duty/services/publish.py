@@ -6,7 +6,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, ControlDuty, Period, PeriodEvent, User
+from ..models import ChangeLog, Commute, DutyAssignment, Period, PeriodEvent, User
 from .periods import record
 
 S = Period.Status
@@ -35,10 +35,10 @@ def preview_publish(period: Period, overwrite_from: date) -> PublishPreview:
     _validate(period, overwrite_from)
     rng = {"date__gte": overwrite_from, "date__lte": period.end_date}
     names = set(Commute.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
-    names |= set(ControlDuty.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
+    names |= set(DutyAssignment.objects.filter(period__in=_others(period), **rng).values_list("period__name", flat=True))
     # 이미 덮어써져 행이 없는 날짜의 옛 이력은 세지 않는다
     live = set(Commute.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
-    live |= set(ControlDuty.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
+    live |= set(DutyAssignment.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date"))
     discarded = sum(
         1 for key in ChangeLog.objects.filter(period__in=_others(period), **rng).values_list("period_id", "date")
         if key in live
@@ -46,7 +46,7 @@ def preview_publish(period: Period, overwrite_from: date) -> PublishPreview:
     return PublishPreview(overwrite_from, period.end_date, sorted(names), discarded)
 
 
-_MODELS = {"c": (Commute, "shift"), "k": (ControlDuty, "slot")}
+_MODELS = {"c": (Commute, "shift"), "a": (DutyAssignment, "cell")}  # 옛 "k"(관제 숫자) 행은 마이그레이션 0013 이 "a" 로 바꿨다
 
 
 @transaction.atomic

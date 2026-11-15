@@ -155,12 +155,12 @@ def test_generate_has_detail_dialog(admin_client_ok, it_board):
 
 
 def test_lifecycle_move_and_unpublish_views(admin_client_ok, make_member, it_board):
-    from duty.models import ControlDuty, PeriodEvent
+    from duty.models import DutyAssignment, PeriodEvent
     m = make_member("가")
     p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13), status=Period.Status.GENERATED)
     for x in p.dates():
         Commute.objects.create(period=p, date=x, member=m, shift="normal")
-        ControlDuty.objects.create(period=p, date=x, slot=0, member=m)
+        DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=m)
     c = admin_client_ok
     body = c.get(f"/periods/{p.pk}/").content.decode()
     assert 'class="lifecycle"' in body and 'name="to"' in body

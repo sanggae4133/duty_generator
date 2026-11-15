@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from duty.errors import DutyError
-from duty.models import Commute, ControlDuty, Period
+from duty.models import Commute, DutyAssignment, Period
 from duty.services import periods
 
 S = Period.Status
@@ -50,10 +50,10 @@ def test_open_close_and_reopen_deletes_duties(make_member, it_board):
     assert p.status == S.CLOSED
     p.status, p.seed = S.GENERATED, 1
     p.save()
-    ControlDuty.objects.create(period=p, date=d(11, 9), slot=0, member=make_member("가"))
+    DutyAssignment.objects.create(period=p, date=d(11, 9), cell="slot0", member=make_member("가"))
     periods.move(p, S.COLLECTING)
     assert p.status == S.COLLECTING and p.seed is None
-    assert not ControlDuty.objects.filter(period=p).exists()
+    assert not DutyAssignment.objects.filter(period=p).exists()
 
 
 def test_open_rejected_when_published(it_board):

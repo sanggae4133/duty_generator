@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from duty.errors import DutyError
-from duty.models import Board, ChangeLog, Commute, ControlDuty, Period
+from duty.models import Board, ChangeLog, Commute, DutyAssignment, Period
 from duty.services.publish import preview_publish, publish
 from duty.shifts import weekdays
 
@@ -19,7 +19,7 @@ def make_period(name, start, end, status, member):
     p = Period.objects.create(board=it_board, name=name, start_date=start, end_date=end, status=status)
     for x in weekdays(start, end):
         Commute.objects.create(period=p, date=x, member=member, shift="normal")
-        ControlDuty.objects.create(period=p, date=x, slot=0, member=member)
+        DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=member)
     return p
 
 
@@ -41,7 +41,7 @@ def test_publish_overwrites_from_selected_date(ab):
     assert b.status == S.PUBLISHED and b.overwrite_from == d(11, 18)
     assert dates_of(a)[-1] == d(11, 17)
     assert dates_of(b)[0] == d(11, 18)
-    assert not ControlDuty.objects.filter(period=a, date__gte=d(11, 18)).exists()
+    assert not DutyAssignment.objects.filter(period=a, date__gte=d(11, 18)).exists()
 
 
 def test_publish_inside_keeps_tail_of_old(make_member):

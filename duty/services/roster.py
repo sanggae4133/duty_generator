@@ -6,8 +6,8 @@ from datetime import date
 
 from django.db.models import F
 
-from ..models import ChangeLog, Commute, ControlDuty, Period, User
-from ..shifts import CELLS, cell_label, is_slot_cell, slot_cell
+from ..models import ChangeLog, Commute, DutyAssignment, Period, User
+from ..shifts import CELLS, cell_label, is_slot_cell
 
 Log = tuple[str | None, str | None]
 
@@ -62,8 +62,8 @@ def published_days(start: date | None = None, end: date | None = None) -> list[D
     commutes = scoped(Commute.objects).order_by("date", "member__username")
     for d, pid, shift, name in commutes.values_list("date", "period_id", "shift", "member__name"):
         slot(d, pid)["cells"][shift].append(name)
-    for d, pid, i, name in scoped(ControlDuty.objects).values_list("date", "period_id", "slot", "member__name"):
-        slot(d, pid)["cells"][slot_cell(i)].append(name)
+    for d, pid, cell, name in scoped(DutyAssignment.objects).values_list("date", "period_id", "cell", "member__name"):
+        slot(d, pid)["cells"][cell].append(name)
 
     logs: dict[tuple[date, str], list[Log]] = defaultdict(list)
     # 배포 취소 이전 기록(log_floor 이하)은 다시 배포해도 쓰지 않는다(그사이 출근표·생성이 바뀌었을 수 있다)

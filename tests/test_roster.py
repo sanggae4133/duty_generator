@@ -1,6 +1,6 @@
 from datetime import date
 
-from duty.models import Board, ChangeLog, Commute, ControlDuty, Period
+from duty.models import Board, ChangeLog, Commute, DutyAssignment, Period
 from duty.services.roster import chain, member_schedule, published_days
 
 S = Period.Status
@@ -25,7 +25,7 @@ def make_published(make_member):
     Commute.objects.create(period=p, date=D, member=staff, shift="normal")
     Commute.objects.create(period=p, date=D, member=b, shift="normal")
     Commute.objects.create(period=p, date=D, member=c, shift="dawn")
-    ControlDuty.objects.create(period=p, date=D, slot=0, member=b)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot0", member=b)
     ChangeLog.objects.create(period=p, date=D, cell="normal", before=a, after=b)
     return p
 
