@@ -86,12 +86,12 @@ KEYS = ["dawn", "normal", "dinner", "slot0", "slot1", ..., "slot9", "night", "lu
 |---|---|
 | board | FK PROTECT |
 | key | 4.1 목록 중 하나. (board, key) unique |
-| name | 화면·CSV 이름. 근무표 안에서 unique, `date`·`day`와 다르고 `(`·줄바꿈을 쓸 수 없다(CSV 열 이름이 된다) |
+| name | 화면·CSV 이름. 근무표 안에서 unique(DB 제약 `boardshift_one_per_name`), `date`·`day`와 다르고 `(`·줄바꿈을 쓸 수 없다(CSV 열 이름이 된다) |
 | start, end | 시각. 근무조·장중관제는 필수, 점심당번은 비운다(제약) |
 | eligible_shifts | 장중관제만: 자격 근무조 키 목록(JSON) |
 | eligible_types | 장중관제만: 자격 유형(User.type) 목록. IT = ["개발자"] |
 | default_alarm | 근무조만: 새 계정의 기본 알림 규칙 대상. IT = dawn·dinner·night(지금 `DEFAULT_RULES`와 같다) |
-| active | 끄기. 쓰인 정의는 지우거나 key·board를 바꿀 수 없다(관리 화면·`clean`에서 막음). 끄면 새 입력에서만 빠지고 지난 행·기록의 이름은 계속 찾는다 |
+| active | 끄기. 쓰인 정의는 지우거나 key·board를 바꿀 수 없다(관리 화면·`clean`에서 막음). 끄면 새 입력에서만 빠지고 지난 행·기록의 이름은 계속 찾는다. 코드는 `boards.active_defs`(입력 표·CSV 열, 부서 출근조·스케줄·알림 규칙 선택지, 생성)와 `boards.defs`(표시·라벨·알림 문구·캘린더 이름)로 나눠 읽는다 |
 
 - 이름·시각을 운영 중에 바꾸면 발송 창이 열린 알림이 한 번 다시 나가고 옛 CSV의 열 이름이 맞지 않는다(help_text·운영 문서에 적는다).
 - IT 근무표의 정의는 **마이그레이션 안에 값을 그대로 적어서** 넣는다(지금 `shifts.py` 상수와 같은 이름·시각·자격). 앱 코드를 import하지 않는다.
@@ -100,11 +100,11 @@ KEYS = ["dawn", "normal", "dinner", "slot0", "slot1", ..., "slot9", "night", "lu
 ### 4.4 부서·사람
 
 - `Department.board` FK PROTECT. 기존 4부서 = IT.
-- `Department.order` 정수, NOT NULL, 기본 0. 1단계에서는 지금 `DEPT_ORDER`(근무표 부서 필터 순서)를 대체하는 데만 쓴다. Meta.ordering·다른 목록의 code 순·알림 `normalize`의 부서 정렬은 그대로 둔다(보고서 hash 불변).
+- `Department.order` 정수, NOT NULL, 기본 99(옛 `DEPT_ORDER` 밖 부서와 같이 맨 뒤). 1단계에서는 지금 `DEPT_ORDER`(근무표 부서 필터 순서)를 대체하는 데만 쓴다. Meta.ordering·다른 목록의 code 순·알림 `normalize`의 부서 정렬은 그대로 둔다(보고서 hash 불변).
 - `Department.input_group` OneToOne(Group, PROTECT, null). collect 근무표의 부서만. `Department.save`가 그룹을 자동으로 만든다(픽스처·관리 화면·서비스 어느 길로 만들어도 빠지지 않게).
 - `Department.managers`(M2M)는 없앤다. 1단계 호환: 같은 이름 property(`input_group.user_set`, 그룹이 없으면 빈 목록), 관리 화면 `DepartmentForm`에 `ModelMultipleChoiceField managers`를 직접 선언(초기값·후보 = 입력 그룹 기준, 퇴사 담당자 포함), `save_related`에서 `input_group.user_set.set(...)`, `filter_horizontal` 대신 `FilteredSelectMultiple` 위젯, prefetch는 `input_group__user_set`. 2단계 끝에 property를 지운다.
 - `Department.lunch_start`, `lunch_end`: 점심당번 시각(null 허용, 2단계). 둘 다 비었거나 둘 다 있고 `lunch_start < lunch_end`(DB 제약 + 관리 폼). IT 4부서 = 11:30–12:30.
-- `Department.shifts`(가능한 출근조)는 그대로. 관리 화면 선택지는 그 근무표의 근무조 정의에서 읽는다. 소속 사람·기록이 있으면 board를 바꿀 수 없다.
+- `Department.shifts`(가능한 출근조)는 그대로. 관리 화면 선택지는 그 근무표의 근무조 정의에서 읽는다. 1단계에서는 저장된 부서의 근무표를 바꿀 수 없다(관리 화면에서 읽기 전용, 새 부서만 고른다). 부서를 다른 근무표로 옮기기는 필요해지면 별도 기능으로 만든다.
 - 사람은 부서를 통해 근무표 하나에 속한다. 부서 없는 계정(어드민 전용)은 근무표가 없다. auto 당번 칸이 없는 근무표의 사람은 구분(User.type)을 "직원"으로 둔다(운영 문서).
 
 ### 4.5 권한
@@ -190,6 +190,8 @@ KEYS = ["dawn", "normal", "dinner", "slot0", "slot1", ..., "slot9", "night", "lu
 - 서비스 `collect._require_input`에 `period.board == dept.board` 검사(CSV 경로도 막힌다). 목록은 근무표가 같은 회차·부서만 짝짓는다.
 - 지난 날짜 검사는 `perms.is_board_admin(user, period.board)`(지금 `is_admin` 두 곳: services/collect.py, views/collect.py).
 - CSV·오류 문구는 근무 정의 이름(`{key: name}`, 화면 순서)을 인자로 받는다. IT 이름은 지금 라벨과 같아 기존 CSV가 그대로 읽힌다(테스트로 고정).
+- 입력 키는 `collect.input_keys(dept)` 하나로 정한다: 부서 출근조 가운데 켜진 근무조 정의가 있는 것. 입력 표 칸·머리글·POST·CSV 열·검증이 모두 이것을 쓴다. 저장은 입력 키의 행만 바꾸고, 꺼진 근무조의 기존 배정은 지우지 않는다(그 사람을 그날 다른 근무조에 다시 넣으면 검증 오류).
+- 서비스 `load_table`·`export_csv` 도 근무표 짝을 검사하고, 화면(`views/collect._load`)은 짝이 다르면 404.
 - 사유(2단계): 표·CSV에서 `이름(휴가)`로 적는다. 끝이 정확히 `(휴가)`·`(출장)`·`(교육)`일 때만 사유로 떼어 읽는 순수 함수. `validate_member_name`에 "끝이 (사유)인 이름 금지"를 더하고, 2단계 마이그레이션은 이미 그런 이름의 계정이 있으면 이름을 알려 주며 멈춘다.
 - 채우기 버튼(3단계, direct 근무표, 주마다):
   - **[2주 전 기준으로 채우기]**(근무조가 정확히 3개일 때만 보인다): 시작 시각으로 이른·가운데·늦은 조를 정한다. 2주 전 그 주의 사람별 대표 근무조(근무로 친 날이 가장 많은 근무조. 같으면 그 후보 중 그 주에 먼저 나온 근무조, 그래도 같으면 시작 시각이 이른 근무조)를 구해, 이른 → 늦은, 늦은 → 이른, 나머지·2주 전 근무가 없던 사람 → 가운데로 월~금에 채운다. 이번 주 휴장일·근무 없음 날은 비운다. 지금 재직하고 그 근무표 부서에 있는 사람만.
@@ -208,7 +210,7 @@ KEYS = ["dawn", "normal", "dinner", "slot0", "slot1", ..., "slot9", "night", "lu
 - 근무 없음 날, 그리고 `period.skip_holidays`가 참일 때의 휴장일은 2·3에서 뺀다. `slot*`가 없는 근무표는 generator를 부르지 않는다.
 - 점심당번 채우기는 무작위를 쓰지 않는다. 같은 씨앗이면 IT 관제 결과가 지금과 똑같다.
 - 상태: collect는 마감·생성됨에서(지금처럼, 빈 날이 있으면 오류 — 그 근무표 부서만, `skip_holidays`면 휴장일 제외). direct는 취합 중(입력 중)·생성됨에서, 빈 평일은 **경고 목록**으로 돌려준다(오류 아님).
-- `generator.py`(순수)는 인덱스 기반을 그대로 두고 칸 목록 `[(라벨, 자격 근무조)]`을 **필수 인자**로 받는다(기본값 없음). 인덱스 ↔ 키 변환은 `services/generate.py`. 기존 generator 테스트는 IT 관제 목록을 인자로 넘기도록 준비 코드만 고친다.
+- `generator.py`(순수)는 인덱스 기반을 그대로 두고 칸 목록 `[(라벨, 자격 근무조, 자격 유형)]`(유형 빈 튜플 = 전원)을 **필수 인자**로 받고, 후보를 칸마다 거른다(그 칸 자격 근무조에 출근 ∧ 그 칸 자격 유형). 사람은 `{유형: 사람}` 으로 받는다(기본값 없음). 인덱스 ↔ 키 변환은 `services/generate.py`. 기존 generator 테스트는 IT 관제 목록을 인자로 넘기도록 준비 코드만 고친다.
 
 ### 6.4 근무 변경
 
@@ -243,7 +245,7 @@ KEYS = ["dawn", "normal", "dinner", "slot0", "slot1", ..., "slot9", "night", "lu
 - 회차 화면: 목록·새 회차는 내가 관리하는 근무표만(새 회차 폼에서 근무표 고르기, 하나면 숨김). 상세는 input_mode에 따라 단계·버튼(direct: [표 입력] [확정] [확정 취소], 입력 현황·편차 표·생성 방식은 숨김, 확정 경고 목록 표시). 편차 표는 `slot*`가 있을 때만.
 - 근무 변경 창: To 후보 = 그 근무표 부서의 재직자. 점심당번은 넣기만·빼기만도 보인다. 근무조 칸에는 사유 선택과 "점심당번도 같이 넘기기"(2단계).
 - 그룹 화면(3단계): 메뉴 [그룹]은 GroupKeeper에게만. 내가 맡은 그룹의 멤버를 보고 넣고 뺀다(후보 = 재직 계정, 퇴사자는 "(퇴사)"로 보여 뺄 수 있게). 관리 그룹 멤버를 다 빼면 경고만.
-- Django 관리 화면(슈퍼유저): Board + BoardShift·GroupKeeper 인라인(4.3 검증). 그룹 화면은 이름·멤버·그룹 관리자만(permissions 숨김). UserAdmin은 user_permissions 숨김, 목록·필터의 is_staff → groups. DepartmentForm은 4.4.
+- Django 관리 화면(슈퍼유저): Board + BoardShift·GroupKeeper 인라인(4.3 검증, 편집은 3단계. 1단계는 보기만). 그룹 화면은 permissions 칸을 숨긴다(1단계는 이름과 보기 전용 그룹 관리자). 1단계 관리자 지정은 사용자 화면의 groups 칸. UserAdmin은 user_permissions 숨김, 목록·필터의 is_staff → groups. DepartmentForm은 4.4.
 - 메뉴: 회차·이력 = 어느 근무표든 관리 그룹(`perms.is_admin`), 통계 = `slot*`가 있는 근무표의 관리 그룹, 출근표 입력 = 입력할 수 있는 부서가 있을 때, 그룹 = GroupKeeper, 관리 = 슈퍼유저(그대로). 근무표 화면의 편집 판단(주간·월간 칸 링크, 하루 화면 [바꾸기])은 `perms.can_edit(user, board, d)`.
 
 ## 8. 알림·캘린더·통계
@@ -299,7 +301,7 @@ SQLite라 스키마 변경과 데이터 이전을 파일로 나눈다. 운영 �
 
 ### 1단계
 
-1. 스키마: Board, BoardShift, GroupKeeper, DutyAssignment, `Period.board`·`Department.board`·`Department.input_group`·`AlarmRule.board`·`RosterPref.board`(null 허용), `Department.order`(NOT NULL 기본 0).
+1. 스키마: Board, BoardShift, GroupKeeper, DutyAssignment, `Period.board`·`Department.board`·`Department.input_group`·`AlarmRule.board`·`RosterPref.board`(null 허용), `Department.order`(NOT NULL 기본 99).
 2. 데이터(RunPython):
    - 그룹은 `Group.objects.create`로 만든다. **이름이 이미 있으면 그 이름을 알려 주며 멈춘다**(뜻이 섞이지 않게).
    - IT 근무표("IT 당번표", code `it`)와 "IT 근무표 관리" 그룹, IT 정의 14행(값을 직접 적음, default_alarm = dawn·dinner·night).
@@ -309,7 +311,7 @@ SQLite라 스키마 변경과 데이터 이전을 파일로 나눈다. 운영 �
    - ControlDuty → DutyAssignment(`slot{n}`), `publish_undo`의 `k` 행 → `a` 행.
    - 보고서 알림 규칙에 board=IT. 저장된 `AlarmRule.depts`는 다시 정규화하지 않는다.
    - reverse: 입력 그룹 멤버 → managers, DutyAssignment → ControlDuty, `a` → `k`, board·input_group·admin_group을 비운 뒤 GroupKeeper·BoardShift·Board·이 마이그레이션이 만든 그룹 삭제.
-3. 스키마: `Period.board`·`Department.board` NOT NULL, `Department.managers`·ControlDuty 삭제, 새 제약.
+3. 스키마: `Department.managers`·ControlDuty 삭제(managers 삭제 직전에 근무표 없는 부서를 IT 로 옮기고 입력 그룹·담당자를 복사), `Period.board`·`Department.board` NOT NULL(근무표 없는 회차는 IT 로 채우고, 근무표 없는 부서가 남아 있으면 멈춘다), 새 제약.
 - `is_staff` 값은 바꾸지 않는다(관리자 판정에는 더 쓰지 않는다).
 
 ### 2단계 (되돌리기는 백업 복원으로만)
@@ -372,7 +374,7 @@ SQLite라 스키마 변경과 데이터 이전을 파일로 나눈다. 운영 �
 
 - 같은 PR에서: ARCHITECTURE.md(근무표·키와 성격·그날의 주인·역할 표·회차·근무 변경), OVERVIEW.md(여러 근무표, 시장운영실), OPERATIONS.md, DEVELOPMENT.md(영상 가짜 데이터).
 - OPERATIONS.md:
-  - 새 설치 "처음 한 번": 슈퍼유저가 관리 화면 → 그룹 → "IT 근무표 관리"에 자신을 넣고 그룹 관리자로 지정(마이그레이션이 `createsuperuser`보다 먼저 돌아 그룹이 비어 있다). 어드민 설명을 "스태프+슈퍼유저"에서 그룹 기준으로.
+  - 새 설치 "처음 한 번": 슈퍼유저가 관리 화면 → 사용자 → 자기 계정의 "그룹" 칸에 "IT 근무표 관리"를 넣는다(마이그레이션이 `createsuperuser`보다 먼저 돌아 그룹이 비어 있다). 그룹 관리자 지정은 3단계 그룹 화면부터. 어드민 설명을 "스태프+슈퍼유저"에서 그룹 기준으로.
   - 업그레이드: 1·2단계는 데이터 이전이 있으니 업그레이드 절차대로(첫 줄 백업). 1단계부터 관리자 지정은 그룹으로 한다(스태프 체크는 관리자 판정에 쓰이지 않는다). 2단계는 백업 복원으로만 되돌린다.
   - 4단계: "근무표 추가하기".
 - PRINCIPLES.md 결정 기록: 근무표 단위 회차, 키가 성격을 정함(고정 키 목록), 그날의 주인 = 기간, 당번 물질화, 권한 = 그룹, 휴장일 = DB 표(라이브러리로 자동 채움 + 사람이 고침), 점심당번 부서별 시각, 2단계 보고서 한 번 재발송.
