@@ -2,6 +2,7 @@ import pytest
 from django.urls import reverse
 
 from duty.admin import DepartmentForm
+from duty.models import BoardShift
 
 
 @pytest.fixture
@@ -46,3 +47,11 @@ def test_changelist_shows_labels_count_and_managers(su_client, make_member):
     assert "정상·석식교대·야간" in html
     assert ">2<" in html  # UI 인원
     assert ">가<" in html  # 담당자
+
+
+def test_shift_choices_and_labels_come_from_board_definitions(su_client, depts, it_board):
+    BoardShift.objects.filter(board=it_board, key="dinner").update(name="늦은조")
+    form = DepartmentForm(instance=depts["UI"])
+    assert ("dinner", "늦은조") in form.fields["shifts"].choices
+    html = su_client.get(reverse("admin:duty_department_changelist")).content.decode()
+    assert "정상·늦은조·야간" in html

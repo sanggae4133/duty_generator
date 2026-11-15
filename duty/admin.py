@@ -10,14 +10,14 @@ from py_vapid import _check_sub
 
 from .accounts import issue_account
 from .models import AlarmSettings, Department, User
-from .services import alarm_settings
-from .shifts import COMMUTE_SHIFTS
+from .services import alarm_settings, boards
+from .shifts import shift_defs
 
 
 class DepartmentForm(forms.ModelForm):
     # DB에는 지금처럼 "normal,dinner,night" 문자열로 저장하고, 입력만 체크박스로 받는다
     shifts = forms.MultipleChoiceField(
-        label="가능한 출근조", choices=list(COMMUTE_SHIFTS.items()), widget=forms.CheckboxSelectMultiple,
+        label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "출근조를 하나 이상 선택하세요."},
     )
 
@@ -27,6 +27,8 @@ class DepartmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        board = self.instance.board if self.instance.board_id else boards.it_board()  # 1단계: 새 부서는 IT
+        self.fields["shifts"].choices = [(x.key, x.name) for x in shift_defs(boards.active_defs(board))]
         # 후보는 roster()만. 지금 담당자는 퇴사·부서 해제됐어도 보여야 저장할 때 조용히 빠지지 않는다
         current = self.instance.managers.all() if self.instance.pk else User.objects.none()
         self.fields["managers"].queryset = (User.objects.roster() | current).distinct()
@@ -35,7 +37,7 @@ class DepartmentForm(forms.ModelForm):
 
     def clean_shifts(self):
         picked = set(self.cleaned_data["shifts"])
-        return ",".join(k for k in COMMUTE_SHIFTS if k in picked)
+        return ",".join(k for k, _ in self.fields["shifts"].choices if k in picked)  # 화면 순서(시작 시각 순)로 저장
 
 
 @admin.register(Department)
@@ -49,7 +51,8 @@ class DepartmentAdmin(admin.ModelAdmin):
 
     @admin.display(description="가능한 출근조")
     def shift_labels(self, obj):
-        return "·".join(COMMUTE_SHIFTS.get(k, k) for k in obj.shift_keys())
+        names = {x.key: x.name for x in boards.defs(obj.board)}
+        return "·".join(names.get(k, k) for k in obj.shift_keys())
 
     @admin.display(description="인원", ordering="_n")
     def member_count(self, obj):
