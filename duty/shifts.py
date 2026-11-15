@@ -18,6 +18,7 @@ STAFF = "직원"
 TARGET_SPREAD = 2
 MAX_SWAP_ITERATIONS = 10000
 DAY_LABELS = "월화수목금토일"
+REASONS = ("휴가", "출장", "교육")  # 사유: 붙으면 그날 근무로 치지 않는다(설계 2절). 표·CSV 에는 "이름(휴가)"
 
 
 @dataclass(frozen=True)

@@ -33,7 +33,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     slots = slot_defs(boards.active_defs(period.board))  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
         commutes: dict = defaultdict(lambda: defaultdict(set))
-        rows = Commute.objects.filter(period=period).exclude(date__in=skip)
+        rows = Commute.objects.filter(period=period, reason="").exclude(date__in=skip)  # 사유가 있으면 후보가 아니다
         for d, shift, code in rows.values_list("date", "shift", "member__username"):
             commutes[d][shift].add(code)
         members_by_type: dict = defaultdict(set)  # 그 근무표 부서 재직자. 칸별 유형 거르기는 generator 가 한다

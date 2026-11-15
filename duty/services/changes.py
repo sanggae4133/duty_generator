@@ -5,7 +5,7 @@ from django.db import transaction
 from .. import perms
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, User
-from ..shifts import Def, by_key, cell_label, is_slot_cell
+from ..shifts import REASONS, SLOT_GROUP_NAME, Def, by_key, cell_label, is_slot_cell
 from . import boards, memos
 
 
@@ -99,8 +99,35 @@ def change_cell(user, board, d: date, cell: str, before: User | None, after: Use
         if after is not None:
             Commute.objects.create(period=period, date=d, member=after, shift=cell)
         warnings = _duty_warnings(defs, period, d, [before, after])
-    ChangeLog.objects.create(by=user, period=period, date=d, cell=cell, before=before, after=after)
+    ChangeLog.objects.create(by=user, period=period, date=d, cell=cell, before=before, after=after,
+                             reason_before=getattr(row, "reason", ""))  # 빠진 사람의 사유는 기록에 남긴다(관제 행에는 없다)
     return warnings
+
+
+@transaction.atomic
+def set_reason(user, board, d: date, member: User, reason: str) -> list[str]:
+    """근무조 배정에 사유(휴가·출장·교육, 빈 값 = 없음)를 붙이거나 뗀다. 사람은 그대로라 기록은 before == after 이고
+    변경 알림은 나가지 않는다(설계 6.4). 당번 칸은 자동으로 빼지 않고 경고만 한다. 이미 보낸 개인 알림은 되돌리지 않는다."""
+    perms.assert_can_edit(user, board, d)
+    period = _owner(board, d)
+    if reason not in ("", *REASONS):
+        raise DutyError("알 수 없는 사유입니다.")
+    row = Commute.objects.filter(period=period, date=d, member=member).first()
+    if row is None:
+        raise DutyError(f"{member.name}은(는) 그날 근무조에 없습니다.")
+    if row.reason == reason:
+        raise DutyError("변경할 내용이 없습니다.")
+    ChangeLog.objects.create(by=user, period=period, date=d, cell=row.shift, before=member, after=member,
+                             reason_before=row.reason, reason_after=reason)
+    row.reason = reason
+    row.save(update_fields=["reason"])
+    duties = DutyAssignment.objects.filter(period=period, date=d, member=member).order_by("cell") if reason else []
+    if not duties:
+        return []
+    defs = boards.defs(board)
+    labels = ", ".join(f"{SLOT_GROUP_NAME} {cell_label(defs, x.cell)}" if is_slot_cell(x.cell) else cell_label(defs, x.cell)
+                       for x in duties)
+    return [f"{member.name}은(는) 그날 {labels} 칸에 남아 있습니다. 다른 사람으로 바꾸세요."]
 
 
 @transaction.atomic
@@ -142,6 +169,7 @@ def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User) -> li
     if is_slot_cell(cell_a) != is_slot_cell(cell_b):
         raise DutyError("출근조끼리 또는 관제 칸끼리만 맞교환할 수 있습니다.")
     warnings: list[str] = []
+    why_a = why_b = ""  # 사유는 사람을 따라간다(근무조 행만 있다). 두 기록 모두에 남긴다
     if is_slot_cell(cell_a):
         ra = DutyAssignment.objects.filter(period=period, date=d, cell=cell_a, member=a).first()
         rb = DutyAssignment.objects.filter(period=period, date=d, cell=cell_b, member=b).first()
@@ -157,10 +185,13 @@ def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User) -> li
         rb = Commute.objects.filter(period=period, date=d, member=b, shift=cell_b).first()
         if ra is None or rb is None:
             raise DutyError("선택한 사람이 해당 칸에 없습니다.")
+        why_a, why_b = ra.reason, rb.reason
         ra.shift, rb.shift = cell_b, cell_a
         ra.save()
         rb.save()
         warnings = _duty_warnings(defs, period, d, [a, b])
-    ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_a, before=a, after=b)
-    ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_b, before=b, after=a)
+    ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_a, before=a, after=b,
+                             reason_before=why_a, reason_after=why_b)
+    ChangeLog.objects.create(by=user, period=period, date=d, cell=cell_b, before=b, after=a,
+                             reason_before=why_b, reason_after=why_a)
     return warnings

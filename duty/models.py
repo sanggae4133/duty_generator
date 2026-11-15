@@ -6,7 +6,10 @@ from django.db import models
 from django.db.models import F, Func, Q, Value
 from django.db.models.lookups import Exact
 
-from .shifts import DEVELOPER, KEYS, SHIFT_KEYS, SLOT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
+from .csv_io import split_reason
+from .shifts import DEVELOPER, KEYS, REASONS, SHIFT_KEYS, SLOT_KEYS, STAFF, is_slot_cell, slot_index, weekdays
+
+REASON_CHOICES = [("", "없음"), *((r, r) for r in REASONS)]
 
 
 def _one_of(field: str, values, name: str) -> models.CheckConstraint:
@@ -25,6 +28,8 @@ def validate_member_name(value: str) -> None:
     # 앞 = - @ 탭은 CSV 를 엑셀로 열 때 수식으로 실행된다
     if any(c in value for c in ">,\n\r") or value.startswith(("+", "=", "-", "@", "\t")):
         raise ValidationError("이름에 > , 줄바꿈을 쓸 수 없고 + = - @ 탭으로 시작할 수 없습니다.")
+    if split_reason(value)[1]:  # 표·CSV 의 "이름(휴가)"와 헷갈린다
+        raise ValidationError("이름이 (휴가)·(출장)·(교육)으로 끝날 수 없습니다.")
 
 
 class InputMode(models.TextChoices):
@@ -187,7 +192,8 @@ class Period(models.Model):
     board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="periods", verbose_name="근무표")
     # 휴장일 건너뛰기(설계 5절): 근무표를 만드는 도구가 휴장일을 건너뛴다. 2단계 전 회차는 거짓(마이그레이션 0018), 새 회차는 참
     skip_holidays = models.BooleanField("휴장일 건너뛰기", default=True)
-    # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다. null = 되돌릴 정보 없음
+    # 배포가 지운 행 목록: ["c", 회차 id, 날짜, 멤버 id, 출근조, 사유] | ["a", 회차 id, 날짜, 멤버 id, 당번 칸]. 배포 취소 때 되살린다.
+    # 사유 칸이 없는 옛 c 행(2단계 전 배포)도 읽는다. null = 되돌릴 정보 없음
     publish_undo = models.JSONField(null=True, blank=True, editable=False)
     # 이 번호 이하의 ChangeLog 는 근무표·알림에 쓰지 않는다(배포 취소 때 그 시점 최대 번호로 정함). 시각 대신 번호라 시계와 무관
     log_floor = models.BigIntegerField(default=0, editable=False)
@@ -288,11 +294,13 @@ class Commute(models.Model):
     date = models.DateField()
     member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     shift = models.CharField(max_length=8, choices=[(k, k) for k in SHIFT_KEYS])
+    reason = models.CharField(max_length=4, choices=REASON_CHOICES, blank=True, default="")  # 있으면 근무로 치지 않는다
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["period", "date", "member"], name="commute_one_shift_per_day"),
             _one_of("shift", SHIFT_KEYS, "commute_shift_valid"),
+            _one_of("reason", ["", *REASONS], "commute_reason_valid"),
         ]
         indexes = [models.Index(fields=["date"])]
 
@@ -324,11 +332,16 @@ class ChangeLog(models.Model):
     before = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     after = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     notified = models.BooleanField(default=False)  # 당사자에게 '근무 변경' 알림을 보냈는지(작업자가 표시)
+    # 사유(근무조 칸만). 사유만 바뀐 기록은 before == after: 이력에만 보이고 화면 변경 표시·변경 알림은 건너뛴다
+    reason_before = models.CharField(max_length=4, choices=REASON_CHOICES, blank=True, default="")
+    reason_after = models.CharField(max_length=4, choices=REASON_CHOICES, blank=True, default="")
 
     class Meta:
         ordering = ["at", "id"]
         constraints = [
             _one_of("cell", KEYS, "changelog_cell_valid"),
+            _one_of("reason_before", ["", *REASONS], "changelog_reason_before_valid"),
+            _one_of("reason_after", ["", *REASONS], "changelog_reason_after_valid"),
             models.CheckConstraint(condition=models.Q(before__isnull=False) | models.Q(after__isnull=False), name="changelog_not_empty"),
         ]
 

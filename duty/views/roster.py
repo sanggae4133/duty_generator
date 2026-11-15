@@ -14,24 +14,31 @@ from ..models import Department, Memo, User
 from ..services import boards, changes, holidays, memos, prefs
 from ..services.roster import find_day, member_schedule, published_days
 from ..shifts import (
-    DAY_LABELS, DEVELOPER, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell, ordered, shift_defs,
-    slot_defs,
+    DAY_LABELS, DEVELOPER, REASONS, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell, ordered,
+    shift_defs, slot_defs,
 )
 from .common import date_param, safe_next
 
 
-def _item(label: str, names: list[str], removed: bool = False) -> dict:
-    """라벨(A, A>B>C, +B)을 이름 토큰으로 나눈다. 마지막 이름 앞은 취소선, hl은 검색어 번호(1..3)."""
+def _item(label: str, names: list[str], removed: bool = False, reasons: dict[str, str] | None = None) -> dict:
+    """라벨(A, A>B>C, +B)을 이름 토큰으로 나눈다. 마지막 이름 앞은 취소선, hl은 검색어 번호(1..3).
+    reason = 지금 배정된(마지막) 사람의 사유. 이름 뒤에 작게 붙는다(변경 내역을 꺼도 보인다)."""
     parts = [p.strip().lstrip("+") for p in label.split(">")]
     tokens = [
         {"name": n, "struck": removed or k < len(parts) - 1, "hl": next((i for i, q in enumerate(names, 1) if q == n), 0)}
         for k, n in enumerate(parts)
     ]
-    return {"tokens": tokens, "changed": len(parts) > 1 or label.startswith("+") or removed}
+    return {"tokens": tokens, "changed": len(parts) > 1 or label.startswith("+") or removed,
+            "reason": "" if removed else (reasons or {}).get(parts[-1], "")}
 
 
-def _items(labels: list[str], names: list[str], removed: bool = False) -> list[dict]:
-    return [_item(lb, names, removed) for lb in labels]
+def _items(labels: list[str], names: list[str], removed: bool = False, reasons: dict[str, str] | None = None) -> list[dict]:
+    return [_item(lb, names, removed, reasons) for lb in labels]
+
+
+def _why(day, cell: str) -> dict[str, str]:
+    """그 칸 사람들의 사유 {이름: 사유}(사유는 근무조 배정에만 있다)."""
+    return {n: r for (c, n), r in day.reasons.items() if c == cell} if day else {}
 
 
 def _latest(labels: list[str]) -> list[str]:
@@ -39,8 +46,9 @@ def _latest(labels: list[str]) -> list[str]:
     return [lb.split(">")[-1].strip().lstrip("+") for lb in labels]
 
 
-def _lines(labels: list[str], names: list[str], removed: bool = False, per_line: int = 3) -> list[list[dict]]:
-    items = _items(labels, names, removed)
+def _lines(labels: list[str], names: list[str], removed: bool = False, per_line: int = 3,
+           reasons: dict[str, str] | None = None) -> list[list[dict]]:
+    items = _items(labels, names, removed, reasons)
     return [items[i:i + per_line] for i in range(0, len(items), per_line)]
 
 
@@ -112,15 +120,19 @@ def _active_members(board, depts: list[str] | None = None, types: list[str] | No
 def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None, members=()):
     current = day.members[cell] if day else []
     qs = User.objects.filter(name__in=current).order_by("name")
+    why = _why(day, cell)
     # To 목록에 그날 같은 종류 근무를 붙인다(맞교환이 기본이라 무엇과 바뀌는지 보이게)
     kinds = [x.key for x in ordered(defs) if is_slot_cell(x.key) == is_slot_cell(cell)]
     where = {}
     for k in kinds:
         for n in (day.members[k] if day else []):
             where[n] = f"{where[n]}·{cell_label(defs, k)}" if n in where else cell_label(defs, k)  # 관제 여러 칸이면 모두
+    current_members = list(_filtered(qs, depts or [], types or []))
+    for m in current_members:
+        m.reason = why.get(m.name, "")  # 사유 선택의 지금 값 표시
     return {
         "d": d, "cell": cell, "label": cell_label(defs, cell), "slot": is_slot_cell(cell),
-        "current_members": list(_filtered(qs, depts or [], types or [])),
+        "current_members": current_members, "reason_choices": REASONS,
         "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
                         "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
     }
@@ -183,7 +195,8 @@ def roster(request):
         return {
             x.key: {
                 "key": x.key, "slot": is_slot_cell(x.key), "label": x.name,
-                "lines": _lines(show([lb for lb in found.cells[x.key].labels if keep(lb)]), names) if found else [],
+                "lines": _lines(show([lb for lb in found.cells[x.key].labels if keep(lb)]), names,
+                                reasons=_why(found, x.key)) if found else [],
                 "removed": _lines([lb for lb in found.cells[x.key].removed if keep(lb)], names, True) if found and history else [],
             }
             for x in display_order(defs) if shown(x.key)
@@ -226,15 +239,23 @@ def cell(request, d, cell):
         raise Http404
     fallback = reverse("day", args=[d])
     if request.method == "POST":
+        reason_form = bool(request.POST.get("set_reason"))  # 근무조 칸의 사유 선택(같은 창의 두 번째 폼)
         try:
-            # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
-            before, after = request.POST.get("before"), request.POST.get("after")
-            result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
-                                      _member(None if after == "-" else after))
+            if reason_form:
+                pk = request.POST.get("member", "")  # 위 폼과 option 값이 겹치지 않게 아이디 대신 번호
+                member = User.objects.filter(pk=pk).first() if pk.isdigit() else None
+                if member is None:
+                    raise DutyError("사유를 붙일 사람을 골라 주세요.")
+                result = changes.set_reason(request.user, board, d, member, request.POST.get("reason", ""))
+            else:
+                # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
+                before, after = request.POST.get("before"), request.POST.get("after")
+                result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
+                                          _member(None if after == "-" else after))
         except DutyError as e:
             messages.error(request, str(e))
         else:
-            messages.success(request, "변경했습니다.")
+            messages.success(request, "사유를 저장했습니다." if reason_form else "변경했습니다.")
             for w in result:
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
@@ -270,7 +291,7 @@ def day(request, d):
             ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
                 next=request.path,
-                items=_items(show([x for x in found.cells[k].labels if keep(x)]), []),
+                items=_items(show([x for x in found.cells[k].labels if keep(x)]), [], reasons=_why(found, k)),
                 removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True) if history else [],
             )
             sections.append(ctx)

@@ -99,7 +99,7 @@ def _events(member, shifts=()) -> list[ics.Event]:
     for day in days:
         for x in ordered(defs):  # KEYS 순(옛 CELLS 와 같다). 모르는 키는 정의에 없어 조용히 빠진다
             cell = x.key
-            if member.name not in day.members.get(cell, ()) or \
+            if member.name not in day.members.get(cell, ()) or (cell, member.name) in day.reasons or \
                     (shifts and (SLOT_GROUP if is_slot_cell(cell) else cell) not in shifts):
                 continue
             summary = f"{SLOT_GROUP_NAME} {x.name}" if is_slot_cell(cell) else f"{x.name} 출근 {x.start:%H:%M}~{x.end:%H:%M}"

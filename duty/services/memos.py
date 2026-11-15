@@ -48,7 +48,8 @@ def _clear_day(user, board, d: date) -> int:
     for rows, field in ((commutes, "shift"), (duties, "cell")):
         for r in rows:
             if r.period.status == Period.Status.PUBLISHED:
-                ChangeLog.objects.create(by=user, period=r.period, date=d, cell=getattr(r, field), before=r.member)
+                ChangeLog.objects.create(by=user, period=r.period, date=d, cell=getattr(r, field), before=r.member,
+                                         reason_before=getattr(r, "reason", ""))
     commutes.delete()
     duties.delete()
     return n

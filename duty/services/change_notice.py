@@ -24,6 +24,9 @@ def tick(now) -> int:
     defs_of = {}  # 근무표 id → 정의(문구는 그 기록의 회차 근무표 이름으로)
     while i < len(rows):
         r = rows[i]
+        if r.before_id == r.after_id:  # 사유만 바뀐 기록: 알림 없음(설계 6.4)
+            i += 1
+            continue
         pair = rows[i + 1] if i + 1 < len(rows) and _is_swap(r, rows[i + 1]) else None
         i += 2 if pair else 1
         if not _live(r, now, today):

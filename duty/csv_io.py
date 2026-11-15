@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from .shifts import DAY_LABELS
+from .shifts import DAY_LABELS, REASONS
 
 CommuteTable = dict[date, dict[str, list[str]]]
 
@@ -49,6 +49,19 @@ _NAME_SPLIT = re.compile(r"[,\n]")
 
 def split_names(cell: str) -> list[str]:
     return [n.strip() for n in _NAME_SPLIT.split(cell or "") if n.strip()]
+
+
+def split_reason(text: str) -> tuple[str, str]:
+    """'이름(휴가)' → ('이름', '휴가'). 끝이 정확히 (휴가)·(출장)·(교육)일 때만 떼고(앞 공백은 지운다), 아니면 (text, '')."""
+    for r in REASONS:
+        name = text.removesuffix(f"({r})").rstrip()
+        if name != text.rstrip() and name:
+            return name, r
+    return text, ""
+
+
+def join_reason(name: str, reason: str) -> str:
+    return f"{name}({reason})" if reason else name
 
 
 def header_key(h: str) -> str:

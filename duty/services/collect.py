@@ -3,7 +3,8 @@ from django.db import transaction
 from django.db.models import Count
 
 from .. import perms
-from ..csv_io import CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, parse_commute_csv
+from ..csv_io import (CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, join_reason, parse_commute_csv,
+                      split_reason)
 from ..errors import DutyError
 from ..models import Commute, Department, Period, User
 from ..shifts import by_key, shift_defs
@@ -49,7 +50,7 @@ def load_table(period: Period, dept: Department) -> CommuteTable:
         .order_by("date", "member__username")
     )
     for c in rows:
-        table.setdefault(c.date, {}).setdefault(c.shift, []).append(c.member.name)
+        table.setdefault(c.date, {}).setdefault(c.shift, []).append(join_reason(c.member.name, c.reason))  # 이름(휴가)
     return table
 
 
@@ -65,7 +66,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     kept_keys = _kept_keys(dept)
     loaded = load_table(period, dept)
     existing = {d: {k: v for k, v in day.items() if k not in kept_keys} for d, day in loaded.items()}
-    kept = {d: {n for k, v in day.items() if k in kept_keys for n in v} for d, day in loaded.items()}
+    kept = {d: {split_reason(n)[0] for k, v in day.items() if k in kept_keys for n in v} for d, day in loaded.items()}
     members = set(User.objects.roster().filter(department=dept).values_list("name", flat=True))
     skip = boards.skip_reasons(period)
     for d in sorted(table):
@@ -84,7 +85,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
             if names and key not in shift_keys:
                 add_error(errors, CsvError(0, col, f"{dept.name}에는 {labels[key].name} 출근조가 없습니다."))
                 continue
-            for name in names:
+            for name in (split_reason(n)[0] for n in names):  # 사유는 떼고 사람만 본다
                 if name not in members:
                     add_error(errors, CsvError(0, col, f"{dept.name}의 재직 멤버가 아닙니다: {name}"))
                 elif name in kept.get(d, ()):
@@ -112,10 +113,10 @@ def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> 
     (Commute.objects.filter(period=period, member__department=dept)
      .exclude(shift__in=_kept_keys(dept)).exclude(date__in=boards.skip_dates(period)).delete())
     rows = [
-        Commute(period=period, date=d, member=by_name[n], shift=key)
+        Commute(period=period, date=d, member=by_name[name], shift=key, reason=why)
         for d, day in table.items()
         for key, names in day.items()
-        for n in names
+        for name, why in map(split_reason, names)
     ]
     Commute.objects.bulk_create(rows)
     return len(rows)
