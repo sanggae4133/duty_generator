@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from duty import perms
-from duty.models import ChangeLog, Department, DutyAssignment, Period, User
+from duty.models import ChangeLog, Commute, Department, DutyAssignment, Holiday, Memo, Period, User
 
 SEED = Path(__file__).resolve().parents[1] / "tools" / "help_videos" / "seed.py"
 
 
 @pytest.mark.django_db
-def test_seed_uses_it_board_and_groups(it_board, fixed_today, capsys):
+def test_seed_uses_it_board_and_groups(it_board, lunch, fixed_today, capsys):
     fixed_today(date(2026, 11, 11))  # 수요일
     exec(compile(SEED.read_text(encoding="utf-8"), str(SEED), "exec"), {"__name__": "seed"})
     assert capsys.readouterr().out.strip().endswith("seeded")
@@ -27,6 +27,19 @@ def test_seed_uses_it_board_and_groups(it_board, fixed_today, capsys):
     assert not perms.managed_departments(member).exists()
 
     now = Period.objects.get(name="이번 회차")
+    nxt = Period.objects.get(name="다음 회차")
     assert now.status == Period.Status.PUBLISHED
     assert DutyAssignment.objects.filter(period=now, cell__startswith="slot").exists()
     assert ChangeLog.objects.filter(period=now, cell="normal").count() == 1
+
+    # 2단계 화면 예시(member 영상): 휴장일·메모·사유·점심당번
+    hol = Holiday.objects.get(source=Holiday.Source.MANUAL)
+    assert hol.active and now.start_date <= hol.date <= now.end_date and hol.date.weekday() < 5
+    assert not Commute.objects.filter(period=now, date=hol.date).exists()  # 건너뛰는 날은 비어 있다
+    assert set(Memo.objects.values_list("scope", flat=True)) == {"day", "week", "month"}
+    nowork = Memo.objects.get(no_work=True)
+    assert nxt.start_date <= nowork.date <= nxt.end_date
+    assert not Commute.objects.filter(period=nxt, date=nowork.date).exists()
+    assert Commute.objects.filter(period=now).exclude(reason="").count() == 1
+    assert DutyAssignment.objects.filter(period=now, cell="lunch").exists()
+    assert Department.objects.exclude(lunch_start=None).count() == 4

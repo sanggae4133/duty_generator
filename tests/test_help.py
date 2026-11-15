@@ -180,3 +180,11 @@ def test_video_roles_follow_groups_not_staff(client, videos, it_board, make_memb
     it_board.admin_group.user_set.add(m)
     client.force_login(m)
     assert [status(n) for n in ("manager", "admin")] == [200, 200]
+
+
+def test_steps_cover_phase2_member_features():
+    """2단계 새 기능(근무표 고르기·글씨 크기·점심당번·사유·보기 전용·메모·휴장일)이 사용법 글에 있다."""
+    from duty.help import STEPS
+    text = "\n".join(STEPS["member"])
+    for word in ("근무표 이름", "보기 전용", "[가]", "점심당번", "(휴가)", "사유", "메모", "근무 없음", "휴장일"):
+        assert word in text, word
