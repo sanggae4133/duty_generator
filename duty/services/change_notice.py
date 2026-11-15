@@ -15,7 +15,7 @@ FRESH = timedelta(days=1)  # 작업자가 오래 꺼져 있었으면 밀린 기�
 
 def tick(now) -> int:
     rows = list(ChangeLog.objects.filter(notified=False)
-                .select_related("by", "before", "after", "period__board").order_by("id"))
+                .select_related("by", "before__department__board", "after__department__board", "period__board").order_by("id"))
     if not rows:
         return 0
     # 먼저 표시하고 보낸다: 보내는 도중 작업자가 죽어도 다시 보내지 않는다(최대 한 번). 실패는 로그만
@@ -43,7 +43,7 @@ def tick(now) -> int:
                                           r.after and r.after.name, by)
         for u in {r.before, r.after} - {None, r.by}:
             if u.is_active and u.notify_changes:
-                sent += _send(conf, u, title, text, f"/day/{r.date.isoformat()}/")
+                sent += _send(conf, u, title, text, f"/day/{r.date.isoformat()}/{boards.board_query(u, board)}")
     if sent:
         log.info("change notices: sent=%d", sent)
     return sent

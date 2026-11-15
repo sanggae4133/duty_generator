@@ -1,7 +1,8 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <div class="cal-nav">
-  <h3 class="cal-title">{{ title }}</h3>
+  <h3 class="cal-title">{{ title }}{% if view_only %} <small>보기 전용</small>{% endif %}</h3>
+  {% if board_links %}<span class="seg" role="group" aria-label="근무표">{% for b in board_links %}<a href="{{ b.href }}"{% if b.current %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</span>{% endif %}
   <span class="seg" role="group" aria-label="보기">
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>

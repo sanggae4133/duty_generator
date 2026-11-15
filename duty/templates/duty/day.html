@@ -2,12 +2,12 @@
 {% block content %}
 <nav aria-label="날짜 이동">
   <ul><li><a href="{% url 'day' prev %}{{ qs }}">◀</a></li></ul>
-  <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong></li></ul>
+  <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong>{% if view_only %} <small>보기 전용</small>{% endif %}</li></ul>
   <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
 </nav>
 {% if holiday %}<p class="hol">{{ holiday }}</p>{% endif %}
 {% if note and not note.no_work %}<p class="memo">{{ note.text|linebreaksbr }}</p>{% endif %}
-{% if memo_admin %}<p><a class="memo-btn" href="{% url 'memo' 'day' d %}" hx-get="{% url 'memo' 'day' d %}?next={{ request.get_full_path|urlencode }}" hx-target="#dlg-body">[메모]</a></p>{% endif %}
+{% if memo_admin %}<p><a class="memo-btn" href="{% url 'memo' 'day' d %}{{ bq }}" hx-get="{% url 'memo' 'day' d %}?next={{ request.get_full_path|urlencode }}{{ bqa }}" hx-target="#dlg-body">[메모]</a></p>{% endif %}
 <form method="get" class="search">
   {% include "duty/_filters.html" %}
 </form>

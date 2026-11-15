@@ -23,6 +23,7 @@ class RuleSpec:
     depts: tuple[str, ...]
     types: tuple[str, ...]
     lunch: tuple[time, time] | None = None  # 개인 규칙 주인 부서의 점심 시각(점심당번 시작·문구). 없으면 None
+    query: str = ""  # 링크 뒤에 붙일 "?board=<code>"(알림의 근무표가 받는 사람의 근무표와 다를 때만). hash 와 무관
 
 
 @dataclass(frozen=True)
@@ -130,7 +131,7 @@ def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today,
             # 취소는 이 목적지에 무언가 성공적으로 알린 적이 있을 때만
             if last == h or (not inside and not (last or "").startswith(("in:", "out:"))):
                 continue
-            out.append(Due(r.id, day.date, c, ch, title, m.clip(text), h, f"/day/{day.date.isoformat()}/",
+            out.append(Due(r.id, day.date, c, ch, title, m.clip(text), h, f"/day/{day.date.isoformat()}/{r.query}",
                            start, m.clip_bytes(text.replace("\n", " ")), dest))
     return out
 
@@ -160,5 +161,5 @@ def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synt
         head = m.report_header(day.date, cond, prev is not None)
         summary = f"{head} · {len(uniq)}명"
         out.append(Due(r.id, day.date, "report", ch, m.REPORT_TITLE, m.clip("\n".join([head, *lines])), h,
-                       f"/day/{day.date.isoformat()}/", last_start, m.clip_bytes(summary), dest))
+                       f"/day/{day.date.isoformat()}/{r.query}", last_start, m.clip_bytes(summary), dest))
     return out

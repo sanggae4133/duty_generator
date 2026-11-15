@@ -1,4 +1,4 @@
-<form method="post" action="{% url 'memo' scope d %}" onsubmit="return memoConfirm(this)">{% csrf_token %}
+<form method="post" action="{% url 'memo' scope d %}{{ bq }}" onsubmit="return memoConfirm(this)">{% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
   <input type="hidden" name="confirm" value="">
   <p><strong>{{ title }}</strong></p>

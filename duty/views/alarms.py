@@ -109,7 +109,9 @@ def telegram_link_check(request):
 
 
 def _rule_form(request, rule=None):
-    if request.method == "POST":
+    if request.method == "POST" and request.POST.get("redraw"):  # 종류·근무표를 바꿈: 저장하지 않고 다시 그린다
+        form = RuleForm.redraw(request.POST, user=request.user)
+    elif request.method == "POST":
         form = RuleForm(request.POST, user=request.user)
         if form.is_valid():
             try:

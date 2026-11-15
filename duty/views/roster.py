@@ -10,7 +10,7 @@ from django.urls import reverse
 from .. import perms
 from ..csv_io import split_names
 from ..errors import DutyError
-from ..models import Department, Memo, User
+from ..models import Board, Department, Memo, RosterPref, User
 from ..services import boards, changes, holidays, memos, prefs
 from ..services.roster import find_day, member_schedule, published_days
 from ..shifts import (
@@ -61,9 +61,34 @@ def _member(username: str | None) -> User | None:
     return m
 
 
-def _board(user):
-    """이 사용자가 보는 근무표. 1단계: 내 부서의 근무표, 없으면 IT(근무표 고르기는 2단계). 모든 뷰가 이것 하나를 쓴다."""
-    return boards.board_of(user) or boards.it_board()
+def _board(request, remember: bool = False) -> Board:
+    """보일 근무표(설계 7): ?board= → (근무표 화면만) RosterPref.board → 내 근무표(boards.home).
+    remember=True(근무표 화면): ?board= 로 고른 근무표를 기억한다(내 근무표를 고르면 비운다).
+    /day/·/cell/·/memo/ 는 기억을 읽지 않는다: ?board= 없는 주소(알림 링크, 내 근무표 화면의 링크·POST)는 늘 내 근무표다."""
+    user, code = request.user, request.GET.get("board")
+    home = boards.home(user)
+    if code:
+        board = Board.objects.filter(code=code).first()
+        if board is None:
+            raise Http404
+        if remember:
+            prefs.remember_board(user, board, home)  # DB 쓰기는 services(뷰는 읽기만)
+        return board
+    if remember:
+        pref = RosterPref.objects.filter(user=user).select_related("board").first()
+        if pref and pref.board:
+            return pref.board
+    return home
+
+
+def _board_ctx(request, board) -> dict:
+    """근무표 고르기 공통 값. bq = "?board=<code>" 또는 ""(내 근무표), bqa = 같은 값을 "&" 로 이어 붙일 때.
+    mine = 내 근무표(필터를 쓰고 저장), view_only = 내 근무표도 아니고 그 근무표 관리자도 아님(설계 7)."""
+    bq = boards.board_query(request.user, board)
+    return {
+        "bq": bq, "bqa": "&" + bq[1:] if bq else "", "board_code": board.code, "mine": not bq,
+        "view_only": board != boards.board_of(request.user) and not perms.is_board_admin(request.user, board),
+    }
 
 
 def _filters(request, board) -> tuple[list[str], list[str]]:
@@ -93,11 +118,14 @@ def _shown(shifts: list[str]):
     return lambda k: not shifts or (SLOT_GROUP if is_slot_cell(k) else k) in shifts
 
 
-def _filter_ctx(board, defs, depts, types, shifts, history: bool = True) -> dict:
+def _filter_ctx(board, defs, depts, types, shifts, history: bool = True, mine: bool = True) -> dict:
     return {
         "history": history,
+        "filterable": mine,  # 내 근무표가 아니면 부서·유형·스케줄 필터를 그리지 않는다(늘 전체)
         "filter_on": bool(depts or types or shifts),
-        "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)],
+        # 유형 필터는 켜진 관제 정의가 있는 근무표에만(prefs.clean 과 같은 규칙)
+        "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)]
+        if slot_defs([x for x in defs if x.active]) else [],
         "dept_choices": [
             {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
             for d in Department.objects.filter(board=board).order_by("order", "code")  # 그 근무표 부서만
@@ -155,11 +183,12 @@ def roster(request):
     names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
     today = perms.today()
-    board = _board(request.user)
+    board = _board(request, remember=True)
+    bc = _board_ctx(request, board)
     defs = boards.defs(board)
     # 칸 링크 권한: 날짜마다 묻지 않고 지난 날·오늘 이후 두 번만 묻는다
     edit_past, edit_now = (perms.can_edit(request.user, board, x) for x in (today - timedelta(days=1), today))
-    pref = prefs.resolve(request.user, request.GET, board)
+    pref = prefs.resolve(request.user, request.GET, board, mine=bc["mine"])
     view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
     anchor = date_param(request, "date") or today
@@ -171,7 +200,7 @@ def roster(request):
         if not LOW <= d <= HIGH:
             return None  # 범위 밖으로 가는 링크는 만들지 않는다
         params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}, "dept": depts, "type": types, "shift": shifts}
-        return "?" + urlencode(params, doseq=True)
+        return (bc["bq"] + "&" if bc["bq"] else "?") + urlencode(params, doseq=True)
 
     if view == "week":
         monday = anchor - timedelta(days=anchor.weekday())
@@ -223,13 +252,19 @@ def roster(request):
 
     days = [[day_info(d) for d in w] for w in weeks]
     months = sorted({d.replace(day=1) for w in weeks for d in w if view == "week" or d.month == anchor.month})
+    all_boards = list(Board.objects.order_by("id"))
     ctx = {
         "view": view, "title": title, "names": names, "date": anchor, "today_link": (link(view, today) or f"?view={view}&date={today.isoformat()}") + "#today",
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
-        "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs),
+        "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs) + bc["bqa"],
+        # 근무표 고르기: 근무표가 둘 이상일 때만, id 순(설계 4.2). 고르면 기억한다(내 근무표를 고르면 기억을 비운다)
+        "board_links": [{"name": b.name, "current": b == board,
+                         "href": "?" + urlencode({"board": b.code, "view": view, "date": anchor.isoformat()})}
+                        for b in all_boards] if len(all_boards) > 1 else [],
+        **bc,
     }
-    ctx.update(_filter_ctx(board, defs, depts, types, shifts, history), weeks=days,
+    ctx.update(_filter_ctx(board, defs, depts, types, shifts, history, bc["mine"]), weeks=days,
                memo_admin=perms.is_board_admin(request.user, board),
                month_memos=[{"date": m, "memo": notes["month"].get(m)} for m in months])
     return render(request, "duty/roster.html", ctx)
@@ -237,11 +272,12 @@ def roster(request):
 
 @login_required
 def cell(request, d, cell):
-    board = _board(request.user)
+    board = _board(request)
+    bq = boards.board_query(request.user, board)
     defs = boards.defs(board)
     if cell not in by_key(defs):
         raise Http404
-    fallback = reverse("day", args=[d])
+    fallback = reverse("day", args=[d]) + bq
     if request.method == "POST":
         reason_form = bool(request.POST.get("set_reason"))  # 근무조 칸의 사유 선택(같은 창의 두 번째 폼)
         try:
@@ -266,7 +302,7 @@ def cell(request, d, cell):
         return redirect(safe_next(request, fallback))
     depts, types = _filters(request, board)
     ctx = _cell_context(defs, find_day(board, d), cell, d, depts, types, _active_members(board, depts, types))
-    ctx.update(next=safe_next(request, fallback))
+    ctx.update(next=safe_next(request, fallback), bq=bq)
     return render(request, "duty/_cell_form.html", ctx)
 
 
@@ -279,9 +315,10 @@ def _neighbor(d, step: int):
 
 @login_required
 def day(request, d):
-    board = _board(request.user)
+    board = _board(request)
+    bc = _board_ctx(request, board)
     defs = boards.defs(board)
-    pref = prefs.resolve(request.user, request.GET, board, with_view=False)
+    pref = prefs.resolve(request.user, request.GET, board, with_view=False, mine=bc["mine"])
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
     found = find_day(board, d)
@@ -295,18 +332,19 @@ def day(request, d):
         for k in filter(shown, [x.key for x in display_order(defs)]):  # 출근조 먼저, 관제는 뒤에 묶어서
             ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
-                next=request.path,
+                next=request.path + bc["bq"],
                 items=_items(show([x for x in found.cells[k].labels if keep(x)]), [], reasons=_why(found, k)),
                 removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True) if history else [],
             )
             sections.append(ctx)
-    qs = "?" + urlencode({"f": 1, "dept": depts, "type": types, "shift": shifts}, doseq=True)
+    qs = "?" + urlencode({**({"board": board.code} if bc["bq"] else {}), "f": 1, "dept": depts, "type": types,
+                          "shift": shifts}, doseq=True)
     return render(request, "duty/day.html", {
         "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
         "holiday": holidays.closed(d, d).get(d, ""), "note": note,
         "memo_admin": perms.is_board_admin(request.user, board),
         "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
-        "qs": qs, **_filter_ctx(board, defs, depts, types, shifts, history),
+        "qs": qs, **_filter_ctx(board, defs, depts, types, shifts, history, bc["mine"]), **bc,
     })
 
 
@@ -317,11 +355,12 @@ def _int(s):
 @login_required
 def memo(request, scope, d):
     """[메모] 팝업(근무 변경 창과 같은 방식). 근무표 관리 그룹만."""
-    board = _board(request.user)
+    board = _board(request)
     if scope not in Memo.Scope.values or not perms.is_board_admin(request.user, board):
         raise Http404
+    bq = boards.board_query(request.user, board)
     d = memos.normalize(scope, d)
-    fallback = reverse("day", args=[d]) if scope == Memo.Scope.DAY else reverse("roster")
+    fallback = (reverse("day", args=[d]) if scope == Memo.Scope.DAY else reverse("roster")) + bq
     if request.method == "POST":
         try:
             if request.POST.get("delete"):
@@ -339,14 +378,14 @@ def memo(request, scope, d):
     return render(request, "duty/_memo_form.html", {
         "scope": scope, "d": d, "memo": memos.for_range(board, d, d)[scope].get(d), "next": safe_next(request, fallback),
         "title": {"day": f"{d:%Y-%m-%d} 메모", "week": f"{d.month}/{d.day} 주 메모", "month": f"{d.year}년 {d.month}월 메모"}[scope],
-        "affected": memos.affected(board, d) if scope == Memo.Scope.DAY else 0,
+        "affected": memos.affected(board, d) if scope == Memo.Scope.DAY else 0, "bq": bq,
     })
 
 
 @login_required
 def me(request):
     member = request.user if request.user.department_id else None
-    board = _board(request.user)
+    board = boards.home(request.user)  # 내 스케줄은 늘 내 근무표
     _, _, shifts = prefs.clean(board, [], [], request.GET.getlist("shift"))
     items = member_schedule(board, member, perms.today(), _shown(shifts)) if member else []
     return render(request, "duty/me.html", {

@@ -187,8 +187,12 @@ def stats_view(request):
 
 @admin_required
 def change_log(request):
-    qs = (ChangeLog.objects.filter(period__board__in=perms.admin_boards(request.user))  # 내가 관리하는 근무표만(설계 9절)
-          .select_related("by", "before", "after", "period").order_by("-at", "-id"))
+    mine = list(perms.admin_boards(request.user).order_by("id"))
+    qs = (ChangeLog.objects.filter(period__board__in=mine)  # 내가 관리하는 근무표만(설계 9절)
+          .select_related("by", "before", "after", "period__board").order_by("-at", "-id"))
+    board_code = request.GET.get("board", "")
+    if board_code:  # 근무표 필터(내가 관리하는 근무표가 둘 이상일 때 보인다). 남의 근무표 코드는 빈 결과
+        qs = qs.filter(period__board__code=board_code)
     start, end = date_param(request, "from"), date_param(request, "to")
     if start:
         qs = qs.filter(date__gte=start)
@@ -207,8 +211,10 @@ def change_log(request):
             "cell": cell_label(defs[log.period.board_id], log.cell),
             "before": join_reason(log.before.name, log.reason_before) if log.before else "",
             "after": join_reason(log.after.name, log.reason_after) if log.after else "", "period": log.period.name,
+            "board": log.period.board.name,
         }
         for log in qs[:500]
     ]
-    return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end})
+    return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end,
+                                                 "board_choices": mine if len(mine) > 1 else [], "board_code": board_code})
 

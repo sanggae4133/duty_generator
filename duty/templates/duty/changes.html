@@ -6,13 +6,14 @@
   <label>까지 <input type="date" name="to" value="{{ end|date:'Y-m-d' }}"></label>
   <label>바뀐 사람 <input name="name" value="{{ name }}" placeholder="이름"></label>
   <label>수정자 <input name="by" value="{{ by }}" placeholder="이름 또는 아이디"></label>
+  {% if board_choices %}<label>근무표 <select name="board"><option value="">전부</option>{% for b in board_choices %}<option value="{{ b.code }}"{% if b.code == board_code %} selected{% endif %}>{{ b.name }}</option>{% endfor %}</select></label>{% endif %}
   <button>보기</button>
 </form>
 <div class="grid-wrap"><table>
-  <thead><tr><th>시각</th><th>수정자</th><th>근무일</th><th>칸</th><th>변경</th><th>회차</th></tr></thead>
+  <thead><tr><th>시각</th><th>수정자</th>{% if board_choices %}<th>근무표</th>{% endif %}<th>근무일</th><th>칸</th><th>변경</th><th>회차</th></tr></thead>
   <tbody>{% for l in logs %}
-    <tr><td class="nw">{{ l.at|date:"Y-m-d H:i" }}</td><td class="nw">{{ l.by }}</td><td class="nw">{{ l.date|date:"Y-m-d" }}</td><td class="nw">{{ l.cell }}</td>
+    <tr><td class="nw">{{ l.at|date:"Y-m-d H:i" }}</td><td class="nw">{{ l.by }}</td>{% if board_choices %}<td class="nw">{{ l.board }}</td>{% endif %}<td class="nw">{{ l.date|date:"Y-m-d" }}</td><td class="nw">{{ l.cell }}</td>
       <td class="nw">{{ l.before|default:"(없음)" }} → {{ l.after|default:"(없음)" }}</td><td class="nw">{{ l.period }}</td></tr>
-  {% empty %}<tr><td colspan="6">이력이 없습니다.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="{% if board_choices %}7{% else %}6{% endif %}">이력이 없습니다.</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}
