@@ -150,3 +150,38 @@ def test_other_board_department_page_and_csv_are_404(client, collecting, ops, ma
     assert client.get(f"/collect/{p.pk}/OPS/export.csv").status_code == 404
     with pytest.raises(DutyError, match="이 회차의 근무표에 속한 부서가 아닙니다"):
         collect.export_csv(p, dept)
+
+
+# ── 통계(8.3) ──
+
+def test_stats_board_without_slots_is_empty(ops):
+    board, dept = ops
+    p = ops_period(board, ops_member(dept, "운영개발", type="개발자"), status=S.PUBLISHED)
+    assert member_stats(board, None, None) == ([], None, None)
+    assert period_duty_counts(p) == ([], 0, True)
+
+
+def test_stats_types_come_from_slot_definitions(ops):
+    board, dept = ops
+    BoardShift.objects.create(board=board, key="slot0", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["normal"], eligible_types=["직원"])
+    a, b = ops_member(dept, "운영가"), ops_member(dept, "운영나")
+    p = ops_period(board, a, status=S.PUBLISHED)
+    Commute.objects.create(period=p, date=NOV9, member=b, shift="normal")
+    DutyAssignment.objects.create(period=p, date=NOV9, cell="slot0", member=a)
+    assert {r.name: r.duty for r in member_stats(board, None, None)[0]} == {"운영나": 0, "운영가": 1}
+    assert period_duty_counts(p) == ([("운영나", 0), ("운영가", 1)], 1, True)
+
+
+def test_period_counts_pool_is_board_roster(ops, make_member):
+    """모집단 = 생성기 members_by_type 와 같은 사람(그 근무표 부서 재직자). 다른 근무표 사람·퇴사자는 0회로 끼지 않는다."""
+    board, dept = ops
+    BoardShift.objects.create(board=board, key="slot0", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["normal"], eligible_types=["직원"])
+    p = ops_period(board, ops_member(dept, "운영가"), status=S.PUBLISHED)
+    gone = ops_member(dept, "운영퇴사")
+    gone.is_active = False
+    gone.save()
+    for m in (gone, make_member("남직원", type="직원")):  # 남직원 = IT 부서
+        Commute.objects.create(period=p, date=NOV9, member=m, shift="normal")
+    assert period_duty_counts(p) == ([("운영가", 0)], 0, True)
