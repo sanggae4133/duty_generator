@@ -144,7 +144,7 @@ AUTH_USER_MODEL = "duty.User"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
-SESSION_COOKIE_AGE = 14 * 24 * 3600
+SESSION_COOKIE_AGE = 90 * 24 * 3600  # 로그인할 때부터 90일. 요청마다 늘리지 않는다(SESSION_SAVE_EVERY_REQUEST 기본 False: 화면을 열 때 DB 쓰기 없음)
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 # HTTPS 는 Funnel 이 맡지만, 브라우저가 http 로 시도하지 않게 HSTS 를 보낸다(tailscaled 가 X-Forwarded-Proto 를 붙이고
