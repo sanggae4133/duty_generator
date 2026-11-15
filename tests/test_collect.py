@@ -146,6 +146,16 @@ def test_csv_columns_follow_board_definitions(setup, it_board):
     assert collect.apply_csv(user, p, dept, raw) == 2
 
 
+def test_shift_removed_from_department_cleared_on_save(setup):
+    """부서 출근조에서 뺀 근무조(정의는 켜짐)의 옛 행은 저장 때 지운다(예전과 같음). 보존은 꺼진 정의만."""
+    p, dept, user = setup
+    collect.apply_csv(user, p, dept, 'date,새벽,정상,석식교대,야간\n2026-11-09,가,나,,\n'.encode())
+    dept.shifts = "normal,dinner,night"
+    dept.save()
+    collect.apply_csv(user, p, dept, 'date,정상,석식교대,야간\n2026-11-09,가,,\n'.encode())
+    assert dict(Commute.objects.filter(period=p).values_list("member__name", "shift")) == {"가": "normal"}
+
+
 def test_inactive_shift_left_out_of_input_but_kept_on_save(setup, it_board, client):
     p, dept, user = setup
     collect.apply_csv(user, p, dept, 'date,새벽,정상,석식교대,야간\n2026-11-09,가,나,,\n'.encode())

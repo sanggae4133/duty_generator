@@ -1987,7 +1987,7 @@ EOF
   - `duty/csv_io.py`(names = {키: 열 이름}, 순서 = 열 순서):
     - `parse_commute_csv(raw: bytes, names: dict[str, str]) -> CommuteTable`
     - `export_commute_csv(dates, names: dict[str, str], table) -> bytes`
-  - `duty/services/collect.py`: `input_keys(dept) -> list[str]`(부서 출근조 중 켜진 근무조 정의가 있는 키, `dept.shift_keys()` 순서. 입력 표 칸·POST·CSV 열·검증·저장이 모두 쓴다), `shift_names(dept) -> dict[str, str]`({입력 키: 정의 이름}, 같은 순서). `apply_table` 은 입력 키의 행만 지우고 다시 넣는다.
+  - `duty/services/collect.py`: `input_keys(dept) -> list[str]`(부서 출근조 중 켜진 근무조 정의가 있는 키, `dept.shift_keys()` 순서. 입력 표 칸·POST·CSV 열·검증·저장이 모두 쓴다), `shift_names(dept) -> dict[str, str]`({입력 키: 정의 이름}, 같은 순서). `apply_table` 은 꺼진 근무조 정의의 행만 남기고 그 부서의 나머지 행을 지우고 다시 넣는다(부서 출근조에서 뺀 근무조의 행도 지운다).
   - `duty/views/alarms.py`: `condition_label(r, dept_names: dict, shift_names: dict) -> str`
   - `duty/alarms/forms.py`: 모듈 함수 `_shift_choices() -> dict[str, str]`(1단계 IT 고정, Task 8 이 근무표별로 바꾼다)
 

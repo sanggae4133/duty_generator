@@ -23,6 +23,11 @@ def input_keys(dept: Department) -> list[str]:
     return [k for k in dept.shift_keys() if k in on]
 
 
+def _kept_keys(dept: Department) -> set[str]:
+    """저장해도 지우지 않는 근무조: 꺼진 근무조 정의(설계 6.2). 부서 출근조에서 뺀 근무조는 예전처럼 지운다."""
+    return {x.key for x in boards.defs(dept.board) if not x.active}
+
+
 def shift_names(dept: Department) -> dict[str, str]:
     """{입력 키: 근무 정의 이름}. 키·순서는 input_keys 와 같다(입력 표 머리글·CSV 열 이름)."""
     labels = by_key(boards.active_defs(dept.board))
@@ -50,9 +55,10 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     valid_dates = set(period.dates())
     shift_keys = input_keys(dept)
     labels = by_key(boards.defs(dept.board))
+    kept_keys = _kept_keys(dept)
     loaded = load_table(period, dept)
-    existing = {d: {k: v for k, v in day.items() if k in shift_keys} for d, day in loaded.items()}
-    kept = {d: {n for k, v in day.items() if k not in shift_keys for n in v} for d, day in loaded.items()}
+    existing = {d: {k: v for k, v in day.items() if k not in kept_keys} for d, day in loaded.items()}
+    kept = {d: {n for k, v in day.items() if k in kept_keys for n in v} for d, day in loaded.items()}
     members = set(User.objects.roster().filter(department=dept).values_list("name", flat=True))
     for d in sorted(table):
         col = d.isoformat()
@@ -91,7 +97,7 @@ def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> 
     if errors:
         raise CsvInvalid(errors)
     by_name = {m.name: m for m in User.objects.filter(department=dept)}
-    Commute.objects.filter(period=period, member__department=dept, shift__in=input_keys(dept)).delete()
+    Commute.objects.filter(period=period, member__department=dept).exclude(shift__in=_kept_keys(dept)).delete()
     rows = [
         Commute(period=period, date=d, member=by_name[n], shift=key)
         for d, day in table.items()
