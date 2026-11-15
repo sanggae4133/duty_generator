@@ -4,7 +4,7 @@ import pytest
 from django.utils import timezone
 
 from duty.alarms import senders
-from duty.models import AlarmDelivery, AlarmRule, AlarmSettings, TelegramAlarmProfile, User
+from duty.models import AlarmDelivery, AlarmRule, AlarmSettings, Board, TelegramAlarmProfile, User
 from duty.services import alarm_settings
 
 D = date(2026, 11, 10)
@@ -44,6 +44,8 @@ def post(client, url, data=None):
 
 def rule(user, **kw):
     base = dict(kind="personal", timing="days", offset=1, at_minute=18 * 60, telegram=True, push=False, shifts=[])
+    if kw.get("kind") == "report":
+        kw.setdefault("board", Board.objects.get(code="it"))
     return AlarmRule.objects.create(user=user, **{**base, **kw})
 
 
@@ -786,8 +788,8 @@ def test_rule_edit_shows_all_selected_as_checked(client, me):
     """'전부'는 빈 목록으로 저장된다 → 수정 화면에서 전부 체크로 보여야 한다(초기화된 것처럼 보이지 않게)."""
     import re
     from duty.models import AlarmRule
-    r = AlarmRule.objects.create(user=me, kind="report", timing="days", offset=2, at_minute=9 * 60,
-                                 telegram=True, push=False, shifts=[], depts=[], types=[], enabled=True)
+    r = AlarmRule.objects.create(user=me, kind="report", board=Board.objects.get(code="it"), timing="days", offset=2,
+                                 at_minute=9 * 60, telegram=True, push=False, shifts=[], depts=[], types=[], enabled=True)
     body = client.get(f"/alarms/rules/{r.pk}/").content.decode()
     for name, n in (("shifts", 5), ("types", 2)):
         assert body.count(f'name="{name}"') == n and len(re.findall(rf'name="{name}"[^>]*checked', body)) == n, name

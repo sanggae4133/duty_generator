@@ -50,9 +50,16 @@ def index(request):
 
 def _index(request, **extra):
     dept_names = dict(Department.objects.values_list("code", "name"))
-    shift_names = prefs.choices(boards.defs(boards.it_board()))  # 1단계: IT 하나. 알림 작업(Task 8)에서 규칙의 근무표로
+    names_of = {}  # 근무표 → 스케줄 이름(규칙마다 그 규칙의 근무표: 개인 = 내 근무표, 보고서 = 규칙의 근무표)
+
+    def shift_names(board):
+        if board.pk not in names_of:
+            names_of[board.pk] = prefs.choices(boards.defs(board))
+        return names_of[board.pk]
+
     rules = [
-        {"r": r, "timing": timing_label(r), "cond": condition_label(r, dept_names, shift_names),
+        {"r": r, "timing": timing_label(r),
+         "cond": condition_label(r, dept_names, shift_names(alarms.rule_board(request.user, r.kind, r.board_id))),
          "channels": "·".join(n for n, on in (("텔레그램", r.telegram), ("푸시", r.push)) if on)}
         for r in AlarmRule.objects.filter(user=request.user)
     ]
@@ -65,7 +72,8 @@ def _index(request, **extra):
         "push_on": conf.push_on,
         "vapid_key": conf.vapid_public_key,
         "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
-        "cal": CalendarFeed.objects.filter(user=request.user).first(), "shift_choices": list(shift_names.items()),
+        "cal": CalendarFeed.objects.filter(user=request.user).first(),
+        "shift_choices": list(shift_names(alarms.rule_board(request.user, "personal", None)).items()),  # 캘린더 = 내 근무표
         "cal_member": request.user.department_id is not None,
         **extra,
     })
@@ -102,7 +110,7 @@ def telegram_link_check(request):
 
 def _rule_form(request, rule=None):
     if request.method == "POST":
-        form = RuleForm(request.POST)
+        form = RuleForm(request.POST, user=request.user)
         if form.is_valid():
             try:
                 saved = alarms.save_rule(request.user, form.cleaned_data["rule"], rule)
@@ -115,8 +123,9 @@ def _rule_form(request, rule=None):
                     messages.warning(request, notice)
                 return redirect("alarms")
     else:
-        form = RuleForm(initial=RuleForm.initial_from(rule) if rule else None)
-    return render(request, "duty/alarm_rule_form.html", {"form": form, "rule": rule})
+        form = RuleForm(initial=RuleForm.initial_from(rule) if rule else None, user=request.user)
+    return render(request, "duty/alarm_rule_form.html",
+                  {"form": form, "rule": rule, "multi_board": "board" in form.fields})
 
 
 @login_required

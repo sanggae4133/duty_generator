@@ -402,8 +402,14 @@ class AlarmRule(models.Model):
             models.CheckConstraint(name="alarmrule_before_start_no_time", condition=~Q(timing="before_start") | Q(at_minute=0)),
             models.CheckConstraint(name="alarmrule_has_channel", condition=Q(telegram=True) | Q(push=True)),
             models.CheckConstraint(name="alarmrule_personal_no_filters", condition=Q(kind="report") | Q(depts=[], types=[])),
-            models.UniqueConstraint(name="alarmrule_unique",
+            # 개인 = 주인의 근무표(null), 보고서 = 근무표 하나
+            models.CheckConstraint(name="alarmrule_board_by_kind", condition=(
+                Q(kind="personal", board__isnull=True) | Q(kind="report", board__isnull=False))),
+            models.UniqueConstraint(name="alarmrule_unique_personal", condition=Q(kind="personal"),
                                     fields=["user", "kind", "timing", "offset", "at_minute", "shifts", "depts", "types"]),
+            models.UniqueConstraint(name="alarmrule_unique_report", condition=Q(kind="report"),
+                                    fields=["user", "kind", "board", "timing", "offset", "at_minute", "shifts", "depts",
+                                            "types"]),
         ]
 
 

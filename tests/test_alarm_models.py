@@ -3,7 +3,7 @@ from datetime import date
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from duty.models import AlarmDelivery, AlarmRule, PushAlarmSubscription, TelegramAlarmProfile, User
+from duty.models import AlarmDelivery, AlarmRule, Board, PushAlarmSubscription, TelegramAlarmProfile, User
 from duty.errors import DutyError
 from duty.services import alarms
 
@@ -43,8 +43,8 @@ def test_rule_unique_even_if_channel_differs(user):
     _bad(lambda: _rule(user, telegram=False, push=True))
 
 
-def test_report_allows_filters(user):
-    _rule(user, kind="report", depts=["MEMS"], types=["직원"])
+def test_report_allows_filters(user, it_board):
+    _rule(user, kind="report", board=it_board, depts=["MEMS"], types=["직원"])
 
 
 def _delivery(r, **kw):
@@ -84,10 +84,10 @@ def test_cascade(user):
                 or AlarmRule.objects.exists() or AlarmDelivery.objects.exists())
 
 
-def test_normalize(depts):
-    assert alarms.normalize("report", ["night", "dawn"], ["UI", "MEMS"], ["개발자", "직원"]) == (["dawn", "night"], ["MEMS", "UI"], [])
-    assert alarms.normalize("report", ["dawn", "normal", "dinner", "night", "slots"], list(depts), []) == ([], [], [])
-    assert alarms.normalize("personal", ["dawn"], ["MEMS"], ["직원"]) == (["dawn"], [], [])
+def test_normalize(depts, it_board):
+    assert alarms.normalize("report", ["night", "dawn"], ["UI", "MEMS"], ["개발자", "직원"], it_board) == (["dawn", "night"], ["MEMS", "UI"], [])
+    assert alarms.normalize("report", ["dawn", "normal", "dinner", "night", "slots"], list(depts), [], it_board) == ([], [], [])
+    assert alarms.normalize("personal", ["dawn"], ["MEMS"], ["직원"], it_board) == (["dawn"], [], [])
 
 
 def test_create_defaults(db):
@@ -111,10 +111,23 @@ def test_rule_allowed_boundaries(user, kw):
     _rule(user, **kw)
 
 
-def test_normalize_rejects_unknown(depts):
+def test_normalize_rejects_unknown(depts, it_board):
     for args in [(["x"], [], []), ([], ["ZZ"], []), ([], [], ["외계인"])]:
         with pytest.raises(DutyError, match="알 수 없는 값"):
-            alarms.normalize("report", *args)
+            alarms.normalize("report", *args, it_board)
     for args in [(["x"], [], []), (["dawn"], ["UNKNOWN"], []), (["dawn"], [], ["UNKNOWN"])]:
         with pytest.raises(DutyError, match="알 수 없는 값"):
-            alarms.normalize("personal", *args)
+            alarms.normalize("personal", *args, it_board)
+
+
+def test_rule_board_by_kind(user, it_board):
+    _bad(lambda: _rule(user, board=it_board))   # 개인 규칙에는 근무표가 없다(주인의 근무표)
+    _bad(lambda: _rule(user, kind="report"))    # 보고서 규칙은 근무표 하나
+    _rule(user, kind="report", board=it_board)
+
+
+def test_report_rule_unique_per_board(user, it_board):
+    other = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    _rule(user, kind="report", board=it_board)
+    _rule(user, kind="report", board=other)  # 근무표가 다르면 같은 조건도 된다
+    _bad(lambda: _rule(user, kind="report", board=other, telegram=False, push=True))

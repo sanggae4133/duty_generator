@@ -13,8 +13,8 @@ from django.utils import timezone
 from .. import perms
 from ..alarms import senders
 from ..errors import DutyError
-from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile, User
-from ..shifts import DEVELOPER, STAFF
+from ..models import AlarmRule, Board, Department, PushAlarmSubscription, TelegramAlarmProfile, User
+from ..shifts import DEVELOPER, STAFF, shift_defs
 from . import alarm_settings, boards, prefs
 
 DEFAULT_RULES = [
@@ -23,8 +23,19 @@ DEFAULT_RULES = [
 ]
 
 
-def normalize(kind, shifts, depts, types):
-    """알려진 값만 남기고 정해진 순서로 정렬. 전부 선택 = [](전체). 개인 규칙은 부서·유형 필터 없음."""
+def rule_board(user, kind, board_id) -> Board:
+    """규칙 값을 검사할 근무표. 보고서 = 규칙의 근무표, 개인 = 주인 부서의 근무표(부서 없는 계정은 IT)."""
+    if kind != "report":
+        return boards.board_of(user) or boards.it_board()
+    board = Board.objects.filter(pk=board_id).first() if board_id else None
+    if board is None:
+        raise DutyError("근무표를 고르세요.")
+    return board
+
+
+def normalize(kind, shifts, depts, types, board):
+    """알려진 값만 남기고 정해진 순서로 정렬. 전부 선택 = [](전체). 스케줄 키·부서는 그 근무표 것만.
+    개인 규칙은 부서·유형 필터 없음."""
     def pick(vals, order):
         bad = [v for v in vals if v not in order]
         if bad:
@@ -32,29 +43,40 @@ def normalize(kind, shifts, depts, types):
         got = [v for v in order if v in set(vals)]
         return [] if len(got) == len(order) else got
 
-    s = pick(shifts, list(prefs.choices(boards.active_defs(boards.it_board()))))  # 1단계: IT 하나. 알림 작업(Task 8)에서 규칙의 근무표로
-    d = pick(depts, sorted(Department.objects.values_list("code", flat=True)))
+    s = pick(shifts, list(prefs.choices(boards.active_defs(board))))  # 꺼진 정의는 새 규칙에 넣지 않는다
+    d = pick(depts, sorted(Department.objects.filter(board=board).values_list("code", flat=True)))
     t = pick(types, [STAFF, DEVELOPER])
     return (s, [], []) if kind == "personal" else (s, d, t)
 
 
 def create_defaults(user) -> None:
+    """최초 발급 때 기본 규칙. 대상은 그 사람 근무표에서 default_alarm 이 켜진 근무조를 명시적으로 저장한다
+    ([]는 관제까지 포함한 '전체'라 쓰지 않는다). 근무표 없는 계정은 DEFAULT_RULES 그대로."""
     if AlarmRule.objects.filter(user=user).exists():
         return
-    AlarmRule.objects.bulk_create([AlarmRule(user=user, **r) for r in DEFAULT_RULES])
+    board, rules = boards.board_of(user), DEFAULT_RULES
+    if board is not None:
+        keys = [x.key for x in shift_defs(boards.active_defs(board)) if x.default_alarm]
+        if not keys:
+            return  # 기본 알림 대상 근무조가 없는 근무표
+        rules = [{**r, "shifts": keys} for r in DEFAULT_RULES]
+    AlarmRule.objects.bulk_create([AlarmRule(user=user, **r) for r in rules])
 
 
 # ---- 규칙 ----
 
-RULE_FIELDS = ("kind", "timing", "offset", "at_minute", "shifts", "depts", "types")  # 바뀌면 오늘 이후 발송 기록 삭제
+# 바뀌면 오늘 이후 발송 기록 삭제. board_id = 보고서 규칙의 근무표(개인 = None, 주인의 근무표)
+RULE_FIELDS = ("kind", "board_id", "timing", "offset", "at_minute", "shifts", "depts", "types")
 
 
 MAX_RULES = 20  # 사람당 알림 규칙 수(무제한이면 한 사람이 작업자 발송을 몇 시간씩 막을 수 있다)
 
 
 def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
-    shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"])
-    new = {**data, "shifts": shifts, "depts": depts, "types": types}
+    board_id = data.get("board_id") if data["kind"] == "report" else None
+    shifts, depts, types = normalize(data["kind"], data["shifts"], data["depts"], data["types"],
+                                     rule_board(user, data["kind"], board_id))
+    new = {**data, "board_id": board_id, "shifts": shifts, "depts": depts, "types": types}
     rule = rule or AlarmRule(user=user)
     changed = rule.pk is not None and _key(rule) != tuple(new[f] for f in RULE_FIELDS)
     try:
@@ -75,12 +97,13 @@ def save_rule(user, data: dict, rule: AlarmRule | None = None) -> AlarmRule:
 
 
 def _key(rule: AlarmRule) -> tuple:
-    """정규화한 비교 키. 저장값이 정규화 전 형태(순서·전부 선택)여도 같게 본다."""
+    """정규화한 비교 키(RULE_FIELDS 순서). 저장값이 정규화 전 형태(순서·전부 선택)여도 같게 본다."""
     try:
-        shifts, depts, types = normalize(rule.kind, rule.shifts, rule.depts, rule.types)
+        shifts, depts, types = normalize(rule.kind, rule.shifts, rule.depts, rule.types,
+                                         rule_board(rule.user, rule.kind, rule.board_id))
     except DutyError:  # 지금은 없는 부서 등 → 저장값 그대로
         shifts, depts, types = rule.shifts, rule.depts, rule.types
-    return rule.kind, rule.timing, rule.offset, rule.at_minute, shifts, depts, types
+    return rule.kind, rule.board_id, rule.timing, rule.offset, rule.at_minute, shifts, depts, types
 
 
 def delete_rule(rule: AlarmRule) -> None:

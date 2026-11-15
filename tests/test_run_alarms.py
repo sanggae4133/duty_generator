@@ -8,7 +8,7 @@ from django.utils import timezone
 from duty.alarms import senders
 from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Commute, Period, PushAlarmSubscription,
                          TelegramAlarmProfile)
-from duty.services import alarm_runner, alarms
+from duty.services import alarm_runner, alarms, boards
 
 D = date(2026, 11, 16)  # 월
 SUN = date(2026, 11, 15)
@@ -411,8 +411,8 @@ def test_django_request_warnings_reach_console_with_time(settings):
 
 def report_rule(user):
     AlarmRule.objects.filter(user=user).delete()
-    return AlarmRule.objects.create(user=user, kind="report", timing="days", offset=1, at_minute=18 * 60,
-                                    telegram=True, push=False, shifts=["dawn"], depts=[], types=[])
+    return AlarmRule.objects.create(user=user, kind="report", board=boards.it_board(), timing="days", offset=1,
+                                    at_minute=18 * 60, telegram=True, push=False, shifts=["dawn"], depts=[], types=[])
 
 
 @pytest.mark.parametrize("staff", [False, True])
