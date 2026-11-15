@@ -13,13 +13,13 @@ NOW = timezone.make_aware(datetime(2026, 11, 10, 9, 0))
 
 
 @pytest.fixture
-def world(make_member, fixed_today, monkeypatch):
+def world(make_member, fixed_today, monkeypatch, it_board):
     fixed_today(D)
     conf = alarm_settings.current()
     conf.telegram_bot_token = "1234567890:" + "FAKE" + "x" * 31
     alarm_settings.save(conf)
     alarm_settings.ensure_push_keys()  # 푸시도 켜진 상태
-    p = Period.objects.create(name="p", start_date=D, end_date=D + timedelta(days=3), status=Period.Status.PUBLISHED)
+    p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=D + timedelta(days=3), status=Period.Status.PUBLISHED)
     a, b, c = make_member("가", user=True), make_member("나", user=True), make_member("다", user=True)
     for u, chat in ((a, "11"), (b, "22"), (c, "33")):
         TelegramAlarmProfile.objects.create(user=u, chat_id=chat, verified_at=NOW)

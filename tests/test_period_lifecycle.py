@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from duty.errors import DutyError
-from duty.models import ChangeLog, Commute, ControlDuty, Period, PeriodEvent
+from duty.models import Board, ChangeLog, Commute, ControlDuty, Period, PeriodEvent
 from duty.services import periods
 from duty.services.publish import publish, unpublish, unpublish_info
 from duty.services.roster import find_day
@@ -17,7 +17,8 @@ def d(m, day):
 
 
 def make_period(name, start, end, status, member):
-    p = Period.objects.create(name=name, start_date=start, end_date=end, status=status)
+    it_board = Board.objects.get(code="it")
+    p = Period.objects.create(board=it_board, name=name, start_date=start, end_date=end, status=status)
     for x in weekdays(start, end):
         Commute.objects.create(period=p, date=x, member=member, shift="normal")
         ControlDuty.objects.create(period=p, date=x, slot=0, member=member)
@@ -46,21 +47,21 @@ def test_move_from_generated_drops_control_duty_and_logs(make_member, admin_user
     assert (ev.from_status, ev.to_status, ev.by) == (S.GENERATED, to, admin_user)
 
 
-def test_move_draft_to_closed_directly(db):
-    p = Period.objects.create(name="p", start_date=d(11, 9), end_date=d(11, 13))
+def test_move_draft_to_closed_directly(it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 13))
     periods.move(p, S.CLOSED)
     assert Period.objects.get(pk=p.pk).status == S.CLOSED
 
 
 @pytest.mark.parametrize("to", [S.GENERATED, S.PUBLISHED, "bogus"])
-def test_move_rejects_targets_with_own_action(db, to):
-    p = Period.objects.create(name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.CLOSED)
+def test_move_rejects_targets_with_own_action(it_board, to):
+    p = Period.objects.create(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.CLOSED)
     with pytest.raises(DutyError):
         periods.move(p, to)
 
 
-def test_move_rejects_same_status_and_published(db):
-    p = Period.objects.create(name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.CLOSED)
+def test_move_rejects_same_status_and_published(it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.CLOSED)
     with pytest.raises(DutyError):
         periods.move(p, S.CLOSED)
     p.status = S.PUBLISHED
@@ -78,8 +79,8 @@ def test_draft_shrink_drops_commutes_outside(make_member):
     assert sorted({x for x, *_ in rows(p)[0]}) == weekdays(d(11, 9), d(11, 13))
 
 
-def test_create_and_generate_and_publish_are_logged(make_member, admin_user):
-    p = periods.save_draft(Period(name="p", start_date=d(11, 9), end_date=d(11, 13)), by=admin_user)
+def test_create_and_generate_and_publish_are_logged(make_member, admin_user, it_board):
+    p = periods.save_draft(Period(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 13)), by=admin_user)
     assert list(PeriodEvent.objects.values_list("from_status", "to_status")) == [("", S.DRAFT)]
     p2 = make_period("q", d(11, 16), d(11, 20), S.GENERATED, make_member("가"))
     publish(p2, d(11, 16), by=admin_user)
@@ -143,8 +144,8 @@ def test_unpublish_keeps_edits_and_counts_them(abc, admin_user):
     assert ChangeLog.objects.filter(period=b).count() == 1
 
 
-def test_unpublish_without_snapshot_refused(db):
-    p = Period.objects.create(name="old", start_date=d(11, 9), end_date=d(11, 13), status=S.PUBLISHED)
+def test_unpublish_without_snapshot_refused(it_board):
+    p = Period.objects.create(board=it_board, name="old", start_date=d(11, 9), end_date=d(11, 13), status=S.PUBLISHED)
     assert unpublish_info(p).blocker
     with pytest.raises(DutyError):
         unpublish(p)
@@ -174,10 +175,10 @@ def test_stale_period_objects_are_rechecked(abc, admin_user):
     assert p.status == S.PUBLISHED and p.publish_undo == undo
 
 
-def test_stale_collect_rejected(make_member, admin_user):
+def test_stale_collect_rejected(make_member, admin_user, it_board):
     from duty.services import collect
     m = make_member("가")
-    p = Period.objects.create(name="p", start_date=d(11, 9), end_date=d(11, 9), status=S.COLLECTING)
+    p = Period.objects.create(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 9), status=S.COLLECTING)
     stale = Period.objects.get(pk=p.pk)
     periods.move(p, S.CLOSED)
     with pytest.raises(DutyError):
@@ -209,9 +210,9 @@ def test_changes_before_unpublish_not_replayed(abc, admin_user):
     assert ChangeLog.objects.filter(period=b).count() == 1  # 기록은 남는다
 
 
-def test_period_with_events_cannot_be_deleted(db):
+def test_period_with_events_cannot_be_deleted(it_board):
     from django.db.models import ProtectedError
-    p = periods.save_draft(Period(name="p", start_date=d(11, 9), end_date=d(11, 13)))
+    p = periods.save_draft(Period(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 13)))
     with pytest.raises(ProtectedError):
         p.delete()
 

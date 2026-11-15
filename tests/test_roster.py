@@ -1,6 +1,6 @@
 from datetime import date
 
-from duty.models import ChangeLog, Commute, ControlDuty, Period
+from duty.models import Board, ChangeLog, Commute, ControlDuty, Period
 from duty.services.roster import chain, member_schedule, published_days
 
 S = Period.Status
@@ -18,7 +18,8 @@ def test_chain_add_and_remove():
 
 
 def make_published(make_member):
-    p = Period.objects.create(name="p", start_date=D, end_date=D, status=S.PUBLISHED)
+    it_board = Board.objects.get(code="it")  # make_member·me 픽스처가 it_board 를 이미 만든다
+    p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=D, status=S.PUBLISHED)
     staff = make_member("직원1", type="직원")
     a, b, c = make_member("가"), make_member("나", dept="TMCH"), make_member("다")
     Commute.objects.create(period=p, date=D, member=staff, shift="normal")

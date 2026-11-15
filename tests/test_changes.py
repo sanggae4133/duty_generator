@@ -13,9 +13,9 @@ D = date(2026, 11, 10)
 
 
 @pytest.fixture
-def world(make_member, fixed_today):
+def world(make_member, fixed_today, it_board):
     fixed_today(D)
-    p = Period.objects.create(name="p", start_date=D, end_date=D, status=S.PUBLISHED)
+    p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=D, status=S.PUBLISHED)
     m = {n: make_member(n, user=True) for n in ["가", "나", "다", "라"]}
     m["직원"] = make_member("직원", type="직원", user=True)
     Commute.objects.create(period=p, date=D, member=m["가"], shift="normal")
@@ -244,7 +244,7 @@ def test_exchange_with_multi_slot_holder_is_explained(world):
         changes.exchange(m["가"], D, "slot0", m["가"], m["라"])
 
 
-def test_owner_with_many_published_periods(make_member):
+def test_owner_with_many_published_periods(make_member, it_board):
     """근무 변경 때 날짜의 배포 회차를 찾는 쿼리가 회차 수에 비례해 느려지지 않는다(JOIN 곱 + DISTINCT 대신 EXISTS)."""
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
@@ -252,11 +252,11 @@ def test_owner_with_many_published_periods(make_member):
     ps = []
     for i in range(3):
         d0 = date(2026, 11, 2 + i * 7)
-        p = Period.objects.create(name=f"p{i}", start_date=d0, end_date=d0, status=S.PUBLISHED)
+        p = Period.objects.create(board=it_board, name=f"p{i}", start_date=d0, end_date=d0, status=S.PUBLISHED)
         Commute.objects.create(period=p, date=d0, member=m, shift="normal")
         ControlDuty.objects.create(period=p, date=d0, slot=0, member=m)
         ps.append((p, d0))
-    only_control = Period.objects.create(name="c", start_date=date(2026, 12, 1), end_date=date(2026, 12, 1),
+    only_control = Period.objects.create(board=it_board, name="c", start_date=date(2026, 12, 1), end_date=date(2026, 12, 1),
                                          status=S.PUBLISHED)
     ControlDuty.objects.create(period=only_control, date=date(2026, 12, 1), slot=0, member=m)
     for p, d0 in ps:

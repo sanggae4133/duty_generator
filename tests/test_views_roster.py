@@ -9,9 +9,9 @@ D = date(2026, 11, 10)
 
 
 @pytest.fixture
-def world(make_member, fixed_today):
+def world(make_member, fixed_today, it_board):
     fixed_today(D)
-    p = Period.objects.create(name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
+    p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
     a, b = make_member("가", user=True), make_member("나", user=True)
     Commute.objects.create(period=p, date=D, member=a, shift="normal")
     Commute.objects.create(period=p, date=D, member=b, shift="dinner")

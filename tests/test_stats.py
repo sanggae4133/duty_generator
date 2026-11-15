@@ -1,6 +1,6 @@
 from datetime import date
 
-from duty.models import Commute, ControlDuty, Period
+from duty.models import Board, Commute, ControlDuty, Period
 from duty.services.stats import member_stats, period_duty_counts
 
 S = Period.Status
@@ -8,7 +8,8 @@ D1, D2 = date(2026, 11, 9), date(2026, 11, 10)
 
 
 def setup_period(make_member, status=S.PUBLISHED):
-    p = Period.objects.create(name="p", start_date=D1, end_date=D2, status=status)
+    it_board = Board.objects.get(code="it")  # make_member·me 픽스처가 it_board 를 이미 만든다
+    p = Period.objects.create(board=it_board, name="p", start_date=D1, end_date=D2, status=status)
     a, b = make_member("가"), make_member("나")
     make_member("직원", type="직원")
     Commute.objects.create(period=p, date=D1, member=a, shift="dawn")

@@ -10,7 +10,7 @@ from django.test import Client, RequestFactory
 from config.site_url import validate_site_url
 from duty.errors import DutyError
 from duty.logging import RedactCalendarFeed
-from duty.models import CalendarFeed, ChangeLog, Commute, ControlDuty, Period, User
+from duty.models import Board, CalendarFeed, ChangeLog, Commute, ControlDuty, Period, User
 from duty.services import calendar
 
 S = Period.Status
@@ -33,7 +33,8 @@ def me(env, make_member):
 
 
 def period(d=D, status=S.PUBLISHED, at=PUB_AT, end=None):
-    return Period.objects.create(name="p", start_date=d, end_date=end or d, status=status, published_at=at)
+    it_board = Board.objects.get(code="it")  # make_member·me 픽스처가 it_board 를 이미 만든다
+    return Period.objects.create(board=it_board, name="p", start_date=d, end_date=end or d, status=status, published_at=at)
 
 
 def commute(p, member, shift="dawn", d=None):

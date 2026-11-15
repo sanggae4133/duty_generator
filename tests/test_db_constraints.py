@@ -11,8 +11,8 @@ D = date(2026, 11, 9)
 
 
 @pytest.fixture
-def period(db):
-    return Period.objects.create(name="p", start_date=D, end_date=date(2026, 11, 13))
+def period(it_board):
+    return Period.objects.create(board=it_board, name="p", start_date=D, end_date=date(2026, 11, 13))
 
 
 def _bad(fn):
@@ -24,10 +24,10 @@ def test_member_type(depts):
     _bad(lambda: User.objects.create(username="X1", name="가", department=depts["MEMS"], type="외주"))
 
 
-def test_period_status_and_dates(db):
-    _bad(lambda: Period.objects.create(name="p", start_date=D, end_date=D, status="bogus"))
-    _bad(lambda: Period.objects.create(name="p", start_date=D, end_date=date(2026, 11, 1)))
-    Period.objects.create(name="ok", start_date=D, end_date=D)  # 하루짜리 회차는 허용
+def test_period_status_and_dates(it_board):
+    _bad(lambda: Period.objects.create(board=it_board, name="p", start_date=D, end_date=D, status="bogus"))
+    _bad(lambda: Period.objects.create(board=it_board, name="p", start_date=D, end_date=date(2026, 11, 1)))
+    Period.objects.create(board=it_board, name="ok", start_date=D, end_date=D)  # 하루짜리 회차는 허용
 
 
 def test_commute_shift(period, make_member):

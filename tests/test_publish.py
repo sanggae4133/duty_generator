@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from duty.errors import DutyError
-from duty.models import ChangeLog, Commute, ControlDuty, Period
+from duty.models import Board, ChangeLog, Commute, ControlDuty, Period
 from duty.services.publish import preview_publish, publish
 from duty.shifts import weekdays
 
@@ -15,7 +15,8 @@ def d(m, day):
 
 
 def make_period(name, start, end, status, member):
-    p = Period.objects.create(name=name, start_date=start, end_date=end, status=status)
+    it_board = Board.objects.get(code="it")  # make_member·me 픽스처가 it_board 를 이미 만든다
+    p = Period.objects.create(board=it_board, name=name, start_date=start, end_date=end, status=status)
     for x in weekdays(start, end):
         Commute.objects.create(period=p, date=x, member=member, shift="normal")
         ControlDuty.objects.create(period=p, date=x, slot=0, member=member)

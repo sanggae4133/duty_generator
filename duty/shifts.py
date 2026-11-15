@@ -1,5 +1,6 @@
 """근무조와 장중관제 시간대 정의. 바뀔 일이 드물어 코드 상수로 둔다."""
 
+from dataclasses import dataclass
 from datetime import date, time, timedelta
 
 COMMUTE_SHIFTS: dict[str, str] = {  # 순서 = 화면 표시 순서
@@ -49,7 +50,24 @@ def slot_index(cell: str) -> int:
     return int(cell[4:])
 
 
-CELLS: list[str] = ["dawn", "normal", "dinner", *[slot_cell(i) for i in range(len(CONTROL_SLOTS))], "night"]
+SHIFT_KEYS = ("dawn", "normal", "dinner", "night")  # 근무조 키(한 사람 하루 하나)
+SLOT_KEYS = tuple(slot_cell(i) for i in range(10))  # 장중관제 칸 키(자동 생성, 칸당 1명)
+# 근무표가 쓸 수 있는 키 전부. 순서 = 알림·캘린더 칸 순회 순서(바꾸면 알림 hash 가 달라져 다시 나간다)
+KEYS: list[str] = ["dawn", "normal", "dinner", *SLOT_KEYS, "night"]
+CELLS = KEYS  # 1단계 동안 남기는 옛 이름
+
+
+@dataclass(frozen=True)
+class Def:
+    """근무 정의 하나(BoardShift 를 ORM 없이 다루는 값)."""
+    key: str
+    name: str
+    start: time | None
+    end: time | None
+    eligible_shifts: tuple[str, ...] = ()
+    eligible_types: tuple[str, ...] = ()
+    default_alarm: bool = False
+    active: bool = True  # 꺼진 정의: 새 입력·생성·선택지에서 빠지고(boards.active_defs) 이름 찾기에는 남는다(boards.defs)
 
 
 def cell_label(cell: str) -> str:

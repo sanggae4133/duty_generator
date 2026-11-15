@@ -11,8 +11,8 @@ S = Period.Status
 
 
 @pytest.fixture
-def closed_period(make_member):
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13), status=S.CLOSED)
+def closed_period(make_member, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13), status=S.CLOSED)
     normal = [make_member(f"N{i}", dept="MEMS") for i in range(7)]
     dinner = [make_member(f"D{i}", dept="TMCH") for i in range(7)]
     md = make_member("엠", dept="MD", type="직원")

@@ -83,9 +83,9 @@ def issued(make_member, name):
 
 
 @pytest.fixture
-def member(make_member, env):
+def member(make_member, env, it_board):
     m = issued(make_member, NAME)
-    p = Period.objects.create(name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
+    p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
     Commute.objects.create(period=p, date=D, member=m, shift="dawn")
     return m
 
