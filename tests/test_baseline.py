@@ -6,11 +6,12 @@ from datetime import date
 from pathlib import Path
 
 from duty.generator import generate_control_duty
+from tests.it_defs import IT_SLOTS
 
 
 def test_baseline_reaches_target_spread():
     data = json.loads((Path(__file__).parent / "fixtures" / "baseline_commutes.json").read_text())
     days = {date.fromisoformat(d): {k: set(v) for k, v in s.items()} for d, s in data["days"].items()}
-    out = generate_control_duty(sorted(days), days, set(data["developers"]), seed=20261109)
+    out = generate_control_duty(sorted(days), days, {"개발자": set(data["developers"])}, seed=20261109, slots=IT_SLOTS)
     assert out.reached, f"spread={out.spread}"
     assert sum(out.counts.values()) == len(days) * 10

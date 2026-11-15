@@ -10,7 +10,9 @@ import random
 from dataclasses import dataclass
 from datetime import date
 
-from .shifts import CONTROL_SLOTS, MAX_SWAP_ITERATIONS, TARGET_SPREAD
+from .shifts import MAX_SWAP_ITERATIONS, TARGET_SPREAD
+
+Slots = list[tuple[str, tuple[str, ...], tuple[str, ...]]]  # (라벨, 자격 근무조, 자격 유형 — 빈 튜플 = 전원). 인덱스 = 칸 번호, 키 변환은 services/generate.py
 
 
 @dataclass(frozen=True)
@@ -34,31 +36,39 @@ class GenerationOutput:
     reached: bool
 
 
-def _eligible(day: dict[str, set[str]], developers: set[str]) -> list[set[str]]:
-    return [{m for s in shifts for m in day.get(s, ()) if m in developers} for _, shifts in CONTROL_SLOTS]
+def _allowed(members_by_type: dict[str, set[str]], types: tuple[str, ...]) -> set[str]:
+    """칸의 자격 유형에 드는 사람. 빈 튜플 = 전원."""
+    return set().union(*(members_by_type.get(t, ()) for t in (types or members_by_type)))
+
+
+def _eligible(day: dict[str, set[str]], allowed: list[set[str]], slots: Slots) -> list[set[str]]:
+    # 칸별 자격 = 그 칸 자격 근무조에 출근 ∧ 그 칸 자격 유형
+    return [{m for s in shifts for m in day.get(s, ()) if m in ok} for (_, shifts, _), ok in zip(slots, allowed)]
 
 
 def generate_control_duty(
     dates: list[date],
     commutes: dict[date, dict[str, set[str]]],
-    developers: set[str],
+    members_by_type: dict[str, set[str]],
     seed: int,
+    slots: Slots,
 ) -> GenerationOutput:
     rng = random.Random(seed)
-    eligible = {d: _eligible(commutes.get(d, {}), developers) for d in dates}
+    allowed = [_allowed(members_by_type, types) for _, _, types in slots]
+    eligible = {d: _eligible(commutes.get(d, {}), allowed, slots) for d in dates}
     counts = {m: 0 for m in sorted({m for d in dates for slot in eligible[d] for m in slot})}
     assignments: dict[date, list[str]] = {}
     failures: list[SlotFailure] = []
 
     for d in dates:
-        slots = eligible[d]
-        picked: list[str | None] = [None] * len(slots)
+        pools = eligible[d]
+        picked: list[str | None] = [None] * len(pools)
         used: set[str] = set()
-        for i in sorted(range(len(slots)), key=lambda i: len(slots[i])):
-            candidates = sorted(m for m in slots[i] if m not in used)  # set 순서는 해시에 따라 바뀌므로 정렬 후 섞는다
+        for i in sorted(range(len(pools)), key=lambda i: len(pools[i])):
+            candidates = sorted(m for m in pools[i] if m not in used)  # set 순서는 해시에 따라 바뀌므로 정렬 후 섞는다
             if not candidates:
                 # 그날 이 칸의 전체 자격자 수(다른 칸에 이미 배정된 사람 포함). 0이면 자격자 없음, N>0이면 N명 전원이 다른 칸에 사용됨.
-                failures.append(SlotFailure(d, i, len(slots[i])))
+                failures.append(SlotFailure(d, i, len(pools[i])))
                 continue
             rng.shuffle(candidates)
             pick = min(candidates, key=lambda m: counts[m])  # 동점이면 섞인 순서의 첫 번째

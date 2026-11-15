@@ -1,7 +1,7 @@
 """테스트 전용 IT 근무 정의. 1단계 전 duty/shifts.py 상수(COMMUTE_SHIFTS·CONTROL_SLOTS·SHIFT_TIMES)와 같은 값."""
 from datetime import time
 
-from duty.shifts import Def
+from duty.shifts import Def, slot_defs
 
 _BOTH = ("normal", "dinner")
 _DEV = ("개발자",)
@@ -26,3 +26,5 @@ IT_DEFS: list[Def] = [  # KEYS 순. active 는 기본값 True(IT 정의는 모�
       for i, (a, b, e) in enumerate(_SLOTS)],
     Def("night", "야간", time(13, 30), time(21, 30), default_alarm=True),
 ]
+
+IT_SLOTS = [(x.name, x.eligible_shifts, x.eligible_types) for x in slot_defs(IT_DEFS)]  # generator 칸 목록(옛 CONTROL_SLOTS 의 값·순서 + 개발자)
