@@ -4,12 +4,20 @@ from django.db import migrations, models
 
 
 def refuse_reverse(apps, schema_editor):
-    """되돌릴 때 사유를 조용히 지우지 않는다. 사유가 하나도 없으면 지나간다."""
+    """되돌릴 때 사유를 조용히 지우지 않는다. 사유가 하나도 없으면 지나간다.
+    배포 취소 정보(publish_undo)의 c 행 여섯째 칸도 본다: 비어 있으면 떼어 옛 코드가 읽는 다섯 칸으로 되돌린다."""
     ChangeLog = apps.get_model("duty", "ChangeLog")
+    periods = list(apps.get_model("duty", "Period").objects.exclude(publish_undo=None))
     if (apps.get_model("duty", "Commute").objects.exclude(reason="").exists()
-            or ChangeLog.objects.exclude(reason_before="", reason_after="").exists()):
+            or ChangeLog.objects.exclude(reason_before="", reason_after="").exists()
+            or any(r[0] == "c" and r[5:6] not in ([], [""]) for p in periods for r in p.publish_undo)):
         raise RuntimeError('사유가 있어 되돌리지 않습니다. 2단계부터 되돌리기는 업그레이드 전 백업 복원으로만 합니다'
                            '(docs/OPERATIONS.md "업그레이드·롤백").')
+    for p in periods:
+        undo = [r[:5] if r[0] == "c" else r for r in p.publish_undo]
+        if undo != p.publish_undo:
+            p.publish_undo = undo
+            p.save(update_fields=["publish_undo"])
 
 
 class Migration(migrations.Migration):

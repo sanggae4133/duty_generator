@@ -111,7 +111,7 @@ def _targets(r, destinations):
 def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today, closed):
     out = []
     for c in cells:
-        if day.excused(c, r.member_name):  # 사유가 있으면 근무로 치지 않는다. 이미 보낸 알림의 취소도 보내지 않는다
+        if day.excused(r.member_name):  # 사유가 있으면 근무로 치지 않는다. 이미 보낸 알림의 취소도 보내지 않는다
             continue
         start = starts[c]
         if not send_at(r.timing, r.offset, r.at_minute, day.date, start, closed) <= now < start:
@@ -147,8 +147,8 @@ def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synt
     lines, uniq = [], set()
     for c in cells:
         names = [n for n in day.members.get(c, []) if keep(n)]
-        uniq.update(n for n in names if not day.excused(c, n))  # 요약 인원은 근무로 치는 사람만
-        lines.append(m.report_line(defs, c, [join_reason(n, day.reasons.get((c, n), "")) for n in names]))  # 가(휴가)
+        uniq.update(n for n in names if not day.excused(n))  # 요약 인원은 근무로 치는 사람만
+        lines.append(m.report_line(defs, c, [join_reason(n, day.reason(c, n)) for n in names]))  # 가(휴가)
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
     # 변경 표지만 빼고 보이는 내용 전체(머리·조건·근무표)
     h = _hash("report", "\n".join([m.report_header(day.date, cond, False), *lines]))

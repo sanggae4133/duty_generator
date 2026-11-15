@@ -255,7 +255,7 @@ def test_roster_and_day_show_reason_even_without_history(pub, it_board, client):
     for url in ["/?date=2026-11-10", "/?view=month&date=2026-11-10", "/day/2026-11-10/"]:
         body = client.get(url).content.decode()
         assert f"가{RSN}" in body and "<s>가</s>" not in body, url
-        assert body.count(RSN) == 1, url  # 관제 칸의 가에는 붙지 않는다(사유는 근무조 배정에 붙는다)
+        assert body.count(RSN) == 2, url  # 사유는 그날 그 사람 전체: 관제 칸의 가에도 붙는다
     RosterPref.objects.update_or_create(user=m["나"], defaults={"history": False})  # 변경 내역을 꺼도 보인다
     assert f"가{RSN}" in client.get("/?date=2026-11-10").content.decode()
 
@@ -329,6 +329,19 @@ def test_personal_alarm_skips_reason_and_sends_no_cancel():
     assert _plan([r], [away], {(1, MON, "dawn", "telegram", "d"): h_in}) == []  # 이미 보낸 알림은 되돌리지 않는다
 
 
+def test_personal_alarm_skips_all_cells_of_reason_day():
+    r = _rule(shifts=())  # 전부
+    assert {d.cell for d in _plan([r], [_day(dawn=["가"], slot0=["가"])])} == {"dawn", "slot0"}
+    assert _plan([r], [_day({("dawn", "가"): "휴가"}, dawn=["가"], slot0=["가"])]) == []
+
+
+def test_report_reason_is_per_person_day():
+    r = _rule(kind="report", member_name=None, shifts=())
+    due = _plan([r], [_day({("dawn", "가"): "휴가"}, dawn=["가", "나"], slot0=["가"])])[0]
+    assert "08:30~09:30 가(휴가)" in due.text.split("\n")
+    assert due.push_text.endswith("· 1명")
+
+
 def test_report_shows_name_with_reason():
     r = _rule(kind="report", member_name=None, shifts=("dawn", "normal"))
     plain = _plan([r], [_day(dawn=["가", "나"])])[0]
@@ -344,7 +357,7 @@ def test_calendar_skips_reason_day(pub, it_board, settings):
     settings.SITE_URL = "https://duty.example"
     assert [e.summary for e in calendar._events(m["가"])] == ["정상 출근 08:00~17:00", "장중관제 08:30~09:30"]
     changes.set_reason(m["다"], it_board, T, m["가"], "휴가")
-    assert [e.summary for e in calendar._events(m["가"])] == ["장중관제 08:30~09:30"]  # 남은 당번 칸은 그대로(경고로 알림)
+    assert calendar._events(m["가"]) == []  # 사유가 있는 날은 당번 칸 일정도 뺀다(그날 근무로 치지 않는다)
 
 
 def test_generation_skips_reason_commutes(make_member, it_board):
@@ -371,6 +384,20 @@ def test_stats_count_only_real_work(make_member, it_board):
     rows, _, _ = stats.member_stats(it_board, None, None)
     assert {(r.name, r.dawn, r.night) for r in rows} == {("가", 0, 1), ("나", 0, 0)}
     assert stats.period_duty_counts(p)[0] == []  # 관제 자격 출근이 사유뿐이면 모집단에서 빠진다(생성 후보와 같다)
+
+
+def test_stats_skip_duties_on_reason_day(make_member, it_board):
+    """사유가 생기기 전에 남은 당번 배정은 그날 근무로 치지 않는다."""
+    p = Period.objects.create(board=it_board, name="p", start_date=MON, end_date=MON + timedelta(days=1),
+                              status=S.PUBLISHED, overwrite_from=MON)
+    a = make_member("가")
+    Commute.objects.create(period=p, date=MON, member=a, shift="normal", reason="휴가")
+    Commute.objects.create(period=p, date=MON + timedelta(days=1), member=a, shift="normal")
+    for d in (MON, MON + timedelta(days=1)):
+        DutyAssignment.objects.create(period=p, date=d, cell="slot0", member=a)
+    rows, _, _ = stats.member_stats(it_board, None, None)
+    assert [(r.name, r.duty) for r in rows] == [("가", 1)]
+    assert stats.period_duty_counts(p)[0] == [("가", 1)]
 
 
 # ── 배포·배포 취소: publish_undo 의 c 행 여섯째 칸 ──

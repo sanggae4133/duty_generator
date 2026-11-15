@@ -62,3 +62,34 @@ def test_reverse_refuses_when_reasons_exist(at_0020, where):
     ChangeLog.objects.all().delete()  # 정리해야 픽스처가 최신 스키마로 올릴 수 있다
     Commute.objects.all().delete()
     Period.objects.all().delete()
+
+
+def _undo_period(apps, undo):
+    from datetime import date
+    Board, Period = apps.get_model("duty", "Board"), apps.get_model("duty", "Period")
+    board = Board.objects.filter(code="it").first()
+    if board is None:
+        board = Board.objects.create(code="it", name="IT 당번표", input_mode="collect",
+                                     admin_group=apps.get_model("auth", "Group").objects.create(name="IT 근무표 관리"))
+    return Period.objects.create(board=board, name="가상 회차", start_date=date(2026, 12, 1), end_date=date(2026, 12, 31),
+                                 status="published", publish_undo=undo)
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_reverse_refuses_when_undo_has_reason(at_0020):
+    """배포 취소 정보(publish_undo)의 c 행 여섯째 칸에 사유가 있어도 되돌리지 않는다."""
+    p = _undo_period(at_0020, [["c", 1, "2026-12-07", 1, "normal", "휴가"]])
+    with pytest.raises(RuntimeError, match="백업"):
+        _migrate(BEFORE)
+    p.delete()
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_reverse_strips_empty_reason_from_undo(at_0020):
+    """사유 없는 여섯째 칸은 떼어 옛 코드가 읽는 다섯 칸으로 되돌린다."""
+    pk = _undo_period(at_0020, [["c", 1, "2026-12-07", 1, "normal", ""], ["c", 1, "2026-12-08", 1, "dawn"],
+                                ["a", 1, "2026-12-07", 1, "slot0"]]).pk
+    old = _migrate(BEFORE)
+    assert old.get_model("duty", "Period").objects.get(pk=pk).publish_undo == [
+        ["c", 1, "2026-12-07", 1, "normal"], ["c", 1, "2026-12-08", 1, "dawn"], ["a", 1, "2026-12-07", 1, "slot0"]]
+    old.get_model("duty", "Period").objects.all().delete()

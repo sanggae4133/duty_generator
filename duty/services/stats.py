@@ -56,13 +56,14 @@ def member_stats(board: Board, start: date | None, end: date | None):
         for cell, names in day.members.items():
             if is_slot_cell(cell):
                 for n in names:
-                    stats.setdefault(n, MemberStat(n)).duty += 1
+                    if not day.excused(n):  # 사유가 있는 날의 당번은 세지 않는다
+                        stats.setdefault(n, MemberStat(n)).duty += 1
     for day in days:  # 근무로 친 배정만(사유가 있으면 세지 않는다)
         for n in day.members.get("dawn", ()):  # 근무표에 그 정의가 없으면 칸도 없다
-            if n in stats and ("dawn", n) not in day.reasons:
+            if n in stats and not day.excused(n):
                 stats[n].dawn += 1
         for n in day.members.get("night", ()):
-            if n in stats and ("night", n) not in day.reasons:
+            if n in stats and not day.excused(n):
                 stats[n].night += 1
     rows = sorted(stats.values(), key=lambda s: (s.duty, s.name))
     return rows, _summary([s.duty for s in rows]), _summary([s.total for s in rows])
@@ -78,8 +79,10 @@ def period_duty_counts(period: Period) -> tuple[list[tuple[str, int]], int, bool
     pool = Commute.objects.filter(q, period=period, reason="")
     n: dict[str, int] = dict.fromkeys(pool.values_list("member__name", flat=True), 0)
     # 장중관제 칸만 센다(점심당번은 횟수에 넣지 않는다, 설계 8.3)
-    for name in DutyAssignment.objects.filter(period=period, cell__startswith="slot").values_list("member__name", flat=True):
-        n[name] = n.get(name, 0) + 1
+    away = set(Commute.objects.filter(period=period).exclude(reason="").values_list("date", "member_id"))  # 사유가 있는 날은 세지 않는다
+    for d, mid, name in DutyAssignment.objects.filter(period=period, cell__startswith="slot").values_list("date", "member_id", "member__name"):
+        if (d, mid) not in away:
+            n[name] = n.get(name, 0) + 1
     counts = sorted(n.items(), key=lambda x: (x[1], x[0]))
     spread = counts[-1][1] - counts[0][1] if counts else 0
     return counts, spread, spread <= TARGET_SPREAD

@@ -37,8 +37,8 @@ def _items(labels: list[str], names: list[str], removed: bool = False, reasons: 
 
 
 def _why(day, cell: str) -> dict[str, str]:
-    """그 칸 사람들의 사유 {이름: 사유}(사유는 근무조 배정에만 있다)."""
-    return {n: r for (c, n), r in day.reasons.items() if c == cell} if day else {}
+    """그날 사유가 있는 사람들 {이름: 사유}. 사유는 그날 그 사람 전체라 당번 칸에도 붙는다."""
+    return {n: day.reason(cell, n) for _, n in day.reasons} if day else {}
 
 
 def _latest(labels: list[str]) -> list[str]:

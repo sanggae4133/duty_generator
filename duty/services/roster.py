@@ -8,7 +8,7 @@ from django.db.models import F
 
 from ..csv_io import join_reason
 from ..models import ChangeLog, Commute, DutyAssignment, User
-from ..shifts import LUNCH, SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
+from ..shifts import SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
 from . import boards
 
 Log = tuple[str | None, str | None]
@@ -30,9 +30,13 @@ class Day:
     replaced: dict[tuple[str, str], str]
     reasons: dict[tuple[str, str], str] = field(default_factory=dict)  # (칸, 이름) → 사유. 있으면 근무로 치지 않는다
 
-    def excused(self, cell: str, name: str) -> bool:
-        """그 칸의 그 사람을 근무로 치지 않는가: 사유가 붙은 근무조 배정, 그날 사유가 있는 사람의 점심당번."""
-        return (cell, name) in self.reasons or (cell == LUNCH and any(n == name for _, n in self.reasons))
+    def excused(self, name: str) -> bool:
+        """그날 어느 근무조 배정에든 사유가 있으면 그 사람은 그날 전체를 근무로 치지 않는다(모든 칸)."""
+        return any(n == name for _, n in self.reasons)
+
+    def reason(self, cell: str, name: str) -> str:
+        """칸에 보일 사유: 그 칸의 사유, 없으면 그 사람의 그날 다른 사유."""
+        return self.reasons.get((cell, name)) or next((w for (_, n), w in self.reasons.items() if n == name), "")
 
 
 def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], dict[str, str]]:
@@ -107,7 +111,7 @@ def member_schedule(board, member: User, start: date, shown=lambda cell: True) -
     out = []
     for day in published_days(board, start, None):
         labels = [f"{SLOT_GROUP_NAME} {cell_label(defs, c)}" if is_slot_cell(c)
-                  else join_reason(cell_label(defs, c), day.reasons.get((c, member.name), ""))  # 정상(휴가)
+                  else join_reason(cell_label(defs, c), day.reason(c, member.name))  # 정상(휴가)
                   for c, names in day.members.items() if shown(c) and member.name in names]
         if labels:
             out.append((day.date, labels))
