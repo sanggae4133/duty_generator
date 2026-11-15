@@ -2,8 +2,11 @@
 from datetime import date, datetime, time, timedelta
 
 import pytest
+from django.contrib import admin as dj_admin
 from django.utils import timezone
 
+from duty import accounts
+from duty.admin import UserAdmin
 from duty.alarms import senders
 from duty.alarms.forms import RuleForm
 from duty.errors import DutyError
@@ -222,3 +225,44 @@ def test_calendar_uses_member_board_definitions(env, depts, it_board, ops):
         "주간 출근 09:00~18:00", time(9), time(18), f"20261116-normal-{op.pk}@duty-generator")
     [e] = calendar._events(it)
     assert e.summary == "정상 출근 08:00~17:00"
+
+
+# ---- 부서 이동 ----
+
+def _deliveries(u, it_board):
+    personal = AlarmRule.objects.filter(user=u).first()
+    report = AlarmRule.objects.create(user=u, kind="report", board=it_board, timing="days", offset=2,
+                                      at_minute=9 * 60, telegram=True, shifts=[], depts=[], types=[])
+    for r, cell in ((personal, "dawn"), (report, "report")):
+        for d in (SUN - timedelta(days=1), D):
+            AlarmDelivery.objects.create(rule=r, date=d, cell=cell, channel="telegram", destination="111",
+                                         status="sent", content_hash="h")
+    return personal, report
+
+
+def test_department_change_to_other_board_clears_personal_deliveries(env, depts, it_board, ops):
+    _, dept = ops
+    u = person("가상아이", depts["MEMS"], "111")
+    personal, report = _deliveries(u, it_board)
+    old, u.department = u.department_id, depts["UI"]
+    u.save()
+    accounts.on_department_change(u, old)  # 같은 근무표(IT) 안 이동 → 그대로
+    assert AlarmDelivery.objects.count() == 4
+    old, u.department = u.department_id, dept
+    u.save()
+    accounts.on_department_change(u, old)
+    assert sorted((x.rule_id, x.date) for x in AlarmDelivery.objects.all()) == sorted(
+        [(personal.id, SUN - timedelta(days=1)), (report.id, SUN - timedelta(days=1)), (report.id, D)])
+
+
+def test_admin_user_save_calls_department_change(env, depts, it_board, ops, rf, admin_user):
+    _, dept = ops
+    u = person("가상아이", depts["MEMS"], "111")
+    _deliveries(u, it_board)
+    u = User.objects.get(pk=u.pk)
+    u.department = dept
+    request = rf.post("/")
+    request.user = admin_user
+    UserAdmin(User, dj_admin.site).save_model(request, u, form=None, change=True)
+    assert not AlarmDelivery.objects.filter(rule__kind="personal", date__gte=SUN).exists()
+    assert AlarmDelivery.objects.filter(rule__kind="report").count() == 2

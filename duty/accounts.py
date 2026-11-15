@@ -3,7 +3,8 @@ import secrets
 from axes.utils import reset
 from django.db import transaction
 
-from .models import User
+from . import perms
+from .models import AlarmDelivery, Department, User
 from .services import alarms, calendar
 
 
@@ -41,3 +42,12 @@ def issue_account(user: User) -> str:
         alarms.clear_telegram(user)
         alarms.delete_all_subscriptions(user)
     return password
+
+
+def on_department_change(user: User, old_department_id) -> None:
+    """부서를 바꿔 근무표가 달라졌으면 개인 규칙의 오늘 이후 발송 기록을 지운다(옛 근무표의 기록이 남으면
+    새 근무표에서 그 칸을 못 찾아 취소 알림이 나간다). 보고서 규칙은 근무표가 정해져 있어 그대로 둔다."""
+    old = Department.objects.filter(pk=old_department_id).values_list("board_id", flat=True).first()
+    new = user.department.board_id if user.department_id else None
+    if old != new:
+        AlarmDelivery.objects.filter(rule__user=user, rule__kind="personal", date__gte=perms.today()).delete()

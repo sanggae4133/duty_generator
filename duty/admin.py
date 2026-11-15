@@ -10,7 +10,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from py_vapid import _check_sub
 
-from .accounts import issue_account
+from .accounts import issue_account, on_department_change
 from .models import AlarmSettings, Department, User
 from .services import alarm_settings, boards
 from .shifts import shift_defs
@@ -135,6 +135,12 @@ class UserAdmin(DjangoUserAdmin):
     @admin.display(description="아이디", ordering="username")
     def login_id(self, obj):
         return obj.username
+
+    def save_model(self, request, obj, form, change):
+        old = User.objects.filter(pk=obj.pk).values_list("department_id", flat=True).first() if change else None
+        super().save_model(request, obj, form, change)
+        if change:  # 부서를 옮겨 근무표가 바뀌면 개인 알림 발송 기록 정리
+            on_department_change(obj, old)
 
     @admin.action(description="계정 발급 / 비밀번호 초기화", permissions=["change"])
     def issue_accounts(self, request, queryset):
