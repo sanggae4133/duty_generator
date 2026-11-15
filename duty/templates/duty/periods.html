@@ -2,7 +2,8 @@
 {% block content %}
 <h3>회차</h3>
 <details class="new-period"{% if not periods %} open{% endif %}><summary role="button" class="outline">+ 새 회차</summary>
-<form method="post" class="search labeled">{% csrf_token %}
+<form method="post" class="search labeled">{% csrf_token %}{% if boards|length > 1 %}
+  <label>근무표 <select name="board" required>{% for b in boards %}<option value="{{ b.pk }}">{{ b.name }}</option>{% endfor %}</select></label>{% endif %}
   <label>이름 <input name="name" placeholder="예: 2026년 12월" required></label>
   <label>시작일 <input type="date" name="start_date" required></label>
   <label>종료일 <input type="date" name="end_date" required></label>

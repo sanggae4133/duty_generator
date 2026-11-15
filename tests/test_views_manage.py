@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-from duty.models import ChangeLog, Commute, Period, User
+from duty.models import Board, ChangeLog, Commute, Period, User
+from duty.models import BoardShift
 
 
 @pytest.fixture
@@ -23,10 +24,10 @@ def test_create_period(admin_client_ok):
     assert r.status_code == 302 and r.url == f"/periods/{p.pk}/"
 
 
-def test_full_flow(admin_client_ok, make_member, fixed_today):
+def test_full_flow(admin_client_ok, make_member, fixed_today, it_board):
     fixed_today(date(2026, 11, 1))
     c = admin_client_ok
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 10))
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 10))
     c.post(f"/periods/{p.pk}/action/open/")
     devs = [make_member(f"D{i}", dept=["MEMS", "TMCH", "MD", "UI"][i % 4]) for i in range(12)]
     for d in p.dates():
@@ -42,16 +43,16 @@ def test_full_flow(admin_client_ok, make_member, fixed_today):
     assert p.status == Period.Status.PUBLISHED
 
 
-def test_generation_failure_is_shown(admin_client_ok, make_member):
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9), status=Period.Status.CLOSED)
+def test_generation_failure_is_shown(admin_client_ok, make_member, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9), status=Period.Status.CLOSED)
     for code in ["MEMS", "TMCH", "MD", "UI"]:
         Commute.objects.create(period=p, date=date(2026, 11, 9), member=make_member(f"직{code}", dept=code, type="직원"), shift="normal")
     r = admin_client_ok.post(f"/periods/{p.pk}/action/generate/")
     assert r.status_code == 200 and "후보" in r.content.decode()
 
 
-def test_stats_and_changes_pages(admin_client_ok, make_member):
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9), status=Period.Status.PUBLISHED)
+def test_stats_and_changes_pages(admin_client_ok, make_member, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9), status=Period.Status.PUBLISHED)
     m = make_member("가")
     Commute.objects.create(period=p, date=date(2026, 11, 9), member=m, shift="dawn")
     ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=m)
@@ -65,17 +66,18 @@ def test_anonymous_redirected_to_login(client, url):
     assert r.status_code == 302 and r.url.startswith("/login/")
 
 
-def test_action_get_is_405(admin_client_ok):
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9))
+def test_action_get_is_405(admin_client_ok, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9))
     assert admin_client_ok.get(f"/periods/{p.pk}/action/open/").status_code == 405
 
 
 def _generated(make_member, start=date(2026, 11, 9), end=date(2026, 11, 11)):
-    old = Period.objects.create(name="옛회차", start_date=date(2026, 11, 2), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
+    it_board = Board.objects.get(code="it")
+    old = Period.objects.create(board=it_board, name="옛회차", start_date=date(2026, 11, 2), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
     m = make_member("가")
     Commute.objects.create(period=old, date=date(2026, 11, 10), member=m, shift="dawn")
     ChangeLog.objects.create(period=old, date=date(2026, 11, 10), cell="dawn", before=None, after=m)
-    new = Period.objects.create(name="새회차", start_date=start, end_date=end, status=Period.Status.GENERATED)
+    new = Period.objects.create(board=it_board, name="새회차", start_date=start, end_date=end, status=Period.Status.GENERATED)
     return old, new
 
 
@@ -109,8 +111,8 @@ def test_publish_post_past_start_inside_period_ok(admin_client_ok, make_member, 
     assert p.status == Period.Status.PUBLISHED and p.overwrite_from == date(2026, 11, 10)
 
 
-def test_change_log_filters(admin_client_ok, make_member):
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
+def test_change_log_filters(admin_client_ok, make_member, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 10), status=Period.Status.PUBLISHED)
     a, b = make_member("가", user=True), make_member("나")
     ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=a, by=a)
     ChangeLog.objects.create(period=p, date=date(2026, 11, 10), cell="night", before=None, after=b)
@@ -145,21 +147,21 @@ def test_admin_nav_link_superuser_only(client, admin_user, make_member):
     assert "관리</a>" not in client.get("/").content.decode()
 
 
-def test_generate_has_detail_dialog(admin_client_ok):
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13),
+def test_generate_has_detail_dialog(admin_client_ok, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13),
                               status=Period.Status.CLOSED)
     body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
     assert 'id="gen-help"' in body and "showModal()" in body
     assert "자격자가 적은 칸부터" in body and "편차" in body
 
 
-def test_lifecycle_move_and_unpublish_views(admin_client_ok, make_member):
-    from duty.models import ControlDuty, PeriodEvent
+def test_lifecycle_move_and_unpublish_views(admin_client_ok, make_member, it_board):
+    from duty.models import DutyAssignment, PeriodEvent
     m = make_member("가")
-    p = Period.objects.create(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13), status=Period.Status.GENERATED)
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13), status=Period.Status.GENERATED)
     for x in p.dates():
         Commute.objects.create(period=p, date=x, member=m, shift="normal")
-        ControlDuty.objects.create(period=p, date=x, slot=0, member=m)
+        DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=m)
     c = admin_client_ok
     body = c.get(f"/periods/{p.pk}/").content.decode()
     assert 'class="lifecycle"' in body and 'name="to"' in body
@@ -178,11 +180,11 @@ def test_lifecycle_move_and_unpublish_views(admin_client_ok, make_member):
     assert p.status == Period.Status.DRAFT
 
 
-def test_period_delete_view(admin_client_ok, make_member):
+def test_period_delete_view(admin_client_ok, make_member, it_board):
     from django.test import Client
     member = Client()
     member.force_login(make_member("가", user=True))
-    p = Period.objects.create(name="시험", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13))
+    p = Period.objects.create(board=it_board, name="시험", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13))
     assert "회차 삭제" in admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
     assert member.post(f"/periods/{p.pk}/delete/").status_code == 403
     r = admin_client_ok.post(f"/periods/{p.pk}/delete/")
@@ -190,7 +192,67 @@ def test_period_delete_view(admin_client_ok, make_member):
     assert admin_client_ok.get(f"/periods/{p.pk}/delete/").status_code in (404, 405)
 
 
-def test_period_detail_with_event_without_user(admin_client_ok):
+def test_period_detail_with_event_without_user(admin_client_ok, it_board):
     from duty.services import periods
-    p = periods.save_draft(Period(name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13)))  # by 없음
+    p = periods.save_draft(Period(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 13)))  # by 없음
     assert admin_client_ok.get(f"/periods/{p.pk}/").status_code == 200
+
+
+def test_change_log_label_from_board_definitions(admin_client_ok, make_member, it_board):
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9),
+                              status=Period.Status.PUBLISHED)
+    m = make_member("가")
+    ChangeLog.objects.create(period=p, date=date(2026, 11, 9), cell="dawn", before=None, after=m)
+    BoardShift.objects.filter(board=it_board, key="dawn").update(name="이른조")
+    assert "이른조" in admin_client_ok.get("/changes/").content.decode()
+
+
+def test_generation_failure_label_from_board_definitions(admin_client_ok, make_member, it_board):
+    BoardShift.objects.filter(board=it_board, key="slot0").update(name="관제첫칸")
+    p = Period.objects.create(board=it_board, name="p", start_date=date(2026, 11, 9), end_date=date(2026, 11, 9),
+                              status=Period.Status.CLOSED)
+    for code in ["MEMS", "TMCH", "MD", "UI"]:
+        Commute.objects.create(period=p, date=date(2026, 11, 9), member=make_member(f"직{code}", dept=code, type="직원"), shift="normal")
+    r = admin_client_ok.post(f"/periods/{p.pk}/action/generate/")
+    assert r.status_code == 200 and "관제첫칸" in r.content.decode()
+
+
+@pytest.fixture
+def staff_only(db):
+    return User.objects.create_user("st", password="unused-Pw-123", name="스태프", is_staff=True)
+
+
+@pytest.mark.parametrize("url", ["/periods/", "/stats/", "/changes/"])
+def test_admin_pages_need_admin_group_not_staff(client, staff_only, it_board, url):
+    client.force_login(staff_only)
+    assert client.get(url).status_code == 403
+    it_board.admin_group.user_set.add(staff_only)
+    assert client.get(url).status_code == 200
+
+
+def test_admin_menu_follows_group(client, it_board, make_member, staff_only):
+    client.force_login(staff_only)
+    assert 'href="/periods/"' not in client.get("/").content.decode()  # 스태프 표시만으로는 아님
+    m = make_member("가", user=True)
+    client.force_login(m)
+    assert 'href="/periods/"' not in client.get("/").content.decode()
+    it_board.admin_group.user_set.add(m)
+    body = client.get("/").content.decode()
+    assert all(f'href="{u}"' in body for u in ("/periods/", "/stats/", "/changes/", "/collect/"))
+
+
+def test_stats_menu_only_for_boards_with_slots(client, it_board, make_member):
+    """설계 7절: 통계는 slot* 정의가 있는 근무표의 관리 그룹만. 정의 없는 근무표 관리자는 회차·이력만."""
+    m = make_member("가", user=True)
+    Board.objects.create(code="ops", name="운영팀", input_mode="direct").admin_group.user_set.add(m)
+    client.force_login(m)
+    body = client.get("/").content.decode()
+    assert 'href="/periods/"' in body and 'href="/changes/"' in body and 'href="/stats/"' not in body
+
+
+def test_superuser_is_not_admin_automatically(client, it_board):
+    root = User.objects.create_superuser("root", password="unused-Pw-123", name="루트")
+    client.force_login(root)
+    body = client.get("/").content.decode()
+    assert '<a href="/admin/">관리</a>' in body and 'href="/periods/"' not in body
+    assert client.get("/periods/").status_code == 403

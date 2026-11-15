@@ -14,8 +14,8 @@ from django.utils import timezone
 from .. import ics, perms
 from ..errors import DutyError
 from ..models import CalendarFeed, ChangeLog, Period
-from ..shifts import CELLS, COMMUTE_SHIFTS, cell_end, cell_label, cell_start, is_slot_cell
-from . import roster
+from ..shifts import SLOT_GROUP, SLOT_GROUP_NAME, is_slot_cell, ordered
+from . import boards, roster
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +51,13 @@ def issue(user) -> str:
 
 def set_shifts(user, shifts) -> None:
     """캘린더에 넣을 근무를 고른다(알림 규칙의 스케줄과 같은 값). 구독 주소는 그대로."""
-    from .alarms import normalize  # 순환 import 피함
+    from .alarms import normalize, rule_board  # 순환 import 피함
     row = CalendarFeed.objects.filter(user=user).first()
     if row is None:
         raise DutyError("먼저 구독 주소를 발급하세요.")
     if not shifts:  # 저장값 [] 은 '전부'라, 전부 해제를 그대로 받으면 반대로 전부 들어간다
         raise DutyError("캘린더에 넣을 근무를 하나 이상 고르세요.")
-    row.shifts = normalize("personal", shifts, [], [])[0]  # 모르는 값은 오류, 전부 = []
+    row.shifts = normalize("personal", shifts, [], [], rule_board(user, "personal", None))[0]  # 모르는 값은 오류, 전부 = []
     row.save(update_fields=["shifts"])
 
 
@@ -79,7 +79,10 @@ def feed(token: str) -> bytes | None:
 
 def _events(member, shifts=()) -> list[ics.Event]:
     since = perms.today() - WINDOW
-    days = roster.published_days(since, None)
+    board = boards.board_of(member)  # feed()가 부서 있는 계정만 부른다
+    defs = boards.defs(board)
+    # 배정이 하나도 없는 날은 넣지 않는다(그날 기록이 DTSTAMP·ETag 를 바꾸지 않게)
+    days = [d for d in roster.published_days(board, since, None) if any(d.members.values())]
     published = dict(Period.objects.filter(pk__in={d.period_id for d in days}).values_list("pk", "published_at"))
     for pid in sorted(pk for pk, at in published.items() if at is None):
         logger.warning("calendar feed: published_at 없는 배포 회차 %s 제외", pid)
@@ -94,14 +97,14 @@ def _events(member, shifts=()) -> list[ics.Event]:
     url = settings.SITE_URL.rstrip("/") + reverse("me") if settings.SITE_URL else None
     events = []
     for day in days:
-        for cell in CELLS:
-            if member.name not in day.members[cell] or (shifts and ("slots" if is_slot_cell(cell) else cell) not in shifts):
+        for x in ordered(defs):  # KEYS 순(옛 CELLS 와 같다). 모르는 키는 정의에 없어 조용히 빠진다
+            cell = x.key
+            if member.name not in day.members.get(cell, ()) or \
+                    (shifts and (SLOT_GROUP if is_slot_cell(cell) else cell) not in shifts):
                 continue
-            start, end = cell_start(cell), cell_end(cell)
-            summary = f"장중관제 {cell_label(cell)}" if is_slot_cell(cell) else \
-                f"{COMMUTE_SHIFTS[cell]} 출근 {start:%H:%M}~{end:%H:%M}"
+            summary = f"{SLOT_GROUP_NAME} {x.name}" if is_slot_cell(cell) else f"{x.name} 출근 {x.start:%H:%M}~{x.end:%H:%M}"
             events.append(ics.Event(
                 uid=f"{day.date:%Y%m%d}-{cell}-{member.pk}@duty-generator", dtstamp=dtstamp,
-                start=datetime.combine(day.date, start, tz), end=datetime.combine(day.date, end, tz),
+                start=datetime.combine(day.date, x.start, tz), end=datetime.combine(day.date, x.end, tz),
                 summary=summary, url=url))
     return events

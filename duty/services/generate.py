@@ -6,8 +6,9 @@ from django.utils import timezone
 
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
-from ..models import Commute, ControlDuty, Period, User
-from ..shifts import DEVELOPER
+from ..models import Commute, DutyAssignment, Period, User
+from ..shifts import slot_defs
+from . import boards
 from .periods import missing_dates, record
 
 S = Period.Status
@@ -25,16 +26,25 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     if seed is None:
         seed = random.SystemRandom().randrange(2**31)
 
-    commutes: dict = defaultdict(lambda: defaultdict(set))
-    for d, shift, code in Commute.objects.filter(period=period).values_list("date", "shift", "member__username"):
-        commutes[d][shift].add(code)
-    developers = set(User.objects.roster().filter(type=DEVELOPER).values_list("username", flat=True))
-    out = generate_control_duty(period.dates(), commutes, developers, seed)  # GenerationError 전파
+    slots = slot_defs(boards.active_defs(period.board))  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
+    if slots:
+        commutes: dict = defaultdict(lambda: defaultdict(set))
+        for d, shift, code in Commute.objects.filter(period=period).values_list("date", "shift", "member__username"):
+            commutes[d][shift].add(code)
+        members_by_type: dict = defaultdict(set)  # 그 근무표 부서 재직자. 칸별 유형 거르기는 generator 가 한다
+        for typ, code in User.objects.roster().filter(department__board=period.board).values_list("type", "username"):
+            members_by_type[typ].add(code)
+        out = generate_control_duty(
+            period.dates(), commutes, dict(members_by_type), seed,
+            [(x.name, x.eligible_shifts, x.eligible_types) for x in slots],
+        )  # GenerationError 전파
+    else:  # 장중관제 정의가 없는 근무표는 생성기를 부르지 않는다
+        out = GenerationOutput({}, {}, 0, True)
 
     by_code = {m.username: m for m in User.objects.filter(username__in=out.counts)}
-    ControlDuty.objects.filter(period=period).delete()
-    ControlDuty.objects.bulk_create(
-        ControlDuty(period=period, date=d, slot=i, member=by_code[code])
+    DutyAssignment.objects.filter(period=period).delete()
+    DutyAssignment.objects.bulk_create(
+        DutyAssignment(period=period, date=d, cell=slots[i].key, member=by_code[code])
         for d, picked in out.assignments.items()
         for i, code in enumerate(picked)
     )

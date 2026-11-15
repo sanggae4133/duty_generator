@@ -15,8 +15,11 @@ def nav(request):
     items = [("근무표", "/", ("/day/", "/cell/")), ("내 근무", "/me/", ()), ("알림·캘린더", "/alarms/", ())]
     if out["can_collect"]:
         items.append(("출근표 입력", "/collect/", ()))
-    if user.is_staff:
-        items += [("회차", "/periods/", ()), ("통계", "/stats/", ()), ("이력", "/changes/", ())]
+    if perms.is_admin(user):  # 어느 근무표든 관리 그룹 멤버(스태프 표시는 관리자 판정에 쓰지 않는다)
+        items.append(("회차", "/periods/", ()))
+        if perms.stats_boards(user).exists():  # 통계는 slot* 정의가 있는 근무표의 관리 그룹만(설계 7절)
+            items.append(("통계", "/stats/", ()))
+        items.append(("이력", "/changes/", ()))
     if user.is_superuser:
         items.append(("관리", reverse("admin:index"), ()))
     items.append(("도움말", "/help/", ()))

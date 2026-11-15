@@ -1,10 +1,10 @@
-"""지금 보내야 할 알림 계산. ORM 없음. 모든 시각은 Asia/Seoul naive."""
+"""지금 보내야 할 알림 계산. ORM 없음. 모든 시각은 Asia/Seoul naive. 근무표 하나의 정의(defs)·근무표(days)·규칙만 받는다."""
 import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime
 
 from ..services.roster import Day
-from ..shifts import CELLS, cell_start, cells_of
+from ..shifts import KEYS, cell_start, cells_of
 from . import messages as m
 from .schedule import send_at
 
@@ -39,17 +39,17 @@ class Due:
 
 
 def _empty(d: date) -> Day:
-    return Day(d, 0, {}, {c: [] for c in CELLS}, {})
+    return Day(d, 0, {}, {c: [] for c in KEYS}, {})
 
 
 def _hash(prefix: str, text: str) -> str:
     return f"{prefix}:{hashlib.sha256(text.encode()).hexdigest()[:16]}"
 
 
-def plan(rules, days, info, deliveries, now, destinations=None, dept_names=None, extra_dates=None,
+def plan(defs, rules, days, info, deliveries, now, destinations=None, dept_names=None, extra_dates=None,
          today=None) -> list[Due]:
-    """destinations: (rule_id, channel) → 목적지 목록. deliveries: (rule_id, date, cell, channel, destination)
-    → 그 목적지에 마지막으로 성공한 내용 hash(없으면 None)."""
+    """defs: 이 근무표의 정의. destinations: (rule_id, channel) → 목적지 목록.
+    deliveries: (rule_id, date, cell, channel, destination) → 그 목적지에 마지막으로 성공한 내용 hash(없으면 None)."""
     today = today or now.date()
     destinations = destinations or {}
     by_date = {d.date: d for d in days}
@@ -60,13 +60,15 @@ def plan(rules, days, info, deliveries, now, destinations=None, dept_names=None,
     out: list[Due] = []
     for day in sorted(by_date.values(), key=lambda x: x.date):
         for r in rules:
-            cells = cells_of(list(r.shifts))
-            starts = {c: datetime.combine(day.date, cell_start(c)) for c in cells}
+            cells = cells_of(defs, list(r.shifts))  # 이 근무표에 없는 키는 조용히 무시
+            if not cells:
+                continue
+            starts = {c: datetime.combine(day.date, cell_start(defs, c)) for c in cells}
             if r.kind == "personal":
                 if r.member_name:
-                    out += _personal(r, day, cells, starts, deliveries, now, destinations, today)
+                    out += _personal(defs, r, day, cells, starts, deliveries, now, destinations, today)
             elif r.kind == "report":
-                out += _report(r, day, cells, starts, info, deliveries, now, dept_names, day.date in synthetic,
+                out += _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, day.date in synthetic,
                                destinations)
     return out
 
@@ -92,7 +94,7 @@ def _targets(r, destinations):
     return [(ch, dest) for ch in r.channels for dest in destinations.get((r.id, ch), ())]
 
 
-def _personal(r, day, cells, starts, deliveries, now, destinations, today):
+def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today):
     out = []
     for c in cells:
         start = starts[c]
@@ -100,12 +102,12 @@ def _personal(r, day, cells, starts, deliveries, now, destinations, today):
             continue
         inside = r.member_name in day.members.get(c, [])
         if inside:
-            title, text = m.PERSONAL_TITLE, m.personal_text(r.member_name, day.date, c, today)
+            title, text = m.PERSONAL_TITLE, m.personal_text(defs, r.member_name, day.date, c, today)
             # 오늘/내일 표기는 hash에서 뺀다(자정이 지났다고 다시 보내지 않게)
-            h = _hash("in", m.personal_text(r.member_name, day.date, c, day.date))
+            h = _hash("in", m.personal_text(defs, r.member_name, day.date, c, day.date))
         else:
             title = m.CANCEL_TITLE
-            text = m.cancel_text(r.member_name, day.date, c, _successor(day, c, r.member_name))
+            text = m.cancel_text(defs, r.member_name, day.date, c, _successor(day, c, r.member_name))
             h = _hash("out", text)
         for ch, dest in _targets(r, destinations):
             last = deliveries.get((r.id, day.date, c, ch, dest))
@@ -117,7 +119,7 @@ def _personal(r, day, cells, starts, deliveries, now, destinations, today):
     return out
 
 
-def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations):
+def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations):
     first, last_start = min(starts.values()), max(starts.values())
     if not send_at(r.timing, r.offset, r.at_minute, day.date, first) <= now < last_start:
         return []
@@ -130,7 +132,7 @@ def _report(r, day, cells, starts, info, deliveries, now, dept_names, synthetic,
     for c in cells:
         names = [n for n in day.members.get(c, []) if keep(n)]
         uniq.update(names)
-        lines.append(m.report_line(c, names))
+        lines.append(m.report_line(defs, c, names))
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
     # 변경 표지만 빼고 보이는 내용 전체(머리·조건·근무표)
     h = _hash("report", "\n".join([m.report_header(day.date, cond, False), *lines]))

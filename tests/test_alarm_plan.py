@@ -2,14 +2,15 @@ from datetime import date, datetime
 
 from duty.alarms.plan import RuleSpec, plan
 from duty.services.roster import Day
-from duty.shifts import CELLS
+from duty.shifts import KEYS
+from tests.it_defs import IT_DEFS
 
 D = date(2026, 11, 16)  # 월
 INFO = {"가": ("MEMS", "개발자"), "나": ("MEMS", "직원"), "다": ("OTH", "개발자")}
 
 
 def day(d=D, replaced=None, **cells):
-    members = {c: [] for c in CELLS}
+    members = {c: [] for c in KEYS}
     members.update({k: list(v) for k, v in cells.items()})
     return Day(d, 1, {}, members, replaced or {})
 
@@ -27,7 +28,7 @@ def dests(rules):
 
 def run(rules, days, now, deliveries=None, **kw):
     kw.setdefault("destinations", dests(rules))
-    return plan(rules, days, INFO, deliveries or {}, now, **kw)
+    return plan(IT_DEFS, rules, days, INFO, deliveries or {}, now, **kw)
 
 
 def K(cell="dawn", ch="telegram", dest="d"):
@@ -160,10 +161,10 @@ def test_length_limits():
     info = {f"사람{i}가나다라마바사": ("MEMS", "개발자") for i in range(400)}
     names = list(info)
     d = [day(slot0=names, slot1=names)]
-    due = plan([r], d, info, {}, SUN18, dests([r]))[0]
+    due = plan(IT_DEFS, [r], d, info, {}, SUN18, dests([r]))[0]
     assert len(due.text) == 4000 and due.text.endswith("(이하 생략, 웹에서 확인)")
     assert len(due.push_text.encode()) <= 1000
-    p = plan([rule(shifts=("dawn",))], [day(dawn=["가"])], INFO, {}, SUN18, dests([rule()]))[0]
+    p = plan(IT_DEFS, [rule(shifts=("dawn",))], [day(dawn=["가"])], INFO, {}, SUN18, dests([rule()]))[0]
     assert len(p.push_text.encode()) <= 1000 and "\n" not in p.push_text
 
 

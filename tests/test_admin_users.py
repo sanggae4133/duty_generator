@@ -77,3 +77,15 @@ def test_change_form_has_help_and_notice_checkboxes(su_client, make_member):
     body = su_client.get(reverse("admin:duty_user_change", args=[m.pk])).content.decode()
     assert 'name="help_dismissed"' in body and 'name="notify_changes"' in body
     assert "사용법 팝업 다시 보지 않기" in body
+
+
+def test_changelist_shows_groups_not_staff(su_client, it_board):
+    body = su_client.get(reverse("admin:duty_user_changelist")).content.decode()
+    assert f'<td class="field-group_names">{it_board.admin_group.name}</td>' in body  # 목록의 그룹 칸(admin_user)
+    assert "groups__id__exact" in body and "is_staff__exact" not in body
+
+
+def test_change_page_hides_user_permissions(su_client, make_member):
+    m = make_member("가")
+    body = su_client.get(reverse("admin:duty_user_change", args=[m.pk])).content.decode()
+    assert 'name="groups"' in body and 'name="user_permissions"' not in body

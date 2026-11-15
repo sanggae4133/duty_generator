@@ -2,19 +2,22 @@ import pytest
 
 from datetime import date
 
-from duty.models import Commute, ControlDuty, Period, RosterPref
+from duty.models import Commute, DutyAssignment, Period, RosterPref
+from duty.services import prefs
+from duty.shifts import is_slot_cell
+from tests.it_defs import IT_DEFS
 
 D = date(2026, 11, 10)
 
 
 @pytest.fixture
-def world(make_member, fixed_today):
+def world(make_member, fixed_today, it_board):
     fixed_today(D)
-    p = Period.objects.create(name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
+    p = Period.objects.create(board=it_board, name="p", start_date=D, end_date=D, status=Period.Status.PUBLISHED)
     a, b = make_member("가", user=True), make_member("나", user=True)
     Commute.objects.create(period=p, date=D, member=a, shift="normal")
     Commute.objects.create(period=p, date=D, member=b, shift="dinner")
-    ControlDuty.objects.create(period=p, date=D, slot=0, member=a)
+    DutyAssignment.objects.create(period=p, date=D, cell="slot0", member=a)
     return a, b
 
 
@@ -160,11 +163,11 @@ def test_unchanged_get_does_not_write(client, world):
 
 @pytest.fixture
 def changed(world, make_member):
-    from duty.services import changes
+    from duty.services import boards, changes
     a, b = world
     c = make_member("다", user=True)
-    changes.change_cell(a, D, "normal", a, c)       # 가>다
-    changes.change_cell(a, D, "dinner", b, None)    # 나 빠짐(취소선)
+    changes.change_cell(a, boards.it_board(), D, "normal", a, c)       # 가>다
+    changes.change_cell(a, boards.it_board(), D, "dinner", b, None)    # 나 빠짐(취소선)
     return a
 
 
@@ -190,3 +193,12 @@ def test_history_kept_when_link_has_no_hist(client, changed):
     client.force_login(changed)
     grid(client, "?f=1&hist=0")
     assert "&gt;" not in grid(client, "?f=1&dept=MEMS")  # 날짜 이동 등 hist 없는 주소
+
+
+def test_schedule_choices_follow_definitions():
+    assert prefs.choices(IT_DEFS) == {
+        "dawn": "새벽", "normal": "정상", "dinner": "석식교대", "night": "야간", "slots": "장중관제",
+    }
+    assert list(prefs.choices(IT_DEFS)) == ["dawn", "normal", "dinner", "night", "slots"]  # 화면 순서
+    no_slots = [d for d in IT_DEFS if not is_slot_cell(d.key)]
+    assert list(prefs.choices(no_slots)) == ["dawn", "normal", "dinner", "night"]  # 관제 없는 근무표엔 묶음 없음

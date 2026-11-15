@@ -12,6 +12,8 @@ from django.utils import timezone
 from duty.csv_io import CsvInvalid, MAX_ERRORS, parse_commute_csv
 from duty.guard import RequestGuard
 from duty.models import CalendarFeed, PushAlarmSubscription, TelegramAlarmProfile
+from duty.shifts import by_key
+from tests.it_defs import IT_DEFS
 
 PW = "Old-pw-" + "12345"
 
@@ -206,7 +208,7 @@ def test_backup_without_session_table(tmp_path):
 def test_csv_error_cap():
     raw = ("date,정상\n" + "x,가\n" * 5000).encode()
     with pytest.raises(CsvInvalid) as e:
-        parse_commute_csv(raw, ["normal"])
+        parse_commute_csv(raw, {"normal": by_key(IT_DEFS)["normal"].name})
     assert len(e.value.errors) == MAX_ERRORS + 1
     assert "너무 많아" in e.value.errors[-1].reason
 

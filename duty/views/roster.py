@@ -11,9 +11,12 @@ from .. import perms
 from ..csv_io import split_names
 from ..errors import DutyError
 from ..models import Department, User
-from ..services import changes, prefs
+from ..services import boards, changes, prefs
 from ..services.roster import find_day, member_schedule, published_days
-from ..shifts import CELLS, COMMUTE_SHIFTS, DAY_LABELS, DEVELOPER, STAFF, cell_label, is_slot_cell
+from ..shifts import (
+    DAY_LABELS, DEVELOPER, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell, ordered, shift_defs,
+    slot_defs,
+)
 from .common import date_param, safe_next
 
 
@@ -50,12 +53,14 @@ def _member(username: str | None) -> User | None:
     return m
 
 
-DEPT_ORDER = ["MEMS", "TMCH", "MD", "UI"]
+def _board(user):
+    """이 사용자가 보는 근무표. 1단계: 내 부서의 근무표, 없으면 IT(근무표 고르기는 2단계). 모든 뷰가 이것 하나를 쓴다."""
+    return boards.board_of(user) or boards.it_board()
 
 
-def _filters(request) -> tuple[list[str], list[str]]:
+def _filters(request, board) -> tuple[list[str], list[str]]:
     """?dept=MEMS&dept=UI, ?type=직원 → 유효한 값만. 빈 목록 = 전체."""
-    d, t, _ = prefs.clean(request.GET.getlist("dept"), request.GET.getlist("type"), [])
+    d, t, _ = prefs.clean(board, request.GET.getlist("dept"), request.GET.getlist("type"), [])
     return d, t
 
 
@@ -77,42 +82,44 @@ def _keeper(depts: list[str], types: list[str]):
 
 def _shown(shifts: list[str]):
     """칸 키가 스케줄 필터를 통과하는지. 빈 목록 = 전체, 관제 10칸은 'slots' 하나로."""
-    return lambda k: not shifts or ("slots" if is_slot_cell(k) else k) in shifts
+    return lambda k: not shifts or (SLOT_GROUP if is_slot_cell(k) else k) in shifts
 
 
-def _filter_ctx(depts, types, shifts, history: bool = True) -> dict:
+def _filter_ctx(board, defs, depts, types, shifts, history: bool = True) -> dict:
     return {
         "history": history,
         "filter_on": bool(depts or types or shifts),
         "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)],
         "dept_choices": [
             {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
-            for d in sorted(Department.objects.all(), key=lambda d: DEPT_ORDER.index(d.code) if d.code in DEPT_ORDER else 99)
+            for d in Department.objects.filter(board=board).order_by("order", "code")  # 그 근무표 부서만
         ],
-        "shift_choices": _shift_choices(shifts),
+        "shift_choices": _shift_choices(defs, shifts),
     }
 
 
-def _shift_choices(shifts) -> list[dict]:
-    return [{"code": c, "name": n, "checked": not shifts or c in shifts} for c, n in prefs.SHIFT_CHOICES.items()]
+def _shift_choices(defs, shifts) -> list[dict]:
+    on = [x for x in defs if x.active]  # 선택지는 켜진 정의만(prefs.clean 의 boards.active_defs 와 같은 범위)
+    return [{"code": c, "name": n, "checked": not shifts or c in shifts} for c, n in prefs.choices(on).items()]
 
 
-def _active_members(depts: list[str] | None = None, types: list[str] | None = None):
-    qs = User.objects.roster().select_related("department").order_by("name")
+def _active_members(board, depts: list[str] | None = None, types: list[str] | None = None):
+    """근무 변경 창 To 후보: 그 근무표 부서의 재직자(필터가 비어도 다른 근무표 사람은 빠진다)."""
+    qs = User.objects.roster().filter(department__board=board).select_related("department").order_by("name")
     return list(_filtered(qs, depts or [], types or []))
 
 
-def _cell_context(day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None, members=()):
+def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types: list[str] | None = None, members=()):
     current = day.members[cell] if day else []
     qs = User.objects.filter(name__in=current).order_by("name")
     # To 목록에 그날 같은 종류 근무를 붙인다(맞교환이 기본이라 무엇과 바뀌는지 보이게)
-    kinds = [k for k in CELLS if is_slot_cell(k) == is_slot_cell(cell)]
+    kinds = [x.key for x in ordered(defs) if is_slot_cell(x.key) == is_slot_cell(cell)]
     where = {}
     for k in kinds:
         for n in (day.members[k] if day else []):
-            where[n] = f"{where[n]}·{cell_label(k)}" if n in where else cell_label(k)  # 관제 여러 칸이면 모두
+            where[n] = f"{where[n]}·{cell_label(defs, k)}" if n in where else cell_label(defs, k)  # 관제 여러 칸이면 모두
     return {
-        "d": d, "cell": cell, "label": cell_label(cell), "slot": is_slot_cell(cell),
+        "d": d, "cell": cell, "label": cell_label(defs, cell), "slot": is_slot_cell(cell),
         "current_members": list(_filtered(qs, depts or [], types or [])),
         "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
                         "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
@@ -131,8 +138,12 @@ def _month_shift(d: date, step: int) -> date:
 def roster(request):
     names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
-    today, admin = perms.today(), perms.is_admin(request.user)
-    pref = prefs.resolve(request.user, request.GET)
+    today = perms.today()
+    board = _board(request.user)
+    defs = boards.defs(board)
+    # 칸 링크 권한: 날짜마다 묻지 않고 지난 날·오늘 이후 두 번만 묻는다
+    edit_past, edit_now = (perms.can_edit(request.user, board, x) for x in (today - timedelta(days=1), today))
+    pref = prefs.resolve(request.user, request.GET, board)
     view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
     anchor = date_param(request, "date") or today
@@ -163,17 +174,17 @@ def roster(request):
         prev_d, next_d = _month_shift(first, -1), _month_shift(first, 1)
         title = f"{first.year}년 {first.month}월"
     first_day, last_day = weeks[0][0], weeks[-1][-1]
-    by_date = {d.date: d for d in published_days(first_day, last_day)}
+    by_date = {d.date: d for d in published_days(board, first_day, last_day)}
 
     def day_cells(d: date) -> dict:
         found = by_date.get(d)
         return {
-            k: {
-                "key": k, "slot": is_slot_cell(k), "label": cell_label(k),
-                "lines": _lines(show([x for x in found.cells[k].labels if keep(x)]), names) if found else [],
-                "removed": _lines([x for x in found.cells[k].removed if keep(x)], names, True) if found and history else [],
+            x.key: {
+                "key": x.key, "slot": is_slot_cell(x.key), "label": x.name,
+                "lines": _lines(show([lb for lb in found.cells[x.key].labels if keep(lb)]), names) if found else [],
+                "removed": _lines([lb for lb in found.cells[x.key].removed if keep(lb)], names, True) if found and history else [],
             }
-            for k in CELLS if shown(k)
+            for x in display_order(defs) if shown(x.key)
         }
 
     def day_info(d: date) -> dict:
@@ -181,9 +192,9 @@ def roster(request):
         other = view == "month" and d.month != anchor.month
         return {
             "date": d, "is_today": d == today, "other": other, "empty": d not in by_date,
-            "edit": (admin or d >= today) and not other and d in by_date,  # 배포된 근무표가 있는 날만
-            "commute": [cells[k] for k in CELLS if not is_slot_cell(k) and k in cells],
-            "duty": [{"time": cells[k]["label"][:5], **cells[k]} for k in CELLS if is_slot_cell(k) and k in cells],
+            "edit": (edit_past if d < today else edit_now) and not other and d in by_date,  # 배포된 근무표가 있는 날만
+            "commute": [cells[x.key] for x in shift_defs(defs) if x.key in cells],
+            "duty": [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs) if x.key in cells],
         }
 
     days = [[day_info(d) for d in w] for w in weeks]
@@ -193,20 +204,22 @@ def roster(request):
         "week_link": link("week", anchor), "month_link": link("month", anchor),
         "filter_qs": "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs),
     }
-    ctx.update(_filter_ctx(depts, types, shifts, history), weeks=days)
+    ctx.update(_filter_ctx(board, defs, depts, types, shifts, history), weeks=days)
     return render(request, "duty/roster.html", ctx)
 
 
 @login_required
 def cell(request, d, cell):
-    if cell not in CELLS:
+    board = _board(request.user)
+    defs = boards.defs(board)
+    if cell not in by_key(defs):
         raise Http404
     fallback = reverse("day", args=[d])
     if request.method == "POST":
         try:
             # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
             before, after = request.POST.get("before"), request.POST.get("after")
-            result = changes.exchange(request.user, d, cell, _member(None if before == "+" else before),
+            result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
                                       _member(None if after == "-" else after))
         except DutyError as e:
             messages.error(request, str(e))
@@ -215,8 +228,8 @@ def cell(request, d, cell):
             for w in result:
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
-    depts, types = _filters(request)
-    ctx = _cell_context(find_day(d), cell, d, depts, types, _active_members(depts, types))
+    depts, types = _filters(request, board)
+    ctx = _cell_context(defs, find_day(board, d), cell, d, depts, types, _active_members(board, depts, types))
     ctx.update(next=safe_next(request, fallback))
     return render(request, "duty/_cell_form.html", ctx)
 
@@ -230,17 +243,19 @@ def _neighbor(d, step: int):
 
 @login_required
 def day(request, d):
-    pref = prefs.resolve(request.user, request.GET, with_view=False)
+    board = _board(request.user)
+    defs = boards.defs(board)
+    pref = prefs.resolve(request.user, request.GET, board, with_view=False)
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     show = (lambda x: x) if history else _latest
-    found = find_day(d)
-    editable = perms.is_admin(request.user) or d >= perms.today()
-    members = _active_members(depts, types)
+    found = find_day(board, d)
+    editable = perms.can_edit(request.user, board, d)
+    members = _active_members(board, depts, types)
     keep, shown = _keeper(depts, types), _shown(shifts)
     sections = []
     if found:
-        for k in filter(shown, [*COMMUTE_SHIFTS, *(c for c in CELLS if is_slot_cell(c))]):  # 출근조 먼저, 관제는 뒤에 묶어서
-            ctx = _cell_context(found, k, d, depts, types, members)
+        for k in filter(shown, [x.key for x in display_order(defs)]):  # 출근조 먼저, 관제는 뒤에 묶어서
+            ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
                 next=request.path,
                 items=_items(show([x for x in found.cells[k].labels if keep(x)]), []),
@@ -251,18 +266,18 @@ def day(request, d):
     return render(request, "duty/day.html", {
         "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
         "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
-        "qs": qs, **_filter_ctx(depts, types, shifts, history),
+        "qs": qs, **_filter_ctx(board, defs, depts, types, shifts, history),
     })
-
 
 
 @login_required
 def me(request):
     member = request.user if request.user.department_id else None
-    _, _, shifts = prefs.clean([], [], request.GET.getlist("shift"))
-    items = member_schedule(member, perms.today(), _shown(shifts)) if member else []
+    board = _board(request.user)
+    _, _, shifts = prefs.clean(board, [], [], request.GET.getlist("shift"))
+    items = member_schedule(board, member, perms.today(), _shown(shifts)) if member else []
     return render(request, "duty/me.html", {
         "member": member,
-        "shift_choices": _shift_choices(shifts),
+        "shift_choices": _shift_choices(boards.defs(board), shifts),
         "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": labels, "today": d == perms.today()} for d, labels in items],
     })

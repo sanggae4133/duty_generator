@@ -165,3 +165,18 @@ def test_steps_mention_month_view():
     from duty.help import STEPS
     assert any("[월간]" in s for s in STEPS["member"])
     assert any("[월간]" in s for s in STEPS["admin"])
+
+
+def test_video_roles_follow_groups_not_staff(client, videos, it_board, make_member):
+    def status(name):
+        r = client.get(f"/help/video/{name}.mp4")
+        r.close()  # 실패할 때(200)도 파일을 닫는다
+        return r.status_code
+
+    staff = User.objects.create_user("st", password="unused-Pw-123", name="스태프", is_staff=True)
+    client.force_login(staff)
+    assert [status(n) for n in ("manager", "admin")] == [403, 403]
+    m = make_member("가", user=True)
+    it_board.admin_group.user_set.add(m)
+    client.force_login(m)
+    assert [status(n) for n in ("manager", "admin")] == [200, 200]

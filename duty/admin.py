@@ -1,55 +1,78 @@
 from django import forms
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import redirect
 from django.urls import reverse
 from py_vapid import _check_sub
 
-from .accounts import issue_account
-from .models import AlarmSettings, Department, User
-from .services import alarm_settings
-from .shifts import COMMUTE_SHIFTS
+from .accounts import issue_account, on_department_change
+from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, User
+from .services import alarm_settings, boards
+from .shifts import shift_defs
 
 
 class DepartmentForm(forms.ModelForm):
     # DB에는 지금처럼 "normal,dinner,night" 문자열로 저장하고, 입력만 체크박스로 받는다
     shifts = forms.MultipleChoiceField(
-        label="가능한 출근조", choices=list(COMMUTE_SHIFTS.items()), widget=forms.CheckboxSelectMultiple,
+        label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "출근조를 하나 이상 선택하세요."},
+    )
+    # 1단계 호환: 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
+    managers = forms.ModelMultipleChoiceField(
+        label="입력 담당자", queryset=User.objects.none(), required=False,
+        widget=FilteredSelectMultiple("입력 담당자", is_stacked=False),
     )
 
     class Meta:
         model = Department
-        fields = ["code", "name", "shifts", "managers"]
+        fields = ["code", "name", "board", "order", "shifts"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.board_id:  # 1단계: 저장된 부서의 근무표는 바꿀 수 없다(옮기기는 필요해지면 별도 기능, 설계 4.4)
+            self.fields["board"].disabled = True
+        board = self.instance.board if self.instance.board_id else boards.it_board()  # 1단계: 새 부서는 IT
+        self.fields["shifts"].choices = [(x.key, x.name) for x in shift_defs(boards.active_defs(board))]
         # 후보는 roster()만. 지금 담당자는 퇴사·부서 해제됐어도 보여야 저장할 때 조용히 빠지지 않는다
-        current = self.instance.managers.all() if self.instance.pk else User.objects.none()
+        current = self.instance.managers.all()  # 새 부서·직접 입력 근무표 부서는 빈 목록
         self.fields["managers"].queryset = (User.objects.roster() | current).distinct()
+        self.initial.setdefault("managers", list(current))
         if self.instance.pk:
             self.initial["shifts"] = self.instance.shift_keys()
 
     def clean_shifts(self):
         picked = set(self.cleaned_data["shifts"])
-        return ",".join(k for k in COMMUTE_SHIFTS if k in picked)
+        return ",".join(k for k, _ in self.fields["shifts"].choices if k in picked)  # 화면 순서(시작 시각 순)로 저장
+
+    def clean(self):
+        c = super().clean()
+        board, name = c.get("board"), c.get("name")
+        # Department.save 가 만들 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
+        group = f"{name} 출근표 입력"
+        if (board and name and board.input_mode == board.InputMode.COLLECT and not self.instance.input_group_id
+                and Group.objects.filter(name=group).exists()):
+            self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
+        return c
 
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     form = DepartmentForm
     list_display = ["code", "name", "shift_labels", "member_count", "manager_names"]
-    filter_horizontal = ["managers"]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_n=Count("members", distinct=True)).prefetch_related("managers")
+        return (super().get_queryset(request).annotate(_n=Count("members", distinct=True))
+                .prefetch_related("input_group__user_set"))
 
     @admin.display(description="가능한 출근조")
     def shift_labels(self, obj):
-        return "·".join(COMMUTE_SHIFTS.get(k, k) for k in obj.shift_keys())
+        names = {x.key: x.name for x in boards.defs(obj.board)}
+        return "·".join(names.get(k, k) for k in obj.shift_keys())
 
     @admin.display(description="인원", ordering="_n")
     def member_count(self, obj):
@@ -58,6 +81,11 @@ class DepartmentAdmin(admin.ModelAdmin):
     @admin.display(description="입력 담당자")
     def manager_names(self, obj):
         return ", ".join(m.name for m in obj.managers.all()) or "(없음)"
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if form.instance.input_group_id:  # 직접 입력 근무표의 부서는 입력 그룹이 없다
+            form.instance.input_group.user_set.set(form.cleaned_data["managers"])
 
 
 class UserAddForm(forms.ModelForm):
@@ -91,13 +119,23 @@ class UserAdmin(DjangoUserAdmin):
         ("근무표", {"fields": ("name", "department", "part", "type")}),
         ("도움말·알림", {"fields": ("help_dismissed", "notify_changes"),
                      "description": "'사용법 팝업 다시 보지 않기'를 끄면 다음 로그인 때 사용법 팝업이 다시 뜹니다."}),
-        *DjangoUserAdmin.fieldsets[2:],  # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지)
+        # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지).
+        # Django 사용자 권한(user_permissions)은 쓰지 않는다: 근무표 관리자·입력 담당은 그룹으로 정한다
+        (DjangoUserAdmin.fieldsets[2][0], {"fields": ("is_active", "is_staff", "is_superuser", "groups")}),
+        *DjangoUserAdmin.fieldsets[3:],
     )
-    list_display = ["login_id", "name", "department", "part", "type", "is_active", "is_staff"]
-    list_filter = ["department", "type", "is_active", "is_staff"]
+    list_display = ["login_id", "name", "department", "part", "type", "is_active", "group_names"]
+    list_filter = ["department", "type", "is_active", "groups"]
     search_fields = ["username", "name"]
     list_select_related = ["department"]
     actions = ["issue_accounts"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("groups")
+
+    @admin.display(description="그룹")
+    def group_names(self, obj):
+        return ", ".join(g.name for g in obj.groups.all())
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -107,6 +145,12 @@ class UserAdmin(DjangoUserAdmin):
     @admin.display(description="아이디", ordering="username")
     def login_id(self, obj):
         return obj.username
+
+    def save_model(self, request, obj, form, change):
+        old = User.objects.filter(pk=obj.pk).values_list("department_id", flat=True).first() if change else None
+        super().save_model(request, obj, form, change)
+        if change:  # 부서를 옮겨 근무표가 바뀌면 개인 알림 발송 기록 정리
+            on_department_change(obj, old)
 
     @admin.action(description="계정 발급 / 비밀번호 초기화", permissions=["change"])
     def issue_accounts(self, request, queryset):
@@ -122,6 +166,63 @@ class UserAdmin(DjangoUserAdmin):
         if lines:
             self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요. "
                               + " / ".join(lines), messages.WARNING)
+
+
+class _ViewOnly:
+    """1단계 보기 전용(추가·수정·삭제는 3단계, 설계 11절). 보기는 슈퍼유저(관리 화면 출입문과 같다)."""
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class BoardShiftInline(_ViewOnly, admin.TabularInline):
+    """근무 정의는 보기만 한다. 편집과 설계 4.3 검증은 3단계."""
+    model = BoardShift
+    fields = ["key", "name", "start", "end", "eligible_shifts", "eligible_types", "default_alarm"]  # active 는 3단계
+    extra = 0
+
+
+@admin.register(Board)
+class BoardAdmin(_ViewOnly, admin.ModelAdmin):
+    """1단계는 보기만. 근무표 추가·편집·근무 정의 편집은 3단계(boards.it_board() 가 code 로 찾는다).
+    관리 그룹은 Board.save 가 만들고, 멤버는 사용자 화면의 '그룹' 칸에서 넣는다."""
+    fields = ["code", "name", "input_mode", "admin_group"]
+    list_display = ["name", "code", "input_mode", "admin_group"]
+    inlines = [BoardShiftInline]
+
+
+class GroupKeeperInline(_ViewOnly, admin.TabularInline):
+    """그룹 관리자는 기록만 보인다. 지정·편집과 그룹 화면은 3단계."""
+    model = GroupKeeper
+    extra = 0
+
+
+admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 그룹 화면(권한 칸)을 바꾼다
+
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    """permissions 칸만 숨긴다(1단계는 Django 권한을 쓰지 않는다). 멤버는 사용자 화면의 '그룹' 칸에서 넣는다."""
+    fields = ["name"]
+    list_display = ["name", "member_names"]
+    search_fields = ["name"]
+    inlines = [GroupKeeperInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("user_set")
+
+    @admin.display(description="멤버")
+    def member_names(self, obj):
+        return ", ".join(u.name for u in obj.user_set.all()) or "(없음)"
 
 
 class AlarmSettingsForm(forms.ModelForm):

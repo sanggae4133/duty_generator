@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -10,7 +10,7 @@ from ..csv_io import CsvInvalid, split_names
 from ..errors import DutyError
 from ..models import Department, Period, User
 from ..services import collect
-from ..shifts import COMMUTE_SHIFTS, DAY_LABELS
+from ..shifts import DAY_LABELS
 
 MAX_UPLOAD = 1_000_000
 
@@ -21,9 +21,10 @@ def index(request):
     if not depts:
         raise PermissionDenied
     items = []
-    for p in Period.objects.filter(status=Period.Status.COLLECTING).order_by("start_date"):
-        prog = collect.progress(p)
-        items.append({"period": p, "depts": [(d, prog[d.code]) for d in depts]})
+    mine = {d.board_id for d in depts}
+    for p in Period.objects.filter(status=Period.Status.COLLECTING, board_id__in=mine).order_by("start_date"):
+        prog = collect.progress(p)  # 그 회차 근무표의 부서만 있다
+        items.append({"period": p, "depts": [(d, prog[d.code]) for d in depts if d.board_id == p.board_id]})
     return render(request, "duty/collect_index.html", {"items": items})
 
 
@@ -32,12 +33,14 @@ def _load(request, pid, code):
     dept = get_object_or_404(Department, code=code)
     if not perms.can_input_department(request.user, dept):
         raise PermissionDenied
+    if period.board_id != dept.board_id:  # 다른 근무표 부서의 표·CSV 는 없는 주소로(서비스는 같은 DutyError)
+        raise Http404
     return period, dept
 
 
 def _render_table(request, period, dept, table, errors):
-    keys = dept.shift_keys()
-    today, admin = perms.today(), perms.is_admin(request.user)
+    keys = collect.input_keys(dept)
+    today, admin = perms.today(), perms.is_board_admin(request.user, period.board)
     rows = [
         {
             "date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin,
@@ -47,7 +50,7 @@ def _render_table(request, period, dept, table, errors):
     ]
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
-        "shift_labels": [COMMUTE_SHIFTS[k] for k in keys],
+        "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
         "is_open": period.status == Period.Status.COLLECTING,
     }, status=400 if errors else 200)
@@ -59,7 +62,7 @@ def table(request, pid, code):
     if request.method == "POST":
         posted = {}
         for d in period.dates():
-            day = {k: split_names(request.POST.get(f"c_{d.isoformat()}_{k}", "")) for k in dept.shift_keys()}
+            day = {k: split_names(request.POST.get(f"c_{d.isoformat()}_{k}", "")) for k in collect.input_keys(dept)}
             if any(day.values()):
                 posted[d] = day
         try:

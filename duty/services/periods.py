@@ -4,7 +4,7 @@ from datetime import date
 from django.db import transaction
 
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, ControlDuty, Department, Period, PeriodEvent
+from ..models import ChangeLog, Commute, Department, DutyAssignment, Period, PeriodEvent
 
 S = Period.Status
 
@@ -25,7 +25,7 @@ def save_draft(period: Period, by=None) -> Period:
     clash = (
         Period.objects.exclude(pk=period.pk)
         .exclude(status=S.PUBLISHED)
-        .filter(start_date__lte=period.end_date, end_date__gte=period.start_date)
+        .filter(board_id=period.board_id, start_date__lte=period.end_date, end_date__gte=period.start_date)
         .first()
     )
     if clash:
@@ -35,7 +35,7 @@ def save_draft(period: Period, by=None) -> Period:
     if new:
         record(period, "", by)
     else:  # 되돌아온 회차는 출근표가 있을 수 있다: 줄어든 기간 밖은 지운다
-        for model in (Commute, ControlDuty):
+        for model in (Commute, DutyAssignment):
             model.objects.filter(period=period).exclude(date__in=period.dates()).delete()
     return period
 
@@ -54,7 +54,7 @@ def move(period: Period, to: str, by=None) -> None:
     if period.status == to:
         raise DutyError("이미 그 상태입니다.")
     old = period.status
-    ControlDuty.objects.filter(period=period).delete()
+    DutyAssignment.objects.filter(period=period).delete()
     period.status, period.seed, period.generated_at = to, None, None
     period.save()
     record(period, old, by)
@@ -73,11 +73,12 @@ def delete(period: Period) -> None:
 
 
 def missing_dates(period: Period) -> dict[str, list[date]]:
+    """그 근무표 부서마다 출근표가 하나도 없는 평일."""
     have: dict[str, set[date]] = defaultdict(set)
     for code, d in Commute.objects.filter(period=period).values_list("member__department", "date"):
         have[code].add(d)
     out = {}
-    for dept in Department.objects.order_by("code"):
+    for dept in Department.objects.filter(board_id=period.board_id).order_by("code"):
         missing = [d for d in period.dates() if d not in have[dept.code]]
         if missing:
             out[dept.code] = missing
