@@ -15,8 +15,7 @@ from ..alarms import senders
 from ..errors import DutyError
 from ..models import AlarmRule, Department, PushAlarmSubscription, TelegramAlarmProfile, User
 from ..shifts import DEVELOPER, STAFF
-from . import alarm_settings
-from .prefs import SHIFT_KEYS
+from . import alarm_settings, boards, prefs
 
 DEFAULT_RULES = [
     dict(kind="personal", timing="days", offset=1, at_minute=18 * 60, telegram=True, push=False, shifts=["dawn", "dinner", "night"]),
@@ -33,7 +32,7 @@ def normalize(kind, shifts, depts, types):
         got = [v for v in order if v in set(vals)]
         return [] if len(got) == len(order) else got
 
-    s = pick(shifts, SHIFT_KEYS)
+    s = pick(shifts, list(prefs.choices(boards.active_defs(boards.it_board()))))  # 1단계: IT 하나. 알림 작업(Task 8)에서 규칙의 근무표로
     d = pick(depts, sorted(Department.objects.values_list("code", flat=True)))
     t = pick(types, [STAFF, DEVELOPER])
     return (s, [], []) if kind == "personal" else (s, d, t)

@@ -3,8 +3,12 @@ from datetime import time
 from django import forms
 
 from ..models import AlarmKind, AlarmTiming, Department
-from ..services.prefs import SHIFT_CHOICES
+from ..services import boards, prefs
 from ..shifts import DEVELOPER, STAFF
+
+
+def _shift_choices() -> dict[str, str]:
+    return prefs.choices(boards.active_defs(boards.it_board()))  # 1단계: IT 하나. 알림 작업(Task 8)에서 규칙의 근무표로
 
 
 class RuleForm(forms.Form):
@@ -18,14 +22,14 @@ class RuleForm(forms.Form):
                               widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
     telegram = forms.BooleanField(label="텔레그램", required=False, initial=True)
     push = forms.BooleanField(label="푸시", required=False)
-    shifts = forms.MultipleChoiceField(label="스케줄", choices=list(SHIFT_CHOICES.items()), required=False,
-                                       widget=forms.CheckboxSelectMultiple)
+    shifts = forms.MultipleChoiceField(label="스케줄", required=False, widget=forms.CheckboxSelectMultiple)
     depts = forms.MultipleChoiceField(label="부서", required=False, widget=forms.CheckboxSelectMultiple)
     types = forms.MultipleChoiceField(label="유형", choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)], required=False,
                                       widget=forms.CheckboxSelectMultiple)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["shifts"].choices = list(_shift_choices().items())
         self.fields["depts"].choices = list(Department.objects.values_list("code", "name"))
 
     @staticmethod
@@ -37,7 +41,7 @@ class RuleForm(forms.Form):
                     at_time=time(18, 0) if timed else time(*divmod(rule.at_minute, 60)),
                     telegram=rule.telegram, push=rule.push,
                     # 저장은 '전부 = 빈 목록'이라 그대로 그리면 전부 해제로 보인다 → 전부 체크로
-                    shifts=rule.shifts or list(SHIFT_CHOICES),
+                    shifts=rule.shifts or list(_shift_choices()),
                     depts=rule.depts or list(Department.objects.values_list("code", flat=True)),
                     types=rule.types or [STAFF, DEVELOPER])
 

@@ -1,9 +1,10 @@
 import re
-from datetime import date
+from datetime import date, time
 
 import pytest
 
 from duty.models import Commute, DutyAssignment, Period
+from duty.models import Board, BoardShift, Department, User
 
 D = date(2026, 11, 10)
 
@@ -440,3 +441,43 @@ def test_theme_switch_in_topbar(client, world):
     assert "duty-theme" in head.split('<link rel="stylesheet"')[0]  # 스타일보다 먼저 적용(깜빡임 없게)
     assert 'id="theme-btn"' in body and 'aria-label="화면 모드' in body
     assert "duty-theme" in client.get("/login/").content.decode()  # 로그인 화면도
+
+
+def test_labels_and_cells_come_from_board_definitions(client, world, it_board):
+    a, _ = world
+    BoardShift.objects.filter(board=it_board, key="dinner").update(name="늦은조")
+    BoardShift.objects.filter(board=it_board, key="slot0").update(name="08:31~09:30")
+    client.force_login(a)
+    week = client.get(f"/?view=week&date={D}").content.decode()
+    assert "늦은조" in week and "08:31" in week
+    day = client.get(f"/day/{D}/").content.decode()
+    assert "<strong>늦은조</strong>" in day and "<strong>08:31~09:30</strong>" in day
+    assert "석식교대" not in day
+    assert "늦은조" in client.get("/me/").content.decode()  # 스케줄 선택지
+    assert client.get(f"/cell/{D}/lunch/").status_code == 404  # 정의에 없는 칸
+
+
+def _dept_codes(body: str) -> list[str]:
+    return re.findall(r'name="dept" value="(\w+)"', body)
+
+
+def test_views_use_own_board_departments_and_definitions(client, world, it_board):
+    a, _ = world
+    ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    BoardShift.objects.create(board=ops, key="dawn", name="이른조", start=time(7), end=time(16))
+    ops_dept = Department.objects.create(code="OPS", name="운영부서", shifts="dawn", board=ops)
+    Department.objects.filter(code="UI").update(order=-1)
+    client.force_login(a)
+    assert _dept_codes(client.get("/").content.decode()) == ["UI", "MEMS", "TMCH", "MD"]  # 그 근무표 부서만, order 순
+    assert _dept_codes(client.get(f"/day/{D}/").content.decode()) == ["UI", "MEMS", "TMCH", "MD"]
+    Department.objects.create(code="AA", name="가", shifts="normal", board=it_board)  # 순서 칸을 비운 새 부서
+    assert _dept_codes(client.get("/").content.decode())[-1] == "AA"  # 기본 99라 맨 뒤(옛 DEPT_ORDER 밖 부서와 같다)
+    o = User.objects.create_user("OPS001", name="운영", department=ops_dept, part="", type="직원")
+    client.force_login(o)
+    week = client.get("/").content.decode()
+    assert _dept_codes(week) == ["OPS"] and "이른조" in week and "석식교대" not in week
+    me = client.get("/me/").content.decode()
+    assert "이른조" in me and "석식교대" not in me
+    assert client.get(f"/cell/{D}/dinner/").status_code == 404  # 운영팀 정의에 없는 칸
+    client.force_login(a)
+    assert "OPS001" not in client.get(f"/cell/{D}/normal/").content.decode()  # IT 칸 To 후보에 운영팀 사람 없음

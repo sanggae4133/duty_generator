@@ -3,6 +3,9 @@ import pytest
 from datetime import date
 
 from duty.models import Commute, DutyAssignment, Period, RosterPref
+from duty.services import prefs
+from duty.shifts import is_slot_cell
+from tests.it_defs import IT_DEFS
 
 D = date(2026, 11, 10)
 
@@ -190,3 +193,12 @@ def test_history_kept_when_link_has_no_hist(client, changed):
     client.force_login(changed)
     grid(client, "?f=1&hist=0")
     assert "&gt;" not in grid(client, "?f=1&dept=MEMS")  # 날짜 이동 등 hist 없는 주소
+
+
+def test_schedule_choices_follow_definitions():
+    assert prefs.choices(IT_DEFS) == {
+        "dawn": "새벽", "normal": "정상", "dinner": "석식교대", "night": "야간", "slots": "장중관제",
+    }
+    assert list(prefs.choices(IT_DEFS)) == ["dawn", "normal", "dinner", "night", "slots"]  # 화면 순서
+    no_slots = [d for d in IT_DEFS if not is_slot_cell(d.key)]
+    assert list(prefs.choices(no_slots)) == ["dawn", "normal", "dinner", "night"]  # 관제 없는 근무표엔 묶음 없음

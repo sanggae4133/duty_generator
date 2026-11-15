@@ -10,8 +10,7 @@ from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
 from ..errors import DutyError
 from ..models import AlarmRule, CalendarFeed, Department, PushAlarmSubscription, TelegramAlarmProfile
-from ..services import alarm_settings, alarms, calendar
-from ..services.prefs import SHIFT_CHOICES
+from ..services import alarm_settings, alarms, boards, calendar, prefs
 
 BOT_MISSING = "텔레그램 봇이 설정되지 않았습니다."
 
@@ -33,8 +32,8 @@ def _names(vals, labels: dict) -> str:
     return "·".join(labels.get(v, v) for v in vals) or "전부"
 
 
-def condition_label(r, dept_names: dict) -> str:
-    s = f"스케줄: {_names(r.shifts, SHIFT_CHOICES)}"
+def condition_label(r, dept_names: dict, shift_names: dict) -> str:
+    s = f"스케줄: {_names(r.shifts, shift_names)}"
     if r.kind == "personal":
         return s
     return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types, {})} / {s}"
@@ -51,8 +50,9 @@ def index(request):
 
 def _index(request, **extra):
     dept_names = dict(Department.objects.values_list("code", "name"))
+    shift_names = prefs.choices(boards.defs(boards.it_board()))  # 1단계: IT 하나. 알림 작업(Task 8)에서 규칙의 근무표로
     rules = [
-        {"r": r, "timing": timing_label(r), "cond": condition_label(r, dept_names),
+        {"r": r, "timing": timing_label(r), "cond": condition_label(r, dept_names, shift_names),
          "channels": "·".join(n for n, on in (("텔레그램", r.telegram), ("푸시", r.push)) if on)}
         for r in AlarmRule.objects.filter(user=request.user)
     ]
@@ -65,7 +65,7 @@ def _index(request, **extra):
         "push_on": conf.push_on,
         "vapid_key": conf.vapid_public_key,
         "subs": PushAlarmSubscription.objects.filter(user=request.user).order_by("created_at"),
-        "cal": CalendarFeed.objects.filter(user=request.user).first(), "shift_choices": list(SHIFT_CHOICES.items()),
+        "cal": CalendarFeed.objects.filter(user=request.user).first(), "shift_choices": list(shift_names.items()),
         "cal_member": request.user.department_id is not None,
         **extra,
     })
