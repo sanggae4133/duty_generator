@@ -1,4 +1,4 @@
-<form method="post" action="{% url 'memo' scope d %}" onsubmit="return memoConfirm(this, event.submitter)">{% csrf_token %}
+<form method="post" action="{% url 'memo' scope d %}" onsubmit="return memoConfirm(this)">{% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
   <input type="hidden" name="confirm" value="">
   <p><strong>{{ title }}</strong></p>
@@ -6,16 +6,22 @@
     <textarea name="text" rows="3" maxlength="500">{{ memo.text }}</textarea>
   </label>
   {% if scope == "day" %}<label><input type="checkbox" name="no_work" value="1" data-affected="{{ affected }}"{% if memo.no_work %} checked{% endif %}> <span>근무 없음 <small>(그날 칸 전체를 이 글로 덮고 근무를 지웁니다)</small></span></label>{% endif %}
-  <button>저장</button>{% if memo %} <button name="delete" value="1" class="secondary">메모 지우기</button>{% endif %}
+  <button>저장</button>
 </form>
+{% if memo %}<section class="danger">
+  <h4>위험 구역</h4>
+  <form method="post" action="{% url 'memo' scope d %}" onsubmit="return confirm('메모를 지울까요?')">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button name="delete" value="1" class="danger-btn">메모 지우기</button>
+  </form>
+</section>{% endif %}
 <script>
-  // 근무 없음은 그날 근무를 지운다: 사람이 있으면 한 번 더 묻고 confirm 을 보낸다(서비스도 confirm 없으면 막는다)
-  window.memoConfirm = window.memoConfirm || ((f, btn) => {
-    if (btn && btn.name === "delete") return confirm("메모를 지울까요?");
+  // 근무 없음은 그날 근무를 지운다: 사람이 있으면 한 번 더 묻고 본 인원수를 confirm 으로 보낸다(서비스는 지금 인원수와 다르면 막는다)
+  window.memoConfirm = window.memoConfirm || (f => {
     const nw = f.elements.no_work, n = nw ? Number(nw.dataset.affected) : 0;
     if (!nw || !nw.checked || !n) return true;
     if (!confirm(n + "명의 근무가 지워집니다. 저장할까요?")) return false;
-    f.elements.confirm.value = "1";
+    f.elements.confirm.value = n;  // 본 인원수를 보낸다: 그사이 늘었으면 서비스가 다시 묻는다
     return true;
   });
 </script>

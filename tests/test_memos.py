@@ -80,7 +80,7 @@ def test_no_work_needs_confirm_when_people_assigned(world, admin_user, it_board)
 
 def test_no_work_clears_day_and_logs_each_row(world, admin_user, it_board):
     p, m = world
-    assert memos.save(admin_user, it_board, "day", D, "임시 휴무", no_work=True, confirm=True) == 2
+    assert memos.save(admin_user, it_board, "day", D, "임시 휴무", no_work=True, confirm=memos.affected(it_board, D)) == 2
     assert not Commute.objects.filter(date=D).exists() and not DutyAssignment.objects.filter(date=D).exists()
     logs = list(ChangeLog.objects.order_by("id").values_list("period_id", "date", "cell", "before__name", "after", "by"))
     assert logs == [(p.pk, D, "dawn", "가", None, admin_user.pk), (p.pk, D, "normal", "나", None, admin_user.pk),
@@ -93,7 +93,7 @@ def test_no_work_clears_unpublished_rows_without_log(world, admin_user, it_board
     q = Period.objects.create(board=it_board, name="q", start_date=D, end_date=D, status=S.COLLECTING)
     Commute.objects.create(period=q, date=D, member=world[1]["다"], shift="night")
     assert memos.affected(it_board, D) == 3
-    memos.save(admin_user, it_board, "day", D, "", no_work=True, confirm=True)
+    memos.save(admin_user, it_board, "day", D, "", no_work=True, confirm=memos.affected(it_board, D))
     assert not Commute.objects.filter(period=q).exists()
     assert not ChangeLog.objects.filter(period=q).exists()
 
@@ -102,18 +102,18 @@ def test_no_work_does_not_touch_other_board(world, admin_user, it_board):
     other = Board.objects.create(code="ops", name="운영팀")
     o = Period.objects.create(board=other, name="o", start_date=D, end_date=D, status=S.PUBLISHED)
     Commute.objects.create(period=o, date=D, member=world[1]["다"], shift="normal")
-    memos.save(admin_user, it_board, "day", D, "", no_work=True, confirm=True)
+    memos.save(admin_user, it_board, "day", D, "", no_work=True, confirm=memos.affected(it_board, D))
     assert Commute.objects.filter(period=o).exists()
 
 
 def test_past_day_no_work_by_admin(world, admin_user, it_board, fixed_today):
     fixed_today(date(2026, 11, 20))
-    memos.save(admin_user, it_board, "day", D, "", no_work=True, confirm=True)
+    memos.save(admin_user, it_board, "day", D, "", no_work=True, confirm=memos.affected(it_board, D))
     assert Memo.objects.get().no_work
 
 
 def test_turning_no_work_off_leaves_empty_day(world, admin_user, it_board):
-    memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=True)
+    memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=memos.affected(it_board, D))
     memos.save(admin_user, it_board, "day", D, "휴무 취소", no_work=False)
     assert not Memo.objects.get().no_work and not Commute.objects.filter(date=D).exists()
 
@@ -133,3 +133,10 @@ def test_no_work_days_and_for_range(admin_user, it_board):
     assert set(r["month"]) == {date(2026, 12, 1)}
     memos.save(admin_user, it_board, "month", date(2026, 11, 5), "11월")
     assert set(memos.for_range(it_board, date(2026, 11, 2), date(2026, 11, 6))["month"]) == {date(2026, 11, 1)}
+
+
+def test_no_work_refuses_when_count_changed_since_confirm(world, admin_user, it_board):
+    """확인창에서 본 인원수와 지금 인원수가 다르면(그사이 넣었다) 지우지 않고 다시 묻는다."""
+    with pytest.raises(DutyError, match="2명의 근무가 지워집니다"):
+        memos.save(admin_user, it_board, "day", D, "임시 휴무", no_work=True, confirm=1)
+    assert not Memo.objects.exists() and Commute.objects.filter(date=D).count() == 2

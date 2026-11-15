@@ -141,3 +141,15 @@ def test_post_delete(admin_client_ok, world, it_board):
     memo(it_board, "day", D, "행사")
     admin_client_ok.post(f"/memo/day/{D}/", {"text": "행사", "delete": "1"})
     assert not Memo.objects.exists()
+
+
+def test_post_no_work_stale_count_asks_again(admin_client_ok, world):
+    r = admin_client_ok.post(f"/memo/day/{D}/", {"text": "휴무", "no_work": "1", "confirm": "3"}, follow=True)
+    assert "1명의 근무가 지워집니다" in r.content.decode() and not Memo.objects.exists()
+
+
+def test_delete_is_in_danger_zone(admin_client_ok, world, it_board):
+    memo(it_board, "day", D, "행사")
+    body = admin_client_ok.get(f"/memo/day/{D}/").content.decode()
+    assert body.index("위험 구역") < body.index('class="danger-btn">메모 지우기')
+    assert body.index("</form>") < body.index("위험 구역")  # 저장 폼 밖, 맨 아래

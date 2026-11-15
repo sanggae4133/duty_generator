@@ -29,7 +29,7 @@ def world(make_member, admin_user, fixed_today, it_board):
 
 def test_changes_blocked_on_no_work_day(world, admin_user, it_board):
     _, m = world
-    memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=True)
+    memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=memos.affected(it_board, D))
     with pytest.raises(DutyError, match="근무 없는 날입니다"):
         changes.change_cell(admin_user, it_board, D, "normal", None, m["다"])
     with pytest.raises(DutyError, match="근무 없는 날입니다"):
@@ -61,7 +61,7 @@ def test_unpublish_skips_no_work_days(make_member, admin_user, it_board, fixed_t
         Commute.objects.create(period=b, date=date(2026, 11, day), member=na, shift="normal")
     publish(a, date(2026, 11, 16))
     publish(b, date(2026, 11, 16))  # A 의 17·18일 행이 publish_undo 로
-    memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=True)
+    memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=memos.affected(it_board, D))
     assert unpublish_info(b).restored_rows == 1
     unpublish(b)
     assert list(Commute.objects.filter(period=a).values_list("date", flat=True)) == [date(2026, 11, 17)]

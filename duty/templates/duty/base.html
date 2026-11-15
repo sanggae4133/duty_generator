@@ -69,6 +69,11 @@
     table.roster .add { opacity: .35; font-weight: 700; }
     table.roster .none { margin: .5rem 0 0; font-size: .8rem; opacity: .5; }
     .hol { margin: .2rem 0; font-weight: 700; color: var(--nxt-red); }  /* 휴장일 이름: 날짜 칸 맨 위·하루 화면 제목 아래 */
+    section.danger { margin-top: 2.5rem; padding: 1rem; border: 1px solid var(--nxt-red); border-radius: .4rem; }  /* 지우기는 맨 아래 위험 구역(회차 상세·메모 창) */
+    section.danger h4 { margin: 0 0 .6rem; color: var(--nxt-red); font-size: 1rem; }
+    section.danger form { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    button.danger-btn { width: auto; margin: 0; background: transparent; color: var(--nxt-red); border-color: var(--nxt-red); }
+    button.danger-btn:hover { background: var(--nxt-red); color: #fff; }
     /* 메모: 날 메모는 휴장일 아래 한 줄, 근무 없음은 칸 전체를 덮는다. 주·달 메모는 표 위·아래(월간 주 메모는 그 주 행 아래) */
     .memo { margin: .2rem 0 0; font-weight: 600; }
     .nowork { margin: .4rem 0 0; padding: 1.2rem .4rem; border-radius: .3rem; text-align: center; font-weight: 700; background: var(--duty-line); }

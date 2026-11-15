@@ -5,6 +5,13 @@ import django.db.models.lookups
 from django.db import migrations, models
 
 
+def refuse_reverse(apps, schema_editor):
+    """되돌릴 때 메모를 조용히 지우지 않는다(근무 없음으로 지운 배정은 돌아오지 않는다). 표가 비면 지나간다."""
+    if apps.get_model("duty", "Memo").objects.exists():
+        raise RuntimeError('메모가 있어 되돌리지 않습니다. 2단계부터 되돌리기는 업그레이드 전 백업 복원으로만 합니다'
+                           '(docs/OPERATIONS.md "업그레이드·롤백").')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -28,4 +35,5 @@ class Migration(migrations.Migration):
                 'constraints': [models.UniqueConstraint(fields=('board', 'scope', 'date'), name='memo_one_per_date'), models.CheckConstraint(condition=models.Q(('scope__in', ['day', 'week', 'month'])), name='memo_scope_valid'), models.CheckConstraint(condition=models.Q(('no_work', False), ('scope', 'day'), _connector='OR'), name='memo_no_work_day_only'), models.CheckConstraint(condition=models.Q(('no_work', True), models.Q(('text', ''), _negated=True), _connector='OR'), name='memo_not_empty'), models.CheckConstraint(condition=models.Q(('scope', 'day'), models.Q(django.db.models.lookups.Exact(models.Func(models.Value('%w'), models.F('date'), function='strftime', output_field=models.CharField()), '1'), ('scope', 'week')), models.Q(django.db.models.lookups.Exact(models.Func(models.Value('%d'), models.F('date'), function='strftime', output_field=models.CharField()), '01'), ('scope', 'month')), _connector='OR'), name='memo_date_aligned')],
             },
         ),
+        migrations.RunPython(migrations.RunPython.noop, refuse_reverse),  # 되돌릴 때 가장 먼저 돈다
     ]

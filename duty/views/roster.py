@@ -284,6 +284,10 @@ def day(request, d):
     })
 
 
+def _int(s):
+    return int(s) if s and s.isdigit() else None
+
+
 @login_required
 def memo(request, scope, d):
     """[메모] 팝업(근무 변경 창과 같은 방식). 근무표 관리 그룹만."""
@@ -299,7 +303,7 @@ def memo(request, scope, d):
                 msg = "메모를 지웠습니다."
             else:
                 cleared = memos.save(request.user, board, scope, d, request.POST.get("text", ""),
-                                     no_work=bool(request.POST.get("no_work")), confirm=bool(request.POST.get("confirm")))
+                                     no_work=bool(request.POST.get("no_work")), confirm=_int(request.POST.get("confirm")))
                 msg = f"메모를 저장했습니다. {cleared}명의 근무를 지웠습니다." if cleared else "메모를 저장했습니다."
         except DutyError as e:
             messages.error(request, str(e))

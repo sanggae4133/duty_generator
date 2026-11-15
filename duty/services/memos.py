@@ -55,9 +55,9 @@ def _clear_day(user, board, d: date) -> int:
 
 
 @transaction.atomic
-def save(user, board, scope: str, d: date, text: str, no_work: bool = False, confirm: bool = False) -> int:
+def save(user, board, scope: str, d: date, text: str, no_work: bool = False, confirm: int | None = None) -> int:
     """메모를 저장하고 지운 근무의 사람 수를 돌려준다. 글이 비고 근무 없음도 아니면 지운다.
-    근무 없음으로 저장할 때 그날 배정이 있으면 confirm=True 여야 한다(아니면 DutyError)."""
+    근무 없음으로 저장할 때 그날 배정이 있으면 confirm 이 확인창에서 본 인원수와 같아야 한다(그사이 바뀌었거나 없으면 DutyError)."""
     _require_admin(user, board)
     d = normalize(scope, d)
     text = (text or "").strip()
@@ -71,7 +71,7 @@ def save(user, board, scope: str, d: date, text: str, no_work: bool = False, con
     cleared = 0
     if no_work:
         n = affected(board, d)
-        if n and not confirm:
+        if n and confirm != n:
             raise DutyError(f"{n}명의 근무가 지워집니다. 확인하고 다시 저장해 주세요.")
         cleared = _clear_day(user, board, d)
     Memo.objects.update_or_create(board=board, scope=scope, date=d, defaults={"text": text, "no_work": no_work})
