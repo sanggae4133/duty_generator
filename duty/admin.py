@@ -11,7 +11,7 @@ from django.urls import reverse
 from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
-from .models import AlarmSettings, Department, User
+from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, User
 from .services import alarm_settings, boards
 from .shifts import shift_defs
 
@@ -119,13 +119,23 @@ class UserAdmin(DjangoUserAdmin):
         ("근무표", {"fields": ("name", "department", "part", "type")}),
         ("도움말·알림", {"fields": ("help_dismissed", "notify_changes"),
                      "description": "'사용법 팝업 다시 보지 않기'를 끄면 다음 로그인 때 사용법 팝업이 다시 뜹니다."}),
-        *DjangoUserAdmin.fieldsets[2:],  # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지)
+        # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지).
+        # Django 사용자 권한(user_permissions)은 쓰지 않는다: 근무표 관리자·입력 담당은 그룹으로 정한다
+        (DjangoUserAdmin.fieldsets[2][0], {"fields": ("is_active", "is_staff", "is_superuser", "groups")}),
+        *DjangoUserAdmin.fieldsets[3:],
     )
-    list_display = ["login_id", "name", "department", "part", "type", "is_active", "is_staff"]
-    list_filter = ["department", "type", "is_active", "is_staff"]
+    list_display = ["login_id", "name", "department", "part", "type", "is_active", "group_names"]
+    list_filter = ["department", "type", "is_active", "groups"]
     search_fields = ["username", "name"]
     list_select_related = ["department"]
     actions = ["issue_accounts"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("groups")
+
+    @admin.display(description="그룹")
+    def group_names(self, obj):
+        return ", ".join(g.name for g in obj.groups.all())
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -156,6 +166,63 @@ class UserAdmin(DjangoUserAdmin):
         if lines:
             self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요. "
                               + " / ".join(lines), messages.WARNING)
+
+
+class _ViewOnly:
+    """1단계 보기 전용(추가·수정·삭제는 3단계, 설계 11절). 보기는 슈퍼유저(관리 화면 출입문과 같다)."""
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class BoardShiftInline(_ViewOnly, admin.TabularInline):
+    """근무 정의는 보기만 한다. 편집과 설계 4.3 검증은 3단계."""
+    model = BoardShift
+    fields = ["key", "name", "start", "end", "eligible_shifts", "eligible_types", "default_alarm"]  # active 는 3단계
+    extra = 0
+
+
+@admin.register(Board)
+class BoardAdmin(_ViewOnly, admin.ModelAdmin):
+    """1단계는 보기만. 근무표 추가·편집·근무 정의 편집은 3단계(boards.it_board() 가 code 로 찾는다).
+    관리 그룹은 Board.save 가 만들고, 멤버는 사용자 화면의 '그룹' 칸에서 넣는다."""
+    fields = ["code", "name", "input_mode", "admin_group"]
+    list_display = ["name", "code", "input_mode", "admin_group"]
+    inlines = [BoardShiftInline]
+
+
+class GroupKeeperInline(_ViewOnly, admin.TabularInline):
+    """그룹 관리자는 기록만 보인다. 지정·편집과 그룹 화면은 3단계."""
+    model = GroupKeeper
+    extra = 0
+
+
+admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 그룹 화면(권한 칸)을 바꾼다
+
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    """permissions 칸만 숨긴다(1단계는 Django 권한을 쓰지 않는다). 멤버는 사용자 화면의 '그룹' 칸에서 넣는다."""
+    fields = ["name"]
+    list_display = ["name", "member_names"]
+    search_fields = ["name"]
+    inlines = [GroupKeeperInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("user_set")
+
+    @admin.display(description="멤버")
+    def member_names(self, obj):
+        return ", ".join(u.name for u in obj.user_set.all()) or "(없음)"
 
 
 class AlarmSettingsForm(forms.ModelForm):
