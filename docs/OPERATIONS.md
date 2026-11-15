@@ -325,6 +325,11 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
 
 - **롤백**: 위와 같은 순서에서 `git pull` 대신 `sudo git checkout <적어 둔 버전>`. 업그레이드 때 `migrate` 가 무언가 적용했으면 `sudo -u duty .venv/bin/python manage.py migrate` 대신 `sudo -u duty .venv/bin/python manage.py restore <업그레이드 전에 만든 백업>`(아래 "백업·복원")을 한다 — 복원은 백업의 마이그레이션이 지금 코드와 같아야 받아 주므로, 코드를 먼저 되돌린 뒤에 한다.
 - **근무표 일반화 1단계로 올릴 때 (한 번)**: `migrate` 가 데이터를 옮긴다. IT 근무표와 근무 정의(지금 값 그대로), "IT 근무표 관리" 그룹(지금 "스태프 권한"이 켜진 사람), 부서마다 "<부서> 출근표 입력" 그룹(지금 입력 담당자), 장중관제 행 변환, 지금 슈퍼유저를 모든 새 그룹의 그룹 관리자로. 근무표가 비어 있는 회차는 IT 근무표로 채우고, 근무표가 비어 있는 부서가 남아 있으면 그 부서 코드를 알려 주며 멈춘다(0016). 같은 이름의 그룹이 이미 있으면 `migrate` 가 그 이름을 알려 주며 멈춘다. 그러면 위 "롤백"대로 되돌리고, 사이트를 켠 뒤 관리 화면 "그룹"에서 그 그룹 이름을 바꾸고 업그레이드를 처음부터 다시 한다. 이 버전부터 관리자 지정은 그룹으로 한다("처음 한 번: 계정 만들기"). "스태프 권한" 체크는 관리자 판정에 쓰이지 않는다(관리 화면 출입에만, 슈퍼유저와 함께).
+  - 부서 없는 일반 계정은 근무표가 없어 이제 근무를 바꿀 수 없다(보기만). 관리 그룹 멤버면 그대로 고친다.
+  - 사용자의 근무표가 바뀌었다 돌아오면(예: IT → 부서 없음 → IT) 아직 시작 전인 개인 알림이 한 번 더 갈 수 있다.
+  - 관리 화면 "그룹": 목록 화면에 이름·멤버가 보이고, 그룹 화면에서는 이름만 고친다(멤버는 사용자 화면의 "그룹" 칸에서). 그룹 관리자는 보기만 한다.
+  - 업그레이드 전 확인(읽기 전용, 운영자가 실행): 시트에서 가져온 옛 회차 기간 안에 행이 하나도 없는 평일(평일 휴장일)이 있으면, 업그레이드 뒤 그날은 "근무표 없음" 대신 빈 칸으로 보인다(필요하면 넣기로 채운다). 아래가 그런 날을 회차 번호와 함께 보여 준다(없으면 아무것도 안 나온다).
+    `sudo -u duty sqlite3 -readonly data/db.sqlite3 "WITH RECURSIVE d(pid, day, last) AS (SELECT id, start_date, end_date FROM duty_period WHERE status='published' UNION ALL SELECT pid, date(day, '+1 day'), last FROM d WHERE day < last) SELECT pid, day FROM d WHERE strftime('%w', day) NOT IN ('0','6') AND NOT EXISTS (SELECT 1 FROM duty_commute c WHERE c.period_id = pid AND c.date = day) ORDER BY day;"`
 - nginx 를 켜 둔 서버는 이 묶음을 마친 뒤 아래 "nginx → 평소 운영"의 **업그레이드 뒤 nginx 설정 갱신**을 한다(대부분 "같음"으로 끝난다).
 - git 이 "dubious ownership" 을 내면 앞에 `sudo` 를 빠뜨린 것이다(코드 폴더는 root 소유). `sudo` 를 붙여 다시 한다. 그래도 나오면 `sudo chown -R root:root /opt/duty_generator/.git` 후 다시 한다.
 - 업그레이드 전 백업도 `db-*` 라 `DUTY_BACKUP_KEEP_DAYS` 일 뒤 자동으로 지워진다. 오래 둘 것은 서버 밖으로 내려받는다.

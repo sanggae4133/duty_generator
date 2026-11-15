@@ -81,7 +81,7 @@ def test_change_form_has_help_and_notice_checkboxes(su_client, make_member):
 
 def test_changelist_shows_groups_not_staff(su_client, it_board):
     body = su_client.get(reverse("admin:duty_user_changelist")).content.decode()
-    assert it_board.admin_group.name in body  # 목록의 그룹 칸·그룹 필터
+    assert f'<td class="field-group_names">{it_board.admin_group.name}</td>' in body  # 목록의 그룹 칸(admin_user)
     assert "groups__id__exact" in body and "is_staff__exact" not in body
 
 

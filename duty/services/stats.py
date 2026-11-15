@@ -38,12 +38,15 @@ def _summary(values: list[int]) -> Summary | None:
 
 def member_stats(board: Board, start: date | None, end: date | None):
     days = published_days(board, start, end)
-    # ponytail: 관제 칸들의 자격 유형 합집합(IT = 개발자). 칸마다 달라지면 칸별로 센다
-    types = {t for x in slot_defs(boards.defs(board)) for t in x.eligible_types}  # 관제 정의가 없으면 비어 통계도 없다
-    roster = User.objects.roster().filter(department__board=board, type__in=types)  # 그 근무표 부서 사람만
+    slots = slot_defs(boards.defs(board))
+    if not slots:  # 관제 정의가 없는 근무표는 통계도 없다
+        return [], None, None
+    # 관제 칸들의 자격 유형 합집합(IT = 개발자). 한 칸이라도 비면(= 전원, 생성기와 같다) 거르지 않는다
+    by_type = Q() if any(not x.eligible_types for x in slots) else Q(type__in={t for x in slots for t in x.eligible_types})
+    roster = User.objects.roster().filter(by_type, department__board=board)  # 그 근무표 부서 사람만
     stats = {n: MemberStat(n) for n in roster.values_list("name", flat=True)}
     # 퇴사·부서 해제된 사람도 이 기간에 근무가 있으면 통계에 남긴다(역사는 그대로)
-    eligible = set(User.objects.filter(type__in=types).values_list("name", flat=True))
+    eligible = set(User.objects.filter(by_type).values_list("name", flat=True))
     for day in days:
         for names in day.members.values():
             for n in names:
@@ -71,8 +74,7 @@ def period_duty_counts(period: Period) -> tuple[list[tuple[str, int]], int, bool
     q = Q(pk__in=[])  # 칸별 자격(generator 와 같다): 그 칸 자격 근무조 출근 ∧ 그 칸 자격 유형(빈 튜플 = 전원)
     for x in slots:
         q |= Q(shift__in=x.eligible_shifts, **({"member__type__in": x.eligible_types} if x.eligible_types else {}))
-    # 사람은 생성기 members_by_type 와 같다: 그 근무표 부서의 재직자(배정받은 퇴사자는 아래 배정 수로 남는다)
-    pool = Commute.objects.filter(q, period=period, member__department__board=period.board, member__is_active=True)
+    pool = Commute.objects.filter(q, period=period)  # 회차의 출근표가 곧 그 근무표 사람(퇴사자도 출근이 있으면 0회로 남는다)
     n: dict[str, int] = dict.fromkeys(pool.values_list("member__name", flat=True), 0)
     for name in DutyAssignment.objects.filter(period=period).values_list("member__name", flat=True):
         n[name] = n.get(name, 0) + 1

@@ -51,3 +51,17 @@ def test_group_page_hides_permissions_and_keepers_read_only(su_client, it_board,
     assert 'name="name"' in html and 'name="permissions"' not in html
     assert 'name="members"' not in html  # 멤버는 사용자 화면의 '그룹' 칸에서 넣는다
     assert 'name="keepers-0-user"' not in html and admin_user.name in html  # 그룹 관리자는 보기만(편집은 3단계)
+
+
+def test_group_post_cannot_change_keepers(su_client, it_board, admin_user, make_member):
+    """인라인을 POST로 지우거나 더해도 그룹 관리자 행은 그대로다(보기 전용)."""
+    group = it_board.admin_group
+    k = GroupKeeper.objects.create(group=group, user=admin_user)
+    other = make_member("가상관리", user=True)
+    r = su_client.post(reverse("admin:auth_group_change", args=[group.pk]), {
+        "name": group.name, "keepers-TOTAL_FORMS": "2", "keepers-INITIAL_FORMS": "1",
+        "keepers-0-id": k.pk, "keepers-0-group": group.pk, "keepers-0-user": admin_user.pk, "keepers-0-DELETE": "on",
+        "keepers-1-group": group.pk, "keepers-1-user": other.pk,
+    })
+    assert r.status_code == 302  # 그룹 이름 저장은 되고 인라인 데이터는 무시된다
+    assert set(GroupKeeper.objects.values_list("group", "user")) == {(group.pk, admin_user.pk)}

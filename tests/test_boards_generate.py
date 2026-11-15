@@ -2,6 +2,7 @@
 from datetime import date, time
 
 import pytest
+from django.urls import reverse
 
 from duty.csv_io import CsvInvalid
 from duty.errors import DutyError
@@ -173,15 +174,31 @@ def test_stats_types_come_from_slot_definitions(ops):
     assert period_duty_counts(p) == ([("운영나", 0), ("운영가", 1)], 1, True)
 
 
-def test_period_counts_pool_is_board_roster(ops, make_member):
-    """모집단 = 생성기 members_by_type 와 같은 사람(그 근무표 부서 재직자). 다른 근무표 사람·퇴사자는 0회로 끼지 않는다."""
+def test_period_counts_keep_departed_commuter(make_member, it_board):
+    """IT 불변(main 과 같다): 자격 출근이 있는 퇴사 개발자는 배정 0회여도 0으로 남는다."""
+    p = Period.objects.create(board=it_board, name="p", start_date=NOV9, end_date=NOV13, status=S.PUBLISHED)
+    gone = make_member("퇴사개발", active=False)
+    Commute.objects.create(period=p, date=NOV9, member=gone, shift="normal")
+    assert period_duty_counts(p) == ([("퇴사개발", 0)], 0, True)
+
+
+def test_stats_empty_eligible_types_means_everyone(ops):
+    """관제 칸 자격 구분이 비면(= 전원, 생성기와 같다) 유형을 거르지 않는다."""
     board, dept = ops
     BoardShift.objects.create(board=board, key="slot0", name="점검", start=time(10), end=time(11),
-                              eligible_shifts=["normal"], eligible_types=["직원"])
-    p = ops_period(board, ops_member(dept, "운영가"), status=S.PUBLISHED)
-    gone = ops_member(dept, "운영퇴사")
-    gone.is_active = False
-    gone.save()
-    for m in (gone, make_member("남직원", type="직원")):  # 남직원 = IT 부서
-        Commute.objects.create(period=p, date=NOV9, member=m, shift="normal")
-    assert period_duty_counts(p) == ([("운영가", 0)], 0, True)
+                              eligible_shifts=["normal"], eligible_types=[])
+    ops_period(board, ops_member(dept, "운영기타", type="개발자"), status=S.PUBLISHED)
+    assert {r.name: r.duty for r in member_stats(board, None, None)[0]} == {"운영기타": 0}
+
+
+def test_failure_label_skips_inactive_slot(ops, admin_client_ok, admin_user):
+    """꺼진 관제 정의가 앞에 있어도 실패 칸 이름은 생성기와 같은 순서(켜진 정의)로 찾는다."""
+    board, dept = ops
+    board.admin_group.user_set.add(admin_user)
+    BoardShift.objects.create(board=board, key="slot0", name="꺼진칸", start=time(10), end=time(11),
+                              eligible_shifts=["normal"], eligible_types=["직원"], active=False)
+    BoardShift.objects.create(board=board, key="slot3", name="못채울칸", start=time(12), end=time(13),
+                              eligible_shifts=["normal"], eligible_types=["없는유형"])
+    p = ops_period(board, ops_member(dept))
+    html = admin_client_ok.post(reverse("period_action", args=[p.pk, "generate"])).content.decode()
+    assert "못채울칸" in html and "꺼진칸" not in html

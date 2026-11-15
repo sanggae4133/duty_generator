@@ -77,6 +77,7 @@ def forward(apps, schema_editor):
 
 
 def backward(apps, schema_editor):
+    """운영 롤백은 백업 복원으로 한다. 이 역방향은 관리 그룹 → is_staff 를 되돌리지 않는다."""
     Group = apps.get_model("auth", "Group")
     Board = apps.get_model("duty", "Board")
     BoardShift = apps.get_model("duty", "BoardShift")

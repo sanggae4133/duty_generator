@@ -68,7 +68,7 @@ def period_list(request):
 
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
-    slot_names = [x.name for x in slot_defs(boards.defs(period.board))]  # generator 의 칸 번호 = 관제 정의 순서
+    slot_names = [x.name for x in slot_defs(boards.active_defs(period.board))]  # generator 의 칸 번호 = 켜진 관제 정의 순서
     return render(request, "duty/period_detail.html", {
         "period": period, "S": Period.Status,
         "steps": Period.Status.choices, "movable": [] if period.status == Period.Status.PUBLISHED
