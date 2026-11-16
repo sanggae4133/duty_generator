@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count
@@ -6,9 +8,9 @@ from .. import perms
 from ..csv_io import (CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, join_reason, parse_commute_csv,
                       split_reason)
 from ..errors import DutyError
-from ..models import Commute, Department, Period, User, step_label
-from ..shifts import by_key, shift_defs
-from . import boards
+from ..models import Board, Commute, Department, Period, User, step_label
+from ..shifts import SHIFT_KEYS, by_key, shift_defs, two_week_rotation, weekdays
+from . import boards, roster
 
 
 def _same_board(period: Period, dept: Department) -> None:
@@ -146,3 +148,60 @@ def progress(period: Period) -> dict[str, tuple[int, int]]:
     )
     depts = Department.objects.filter(board_id=period.board_id).order_by("code")
     return {d.code: (filled.get(d.code, 0), total) for d in depts}
+
+
+FILL_2W, FILL_1W = "2w", "1w"  # [2주 전 기준으로 채우기], [지난주와 같게]
+
+
+def can_rotate(dept: Department) -> bool:
+    """[2주 전 기준으로 채우기]는 입력 근무조가 정확히 3개일 때만(이른·가운데·늦은 조가 정해지게, 설계 6.2)."""
+    return len(input_keys(dept)) == 3
+
+
+def _base(period: Period, table: CommuteTable, dates: list[date]) -> dict[date, dict[str, tuple[str, str]]]:
+    """채우기의 기준 {날짜: {이름: (근무조, 사유)}}(설계 6.2): 회차 기간 안의 날은 지금 화면의 표(table, 저장 전 고친 것 포함),
+    밖의 날은 배포된 근무표(그날의 주인 회차)."""
+    inside = [d for d in dates if period.start_date <= d <= period.end_date]
+    out = {d: {name: (k, why) for k, names in table.get(d, {}).items() for name, why in map(split_reason, names)}
+           for d in inside}
+    outside = [d for d in dates if d not in inside]
+    if outside:
+        for day in roster.published_days(period.board, min(outside), max(outside)):
+            if day.date in outside:
+                out[day.date] = {n: (k, day.reason(k, n)) for k in SHIFT_KEYS for n in day.members.get(k, [])}
+    return out
+
+
+def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, how: str) -> CommuteTable:
+    """[2주 전 기준으로 채우기](how=FILL_2W)·[지난주와 같게](FILL_1W)(설계 6.2): day 가 든 주(회차 기간 ∩ 월~금)의 줄만
+    다시 채운 새 표를 돌려준다. 다른 주는 table 그대로. 저장하지 않는다(저장은 [표 저장]과 기존 검증).
+    지금 재직하는 그 부서 사람만 넣고, 건너뛰는 날(휴장일·근무 없음)은 비운다."""
+    _same_board(period, dept)
+    if period.board.input_mode != Board.InputMode.DIRECT:
+        raise DutyError("채우기는 직접 입력 근무표에서만 씁니다.")
+    if how not in (FILL_2W, FILL_1W):
+        raise DutyError("알 수 없는 채우기입니다.")
+    if how == FILL_2W and not can_rotate(dept):
+        raise DutyError("2주 전 기준으로 채우기는 근무조가 3개일 때만 씁니다.")
+    monday = day - timedelta(days=day.weekday())
+    week = [d for d in period.dates() if monday <= d <= monday + timedelta(days=4)]
+    if not week:
+        raise DutyError("회차 기간 밖의 주입니다.")
+    keys = input_keys(dept)
+    names = list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True))
+    if how == FILL_2W:
+        base = _base(period, table, weekdays(monday - timedelta(days=14), monday - timedelta(days=10)))
+        counted = {d: {n: k for n, (k, why) in rows.items() if not why} for d, rows in base.items()}  # 근무로 친 날만
+        order = [x.key for x in shift_defs(boards.active_defs(dept.board)) if x.key in keys]  # 시작 시각 순
+        picks = two_week_rotation(counted, names, order)
+        plan = {d: picks for d in week}
+    else:  # 지난주 같은 요일을 그대로(사유는 옮기지 않는다)
+        base = _base(period, table, [d - timedelta(days=7) for d in week])
+        plan = {d: {n: k for n, (k, _) in base.get(d - timedelta(days=7), {}).items()} for d in week}
+    skip = boards.skip_dates(period)
+    out = {d: v for d, v in table.items() if d not in week}
+    for d in week:
+        row = {k: [n for n in names if plan[d].get(n) == k] for k in keys}
+        if d not in skip and any(row.values()):
+            out[d] = row
+    return out

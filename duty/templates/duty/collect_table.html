@@ -17,13 +17,18 @@
 </article>
 {% endif %}
 <p class="guide"><small>칸마다 그 출근조에 들어갈 사람 이름을 쉼표(,)로 구분해 적습니다. 한 사람은 하루에 한 출근조만. 휴가·출장·교육은 이름 뒤에 이름(휴가)처럼 붙입니다(근무로 치지 않음).{% if names %}<br>{{ dept.name }} 인원: {{ names|join:", " }}{% endif %}</small></p>
+{% if filled %}<div class="msg warning" role="status">{% if changed %}{{ changed }}칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다. 확인하고 고친 뒤 [표 저장]을 누르세요.{% else %}바뀐 칸이 없습니다.{% endif %}</div>{% endif %}
 <form method="post">{% csrf_token %}
+{% if show_fill %}<button class="enter-save" tabindex="-1" aria-hidden="true">표 저장</button>{% endif %}{# 칸에서 Enter 를 누르면 채우기가 아니라 저장(첫 제출 버튼)이 눌리게 #}
 <div class="grid-wrap">
 <table class="roster">
   <thead><tr><th>날짜</th><th>요일</th>{% for s in shift_labels %}<th>{{ s }}</th>{% endfor %}</tr></thead>
   <tbody>{% for r in rows %}
+    {% if show_fill and r.week_start %}<tr class="week"><td colspan="{{ ncols }}"><div class="week-head"><strong>{{ r.week_start|date:"n/j" }} 주</strong>
+      {% if can_rotate %}<button name="fill" value="2w:{{ r.week_start|date:'Y-m-d' }}" class="outline">2주 전 기준으로 채우기</button>{% endif %}
+      <button name="fill" value="1w:{{ r.week_start|date:'Y-m-d' }}" class="outline">지난주와 같게</button></div></td></tr>{% endif %}
     <tr><td class="nw">{{ r.date|date:"Y-m-d" }}{% if r.closed %}<br><small class="hol" title="{{ r.closed }}">{{ r.closed|truncatechars:12 }}</small>{% endif %}</td><td>{{ r.weekday }}</td>
-      {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}" {% if r.closed %}disabled{% elif r.locked %}readonly{% endif %}></td>{% endfor %}
+      {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}"{% if c.changed %} class="filled"{% endif %} {% if r.closed %}disabled{% elif r.locked %}readonly{% endif %}></td>{% endfor %}
     </tr>{% endfor %}</tbody>
 </table>
 </div>
@@ -34,5 +39,10 @@
   table.roster td input { min-width: 8rem; margin: 0; }
   .savebar { position: sticky; bottom: 0; padding: .6rem 0; background: var(--pico-background-color); border-top: 1px solid var(--duty-line); }
   .savebar button { width: auto; margin: 0; }
+  tr.week td { padding-top: 1rem; }
+  tr.week .week-head { position: sticky; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; max-width: calc(100vw - 48px); }  /* 넓은 표가 가로로 밀려도 버튼은 보이는 폭 안에서 줄바꿈 */
+  tr.week button { width: auto; min-height: 44px; margin: 0; padding: .5rem 1rem; }
+  table.roster td input.filled { background: rgba(199, 119, 0, .18); outline: 2px solid #c77700; }
+  .enter-save { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 </style>
 {% endblock %}

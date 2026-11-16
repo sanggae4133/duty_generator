@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -40,34 +42,59 @@ def _load(request, pid, code):
     return period, dept
 
 
-def _render_table(request, period, dept, table, errors):
+def _render_table(request, period, dept, table, errors, before=None):
+    """before: 채우기 전 표(채우기 결과를 그릴 때만). 그것과 다른 칸을 색칠한다."""
     keys = collect.input_keys(dept)
     today, admin = perms.today(), perms.is_board_admin(request.user, period.board)
     skip = boards.skip_reasons(period)  # 건너뛰는 날: 칸을 잠그고(disabled 라 보내지 않는다) 까닭을 보인다
-    rows = [
-        {
-            "date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin, "closed": skip.get(d, ""),
-            "cells": [{"name": f"c_{d.isoformat()}_{k}", "value": ", ".join(table.get(d, {}).get(k, []))} for k in keys],
-        }
-        for d in period.dates()
-    ]
+    rows, weeks = [], set()
+    for d in period.dates():
+        monday = d - timedelta(days=d.weekday())
+        cells = [{"name": f"c_{d.isoformat()}_{k}", "value": ", ".join(table.get(d, {}).get(k, [])),
+                  "changed": before is not None
+                  and sorted(table.get(d, {}).get(k, [])) != sorted(before.get(d, {}).get(k, []))} for k in keys]
+        rows.append({"date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin,
+                     "closed": skip.get(d, ""), "cells": cells,
+                     "week_start": None if monday in weeks else monday})  # 그 주 첫 줄에만: 그 주 월요일(회차가 주 중간에 시작해도)
+        weeks.add(monday)
+    is_open = period.status == Period.Status.COLLECTING
+    direct = period.board.input_mode == Board.InputMode.DIRECT
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
         "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
-        "is_open": period.status == Period.Status.COLLECTING, "direct": period.board.input_mode == Board.InputMode.DIRECT,
+        "is_open": is_open, "direct": direct, "ncols": len(keys) + 2,
+        "show_fill": is_open and direct, "can_rotate": collect.can_rotate(dept),  # 채우기 버튼(설계 6.2): 직접 입력의 입력 중 회차만
+        "filled": before is not None, "changed": sum(c["changed"] for r in rows for c in r["cells"]),
     }, status=400 if errors else 200)
+
+
+def _posted(request, period, dept):
+    posted = {}
+    for d in period.dates():
+        day = {k: split_names(request.POST.get(f"c_{d.isoformat()}_{k}", "")) for k in collect.input_keys(dept)}
+        if any(day.values()):
+            posted[d] = day
+    return posted
 
 
 @login_required
 def table(request, pid, code):
     period, dept = _load(request, pid, code)
     if request.method == "POST":
-        posted = {}
-        for d in period.dates():
-            day = {k: split_names(request.POST.get(f"c_{d.isoformat()}_{k}", "")) for k in collect.input_keys(dept)}
-            if any(day.values()):
-                posted[d] = day
+        posted = _posted(request, period, dept)
+        if request.POST.get("fill"):  # 채우기: 저장하지 않고 그 주를 채운 표를 그려 보여 주기만 한다
+            how, _, raw = request.POST["fill"].partition(":")
+            try:
+                day = date.fromisoformat(raw)
+            except ValueError:
+                raise Http404
+            try:
+                filled = collect.fill_week(period, dept, posted, day, how)
+            except DutyError as e:
+                messages.error(request, str(e))
+                return _render_table(request, period, dept, posted, [])
+            return _render_table(request, period, dept, filled, [], before=posted)
         try:
             n = collect.apply_table(request.user, period, dept, posted)
         except CsvInvalid as e:
