@@ -70,10 +70,11 @@ class DepartmentForm(forms.ModelForm):
     def clean(self):
         c = super().clean()
         board, name = c.get("board"), c.get("name")
-        # Department.save 가 만들 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
+        # Department.save 가 만들거나 바꿀 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         group = f"{name} 출근표 입력"
-        if (board and name and board.input_mode == board.InputMode.COLLECT and not self.instance.input_group_id
-                and Group.objects.filter(name=group).exists()):
+        has_group = self.instance.input_group_id or (board and board.input_mode == board.InputMode.COLLECT)
+        if (name and has_group
+                and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists()):
             self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
         return c
 
@@ -89,8 +90,9 @@ class DepartmentAdmin(admin.ModelAdmin):
 
     @admin.display(description="가능한 출근조")
     def shift_labels(self, obj):
-        names = {x.key: x.name for x in boards.defs(obj.board)}
-        return "·".join(names.get(k, k) for k in obj.shift_keys())
+        defs = boards.defs(obj.board)  # 꺼진 근무조도 이름으로 보인다. 순서는 입력 표와 같은 시작 시각 순
+        names = {x.key: x.name for x in defs}
+        return "·".join(names[k] for k in boards.dept_keys(obj, defs))
 
     @admin.display(description="인원", ordering="_n")
     def member_count(self, obj):

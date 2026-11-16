@@ -166,10 +166,17 @@ class Department(models.Model):
                 and Department.objects.filter(board_id=self.board_id).exclude(pk=self.pk).exists()):
             raise ValidationError({"board": "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다."})
 
+    def input_group_name(self) -> str:
+        return f"{self.name} 출근표 입력"
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
         # 부서별 취합 근무표의 부서는 입력 그룹이 있어야 한다(픽스처·관리 화면·서비스 어느 길로 만들어도)
         if self.input_group_id is None and self.board_id is not None and self.board.input_mode == InputMode.COLLECT:
-            self.input_group = Group.objects.create(name=f"{self.name} 출근표 입력")
+            self.input_group = Group.objects.create(name=self.input_group_name())
+        elif self.input_group_id and self.input_group.name != self.input_group_name():  # 이름을 바꾸면 그룹 이름도
+            Group.objects.filter(pk=self.input_group_id).update(name=self.input_group_name())
+            self.input_group.name = self.input_group_name()
         super().save(*args, **kwargs)
 
     def shift_keys(self) -> list[str]:
