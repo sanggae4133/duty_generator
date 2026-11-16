@@ -5,6 +5,8 @@ from datetime import date, time
 import pytest
 from django.core.management import CommandError, call_command
 
+from django.contrib.auth.models import Group
+
 from duty.models import Board, BoardShift, Department, Period, User
 from duty.services import collect, periods
 
@@ -22,14 +24,15 @@ def people(tmp_path):
     return write
 
 
-def run(*args):
+def run(*args, **kw):
     out = io.StringIO()
-    call_command("add_board", *args, stdout=out)
+    call_command("add_board", *args, stdout=out, stderr=out, **kw)
     return out.getvalue()
 
 
 def counts():
-    return (Board.objects.count(), BoardShift.objects.count(), Department.objects.count(), User.objects.count())
+    return (Board.objects.count(), BoardShift.objects.count(), Department.objects.count(), User.objects.count(),
+            Group.objects.count())
 
 
 def test_happy_path(it_board, people):
@@ -103,12 +106,19 @@ def test_too_many_shifts(it_board, people):
 
 
 def test_invalid_name_is_atomic(it_board, people):
+    boss = User.objects.create_user("boss", password=None, name="가상장")
+    boss_groups = set(boss.groups.values_list("pk", flat=True))
     before = counts()
     with pytest.raises(CommandError) as e:
-        run("mops", "시장운영실", "--shifts", SHIFTS, "--people", people(["가상가", "", "가상나(휴가)", "가,상"]))
-    assert "3번째 줄" in str(e.value) and "4번째 줄" in str(e.value)
+        run("mops", "시장운영실", "--shifts", SHIFTS, "--people", people(["가상가", "", "가상나(휴가)", "가,상"]),
+            "--admin", "boss")
+    msg = str(e.value)
+    assert "3번째 줄: 이름이 (휴가)·(출장)·(교육)으로 끝날 수 없습니다" in msg and "4번째 줄" in msg
+    assert "가상나" not in msg and "가,상" not in msg  # 명단의 이름은 오류에도 남기지 않는다
     assert counts() == before
     assert not Board.objects.filter(code="mops").exists()
+    assert not Group.objects.filter(name="시장운영실 근무표 관리").exists()
+    assert set(boss.groups.values_list("pk", flat=True)) == boss_groups
 
 
 def test_duplicate_names_and_existing_name(it_board, people):
@@ -117,6 +127,7 @@ def test_duplicate_names_and_existing_name(it_board, people):
     with pytest.raises(CommandError) as e:
         run("mops", "시장운영실", "--shifts", SHIFTS, "--people", people(["가상가", "가상나", "가상가"]))
     assert "2번째 줄" in str(e.value) and "3번째 줄" in str(e.value)
+    assert "가상" not in str(e.value)
     assert counts() == before
 
 
@@ -151,3 +162,10 @@ def test_empty_people_refused(it_board, people):
     with pytest.raises(CommandError, match="이름"):
         run("mops", "시장운영실", "--shifts", SHIFTS, "--people", people(["# 비어 있음"]))
     assert not Board.objects.filter(code="mops").exists()
+
+
+def test_people_from_stdin(it_board):
+    out = run("mops", "시장운영실", "--shifts", SHIFTS, "--people", "-", stdin=io.StringIO("가상가\n# 주석\n가상나\n"))
+    assert "mops01~mops02" in out
+    assert list(User.objects.filter(department__code="mops").order_by("username").values_list("name", flat=True)) == [
+        "가상가", "가상나"]

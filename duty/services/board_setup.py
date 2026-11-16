@@ -85,7 +85,7 @@ def create_direct_board(code: str, name: str, shifts: list[Span], lunch: Span | 
         try:
             user.full_clean()  # 이름 규칙(validate_member_name)·길이·겹침(앞줄 포함: 앞줄은 이미 저장됐다)
         except ValidationError as e:
-            errors.append(f"{line}번째 줄 '{person}': {_msg(e)}")
+            errors.append(f"{line}번째 줄: {_msg(e)}")  # 이름(실명)은 오류에도 남기지 않는다
             continue
         user.save()
     if errors:
