@@ -164,3 +164,15 @@ def test_confirm_with_slot_def_and_empty_weekday(ops):
     p.refresh_from_db()
     assert p.status == S.GENERATED and out.warnings[0].endswith("11/20")
     assert sorted(DutyAssignment.objects.filter(period=p, cell="slot3").values_list("date", flat=True)) == p.dates()[:4]
+
+
+def test_confirm_with_slot_def_and_all_weekdays_empty(ops):
+    """평일이 모두 비어도 관제 정의가 있는 직접 입력 회차는 경고만 하고 확정한다(관제 칸은 없음)."""
+    board, dept = ops
+    BoardShift.objects.create(board=board, key="slot3", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["dawn"], eligible_types=["직원"])
+    p = new_period(board)
+    out = run_generation(p, seed=1)
+    p.refresh_from_db()
+    assert p.status == S.GENERATED and out.warnings
+    assert not DutyAssignment.objects.filter(period=p).exists()

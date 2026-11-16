@@ -87,6 +87,8 @@ def generate_control_duty(
 
 
 def _balance(assignments, eligible, counts) -> None:
+    if not counts:  # 관제를 만들 날이 없다(직접 입력 회차의 평일이 모두 빔)
+        return
     for _ in range(MAX_SWAP_ITERATIONS):
         hi, lo = max(counts.values()), min(counts.values())
         if hi - lo <= TARGET_SPREAD:
