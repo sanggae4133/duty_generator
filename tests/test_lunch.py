@@ -246,6 +246,14 @@ def test_set_reason_warns_lunch(pub, it_board):
         "가은(는) 그날 점심당번 칸에 남아 있습니다. 그 칸을 눌러 다른 사람으로 바꾸거나 빼세요."]  # 자동으로 빼지 않는다
 
 
+def test_set_reason_warns_slot_and_lunch_together(pub, it_board):
+    p, m = pub
+    DutyAssignment.objects.create(period=p, date=T, cell="lunch", member=m["나"])  # 나는 관제 칸에도 있다
+    assert changes.set_reason(m["라"], it_board, T, m["나"], "휴가") == [
+        "나은(는) 그날 점심당번, 장중관제 08:30~09:30 칸에 남아 있습니다. "
+        "그 칸을 눌러 다른 사람으로 바꾸세요(점심당번 칸은 빼도 됩니다)."]  # 관제 칸은 비울 수 없다
+
+
 # ── 화면: 근무조 → 점심당번 → 관제, 시각 없이 "점심당번", 근무 변경 창 ──
 
 def test_roster_and_day_order(pub, client):
