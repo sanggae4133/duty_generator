@@ -164,3 +164,12 @@ def test_week_header_uses_monday_when_period_starts_midweek(ops_admin, ops):
     assert body.count('name="fill" value="1w:') == 3  # 11/16·11/23·11/30 주
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "1w:2026-11-16"})
     assert 'name="c_2026-11-18_dawn"' in r.content.decode()  # 월·화는 회차 밖이라 줄이 없다
+
+
+def test_fill_keeps_other_weeks_skipped_day_values(ops_admin, ops):
+    """잠긴 날(휴장일·근무 없음) 칸은 보내지 않으므로, 채우기 뒤에도 DB 값을 그대로 보여 준다."""
+    p, dept = ops
+    Commute.objects.create(period=p, date=d(11, 25), member=User.objects.get(name="가상가"), shift="dawn")
+    Holiday.objects.create(date=d(11, 25), name="가상휴일2")
+    r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "2w:2026-11-16"})
+    assert 'name="c_2026-11-25_dawn" value="가상가"' in r.content.decode()

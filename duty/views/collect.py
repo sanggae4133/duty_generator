@@ -47,6 +47,11 @@ def _render_table(request, period, dept, table, errors, before=None):
     keys = collect.input_keys(dept)
     today, admin = perms.today(), perms.is_board_admin(request.user, period.board)
     skip = boards.skip_reasons(period)  # 건너뛰는 날: 칸을 잠그고(disabled 라 보내지 않는다) 까닭을 보인다
+    if skip:  # 잠긴 칸은 POST 에 없으니 늘 DB 값을 보인다(채우기·오류 뒤 다시 그릴 때 비어 보이지 않게)
+        saved = collect.load_table(period, dept)
+        table = {**table, **{x: saved.get(x, {}) for x in skip}}
+        if before is not None:
+            before = {**before, **{x: saved.get(x, {}) for x in skip}}
     rows, weeks = [], set()
     for d in period.dates():
         monday = d - timedelta(days=d.weekday())
