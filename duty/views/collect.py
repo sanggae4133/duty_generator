@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from .. import perms
 from ..csv_io import CsvInvalid, split_names
 from ..errors import DutyError
-from ..models import Department, Period, User
+from ..models import Board, Department, Period, User, step_label
 from ..services import boards, collect
 from ..shifts import DAY_LABELS
 
@@ -25,7 +25,9 @@ def index(request):
     for p in Period.objects.filter(status=Period.Status.COLLECTING, board_id__in=mine).order_by("start_date"):
         prog = collect.progress(p)  # 그 회차 근무표의 부서만 있다
         items.append({"period": p, "depts": [(d, prog[d.code]) for d in depts if d.board_id == p.board_id]})
-    return render(request, "duty/collect_index.html", {"items": items})
+    # 목록이 비었을 때 문구: 근무표의 화면 단계 이름(취합 중 / 입력 중), 겹치는 이름은 한 번만
+    waiting = "·".join(dict.fromkeys(step_label(d.board, Period.Status.COLLECTING) for d in depts))
+    return render(request, "duty/collect_index.html", {"items": items, "waiting": waiting})
 
 
 def _load(request, pid, code):
@@ -53,7 +55,7 @@ def _render_table(request, period, dept, table, errors):
         "period": period, "dept": dept, "rows": rows, "errors": errors,
         "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
-        "is_open": period.status == Period.Status.COLLECTING,
+        "is_open": period.status == Period.Status.COLLECTING, "direct": period.board.input_mode == Board.InputMode.DIRECT,
     }, status=400 if errors else 200)
 
 

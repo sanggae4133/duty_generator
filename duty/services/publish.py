@@ -6,7 +6,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, DutyAssignment, Period, PeriodEvent, User
+from ..models import ChangeLog, Commute, DutyAssignment, InputMode, Period, PeriodEvent, User
 from . import boards, memos
 from .periods import record
 
@@ -23,7 +23,8 @@ class PublishPreview:
 
 def _validate(period: Period, overwrite_from: date) -> None:
     if period.status != S.GENERATED:
-        raise DutyError("생성이 끝난 회차만 배포할 수 있습니다.")
+        raise DutyError("확정한 회차만 배포할 수 있습니다." if period.board.input_mode == InputMode.DIRECT
+                        else "생성이 끝난 회차만 배포할 수 있습니다.")
     if not period.start_date <= overwrite_from <= period.end_date:
         raise DutyError("덮어쓰기 시작일은 회차 기간 안이어야 합니다.")
 

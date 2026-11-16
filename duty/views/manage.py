@@ -11,7 +11,7 @@ from .. import perms
 from ..csv_io import join_reason
 from ..errors import DutyError
 from ..generator import GenerationError
-from ..models import Board, ChangeLog, Period
+from ..models import DIRECT_STEPS, Board, ChangeLog, Department, InputMode, Period, step_label
 from ..services import boards, collect, generate, periods, stats
 from ..services import publish as publishing
 from ..shifts import cell_label, slot_defs
@@ -63,18 +63,24 @@ def period_list(request):
             return redirect("period_detail", p.pk)
         return redirect("periods")
     return render(request, "duty/periods.html", {
-        "periods": Period.objects.filter(board__in=mine).order_by("-start_date"), "boards": mine,
+        "periods": Period.objects.filter(board__in=mine).select_related("board").order_by("-start_date"), "boards": mine,
     })
 
 
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
     slot_names = [x.name for x in slot_defs(boards.active_defs(period.board))]  # generator 의 칸 번호 = 켜진 관제 정의 순서
+    direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력: 입력 중 → 확정 → 배포됨(설계 6.1·7)
+    S = Period.Status
     return render(request, "duty/period_detail.html", {
-        "period": period, "S": Period.Status,
-        "steps": Period.Status.choices, "movable": [] if period.status == Period.Status.PUBLISHED
-        else [(s, Period.Status(s).label) for s in periods.MOVABLE if s != period.status],
-        "events": period.events.select_related("by"),
+        "period": period, "S": S, "direct": direct, "generated_label": step_label(period.board, S.GENERATED),
+        "steps": DIRECT_STEPS if direct else S.choices,
+        "movable": [] if direct or period.status == S.PUBLISHED  # 직접 입력은 [확정 취소] 하나로 되돌린다
+        else [(s, S(s).label) for s in periods.MOVABLE if s != period.status],
+        "events": [(e, e.from_status and step_label(period.board, e.from_status), step_label(period.board, e.to_status))
+                   for e in period.events.select_related("by")],
+        "input_depts": Department.objects.filter(board=period.board).order_by("order", "code") if direct else [],
+        "empty_days": periods.empty_days(period) if direct and period.status == S.COLLECTING else [],
         "undo": publishing.unpublish_info(period) if period.status == Period.Status.PUBLISHED else None,
         "progress": collect.progress(period), "missing": periods.missing_dates(period),
         "counts": counts, "spread": spread, "reached": reached,

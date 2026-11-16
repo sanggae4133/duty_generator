@@ -15,7 +15,7 @@
   <tbody>{% for p in periods %}
     <tr><td><a href="{% url 'period_detail' p.pk %}">{{ p.name }}</a></td>
       <td>{{ p.start_date|date:"Y-m-d" }} ~ {{ p.end_date|date:"Y-m-d" }}</td>
-      <td><span class="pill st-{{ p.status }}">{{ p.get_status_display }}</span></td></tr>
+      <td><span class="pill st-{{ p.status }}">{{ p.status_label }}</span></td></tr>
   {% endfor %}</tbody>
 </table>
 <style>
