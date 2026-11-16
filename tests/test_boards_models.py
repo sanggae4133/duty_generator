@@ -87,3 +87,26 @@ def test_boardshift_key_labels_are_neutral():
 
 def test_depts_fixture_order_matches_old_filter_order(depts):
     assert [d.code for d in sorted(depts.values(), key=lambda d: d.order)] == ["MEMS", "TMCH", "MD", "UI"]
+
+
+def test_board_save_without_rename_keeps_admin_group_name(it_board):
+    """마이그레이션 0011 이 만든 IT 근무표(이름 'IT 당번표', 그룹 'IT 근무표 관리'): 이름을 안 바꾼 저장은 그룹을 건드리지 않는다."""
+    Group.objects.filter(pk=it_board.admin_group_id).update(name="IT 근무표 관리")
+    board = Board.objects.get(pk=it_board.pk)
+    board.save()
+    board.refresh_from_db()
+    assert board.name == "IT 당번표" and board.admin_group.name == "IT 근무표 관리"
+
+
+def test_department_save_without_rename_keeps_input_group_name(it_board):
+    d = Department.objects.create(code="QA", name="품질", shifts="normal", board=it_board)
+    Group.objects.filter(pk=d.input_group_id).update(name="옛 품질 그룹")
+    d = Department.objects.get(pk="QA")
+    d.order = 5
+    d.save()
+    d.refresh_from_db()
+    assert d.input_group.name == "옛 품질 그룹"
+    d.name = "품질관리"
+    d.save()
+    d.refresh_from_db()
+    assert d.input_group.name == "품질관리 출근표 입력"

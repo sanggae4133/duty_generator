@@ -173,3 +173,15 @@ def test_fill_keeps_other_weeks_skipped_day_values(ops_admin, ops):
     Holiday.objects.create(date=d(11, 25), name="가상휴일2")
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "2w:2026-11-16"})
     assert 'name="c_2026-11-25_dawn" value="가상가"' in r.content.decode()
+
+
+def test_fill_skips_people_kept_on_inactive_shift(ops):
+    """그날 꺼진 근무조(보존되는 키)에 행이 있는 사람은 켜진 근무조에 넣지 않는다(넣으면 저장 검증이 막는다)."""
+    p, dept = ops
+    BoardShift.objects.create(board=p.board, key="night", name="밤", start=time(13), end=time(22), active=False)
+    ga = User.objects.get(name="가상가")
+    Commute.objects.create(period=p, date=d(11, 23), member=ga, shift="night")
+    table = {d(11, 16): {"dawn": ["가상가"], "normal": ["가상나"]}}
+    out = collect.fill_week(p, dept, table, d(11, 23), collect.FILL_1W)
+    assert out[d(11, 23)] == {"dawn": [], "normal": ["가상나"], "dinner": []}
+    assert collect.validate_table(ga, p, dept, out) == []

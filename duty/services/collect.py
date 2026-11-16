@@ -36,6 +36,11 @@ def _kept_keys(dept: Department) -> set[str]:
     return {x.key for x in boards.defs(dept.board) if not x.active}
 
 
+def _kept_names(loaded: CommuteTable, kept_keys: set[str]) -> dict[date, set[str]]:
+    """{날짜: 꺼진 근무조(보존 키)에 행이 있는 사람}. 그날 켜진 근무조에 다시 넣을 수 없다."""
+    return {d: {split_reason(n)[0] for k, v in day.items() if k in kept_keys for n in v} for d, day in loaded.items()}
+
+
 def shift_names(dept: Department) -> dict[str, str]:
     """{입력 키: 근무 정의 이름}. 키·순서는 input_keys 와 같다(입력 표 머리글·CSV 열 이름)."""
     labels = by_key(boards.active_defs(dept.board))
@@ -67,7 +72,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     kept_keys = _kept_keys(dept)
     loaded = load_table(period, dept)
     existing = {d: {k: v for k, v in day.items() if k not in kept_keys} for d, day in loaded.items()}
-    kept = {d: {split_reason(n)[0] for k, v in day.items() if k in kept_keys for n in v} for d, day in loaded.items()}
+    kept = _kept_names(loaded, kept_keys)
     members = set(User.objects.roster().filter(department=dept).values_list("name", flat=True))
     skip = boards.skip_reasons(period)
     for d in sorted(table):
@@ -198,9 +203,10 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
         base = _base(period, table, [d - timedelta(days=7) for d in week])
         plan = {d: {n: k for n, (k, _) in base.get(d - timedelta(days=7), {}).items()} for d in week}
     skip = boards.skip_dates(period)
+    kept = _kept_names(load_table(period, dept), _kept_keys(dept))  # 그날 꺼진 근무조에 남은 사람은 넣지 않는다
     out = {d: v for d, v in table.items() if d not in week}
     for d in week:
-        row = {k: [n for n in names if plan[d].get(n) == k] for k in keys}
+        row = {k: [n for n in names if plan[d].get(n) == k and n not in kept.get(d, ())] for k in keys}
         if d not in skip and any(row.values()):
             out[d] = row
     return out

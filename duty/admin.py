@@ -73,7 +73,9 @@ class DepartmentForm(forms.ModelForm):
         # Department.save 가 만들거나 바꿀 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         group = f"{name} 출근표 입력"
         has_group = self.instance.input_group_id or (board and board.input_mode == board.InputMode.COLLECT)
-        if (name and has_group
+        if c.get("managers") and board and board.input_mode == board.InputMode.DIRECT:
+            self.add_error("managers", "직접 입력 근무표의 부서는 입력 담당자가 없습니다. 근무표 관리자가 입력합니다.")
+        if (name and has_group and "name" in self.changed_data  # 이름을 바꿀 때만 그룹 이름이 바뀐다
                 and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists()):
             self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
         return c
@@ -195,7 +197,8 @@ class BoardShiftForm(forms.ModelForm):
     """근무 정의 한 줄의 검증(설계 4.3). 저장한 줄은 키 칸을 잠근다(BoardShift.clean 이 한 번 더 막는다).
     시각 오류는 start 칸에 붙인다: 그 칸이 오류면 DB 제약(boardshift_times_valid) 검사를 건너뛰어 영어 제약 문구가 함께 뜨지 않는다."""
     eligible_shifts = forms.MultipleChoiceField(label="자격 근무조", required=False, choices=SHIFT_KEY_CHOICES,
-                                                widget=forms.CheckboxSelectMultiple, help_text="장중관제 칸만")
+                                                widget=forms.CheckboxSelectMultiple,
+                                                help_text="장중관제 칸만. 켜진 관제는 하나 이상 고릅니다")
     eligible_types = forms.MultipleChoiceField(label="자격 구분", required=False, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)],
                                                widget=forms.CheckboxSelectMultiple, help_text="장중관제 칸만. 비우면 전원")
 
@@ -229,6 +232,8 @@ class BoardShiftForm(forms.ModelForm):
             self.add_error("start", "시작·끝 시각을 넣고 시작을 끝보다 이르게 하세요(당일 근무만).")
         if not is_slot_cell(key) and (c.get("eligible_shifts") or c.get("eligible_types")):
             self.add_error("eligible_shifts", "자격 근무조·자격 구분은 장중관제 칸에만 씁니다.")
+        if is_slot_cell(key) and c.get("active") and not c.get("eligible_shifts"):  # 자격자가 없으면 생성이 그 칸을 못 채운다
+            self.add_error("eligible_shifts", "장중관제 칸은 자격 근무조를 하나 이상 골라야 합니다.")
         if key not in SHIFT_KEYS and c.get("default_alarm"):
             self.add_error("default_alarm", "기본 알림 대상은 근무조에만 씁니다.")
         return c
@@ -287,7 +292,8 @@ class BoardForm(forms.ModelForm):
         # Board.save 가 만들거나 바꿀 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         if name and Board.objects.exclude(pk=self.instance.pk).filter(name=name).exists():
             self.add_error("name", f"같은 이름의 근무표가 이미 있습니다: {name}")
-        elif name and Group.objects.exclude(pk=self.instance.admin_group_id).filter(name=f"{name} 근무표 관리").exists():
+        elif (name and "name" in self.changed_data  # 이름을 바꿀 때만 관리 그룹 이름이 바뀐다
+              and Group.objects.exclude(pk=self.instance.admin_group_id).filter(name=f"{name} 근무표 관리").exists()):
             self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {name} 근무표 관리")
         return c
 

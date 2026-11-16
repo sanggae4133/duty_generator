@@ -57,11 +57,17 @@ def ops(it_board):
     return board, a, b
 
 
+def _saved_extras(s):
+    """자격·기본 알림도 저장값 그대로(체크박스는 켤 때만)."""
+    out = {k: getattr(s, k) for k in ("eligible_shifts", "eligible_types") if getattr(s, k)}
+    return {**out, "default_alarm": "on"} if s.default_alarm else out
+
+
 def change(board, shifts, *extra, **fields):
     """지금 정의를 그대로 보내고(필요하면 fields 로 바꾼 값) extra 줄을 더한다."""
     rows = [row(i, **{"key": s.key, "name": s.name, "start": f"{s.start:%H:%M}" if s.start else "",
                       "end": f"{s.end:%H:%M}" if s.end else "", "pk": s.pk, "board": board.pk, "active": s.active,
-                      **fields.get(s.key, {})}) for i, s in enumerate(shifts)]
+                      **_saved_extras(s), **fields.get(s.key, {})}) for i, s in enumerate(shifts)]
     rows += [{k.replace("shifts-0-", f"shifts-{len(rows) + j}-"): v for k, v in r.items()} for j, r in enumerate(extra)]
     return form(rows, initial=len(shifts), name=board.name)
 
@@ -350,3 +356,24 @@ def test_editing_definitions_keeps_published_rows(su_client, client, it_board, m
     unpublish(b)
     assert sorted(Commute.objects.filter(period=a).values_list("date", "shift")) == [(d1, "dawn"), (d2, "dawn")]
     assert DutyAssignment.objects.filter(period=a, cell="slot0").count() == 2
+
+
+def test_it_board_save_without_rename_keeps_admin_group(su_client, it_board):
+    """IT 근무표 그룹 이름은 'IT 근무표 관리'(마이그레이션 0011). 근무 정의만 고친 저장은 그룹 이름을 바꾸지 않는다."""
+    Group.objects.filter(pk=it_board.admin_group_id).update(name="IT 근무표 관리")
+    Group.objects.create(name="IT 당번표 근무표 관리")  # 이름을 안 바꾸면 겹침 검사도 하지 않는다
+    shifts = list(it_board.shifts.order_by("id"))
+    data = change(it_board, shifts, normal={"name": "정상근무"})
+    r = su_client.post(reverse("admin:duty_board_change", args=[it_board.pk]), data)
+    assert r.status_code == 302, errors(r)
+    it_board.refresh_from_db()
+    assert it_board.admin_group.name == "IT 근무표 관리"
+    assert it_board.shifts.get(key="normal").name == "정상근무"
+
+
+def test_active_slot_needs_eligible_shift(su_client, ops):
+    board, a, b = ops
+    data = change(board, [a, b], row(2, "slot1", "관제", "09:00", "15:30", board=board.pk))
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    assert r.status_code == 200 and "장중관제 칸은 자격 근무조를 하나 이상 골라야 합니다." in r.content.decode()
+    assert not board.shifts.filter(key="slot1").exists()

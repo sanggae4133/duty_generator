@@ -3,7 +3,8 @@
 <h3>{{ period.name }} <small>({{ period.status_label }})</small></h3>
 <ol class="lifecycle">{% for code, label in steps %}<li><span{% if code == period.status %} class="now"{% endif %}>{{ label }}</span></li>{% endfor %}</ol>
 {% if period.status == S.DRAFT or direct and period.status == S.COLLECTING %}
-<form method="post" class="search labeled">{% csrf_token %}
+<form method="post" class="search labeled"{% if direct %} data-start="{{ period.start_date|date:'Y-m-d' }}" data-end="{{ period.end_date|date:'Y-m-d' }}"
+      onsubmit="return !(this.start_date.value &gt; this.dataset.start || this.end_date.value &lt; this.dataset.end) || confirm('기간을 줄이면 바깥 날짜의 출근표가 지워집니다. 저장할까요?')"{% endif %}>{% csrf_token %}
   <label>이름 <input name="name" value="{{ period.name }}" required></label>
   <label>시작일 <input type="date" name="start_date" value="{{ period.start_date|date:'Y-m-d' }}" required></label>
   <label>종료일 <input type="date" name="end_date" value="{{ period.end_date|date:'Y-m-d' }}" required></label>

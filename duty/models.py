@@ -41,6 +41,12 @@ class InputMode(models.TextChoices):
     DIRECT = "direct", "관리자 직접 입력"
 
 
+def _renamed(obj) -> bool:
+    """저장된 행의 이름이 이번 저장에서 바뀌는가. 그룹 이름은 이름을 바꿀 때만 따라간다(지금 그룹 이름과 달라도 그대로)."""
+    old = type(obj).objects.filter(pk=obj.pk).values_list("name", flat=True).first() if obj.pk else None
+    return old is not None and old != obj.name
+
+
 class Board(models.Model):
     """근무표 하나(IT 당번표, 시장운영실…). 회차·부서·근무 정의가 여기에 속한다."""
     InputMode = InputMode
@@ -71,7 +77,7 @@ class Board(models.Model):
     def save(self, *args, **kwargs):
         if self.admin_group_id is None:  # 어느 길로 만들어도 관리 그룹이 빠지지 않게
             self.admin_group = Group.objects.create(name=self.admin_group_name())
-        elif self.admin_group.name != self.admin_group_name():  # 이름을 바꾸면 관리 그룹 이름도 같은 저장에서
+        elif _renamed(self):  # 이름을 바꿀 때만 관리 그룹 이름도 같은 저장에서(IT 그룹 'IT 근무표 관리'는 그대로 둔다)
             Group.objects.filter(pk=self.admin_group_id).update(name=self.admin_group_name())
             self.admin_group.name = self.admin_group_name()
         super().save(*args, **kwargs)
@@ -174,7 +180,7 @@ class Department(models.Model):
         # 부서별 취합 근무표의 부서는 입력 그룹이 있어야 한다(픽스처·관리 화면·서비스 어느 길로 만들어도)
         if self.input_group_id is None and self.board_id is not None and self.board.input_mode == InputMode.COLLECT:
             self.input_group = Group.objects.create(name=self.input_group_name())
-        elif self.input_group_id and self.input_group.name != self.input_group_name():  # 이름을 바꾸면 그룹 이름도
+        elif self.input_group_id and _renamed(self):  # 이름을 바꿀 때만 그룹 이름도
             Group.objects.filter(pk=self.input_group_id).update(name=self.input_group_name())
             self.input_group.name = self.input_group_name()
         super().save(*args, **kwargs)

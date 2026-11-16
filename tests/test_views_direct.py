@@ -138,3 +138,17 @@ def test_only_first_input_button_is_primary(admin_client_ok, ops):
     body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
     assert f'<a role="button" href="/collect/{p.pk}/OPS/">' in body
     assert f'<a role="button" class="outline" href="/collect/{p.pk}/OP2/">' in body
+
+
+SHRINK = "기간을 줄이면 바깥 날짜의 출근표가 지워집니다. 저장할까요?"
+
+
+def test_period_save_confirms_only_when_shrinking(admin_client_ok, ops, it_board):
+    """입력 중 기간 저장: 지금 기간(data-start/end)보다 좁힐 때만 확인 창(바깥 날짜 행이 지워진다)."""
+    p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
+    body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
+    assert 'data-start="2026-11-16" data-end="2026-11-20"' in body
+    assert ("this.start_date.value &gt; this.dataset.start || this.end_date.value &lt; this.dataset.end" in body
+            and SHRINK in body)
+    draft = Period.objects.create(board=it_board, name="d", start_date=MON, end_date=FRI, status=S.DRAFT)
+    assert SHRINK not in admin_client_ok.get(f"/periods/{draft.pk}/").content.decode()  # 작성 중에는 지울 행이 없다

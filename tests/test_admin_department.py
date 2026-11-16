@@ -144,3 +144,15 @@ def test_change_page_code_is_readonly(su_client, depts):
     data = {**_data(d, ["normal"]), "code": "ZZ"}
     su_client.post(url, data)
     assert Department.objects.count() == n and not Department.objects.filter(code="ZZ").exists()
+
+
+def test_direct_board_department_refuses_input_managers(it_board, make_member):
+    """직접 입력 근무표의 부서는 입력 그룹이 없다: 입력 담당자를 고르면 조용히 버리지 않고 칸 오류."""
+    ops = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    BoardShift.objects.create(board=ops, key="normal", name="가운데", start="09:00", end="18:00")
+    m = make_member("가", dept="UI")
+    data = {"code": "OPS", "name": "운영", "board": ops.pk, "order": 9, "shifts": ["normal"], "managers": [m.pk]}
+    form = DepartmentForm(data)
+    assert not form.is_valid()
+    assert "직접 입력 근무표의 부서는 입력 담당자가 없습니다" in str(form.errors.get("managers", ""))
+    assert DepartmentForm({**data, "managers": []}).is_valid()
