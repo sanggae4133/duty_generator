@@ -240,10 +240,11 @@ def groups(request):
         group = next((g for g in kept if str(g.pk) == request.POST.get("group")), None)
         pid = request.POST.get("member", "")
         member = User.objects.filter(pk=pid).first() if pid.isdigit() else None
-        if group is None or member is None:  # 맡지 않은 그룹·없는 사람
+        do = request.POST.get("do")
+        if group is None or member is None or do not in ("add", "remove"):  # 맡지 않은 그룹·없는 사람·모르는 동작
             raise Http404
         try:
-            if request.POST.get("do") == "remove":
+            if do == "remove":
                 warning = group_service.remove_member(request.user, group, member)
                 messages.success(request, f"{member.name}을(를) {group.name}에서 뺐습니다.")
                 if warning:

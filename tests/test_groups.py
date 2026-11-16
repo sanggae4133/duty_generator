@@ -99,3 +99,13 @@ def test_post_to_group_not_kept_is_404(client, keeper, depts, make_member):
     client.force_login(keeper)
     assert client.post("/groups/", {"group": depts["TMCH"].input_group.pk, "member": m.pk, "do": "add"}).status_code == 404
     assert client.post("/groups/", {"group": depts["MEMS"].input_group.pk, "member": "x", "do": "add"}).status_code == 404
+
+
+def test_post_unknown_do_is_404(client, keeper, depts, make_member):
+    """do 는 add·remove 만. 다른 값은 404 이고 멤버는 그대로다."""
+    m = make_member("가상가")
+    g = depts["MEMS"].input_group
+    client.force_login(keeper)
+    assert client.post("/groups/", {"group": g.pk, "member": m.pk, "do": "zap"}).status_code == 404
+    assert client.post("/groups/", {"group": g.pk, "member": m.pk}).status_code == 404
+    assert not g.user_set.filter(pk=m.pk).exists()
