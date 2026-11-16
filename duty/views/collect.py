@@ -101,13 +101,13 @@ def table(request, pid, code):
                 return _render_table(request, period, dept, posted, [])
             return _render_table(request, period, dept, filled, [], before=posted)
         try:
-            n = collect.apply_table(request.user, period, dept, posted)
+            collect.apply_table(request.user, period, dept, posted)
         except CsvInvalid as e:
             return _render_table(request, period, dept, posted, e.errors)
         except DutyError as e:
             messages.error(request, str(e))
         else:
-            messages.success(request, f"{n}명분을 저장했습니다.")
+            messages.success(request, "표를 저장했습니다.")
         return redirect("collect_table", pid, code)
     return _render_table(request, period, dept, collect.load_table(period, dept), [])
 
@@ -124,13 +124,13 @@ def upload(request, pid, code):
         messages.error(request, "파일이 너무 큽니다 (최대 1MB).")
         return redirect("collect_table", pid, code)
     try:
-        n = collect.apply_csv(request.user, period, dept, f.read())
+        collect.apply_csv(request.user, period, dept, f.read())
     except CsvInvalid as e:
         return _render_table(request, period, dept, collect.load_table(period, dept), e.errors)
     except DutyError as e:
         messages.error(request, str(e))
     else:
-        messages.success(request, f"CSV를 반영했습니다. ({n}명분)")
+        messages.success(request, "CSV를 반영했습니다.")
     return redirect("collect_table", pid, code)
 
 

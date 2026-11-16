@@ -1,7 +1,8 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <div class="cal-nav">
-  <h3 class="cal-title">{{ title }}{% if view_only %} <small>보기 전용</small>{% endif %}</h3>
+  <h3 class="cal-title">{{ title }}{% if view_only and not home_code %} <small>보기 전용</small>{% endif %}</h3>
+  {% if home_code %}<a class="to-mine" role="button" href="/?board={{ home_code }}">보기 전용 · 내 근무표로</a>{% endif %}
   {% if board_links %}<span class="seg" role="group" aria-label="근무표">{% for b in board_links %}<a href="{{ b.href }}"{% if b.current %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</span>{% endif %}
   <span class="seg" role="group" aria-label="보기">
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
@@ -31,7 +32,7 @@
       </td>
     {% endfor %}
     </tr>
-    {% if view == 'month' %}{% if week.0.week_memo or memo_admin %}<tr class="wmemo"><td colspan="5">{% include "duty/_memo.html" with scope="week" md=week.0.date m=week.0.week_memo %}</td></tr>{% endif %}{% endif %}
+    {% if view == 'month' %}{% if week.0.week_memo or memo_admin %}<tr class="wmemo"><td colspan="5">{% include "duty/_memo.html" with scope="week" md=week.0.date m=week.0.week_memo dated=True %}</td></tr>{% endif %}{% endif %}
   {% endfor %}
   </tbody>
 </table>

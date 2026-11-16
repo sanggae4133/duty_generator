@@ -153,7 +153,7 @@ def test_set_reason_records_without_changing_people(pub, it_board):
     assert (log.cell, log.before, log.after, log.reason_before, log.reason_after, log.by) == (
         "normal", m["가"], m["가"], "", "휴가", m["다"])
     # 당번 칸은 자동으로 빼지 않고 경고만(점심당번이 생기면 같은 경고가 "점심당번 칸"으로 나온다)
-    assert warnings == ["가은(는) 그날 장중관제 08:30~09:30 칸에 남아 있습니다. 다른 사람으로 바꾸세요."]
+    assert warnings == ["가은(는) 그날 장중관제 08:30~09:30 칸에 남아 있습니다. 그 칸을 눌러 다른 사람으로 바꾸세요."]  # 관제 칸은 비울 수 없다
     assert changes.set_reason(m["다"], it_board, T, m["나"], "출장") == []
     changes.set_reason(m["다"], it_board, T, m["가"], "")
     assert Commute.objects.get(member=m["가"]).reason == ""

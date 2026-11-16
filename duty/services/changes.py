@@ -153,7 +153,12 @@ def set_reason(user, board, d: date, member: User, reason: str) -> list[str]:
     defs = boards.defs(board)
     labels = ", ".join(f"{SLOT_GROUP_NAME} {cell_label(defs, x.cell)}" if is_slot_cell(x.cell) else cell_label(defs, x.cell)
                        for x in duties)
-    return [f"{member.name}은(는) 그날 {labels} 칸에 남아 있습니다. 다른 사람으로 바꾸세요."]
+    solo = ", ".join(dict.fromkeys(cell_label(defs, x.cell) for x in duties if not is_slot_cell(x.cell)))
+    if not any(is_slot_cell(x.cell) for x in duties):  # 점심당번 칸은 비워도 된다
+        todo = "다른 사람으로 바꾸거나 빼세요."
+    else:  # 관제 칸은 교체만(change_cell)
+        todo = f"다른 사람으로 바꾸세요({solo} 칸은 빼도 됩니다)." if solo else "다른 사람으로 바꾸세요."
+    return [f"{member.name}은(는) 그날 {labels} 칸에 남아 있습니다. 그 칸을 눌러 {todo}"]
 
 
 @transaction.atomic

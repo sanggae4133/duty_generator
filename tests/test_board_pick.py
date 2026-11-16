@@ -77,8 +77,18 @@ def test_view_only_other_board(client, two):
     assert "보기 전용" in body and 'class="cell"' not in body and "칸을 누르면" not in body
     day = client.get(f"/day/{D}/?board=ops").content.decode()
     assert "보기 전용" in day and "가상나" in day and "바꾸기</summary>" not in day
+    assert '<a class="to-mine" role="button" href="/?board=it">보기 전용 · 내 근무표로</a>' in body  # 크게, 내 근무표로 돌아가기
+    assert f'<a class="to-mine" role="button" href="/?board=it&amp;date={D}">보기 전용 · 내 근무표로</a>' in day
     mine = client.get(WEEK + "&board=it").content.decode()
     assert "보기 전용" not in mine and 'class="cell"' in mine
+    assert RosterPref.objects.get(user=ga).board is None  # 그 링크(?board=내 근무표)는 기억한 근무표를 비운다
+
+
+def test_view_only_home_board_has_no_back_link(client, two):
+    client.force_login(User.objects.create_user("nobody", password=None, name="가상무"))  # 부서 없음: 내 근무표 = 첫 근무표(IT)
+    body = client.get(WEEK).content.decode()
+    assert "보기 전용" in body and 'class="to-mine"' not in body  # 지금이 내 근무표면 돌아갈 곳이 없다
+    assert 'class="to-mine"' in client.get(WEEK + "&board=ops").content.decode()
 
 
 def test_other_board_admin_gets_board_links(client, two):
@@ -276,3 +286,12 @@ def test_rule_page_redraws_without_saving(client, two):
     init = r.context["form"].initial
     assert init["shifts"] == ["dawn", "normal", "dinner"] and init["depts"] == ["OPS"] and init["hours"] == "3"
     assert 'value="night"' not in r.content.decode()
+
+
+def test_week_head_weekday_and_cell_form_without_slots(client, two):
+    """좁은 화면은 요일 머리가 숨으니 날짜 옆에 요일을, 관제가 없는 근무표의 사유 안내에는 '관제'를 빼고(4단계 점검)."""
+    board, ga, na = two
+    client.force_login(na)
+    assert "11/16 (월)" in client.get(WEEK + "&board=ops").content.decode()
+    form = client.get(f"/cell/{D}/dawn/?board=ops").content.decode()
+    assert "(알림·캘린더에서 빠짐)" in form and "관제" not in form

@@ -196,6 +196,8 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
     if how == FILL_2W:
         base = _base(period, table, weekdays(monday - timedelta(days=14), monday - timedelta(days=10)))
         counted = {d: {n: k for n, (k, why) in rows.items() if not why} for d, rows in base.items()}  # 근무로 친 날만
+        if not any(counted.values()):  # 기준이 없으면 모두 가운데 조가 된다: 잘못 채운 표를 저장하지 않게 막는다
+            raise DutyError("2주 전 그 주에 근무가 없어 채울 수 없습니다(이전 근무표가 배포되지 않았거나 비어 있음). 이 주는 직접 넣으세요.")
         order = [x.key for x in shift_defs(boards.active_defs(dept.board)) if x.key in keys]  # 시작 시각 순
         picks = two_week_rotation(counted, names, order)
         plan = {d: picks for d in week}

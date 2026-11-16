@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
@@ -189,8 +189,9 @@ class UserAdmin(DjangoUserAdmin):
             self.message_user(request, "자기 계정은 발급에서 뺐습니다. 내 비밀번호는 메뉴의 [비밀번호]에서 바꾸세요.",
                               messages.INFO)
         if lines:
-            self.message_user(request, "임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요. "
-                              + " / ".join(lines), messages.WARNING)
+            self.message_user(request, format_html(  # 한 줄에 한 사람: 1:1로 옮길 때 섞이지 않게
+                "임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요.{}",
+                format_html_join("", "<br>{}", ((x,) for x in lines))), messages.WARNING)
 
 
 class BoardShiftForm(forms.ModelForm):

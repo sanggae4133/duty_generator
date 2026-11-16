@@ -138,9 +138,9 @@ def test_table_locks_closed_rows(client, mems):
     p, dept, user = mems
     client.force_login(user)
     body = client.get(f"/collect/{p.pk}/MEMS/").content.decode()
-    assert f'name="c_{HOL}_dawn" value="" disabled' in body
-    assert f'name="c_{NOWORK}_normal" value="" disabled' in body
-    assert f'name="c_{d(10)}_dawn" value="" >' in body
+    assert f'name="c_{HOL}_dawn" rows="2" disabled' in body
+    assert f'name="c_{NOWORK}_normal" rows="2" disabled' in body
+    assert f'name="c_{d(10)}_dawn" rows="2" ></textarea>' in body
     assert '<small class="hol" title="시험 휴장">시험 휴장</small>' in body
     assert '<small class="hol" title="워크숍">워크숍</small>' in body
 

@@ -35,19 +35,19 @@ def grid(client, q=""):
 def test_shift_filter_hides_unchecked_in_roster(client, world):
     client.force_login(world[0])
     g = grid(client, "?shift=normal")
-    assert "<small>정상</small>" in g and "<small>석식교대</small>" not in g and "관제" not in g
-    assert "<small>석식교대</small>" in grid(client, "?shift=dinner") and "<small>정상</small>" not in grid(client, "?shift=dinner")
+    assert '<b class="sh">정상</b>' in g and '<b class="sh">석식교대</b>' not in g and "관제" not in g
+    assert '<b class="sh">석식교대</b>' in grid(client, "?shift=dinner") and '<b class="sh">정상</b>' not in grid(client, "?shift=dinner")
 
 
 def test_slots_toggle_is_all_control_cells(client, world):
     client.force_login(world[0])
     g = grid(client, "?shift=slots")
-    assert "관제" in g and "<small>정상</small>" not in g and "08:30" in g
+    assert "관제" in g and '<b class="sh">정상</b>' not in g and "08:30" in g
 
 
 def test_invalid_shift_ignored(client, world):
     client.force_login(world[0])
-    assert "<small>정상</small>" in grid(client, "?shift=bogus") and "관제" in grid(client, "?shift=bogus")
+    assert '<b class="sh">정상</b>' in grid(client, "?shift=bogus") and "관제" in grid(client, "?shift=bogus")
 
 
 def test_fold_button_gone(client, world):
@@ -94,7 +94,7 @@ def test_saved_and_loaded(client, two_depts):
     p = RosterPref.objects.get(user=a)
     assert (p.depts, p.types, p.shifts, p.view) == (["UI"], ["개발자"], ["normal"], "month")
     body = client.get("/").content.decode()  # 파라미터 없음 → 저장값
-    assert "라" in body and "<small>석식교대</small>" not in body and "2026년 11월" in body
+    assert "라" in body and '<b class="sh">석식교대</b>' not in body and "2026년 11월" in body
 
 
 def test_f1_without_boxes_means_all_and_saves(client, two_depts):
@@ -102,7 +102,7 @@ def test_f1_without_boxes_means_all_and_saves(client, two_depts):
     client.force_login(a)
     client.get("/?dept=UI&shift=normal")
     g = grid(client, "?f=1")
-    assert "라" in g and "가" in g and "<small>석식교대</small>" in g
+    assert "라" in g and "가" in g and '<b class="sh">석식교대</b>' in g
     assert RosterPref.objects.get(user=a).depts == []
 
 
@@ -118,7 +118,7 @@ def test_per_user_isolation(client, world):
     client.force_login(a)
     client.get("/?shift=normal")
     client.force_login(b)
-    assert "<small>석식교대</small>" in grid(client)
+    assert '<b class="sh">석식교대</b>' in grid(client)
     assert RosterPref.objects.get(user=a).shifts == ["normal"]
 
 
@@ -145,7 +145,7 @@ def test_stale_saved_prefs_fall_back_to_all(client, world):
     RosterPref.objects.create(user=a, depts=["GONE"], types=["외부"], shifts=["bogus"])
     client.force_login(a)
     body = client.get("/").content.decode()
-    assert "<small>정상</small>" in body and body.count(" checked") == 12
+    assert '<b class="sh">정상</b>' in body and body.count(" checked") == 12
 
 
 def test_unchanged_get_does_not_write(client, world):

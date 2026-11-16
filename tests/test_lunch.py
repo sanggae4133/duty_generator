@@ -243,7 +243,15 @@ def test_carry_lunch_on_swap_from_other_side(pub, it_board):
 def test_set_reason_warns_lunch(pub, it_board):
     _, m = pub
     assert changes.set_reason(m["다"], it_board, T, m["가"], "휴가") == [
-        "가은(는) 그날 점심당번 칸에 남아 있습니다. 다른 사람으로 바꾸세요."]  # 자동으로 빼지 않는다
+        "가은(는) 그날 점심당번 칸에 남아 있습니다. 그 칸을 눌러 다른 사람으로 바꾸거나 빼세요."]  # 자동으로 빼지 않는다
+
+
+def test_set_reason_warns_slot_and_lunch_together(pub, it_board):
+    p, m = pub
+    DutyAssignment.objects.create(period=p, date=T, cell="lunch", member=m["나"])  # 나는 관제 칸에도 있다
+    assert changes.set_reason(m["라"], it_board, T, m["나"], "휴가") == [
+        "나은(는) 그날 점심당번, 장중관제 08:30~09:30 칸에 남아 있습니다. "
+        "그 칸을 눌러 다른 사람으로 바꾸세요(점심당번 칸은 빼도 됩니다)."]  # 관제 칸은 비울 수 없다
 
 
 # ── 화면: 근무조 → 점심당번 → 관제, 시각 없이 "점심당번", 근무 변경 창 ──
@@ -253,7 +261,7 @@ def test_roster_and_day_order(pub, client):
     client.force_login(m["나"])
     for url in ["/?date=2026-11-10", "/?view=month&date=2026-11-10"]:
         body = client.get(url).content.decode()
-        assert body.index("<small>야간</small>") < body.index("<small>점심당번</small>") < body.index("<small>관제</small>")
+        assert body.index('<b class="sh">야간</b>') < body.index('<b class="sh">점심당번</b>') < body.index('<b class="sh">관제</b>')
         assert 'href="/day/2026-11-10/#lunch"' in body  # 칸을 눌러 바꾼다
     body = client.get("/day/2026-11-10/").content.decode()
     assert body.index("<strong>야간</strong>") < body.index("<strong>점심당번</strong>") < body.index("<strong>08:30~09:30</strong>")
@@ -268,9 +276,11 @@ def test_schedule_filter_and_me(pub, client):
     _, m = pub
     client.force_login(m["가"])
     body = client.get("/?date=2026-11-10&f=1&shift=lunch").content.decode()
-    assert "<small>점심당번</small>" in body and "<small>새벽</small>" not in body and "<small>관제</small>" not in body
+    assert '<b class="sh">점심당번</b>' in body and '<b class="sh">새벽</b>' not in body and '<b class="sh">관제</b>' not in body
     me = client.get("/me/").content.decode()
-    assert 'value="lunch"' in me and "점심당번" in me
+    assert 'value="lunch"' in me and "새벽 06:30~15:30 · 점심당번</span>" in me  # 부서 점심 시각이 없으면 이름만
+    Department.objects.filter(pk=m["가"].department_id).update(lunch_start=time(11, 30), lunch_end=time(12, 30))
+    assert "새벽 06:30~15:30 · 점심당번 11:30~12:30</span>" in client.get("/me/").content.decode()
 
 
 def test_cell_form_for_lunch_and_carry(pub, client, lunch):

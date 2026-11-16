@@ -5,8 +5,8 @@
 {% if not is_open %}<p>{% if direct %}입력 중인 회차가 아니라{% else %}취합이 열려 있지 않아{% endif %} 저장할 수 없습니다.</p>{% endif %}
 <div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
   {% if is_open %}<form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 {{ dept.name|escapejs }} 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">{% csrf_token %}
-    <input type="file" name="file" accept=".csv" required>
-    <button class="secondary">CSV 올리기 (부서 전체 교체)</button>
+    <input type="file" name="file" accept=".csv" required style="max-width:100%">
+    <button class="secondary">CSV 올리기 ({% if direct %}표{% else %}부서{% endif %} 전체 교체)</button>
   </form>{% endif %}
   <a role="button" class="secondary" style="white-space:nowrap" href="{% url 'collect_export' period.pk dept.code %}">CSV 내려받기</a>
 </div>
@@ -28,21 +28,29 @@
       {% if can_rotate %}<button name="fill" value="2w:{{ r.week_start|date:'Y-m-d' }}" class="outline">2주 전 기준으로 채우기</button>{% endif %}
       <button name="fill" value="1w:{{ r.week_start|date:'Y-m-d' }}" class="outline">지난주와 같게</button></div></td></tr>{% endif %}
     <tr><td class="nw">{{ r.date|date:"Y-m-d" }}{% if r.closed %}<br><small class="hol" title="{{ r.closed }}">{{ r.closed|truncatechars:12 }}</small>{% endif %}</td><td>{{ r.weekday }}</td>
-      {% for c in r.cells %}<td><input name="{{ c.name }}" value="{{ c.value }}"{% if c.changed %} class="filled"{% endif %} {% if r.closed %}disabled{% elif r.locked %}readonly{% endif %}></td>{% endfor %}
+      {% for c in r.cells %}<td><textarea name="{{ c.name }}" rows="2"{% if c.changed %} class="filled"{% endif %} {% if r.closed %}disabled placeholder="휴장"{% elif r.locked %}readonly{% endif %}>{{ c.value }}</textarea></td>{% endfor %}
     </tr>{% endfor %}</tbody>
 </table>
 </div>
 {% if is_open %}<div class="savebar"><button>표 저장</button></div>{% endif %}
 </form>
+<script>
+  // 칸은 여러 줄 칸이지만 Enter 는 지금처럼 저장(Shift+Enter·한글 조합 중 Enter 는 그대로)
+  document.querySelector("table.roster").addEventListener("keydown", e => {
+    const b = e.target.form && e.target.form.querySelector("button");
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.target.tagName === "TEXTAREA" && b) { e.preventDefault(); e.target.form.requestSubmit(b); }
+  });
+</script>
 <style>
   p.guide { margin: 0 0 .6rem; }
-  table.roster td input { min-width: 8rem; margin: 0; }
+  table.roster td textarea { width: 100%; min-width: 8rem; margin: 0; resize: vertical; field-sizing: content; min-height: 2.6em; }  /* 이름이 많으면 줄바꿈해 다 보인다 */
+  table.roster td textarea:disabled { background: var(--duty-line); }
   .savebar { position: sticky; bottom: 0; padding: .6rem 0; background: var(--pico-background-color); border-top: 1px solid var(--duty-line); }
   .savebar button { width: auto; margin: 0; }
   tr.week td { padding-top: 1rem; }
   tr.week .week-head { position: sticky; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; max-width: calc(100vw - 48px); }  /* 넓은 표가 가로로 밀려도 버튼은 보이는 폭 안에서 줄바꿈 */
   tr.week button { width: auto; min-height: 44px; margin: 0; padding: .5rem 1rem; }
-  table.roster td input.filled { background: rgba(199, 119, 0, .18); outline: 2px solid #c77700; }
+  table.roster td textarea.filled { background: rgba(199, 119, 0, .18); outline: 2px solid #c77700; }
   .enter-save { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 </style>
 {% endblock %}
