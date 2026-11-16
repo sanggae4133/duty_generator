@@ -243,21 +243,32 @@ def test_swap_records_reasons_in_both_logs(pub, it_board):
         "dawn", m["나"], m["가"], "", "휴가")
 
 
-# ── 화면: 이름 뒤 작은 (휴가), 근무 변경 창의 사유 선택, 입력 표 안내 ──
+# ── 화면: 사유는 취소선·옅은 회색(변경 내역 표시를 따른다), 근무 변경 창의 사유 선택, 입력 표 안내 ──
 
-RSN = '<small class="rsn">(휴가)</small>'
+EXC = '<span class="lb exc"><s>가(휴가)</s></span>'
 
 
-def test_roster_and_day_show_reason_even_without_history(pub, it_board, client):
+def test_roster_and_day_strike_reason_with_history(pub, it_board, client):
     _, m = pub
     changes.set_reason(m["다"], it_board, T, m["가"], "휴가")
     client.force_login(m["나"])
     for url in ["/?date=2026-11-10", "/?view=month&date=2026-11-10", "/day/2026-11-10/"]:
         body = client.get(url).content.decode()
-        assert f"가{RSN}" in body and "<s>가</s>" not in body, url
-        assert body.count(RSN) == 2, url  # 사유는 그날 그 사람 전체: 관제 칸의 가에도 붙는다
-    RosterPref.objects.update_or_create(user=m["나"], defaults={"history": False})  # 변경 내역을 꺼도 보인다
-    assert f"가{RSN}" in client.get("/?date=2026-11-10").content.decode()
+        assert body.count(EXC) == 2, url  # 사유는 그날 그 사람 전체: 관제 칸의 가에도 그어진다
+        assert 'class="rsn"' not in body, url
+
+
+def test_reason_hidden_without_history(pub, it_board, client):
+    """변경 내역을 끄면 빠진 사람처럼 사유 있는 사람도 숨긴다. 근무 변경 창에는 그대로 있어 고칠 수 있다."""
+    _, m = pub
+    changes.set_reason(m["다"], it_board, T, m["가"], "휴가")
+    client.force_login(m["나"])
+    RosterPref.objects.update_or_create(user=m["나"], defaults={"history": False})
+    for url in ["/?date=2026-11-10", "/?view=month&date=2026-11-10", "/day/2026-11-10/"]:
+        body = client.get(url).content.decode()
+        assert 'lb exc' not in body and 'class="lb">가<' not in body, url
+        assert 'class="lb">나<' in body, url
+    assert "가 (휴가)" in client.get("/cell/2026-11-10/normal/").content.decode()
 
 
 def test_cell_form_offers_reason_for_shift_cells_only(pub, client):

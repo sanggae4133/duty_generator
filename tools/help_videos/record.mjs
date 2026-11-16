@@ -125,8 +125,8 @@ const VIDEOS = {
     // seed.py: 휴장일(이번 주 또는 다음 주 금요일), 오늘(주말이면 다음 평일)의 날 메모·사유·바뀐 칸·점심당번
     await s.ev(`(document.querySelector('.hol') || document.querySelector('.memo')).scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
     await s.say('날짜 칸 맨 위에 휴장일 이름과 날 메모가 보입니다.\n주 메모는 표 위, 달 메모는 표 아래에 있습니다.', 3400);
-    await s.ev(`document.querySelector('.rsn').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
-    await s.say('이름 뒤 (휴가)는 그날 근무로 치지 않는 사람입니다.\n근무조 아래 점심당번 줄이 그날 점심당번입니다.', 3400);
+    await s.ev(`document.querySelector('.lb.exc').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
+    await s.say('취소선이 그어진 이름(휴가)는 그날 근무로 치지 않는 사람입니다.\n근무조 아래 점심당번 줄이 그날 점심당번입니다.', 3400);
     await s.say('굵은 기울임 글씨는 배포 뒤에 바뀐 근무,\n취소선은 빠진 사람입니다.', 3000);
     await s.say('바꿀 칸을 누릅니다.', 1200);
     await s.tap('a.cell[hx-get*="/normal/"]', 1600);  // 첫 번째 바꿀 수 있는 날(오늘)
