@@ -107,3 +107,29 @@ def test_new_department_input_group_name_clash(it_board):
     form = DepartmentForm(data)
     assert not form.is_valid()
     assert "같은 이름의 그룹이 이미 있습니다: 품질 출근표 입력" in str(form.errors.get("name", ""))
+
+
+def test_rename_department_renames_input_group(su_client, depts):
+    ui = depts["UI"]
+    data = {**_data(ui, ["normal", "dinner", "night"]), "name": "화면개발"}
+    r = su_client.post(reverse("admin:duty_department_change", args=["UI"]), data)
+    assert r.status_code == 302, r.content.decode()[:2000]
+    ui.refresh_from_db()
+    assert ui.name == "화면개발" and ui.input_group.name == "화면개발 출근표 입력"
+
+
+def test_rename_department_refused_when_group_name_taken(su_client, depts):
+    ui = depts["UI"]
+    Group.objects.create(name="화면개발 출근표 입력")
+    data = {**_data(ui, ["normal"]), "name": "화면개발"}
+    r = su_client.post(reverse("admin:duty_department_change", args=["UI"]), data)
+    assert r.status_code == 200 and "같은 이름의 그룹이 이미 있습니다: 화면개발 출근표 입력" in r.content.decode()
+    ui.refresh_from_db()
+    assert (ui.name, ui.shifts, ui.input_group.name) == ("UI", "normal,dinner,night", "UI 출근표 입력")
+
+
+def test_changelist_shifts_follow_current_start_times(su_client, depts, it_board):
+    # 입력 표(collect.input_keys)와 같은 순서: 저장 순서가 아니라 지금 시작 시각 순
+    BoardShift.objects.filter(board=it_board, key="normal").update(start="10:00")
+    html = su_client.get(reverse("admin:duty_department_changelist")).content.decode()
+    assert "석식교대·정상·야간" in html

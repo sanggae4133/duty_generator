@@ -112,7 +112,7 @@ def test_lunch_does_not_change_slot_result(gen, make_member, lunch):
     run_generation(gen, seed=7)
     with_lunch = sorted(DutyAssignment.objects.filter(period=gen, cell__startswith="slot")
                         .values_list("date", "cell", "member__name"))
-    lunch.delete()
+    BoardShift.objects.filter(pk=lunch.pk).delete()  # 저장한 정의는 instance.delete() 가 막는다(3단계), 시험 준비는 쿼리셋으로
     out = run_generation(gen, seed=7)
     assert sorted(DutyAssignment.objects.filter(period=gen).values_list("date", "cell", "member__name")) == with_lunch
     assert out.warnings == []  # 점심당번 정의가 없으면 채우지도 경고하지도 않는다
@@ -189,7 +189,7 @@ def test_lunch_and_slots_do_not_mix(pub, it_board):
 
 def test_lunch_needs_definition(pub, it_board, lunch):
     _, m = pub
-    lunch.delete()
+    BoardShift.objects.filter(pk=lunch.pk).delete()  # 저장한 정의는 instance.delete() 가 막는다(3단계), 시험 준비는 쿼리셋으로
     with pytest.raises(DutyError, match="알 수 없는 칸"):
         changes.change_cell(m["라"], it_board, T, "lunch", m["가"], m["라"])
 
@@ -282,7 +282,7 @@ def test_cell_form_for_lunch_and_carry(pub, client, lunch):
     assert 'name="reason"' not in body and "carry_lunch" not in body
     assert 'name="carry_lunch" value="1" checked' in client.get("/cell/2026-11-10/dawn/").content.decode()
     assert "carry_lunch" not in client.get("/cell/2026-11-10/slot0/").content.decode()
-    lunch.delete()
+    BoardShift.objects.filter(pk=lunch.pk).delete()  # 저장한 정의는 instance.delete() 가 막는다(3단계), 시험 준비는 쿼리셋으로
     assert "carry_lunch" not in client.get("/cell/2026-11-10/dawn/").content.decode()  # 정의가 없으면 숨김
 
 

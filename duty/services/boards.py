@@ -6,7 +6,7 @@ from django.db.models.functions import Coalesce
 
 from .. import perms
 from ..models import Board, BoardShift, Period, PeriodEvent
-from ..shifts import Def, ordered, weekdays
+from ..shifts import Def, ordered, shift_defs, weekdays
 from . import holidays, memos
 
 
@@ -25,6 +25,12 @@ def defs(board: Board) -> list[Def]:
 def active_defs(board: Board) -> list[Def]:
     """켜진 정의만(설계 4.3 '끄면 새 입력에서만 빠진다'): 입력 표·CSV 열, 부서 출근조·스케줄·알림 규칙 선택지, 생성."""
     return [x for x in defs(board) if x.active]
+
+
+def dept_keys(dept, defs: list[Def]) -> list[str]:
+    """부서 출근조 가운데 defs 에 있는 근무조 키, 지금 시작 시각 순(저장한 부서 출근조 순서는 정의 시각을 바꾸면 낡는다)."""
+    mine = set(dept.shift_keys())
+    return [x.key for x in shift_defs(defs) if x.key in mine]
 
 
 def board_of(user) -> Board | None:

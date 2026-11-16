@@ -1,8 +1,10 @@
+import re
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, Group, UserManager as DjangoUserManager
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Func, Q, Value
 from django.db.models.lookups import Exact
 
@@ -57,9 +59,21 @@ class Board(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        # 코드는 ?board= 쿼리에 쓰는 짧은 영문(설계 4.2). 만들 때만 본다(만든 뒤에는 관리 화면에서 읽기 전용)
+        if self._state.adding and not re.fullmatch(r"[a-z][a-z0-9]{0,15}", self.code or ""):
+            raise ValidationError({"code": "코드는 영문 소문자로 시작하는 영문 소문자·숫자 16자 이내입니다(예: ops)."})
+
+    def admin_group_name(self) -> str:
+        return f"{self.name} 근무표 관리"
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
         if self.admin_group_id is None:  # 어느 길로 만들어도 관리 그룹이 빠지지 않게
-            self.admin_group = Group.objects.create(name=f"{self.name} 근무표 관리")
+            self.admin_group = Group.objects.create(name=self.admin_group_name())
+        elif self.admin_group.name != self.admin_group_name():  # 이름을 바꾸면 관리 그룹 이름도 같은 저장에서
+            Group.objects.filter(pk=self.admin_group_id).update(name=self.admin_group_name())
+            self.admin_group.name = self.admin_group_name()
         super().save(*args, **kwargs)
 
 
@@ -98,6 +112,17 @@ class BoardShift(models.Model):
     def __str__(self):
         return f"{self.board} {self.name}"
 
+    def clean(self):
+        # 저장한 정의의 키·근무표는 바꾸지 않는다(지난 행·기록이 키로 이름을 찾는다, 설계 4.3). 관리 화면은 키 칸을 잠근다
+        if self.pk:
+            old = BoardShift.objects.filter(pk=self.pk).values_list("board_id", "key").first()
+            if old and old != (self.board_id, self.key):
+                raise ValidationError("저장한 근무 정의의 키·근무표는 바꿀 수 없습니다. 이 줄은 '사용'을 끄고 새 줄을 더하세요.")
+
+    def delete(self, *args, **kwargs):
+        # 저장한 정의는 지우지 않고 끈다. ponytail: 쿼리셋 일괄 삭제(QuerySet.delete)는 이 검사를 거치지 않는다
+        raise ValidationError("저장한 근무 정의는 지울 수 없습니다. '사용'을 끄세요.")
+
 
 class GroupKeeper(models.Model):
     """그룹 관리자: 그 그룹에 멤버를 넣고 빼기만 한다."""
@@ -135,10 +160,23 @@ class Department(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        # 직접 입력 근무표는 부서 하나짜리(설계 6.2): 입력 표·채우기·확정 경고가 부서 하나를 전제로 한다
+        if (self.board_id and self.board.input_mode == InputMode.DIRECT
+                and Department.objects.filter(board_id=self.board_id).exclude(pk=self.pk).exists()):
+            raise ValidationError({"board": "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다."})
+
+    def input_group_name(self) -> str:
+        return f"{self.name} 출근표 입력"
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
         # 부서별 취합 근무표의 부서는 입력 그룹이 있어야 한다(픽스처·관리 화면·서비스 어느 길로 만들어도)
         if self.input_group_id is None and self.board_id is not None and self.board.input_mode == InputMode.COLLECT:
-            self.input_group = Group.objects.create(name=f"{self.name} 출근표 입력")
+            self.input_group = Group.objects.create(name=self.input_group_name())
+        elif self.input_group_id and self.input_group.name != self.input_group_name():  # 이름을 바꾸면 그룹 이름도
+            Group.objects.filter(pk=self.input_group_id).update(name=self.input_group_name())
+            self.input_group.name = self.input_group_name()
         super().save(*args, **kwargs)
 
     def shift_keys(self) -> list[str]:

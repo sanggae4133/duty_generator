@@ -30,8 +30,9 @@ def test_board_save_creates_admin_group(db):
     assert b.admin_group.name == "운영팀 근무표 관리"
     before = Group.objects.count()
     b.name = "운영팀2"
-    b.save()  # 이미 있으면 새로 만들지 않는다
-    assert Group.objects.count() == before and b.admin_group.name == "운영팀 근무표 관리"
+    b.save()  # 이미 있으면 새로 만들지 않고, 이름만 따라 바꾼다
+    b.refresh_from_db()
+    assert Group.objects.count() == before and b.admin_group.name == "운영팀2 근무표 관리"
 
 
 def test_department_save_creates_input_group_for_collect_board(it_board):
