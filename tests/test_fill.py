@@ -202,3 +202,13 @@ def test_table_cells_wrap_and_messages_are_plain(ops_admin, ops):
     assert "CSV 올리기 (표 전체 교체)" in body and "부서 전체" not in body
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"c_2026-11-16_dawn": "가상가"}, follow=True)
     assert "표를 저장했습니다." in r.content.decode() and "명분" not in r.content.decode()
+
+
+def test_table_escapes_posted_values(ops_admin, ops):
+    p, _ = ops
+    bad = "</textarea><script>x</script>"
+    for data in ({"fill": "2w:2026-11-16", "c_2026-11-23_dawn": bad},  # 채우기: 다른 주는 화면 값 그대로
+                 {"c_2026-11-23_dawn": bad}):  # 저장 실패(모르는 이름): 고친 값 그대로 다시 그린다
+        body = ops_admin.post(f"/collect/{p.pk}/OPS/", data).content.decode()
+        assert "&lt;/textarea&gt;&lt;script&gt;x&lt;/script&gt;</textarea>" in body and "<script>x</script>" not in body
+    assert Commute.objects.filter(period=p).count() == 0

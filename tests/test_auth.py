@@ -181,3 +181,10 @@ def test_issue_accounts_lists_one_person_per_line(su_client, make_member):
     body = su_client.post(reverse("admin:duty_user_changelist"),
                           {"action": "issue_accounts", "_selected_action": [a.pk, b.pk]}, follow=True).content.decode()
     assert f"<br>가({a.username}): " in body and f"<br>나({b.username}): " in body
+
+
+def test_issue_accounts_escapes_names(su_client, make_member):
+    a = make_member("가<b>&</b>")  # 이름 검사는 폼에서만: DB 에 들어온 특수문자도 결과 글에서 글자 그대로
+    body = su_client.post(reverse("admin:duty_user_changelist"),
+                          {"action": "issue_accounts", "_selected_action": [a.pk]}, follow=True).content.decode()
+    assert f"<br>가&lt;b&gt;&amp;&lt;/b&gt;({a.username}): " in body and "<b>&</b>" not in body
