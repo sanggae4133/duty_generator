@@ -22,7 +22,7 @@ from .common import date_param, safe_next
 
 def _item(label: str, names: list[str], removed: bool = False, reasons: dict[str, str] | None = None) -> dict:
     """라벨(A, A>B>C, +B)을 이름 토큰으로 나눈다. 마지막 이름 앞은 취소선, hl은 검색어 번호(1..3).
-    reason = 지금 배정된(마지막) 사람의 사유. 이름 뒤에 작게 붙는다(변경 내역을 꺼도 보인다)."""
+    reason = 지금 배정된(마지막) 사람의 사유. 있으면 "이름(사유)" 전체를 긋고 옅은 회색(변경 내역을 끄면 _visible 이 숨긴다)."""
     parts = [p.strip().lstrip("+") for p in label.split(">")]
     tokens = [
         {"name": n, "struck": removed or k < len(parts) - 1, "hl": next((i for i, q in enumerate(names, 1) if q == n), 0)}
@@ -44,6 +44,11 @@ def _why(day, cell: str) -> dict[str, str]:
 def _latest(labels: list[str]) -> list[str]:
     """변경 내역을 숨길 때: 'A>B>C'·'+C' → 'C'(지금 근무하는 사람만)."""
     return [lb.split(">")[-1].strip().lstrip("+") for lb in labels]
+
+
+def _visible(labels: list[str], why: dict[str, str], history: bool) -> list[str]:
+    """변경 내역 표시를 끄면 지금 사람만 남기고, 사유 있는 사람도 빠진 사람처럼 숨긴다."""
+    return labels if history else [n for n in _latest(labels) if n not in why]
 
 
 def _lines(labels: list[str], names: list[str], removed: bool = False, per_line: int = 3,
@@ -189,7 +194,6 @@ def roster(request):
     edit_past, edit_now = (perms.can_edit(request.user, board, x) for x in (today - timedelta(days=1), today))
     pref = prefs.resolve(request.user, request.GET, board, mine=bc["mine"])
     view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
-    show = (lambda x: x) if history else _latest
     anchor = date_param(request, "date") or today
     if not LOW <= anchor <= HIGH:  # 극단 날짜의 overflow 방지
         anchor = today
@@ -227,8 +231,8 @@ def roster(request):
         return {
             x.key: {
                 "key": x.key, "slot": is_slot_cell(x.key), "label": x.name,
-                "lines": _lines(show([lb for lb in found.cells[x.key].labels if keep(lb)]), names,
-                                reasons=_why(found, x.key)) if found else [],
+                "lines": _lines(_visible([lb for lb in found.cells[x.key].labels if keep(lb)], _why(found, x.key), history),
+                                names, reasons=_why(found, x.key)) if found else [],
                 "removed": _lines([lb for lb in found.cells[x.key].removed if keep(lb)], names, True) if found and history else [],
             }
             for x in display_order(defs) if shown(x.key)
@@ -319,7 +323,6 @@ def day(request, d):
     defs = boards.defs(board)
     pref = prefs.resolve(request.user, request.GET, board, with_view=False, mine=bc["mine"])
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
-    show = (lambda x: x) if history else _latest
     found = find_day(board, d)
     note = memos.for_range(board, d, d)["day"].get(d)
     no_work = bool(note and note.no_work)  # 근무 없음 날은 칸 대신 메모 글만, 바꾸기 없음
@@ -332,7 +335,8 @@ def day(request, d):
             ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
                 next=request.path + bc["bq"],
-                items=_items(show([x for x in found.cells[k].labels if keep(x)]), [], reasons=_why(found, k)),
+                items=_items(_visible([x for x in found.cells[k].labels if keep(x)], _why(found, k), history), [],
+                             reasons=_why(found, k)),
                 removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True) if history else [],
             )
             sections.append(ctx)

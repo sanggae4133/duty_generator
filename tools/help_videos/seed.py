@@ -68,7 +68,7 @@ d = next(x for x in now.dates() if x >= today and x not in skip)  # 오늘(주�
 row = Commute.objects.filter(period=now, date=d, shift="normal").exclude(member__in=[member, manager]).first()
 changes.change_cell(admin, it, d, "normal", row.member, people[-1])  # 바뀐 칸 표시용
 off = Commute.objects.filter(period=now, date=d, shift="dinner").exclude(member__in=[member, manager]).first()
-changes.set_reason(admin, it, d, off.member, "휴가")  # 이름 뒤 (휴가)
+changes.set_reason(admin, it, d, off.member, "휴가")  # 취소선·옅은 회색 이름(휴가)
 memos.save(admin, it, "day", d, "분기 보고 마감")
 memos.save(admin, it, "week", d, "목요일 오후 전산 점검")
 memos.save(admin, it, "month", d, "본부 점심: 김가나, 이다라")

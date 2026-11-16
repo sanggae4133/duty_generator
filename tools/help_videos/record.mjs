@@ -125,8 +125,9 @@ const VIDEOS = {
     // seed.py: 휴장일(이번 주 또는 다음 주 금요일), 오늘(주말이면 다음 평일)의 날 메모·사유·바뀐 칸·점심당번
     await s.ev(`(document.querySelector('.hol') || document.querySelector('.memo')).scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
     await s.say('날짜 칸 맨 위에 휴장일 이름과 날 메모가 보입니다.\n주 메모는 표 위, 달 메모는 표 아래에 있습니다.', 3400);
-    await s.ev(`document.querySelector('.rsn').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
-    await s.say('이름 뒤 (휴가)는 그날 근무로 치지 않는 사람입니다.\n근무조 아래 점심당번 줄이 그날 점심당번입니다.', 3400);
+    await s.ev(`document.querySelector('.lb.exc').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
+    await s.say('취소선·옅은 회색 이름(휴가)는 사유로\n그날 근무로 치지 않는 사람입니다.', 3400);
+    await s.say('근무조 아래 점심당번 줄이 그날 점심당번입니다.', 2200);
     await s.say('굵은 기울임 글씨는 배포 뒤에 바뀐 근무,\n취소선은 빠진 사람입니다.', 3000);
     await s.say('바꿀 칸을 누릅니다.', 1200);
     await s.tap('a.cell[hx-get*="/normal/"]', 1600);  // 첫 번째 바꿀 수 있는 날(오늘)
@@ -144,6 +145,13 @@ const VIDEOS = {
     await s.type('input[name=q1]', '나사용');
     await s.tap('.names button', 1800);
     await s.scroll(500, 1600);
+    await s.ev('scrollTo({top: 0})'); await sleep(500);
+    await s.ev(`document.querySelector('details.filters').open = true`); await sleep(700);  // 검색 뒤 열려 있을 수도 있어 누르지 않고 연다
+    await s.tap('input[name=hist][type=checkbox]', 700);
+    await s.say('\'변경 내역 표시\'를 끄면 바뀐 기록과\n사유(휴가 등)가 있는 사람이 숨겨집니다.', 2600);
+    await s.tap('.names button', 1800);
+    await s.ev(`document.querySelector('a.cell[hx-get*="/dinner/"]').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
+    await s.say('지금 근무하는 사람만 남습니다.\n다시 켜면 취소선으로 함께 보입니다.', 3000);
     await s.ev('scrollTo({top: 0})'); await sleep(500);
     await s.tap('text=월간', 1800);
     await s.say('[월간]을 누르면 한 달을 달력처럼 한 화면에 봅니다.\n휴대폰에서는 옆으로 밀어서 봅니다.', 3000);
