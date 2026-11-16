@@ -136,7 +136,7 @@ def test_published_days_per_board(it_board, ops, make_member):
     [oday] = published_days(board, d(11, 10), d(11, 10))
     assert iday.members["normal"] == ["가"] and oday.members["normal"] == ["운영가"]
     assert list(oday.cells) == ["normal", "slot0"]  # 그 근무표의 정의만
-    assert member_schedule(board, oa, d(11, 10)) == [(d(11, 10), ["주간"])]
+    assert member_schedule(board, oa, d(11, 10)) == [(d(11, 10), ["주간 09:00~18:00"])]
 
 
 def test_cell_to_options_only_board_members(client, it_board, ops, make_member, fixed_today):

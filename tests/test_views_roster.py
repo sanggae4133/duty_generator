@@ -388,7 +388,25 @@ def test_me_shift_filter(client, world):
     assert '<span class="what">장중관제 08:30~09:30</span>' in body
     assert re.search(r'value="slots" checked', body) and not re.search(r'value="normal" checked', body)
     assert "예정된 근무가 없습니다" in client.get("/me/?shift=dinner").content.decode()
-    assert '<span class="what">정상 · 장중관제 08:30~09:30</span>' in client.get("/me/").content.decode()
+    assert '<span class="what">정상 08:00~17:00 · 장중관제 08:30~09:30</span>' in client.get("/me/").content.decode()
+
+
+def test_me_shows_holiday_and_no_work_days_gray(client, world, admin_user, it_board):
+    from duty.models import Holiday
+    from duty.services import memos
+    a, _ = world
+    publish_more(a, date(2026, 11, 13))  # 11/11·11/12 는 휴장일·근무 없음, 11/13 근무
+    Holiday.objects.create(date=date(2026, 11, 11), name="임시 휴장일")
+    it_board.admin_group.user_set.add(admin_user)
+    memos.save(admin_user, it_board, "day", date(2026, 11, 12), "전산 점검", no_work=True)
+    memos.save(admin_user, it_board, "day", date(2026, 12, 1), "", no_work=True)
+    client.force_login(a)
+    body = client.get("/me/").content.decode()
+    assert '<li class="off"><a href="/day/2026-11-11/"><span class="when">11/11 (수)</span><span class="what">임시 휴장일</span>' in body
+    assert '<span class="when">11/12 (목)</span><span class="what">전산 점검</span>' in body
+    assert '<span class="when">12/1 (화)</span><span class="what">근무 없음</span>' in body
+    assert body.index("11/11 (수)") < body.index("11/12 (목)") < body.index("11/13 (금)") < body.index("12/1 (화)")
+    assert "12/2 (수)" not in body  # 근무 없는 보통 평일은 그대로 빠진다
 
 
 def test_nav_brand_active_and_repo_link(client, world, settings):

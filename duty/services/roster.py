@@ -8,7 +8,7 @@ from django.db.models import F
 
 from ..csv_io import join_reason
 from ..models import ChangeLog, Commute, DutyAssignment, User
-from ..shifts import SLOT_GROUP_NAME, cell_label, is_slot_cell, ordered
+from ..shifts import SHIFT, SLOT_GROUP_NAME, cell_end, cell_label, cell_start, is_slot_cell, kind, ordered
 from . import boards
 
 Log = tuple[str | None, str | None]
@@ -107,12 +107,21 @@ def find_day(board, d: date) -> Day | None:
 
 
 def member_schedule(board, member: User, start: date, shown=lambda cell: True) -> list[tuple[date, list[str]]]:
+    """내 근무: 날마다 ["정상 08:00~17:00", "점심당번 11:30~12:30", "장중관제 08:30~09:30"]. 사유는 이름 뒤 "정상(휴가) 08:00~17:00".
+    점심당번 시각은 부서 점심 시각(없으면 이름만)."""
     defs = boards.defs(board)
+    dept = member.department
+    lunch = f" {dept.lunch_start:%H:%M}~{dept.lunch_end:%H:%M}" if dept and dept.lunch_start else ""
+
+    def label(day, c):
+        if is_slot_cell(c):
+            return f"{SLOT_GROUP_NAME} {cell_label(defs, c)}"
+        span = f" {cell_start(defs, c):%H:%M}~{cell_end(defs, c):%H:%M}" if kind(c) == SHIFT else lunch
+        return join_reason(cell_label(defs, c), day.reason(c, member.name)) + span
+
     out = []
     for day in published_days(board, start, None):
-        labels = [f"{SLOT_GROUP_NAME} {cell_label(defs, c)}" if is_slot_cell(c)
-                  else join_reason(cell_label(defs, c), day.reason(c, member.name))  # 정상(휴가)
-                  for c, names in day.members.items() if shown(c) and member.name in names]
+        labels = [label(day, c) for c, names in day.members.items() if shown(c) and member.name in names]
         if labels:
             out.append((day.date, labels))
     return out

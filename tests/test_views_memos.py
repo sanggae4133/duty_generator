@@ -76,6 +76,8 @@ def test_week_memo_row_under_its_week_in_month_view(client, world, it_board):
     assert body.rindex(">20<", 0, i) > body.rindex(">16<", 0, i)  # 그 주(16~20일) 행 뒤
     assert body.index(">23<") > i and 'class="wmemo"' in body  # 다음 주 행 앞
     assert body.count('class="wmemo"') == 1  # 메모 없는 주는 줄을 만들지 않는다(관리자가 아니면)
+    assert "<small>11/16 주 메모:</small> <span>셋째 주 메모</span>" in body  # 어느 주인지 월요일 날짜로
+    assert "<small>주 메모</small>" in client.get(f"/?view=week&date={D}").content.decode()  # 주간은 표 위 한 주라 날짜 없음
 
 
 def test_month_memo_below_table(client, world, it_board):

@@ -24,14 +24,14 @@
       --pico-primary-background: #2b1b40; --pico-primary-hover-background: #3f2a5e; --pico-primary-border: #2b1b40;
       --pico-primary-hover-border: #3f2a5e; --pico-primary-focus: rgba(75, 47, 127, .35); --pico-primary-inverse: #fff;
       --nxt-red: #e50038; --day-line: #9aa4b1; --duty-line: #dfe3e8; --chg: #e91e63; --pill-collect: #8a5300; --logo-filter: none;
-      --memo-bg: #fff3cd; --memo-bar: #e0a100; --memo-fg: #3d2a00; --exc: #4b515b;
+      --memo-bg: #fff3cd; --memo-bar: #e0a100; --memo-fg: #3d2a00; --exc: #4b515b; --cell-hover: rgba(75, 47, 127, .15);
     }
     @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) {
       --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
       --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
-      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8;
+      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8; --cell-hover: rgba(196, 178, 240, .15);
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     } }
     :root[data-theme=dark] {
@@ -39,7 +39,7 @@
       --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
-      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8;
+      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8; --cell-hover: rgba(196, 178, 240, .15);
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     }
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
@@ -70,9 +70,10 @@
     .seg a[aria-current] { background: var(--pico-primary-background); color: var(--pico-primary-inverse); font-weight: 600; }
     /* 근무표 칸: 누를 수 있는 칸은 칸 전체가 누르는 영역 */
     table.roster a.cell { display: block; min-height: 1.8rem; padding: .1rem .25rem; margin: 0 -.25rem; border-radius: .25rem; text-decoration: none; color: inherit; }
-    table.roster a.cell:hover, table.roster a.cell:focus-visible { background: var(--pico-primary-focus); }
+    table.roster a.cell:hover, table.roster a.cell:focus-visible { background: var(--cell-hover); }  /* 옅게: 올린 동안에도 사유 회색 글씨 대비 4.5:1 이상 */
     table.roster .add { opacity: .35; font-weight: 700; }
     table.roster .none { margin: .5rem 0 0; font-size: .8rem; opacity: .5; }
+    a.to-mine { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; width: auto; max-width: 100%; margin: 0; padding: .4rem 1.1rem; font-size: 1.05rem; font-weight: 700; white-space: normal; }  /* 남의 근무표에서 내 근무표로 돌아가는 큰 버튼(48px 이상) */
     .hol { margin: .2rem 0; font-weight: 700; color: var(--nxt-red); }  /* 휴장일 이름: 날짜 칸 맨 위·하루 화면 제목 아래 */
     section.danger { margin-top: 2.5rem; padding: 1rem; border: 1px solid var(--nxt-red); border-radius: .4rem; }  /* 지우기는 맨 아래 위험 구역(회차 상세·메모 창) */
     section.danger h4 { margin: 0 0 .6rem; color: var(--nxt-red); font-size: 1rem; }

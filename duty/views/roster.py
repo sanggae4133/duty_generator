@@ -90,9 +90,11 @@ def _board_ctx(request, board) -> dict:
     """근무표 고르기 공통 값. bq = "?board=<code>" 또는 ""(내 근무표), bqa = 같은 값을 "&" 로 이어 붙일 때.
     mine = 내 근무표(필터를 쓰고 저장), view_only = 내 근무표도 아니고 그 근무표 관리자도 아님(설계 7)."""
     bq = boards.board_query(request.user, board)
+    view_only = board != boards.board_of(request.user) and not perms.is_board_admin(request.user, board)
     return {
-        "bq": bq, "bqa": "&" + bq[1:] if bq else "", "board_code": board.code, "mine": not bq,
-        "view_only": board != boards.board_of(request.user) and not perms.is_board_admin(request.user, board),
+        "bq": bq, "bqa": "&" + bq[1:] if bq else "", "board_code": board.code, "mine": not bq, "view_only": view_only,
+        # 남의 근무표를 보기만 할 때 [보기 전용 · 내 근무표로]: ?board=내 근무표 → 기억한 근무표도 비운다
+        "home_code": boards.home(request.user).code if view_only and bq else "",
     }
 
 
@@ -391,9 +393,18 @@ def me(request):
     member = request.user if request.user.department_id else None
     board = boards.home(request.user)  # 내 스케줄은 늘 내 근무표
     _, _, shifts = prefs.clean(board, [], [], request.GET.getlist("shift"))
-    items = member_schedule(board, member, perms.today(), _shown(shifts)) if member else []
+    today = perms.today()
+    rows = dict(member_schedule(board, member, today, _shown(shifts))) if member else {}
+    days = boards.owners(board, today, None) if member else {}
+    if days:  # 휴장일·근무 없음 날도 회색 줄로(근무 없는 보통 날은 뺀다)
+        off = holidays.closed(today, max(days)) | {
+            d: m.text or "근무 없음" for d, m in memos.for_range(board, today, max(days))["day"].items() if m.no_work}
+        off = {d: why for d, why in off.items() if d in days and d not in rows}
+    else:
+        off = {}
     return render(request, "duty/me.html", {
         "member": member,
         "shift_choices": _shift_choices(boards.defs(board), shifts),
-        "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": labels, "today": d == perms.today()} for d, labels in items],
+        "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": rows.get(d) or [off[d]], "off": d in off,
+                   "today": d == today} for d in sorted(rows.keys() | off.keys())],
     })
