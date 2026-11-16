@@ -20,7 +20,8 @@ def record(period: Period, old: str, by=None, note: str = "") -> None:
 def save_draft(period: Period, by=None) -> Period:
     direct = period.board.input_mode == InputMode.DIRECT
     editable = {S.DRAFT, S.COLLECTING} if direct else {S.DRAFT}  # 직접 입력은 입력 중(= 취합 중)에도 기간을 고친다(설계 6.1)
-    if period.pk and Period.objects.get(pk=period.pk).status not in editable:
+    row = Period.objects.select_for_update().get(pk=period.pk) if period.pk else None  # 상태는 DB 에서(낡은 객체 대비)
+    if row and row.status not in editable:
         raise DutyError("기간은 입력 중에만 수정할 수 있습니다." if direct
                         else "기간은 작성 중(draft) 상태에서만 수정할 수 있습니다.")
     if period.start_date > period.end_date:
@@ -38,7 +39,11 @@ def save_draft(period: Period, by=None) -> Period:
     new = period.pk is None
     if new and direct:
         period.status = S.COLLECTING  # 직접 입력: 만들자마자 입력 중
-    period.save()
+    if new:
+        period.save()
+    else:  # 고칠 수 있는 칸만 쓴다: 낡은 객체가 상태·seed·생성 시각을 되돌리지 못하게
+        period.status, period.seed, period.generated_at = row.status, row.seed, row.generated_at
+        period.save(update_fields=["name", "start_date", "end_date"])
     if new:
         record(period, "", by)
     else:  # 되돌아온 회차는 출근표가 있을 수 있다: 줄어든 기간 밖은 지운다

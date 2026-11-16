@@ -120,3 +120,21 @@ def test_empty_input_list_names_input_state(client, ops, admin_user, it_board):
     it_board.admin_group.user_set.remove(admin_user)  # 운영팀(직접 입력)만 관리
     client.force_login(admin_user)
     assert "<p>입력 중인 회차가 없습니다.</p>" in client.get("/collect/").content.decode()
+
+
+@pytest.mark.parametrize("status", [S.DRAFT, S.CLOSED])
+def test_direct_period_in_odd_state_can_move_to_input(admin_client_ok, ops, status):
+    """입력 방식이 바뀌어 작성 중·마감에 남은 직접 입력 회차도 입력 중으로 옮길 수 있다."""
+    p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=status)
+    body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
+    assert "다른 상태로 옮기기" in body and '<option value="collecting">' in body
+    assert '<option value="draft">' not in body and '<option value="closed">' not in body
+
+
+def test_only_first_input_button_is_primary(admin_client_ok, ops):
+    board, _ = ops
+    Department.objects.create(code="OP2", name="운영2", shifts="dawn", board=board, order=100)
+    p = Period.objects.create(board=board, name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
+    body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
+    assert f'<a role="button" href="/collect/{p.pk}/OPS/">' in body
+    assert f'<a role="button" class="outline" href="/collect/{p.pk}/OP2/">' in body

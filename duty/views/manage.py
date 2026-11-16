@@ -67,6 +67,15 @@ def period_list(request):
     })
 
 
+def _movable(period, direct):
+    S = Period.Status
+    if direct:  # 직접 입력은 [확정 취소] 하나로 되돌린다. 입력 방식이 바뀌어 작성 중·마감에 남은 회차만 입력 중으로
+        return [(S.COLLECTING, step_label(period.board, S.COLLECTING))] if period.status in {S.DRAFT, S.CLOSED} else []
+    if period.status == S.PUBLISHED:
+        return []
+    return [(s, S(s).label) for s in periods.MOVABLE if s != period.status]
+
+
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
     slot_names = [x.name for x in slot_defs(boards.active_defs(period.board))]  # generator 의 칸 번호 = 켜진 관제 정의 순서
@@ -75,8 +84,7 @@ def _render_detail(request, period, failures):
     return render(request, "duty/period_detail.html", {
         "period": period, "S": S, "direct": direct, "generated_label": step_label(period.board, S.GENERATED),
         "steps": DIRECT_STEPS if direct else S.choices,
-        "movable": [] if direct or period.status == S.PUBLISHED  # 직접 입력은 [확정 취소] 하나로 되돌린다
-        else [(s, S(s).label) for s in periods.MOVABLE if s != period.status],
+        "movable": _movable(period, direct),
         "events": [(e, e.from_status and step_label(period.board, e.from_status), step_label(period.board, e.to_status))
                    for e in period.events.select_related("by")],
         "input_depts": Department.objects.filter(board=period.board).order_by("order", "code") if direct else [],

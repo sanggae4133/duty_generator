@@ -25,6 +25,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
         raise DutyError("마감된 회차만 생성할 수 있습니다.")
     holidays.sync(perms.today())  # 작업자가 꺼져 있어도 휴장일 표가 비어 있지 않게
     warnings = []
+    empty = []
     if direct:  # 직접 입력은 빈 평일을 막지 않고 경고로만 알린다
         empty = empty_days(period)
         if empty:
@@ -39,6 +40,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
 
     skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
     dates = [d for d in period.dates() if d not in skip]
+    slot_dates = [d for d in dates if d not in empty]  # 직접 입력의 빈 평일은 후보가 없으니 관제를 만들지 않는다
     active = boards.active_defs(period.board)
     slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
@@ -50,7 +52,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
         for typ, code in User.objects.roster().filter(department__board=period.board).values_list("type", "username"):
             members_by_type[typ].add(code)
         out = generate_control_duty(
-            dates, commutes, dict(members_by_type), seed,
+            slot_dates, commutes, dict(members_by_type), seed,
             [(x.name, x.eligible_shifts, x.eligible_types) for x in slots],
         )  # GenerationError 전파
     else:  # 장중관제 정의가 없는 근무표는 생성기를 부르지 않는다

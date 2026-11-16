@@ -132,3 +132,35 @@ def test_input_closed_message_uses_direct_name(ops, admin_user):
     p = Period.objects.create(board=board, name="p", start_date=MON, end_date=FRI, status=S.GENERATED)
     with pytest.raises(DutyError, match="입력 중인 회차가 아닙니다"):
         collect.apply_table(admin_user, p, dept, {})
+
+
+def test_stale_object_cannot_restore_old_status(ops, admin_user):
+    """확정 상태로 읽어 둔 객체를 다른 곳에서 확정 취소한 뒤 저장해도 상태·seed 를 되돌리지 않는다."""
+    board, dept = ops
+    p = new_period(board)
+    fill_all = ops_member(dept, "가상가")
+    for x in p.dates():
+        Commute.objects.create(period=p, date=x, member=fill_all, shift="dawn")
+    run_generation(p)
+    stale = Period.objects.get(pk=p.pk)  # GENERATED, seed 있음
+    periods.move(Period.objects.get(pk=p.pk), S.COLLECTING, by=admin_user)
+    stale.name, stale.end_date = "새 이름", date(2026, 11, 18)
+    periods.save_draft(stale)
+    fresh = Period.objects.get(pk=p.pk)
+    assert (fresh.status, fresh.seed, fresh.generated_at) == (S.COLLECTING, None, None)
+    assert (fresh.name, fresh.end_date) == ("새 이름", date(2026, 11, 18))
+
+
+def test_confirm_with_slot_def_and_empty_weekday(ops):
+    """관제 정의가 있는 직접 입력 근무표도 빈 평일은 경고만 하고 확정한다(설계 6.3)."""
+    board, dept = ops
+    BoardShift.objects.create(board=board, key="slot3", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["dawn"], eligible_types=["직원"])
+    p = new_period(board)
+    a = ops_member(dept, "가상가")
+    for x in p.dates()[:4]:
+        Commute.objects.create(period=p, date=x, member=a, shift="dawn")
+    out = run_generation(p, seed=1)
+    p.refresh_from_db()
+    assert p.status == S.GENERATED and out.warnings[0].endswith("11/20")
+    assert sorted(DutyAssignment.objects.filter(period=p, cell="slot3").values_list("date", flat=True)) == p.dates()[:4]

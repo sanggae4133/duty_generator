@@ -16,7 +16,7 @@
 <div class="actions">
   {% if direct %}
   {% if period.status == S.COLLECTING %}
-  {% for d in input_depts %}<a role="button"{% if not empty_days %} class="outline"{% endif %} href="{% url 'collect_table' period.pk d.code %}">표 입력{% if input_depts|length > 1 %} · {{ d.name }}{% endif %}</a>{% endfor %}
+  {% for d in input_depts %}<a role="button"{% if not empty_days or not forloop.first %} class="outline"{% endif %} href="{% url 'collect_table' period.pk d.code %}">표 입력{% if input_depts|length > 1 %} · {{ d.name }}{% endif %}</a>{% endfor %}
   <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('확정할까요? 확정하면 배포할 수 있고, 표를 고치려면 [확정 취소]를 누릅니다.')">{% csrf_token %}<button{% if empty_days %} class="outline"{% endif %}>확정</button></form>
   {% elif period.status == S.GENERATED %}
   <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
