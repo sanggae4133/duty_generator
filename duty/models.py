@@ -187,6 +187,17 @@ class PeriodStatus(models.TextChoices):
     PUBLISHED = "published", "배포됨"
 
 
+# 직접 입력 근무표의 화면 단계(설계 6.1): DB 상태는 그대로 두고 이름만 바꾼다. 새 회차는 만들자마자 취합 중(= 입력 중)
+DIRECT_STEPS = [(PeriodStatus.COLLECTING, "입력 중"), (PeriodStatus.GENERATED, "확정"), (PeriodStatus.PUBLISHED, "배포됨")]
+
+
+def step_label(board, status: str) -> str:
+    """화면에 보일 회차 단계 이름: 직접 입력 근무표는 입력 중·확정·배포됨, 부서별 취합은 상태 이름 그대로."""
+    if board.input_mode == InputMode.DIRECT:
+        return dict(DIRECT_STEPS).get(status, PeriodStatus(status).label)
+    return PeriodStatus(status).label
+
+
 class Period(models.Model):
     Status = PeriodStatus  # Meta에서 참조하려고 모듈 수준에 둔다
 
@@ -219,6 +230,10 @@ class Period(models.Model):
 
     def dates(self):
         return weekdays(self.start_date, self.end_date)
+
+    @property
+    def status_label(self) -> str:
+        return step_label(self.board, self.status)
 
 
 class HolidaySource(models.TextChoices):

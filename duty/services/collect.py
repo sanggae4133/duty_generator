@@ -6,7 +6,7 @@ from .. import perms
 from ..csv_io import (CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, join_reason, parse_commute_csv,
                       split_reason)
 from ..errors import DutyError
-from ..models import Commute, Department, Period, User
+from ..models import Commute, Department, Period, User, step_label
 from ..shifts import by_key, shift_defs
 from . import boards
 
@@ -21,7 +21,7 @@ def _require_input(user, period: Period, dept: Department) -> None:
         raise PermissionDenied("이 부서의 출근표를 입력할 권한이 없습니다.")
     _same_board(period, dept)
     if period.status != Period.Status.COLLECTING:
-        raise DutyError("취합 중인 회차가 아닙니다.")
+        raise DutyError(f"{step_label(period.board, Period.Status.COLLECTING)}인 회차가 아닙니다.")  # 취합 중 / 입력 중
 
 
 def input_keys(dept: Department) -> list[str]:

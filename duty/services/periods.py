@@ -5,7 +5,7 @@ from django.db import transaction
 
 from .. import perms
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, Department, DutyAssignment, Period, PeriodEvent
+from ..models import ChangeLog, Commute, Department, DutyAssignment, InputMode, Period, PeriodEvent
 from . import boards, holidays
 
 S = Period.Status
@@ -18,8 +18,11 @@ def record(period: Period, old: str, by=None, note: str = "") -> None:
 
 @transaction.atomic
 def save_draft(period: Period, by=None) -> Period:
-    if period.pk and Period.objects.get(pk=period.pk).status != S.DRAFT:
-        raise DutyError("기간은 작성 중(draft) 상태에서만 수정할 수 있습니다.")
+    direct = period.board.input_mode == InputMode.DIRECT
+    editable = {S.DRAFT, S.COLLECTING} if direct else {S.DRAFT}  # 직접 입력은 입력 중(= 취합 중)에도 기간을 고친다(설계 6.1)
+    if period.pk and Period.objects.get(pk=period.pk).status not in editable:
+        raise DutyError("기간은 입력 중에만 수정할 수 있습니다." if direct
+                        else "기간은 작성 중(draft) 상태에서만 수정할 수 있습니다.")
     if period.start_date > period.end_date:
         raise DutyError("시작일이 종료일보다 늦습니다.")
     if not period.dates():
@@ -33,6 +36,8 @@ def save_draft(period: Period, by=None) -> Period:
     if clash:
         raise DutyError(f"배포 전 회차와 기간이 겹칩니다: {clash.name}")
     new = period.pk is None
+    if new and direct:
+        period.status = S.COLLECTING  # 직접 입력: 만들자마자 입력 중
     period.save()
     if new:
         record(period, "", by)
@@ -52,6 +57,8 @@ def move(period: Period, to: str, by=None) -> None:
     period.refresh_from_db()
     if to not in MOVABLE:
         raise DutyError("옮길 수 없는 상태입니다.")
+    if period.board.input_mode == InputMode.DIRECT and to != S.COLLECTING:  # 직접 입력의 [확정 취소]는 입력 중으로만
+        raise DutyError("직접 입력 근무표는 입력 중으로만 옮길 수 있습니다.")
     if period.status == S.PUBLISHED:
         raise DutyError("배포된 회차는 배포 취소로만 되돌릴 수 있습니다.")
     if period.status == to:
@@ -73,6 +80,11 @@ def delete(period: Period) -> None:
         raise DutyError("근무 변경 기록이 남은 회차(배포된 적 있음)는 지울 수 없습니다.")
     PeriodEvent.objects.filter(period=period).delete()
     period.delete()  # 출근표·장중관제는 함께 지워진다(CASCADE)
+
+
+def empty_days(period: Period) -> list[date]:
+    """그 근무표 부서 중 하나라도 출근표가 없는 평일(건너뛰는 날 제외), 날짜 순. 직접 입력 회차의 확정 경고."""
+    return sorted({d for ds in missing_dates(period).values() for d in ds})
 
 
 def missing_dates(period: Period) -> dict[str, list[date]]:
