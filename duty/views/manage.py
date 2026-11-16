@@ -133,7 +133,11 @@ def period_action(request, pid, action):
     except DutyError as e:
         messages.error(request, str(e))
     else:
-        messages.success(request, "완료했습니다.")
+        period.refresh_from_db()
+        done = f"'{step_label(period.board, period.status)}' 상태로 바꿨습니다."
+        if action == "generate" and period.board.input_mode == Board.InputMode.DIRECT:
+            done = "확정했습니다. 근무표 화면에서 확인한 뒤 [배포…]를 누르세요."
+        messages.success(request, done)
         for w in getattr(result, "warnings", ()):  # 생성: 점심당번을 못 채운 날
             messages.warning(request, w)
     return redirect("period_detail", pid)

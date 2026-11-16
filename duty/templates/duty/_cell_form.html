@@ -22,7 +22,7 @@
 <hr>
 <form method="post" action="{% url 'cell' d cell %}{{ bq }}">{% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
-  <p><small>휴가·출장·교육이면 사유를 붙입니다. 사유가 붙으면 그날 근무로 치지 않습니다(알림·캘린더·관제에서 빠짐).</small></p>
+  <p><small>휴가·출장·교육이면 사유를 붙입니다. 사유가 붙으면 그날 근무로 치지 않습니다(알림·캘린더{% if has_slots %}·관제{% endif %}에서 빠짐).</small></p>
   <label>사유
     <select name="member" aria-label="사유를 붙일 사람">
       {% for m in current_members %}<option value="{{ m.pk }}">{{ m.name }}{% if m.reason %} ({{ m.reason }}){% endif %}</option>

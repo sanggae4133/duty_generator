@@ -137,8 +137,8 @@ def test_past_rows_locked_for_other_board_admin(client, collecting, other_admin,
     fixed_today(date(2026, 11, 11))
     client.force_login(other_admin)
     body = client.get(f"/collect/{p.pk}/MEMS/").content.decode()
-    assert 'name="c_2026-11-09_normal" value="" readonly' in body
-    assert 'name="c_2026-11-11_normal" value="" >' in body
+    assert 'name="c_2026-11-09_normal" rows="2" readonly' in body
+    assert 'name="c_2026-11-11_normal" rows="2" ></textarea>' in body
 
 
 def test_other_board_department_page_and_csv_are_404(client, collecting, ops, make_member):

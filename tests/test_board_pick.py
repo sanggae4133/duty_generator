@@ -276,3 +276,12 @@ def test_rule_page_redraws_without_saving(client, two):
     init = r.context["form"].initial
     assert init["shifts"] == ["dawn", "normal", "dinner"] and init["depts"] == ["OPS"] and init["hours"] == "3"
     assert 'value="night"' not in r.content.decode()
+
+
+def test_week_head_weekday_and_cell_form_without_slots(client, two):
+    """좁은 화면은 요일 머리가 숨으니 날짜 옆에 요일을, 관제가 없는 근무표의 사유 안내에는 '관제'를 빼고(4단계 점검)."""
+    board, ga, na = two
+    client.force_login(na)
+    assert "11/16 (월)" in client.get(WEEK + "&board=ops").content.decode()
+    form = client.get(f"/cell/{D}/dawn/?board=ops").content.decode()
+    assert "(알림·캘린더에서 빠짐)" in form and "관제" not in form

@@ -169,6 +169,7 @@ def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types
         # 근무조 칸: "점심당번도 같이 넘기기"(그 근무표에 켜진 점심당번 정의가 있을 때만)
         "carry": kind(cell) == SHIFT and any(x.key == LUNCH and x.active for x in defs),
         "current_members": current_members, "reason_choices": REASONS,
+        "has_slots": any(kind(x.key) == SLOT and x.active for x in defs),  # 사유 안내의 "관제" 문구
         "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
                         "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
     }

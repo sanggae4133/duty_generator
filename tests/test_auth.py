@@ -174,3 +174,10 @@ def test_user_can_change_own_password_anytime(client, make_member):
     m.refresh_from_db()
     assert m.check_password("Tr0ub4dor&3-xyz") and "비밀번호를 바꿨습니다" in r.content.decode()
     assert client.get("/me/").status_code == 200  # 바꾼 뒤에도 로그인 유지
+
+
+def test_issue_accounts_lists_one_person_per_line(su_client, make_member):
+    a, b = make_member("가"), make_member("나")
+    body = su_client.post(reverse("admin:duty_user_changelist"),
+                          {"action": "issue_accounts", "_selected_action": [a.pk, b.pk]}, follow=True).content.decode()
+    assert f"<br>가({a.username}): " in body and f"<br>나({b.username}): " in body

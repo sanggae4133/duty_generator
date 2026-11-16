@@ -138,8 +138,8 @@ def test_fill_post_draws_without_saving(ops_admin, ops):
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "2w:2026-11-16", "c_2026-11-23_dawn": "가상가"})
     body = r.content.decode()
     assert r.status_code == 200 and Commute.objects.filter(period=p).count() == 0
-    assert 'name="c_2026-11-16_dawn" value="가상나" class="filled"' in body
-    assert 'name="c_2026-11-23_dawn" value="가상가" ' in body  # 다른 주는 화면 값 그대로, 색칠 없음
+    assert 'name="c_2026-11-16_dawn" rows="2" class="filled" >가상나</textarea>' in body
+    assert 'name="c_2026-11-23_dawn" rows="2" >가상가</textarea>' in body  # 다른 주는 화면 값 그대로, 색칠 없음
     assert "12칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다." in body  # 4일 × 3칸(11/18 휴장일)
 
 
@@ -172,7 +172,7 @@ def test_fill_keeps_other_weeks_skipped_day_values(ops_admin, ops):
     Commute.objects.create(period=p, date=d(11, 25), member=User.objects.get(name="가상가"), shift="dawn")
     Holiday.objects.create(date=d(11, 25), name="가상휴일2")
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "2w:2026-11-16"})
-    assert 'name="c_2026-11-25_dawn" value="가상가"' in r.content.decode()
+    assert 'name="c_2026-11-25_dawn" rows="2" disabled placeholder="휴장">가상가</textarea>' in r.content.decode()
 
 
 def test_fill_skips_people_kept_on_inactive_shift(ops):
@@ -185,3 +185,20 @@ def test_fill_skips_people_kept_on_inactive_shift(ops):
     out = collect.fill_week(p, dept, table, d(11, 23), collect.FILL_1W)
     assert out[d(11, 23)] == {"dawn": [], "normal": ["가상나"], "dinner": []}
     assert collect.validate_table(ga, p, dept, out) == []
+
+
+def test_two_weeks_ago_without_any_work_refuses(ops):
+    """기준 주에 근무로 친 사람이 아무도 없으면 모두 가운데 조로 채우지 않고 알린다(4단계 점검)."""
+    p, dept = ops
+    with pytest.raises(DutyError, match="2주 전 그 주에 근무가 없어 채울 수 없습니다"):
+        collect.fill_week(p, dept, {}, d(11, 30), collect.FILL_2W)
+
+
+def test_table_cells_wrap_and_messages_are_plain(ops_admin, ops):
+    p, _ = ops
+    body = ops_admin.get(f"/collect/{p.pk}/OPS/").content.decode()
+    assert '<textarea name="c_2026-11-16_dawn"' in body  # 이름이 많아도 줄바꿈으로 다 보인다
+    assert 'placeholder="휴장"' in body  # 11/18 휴장일 칸
+    assert "CSV 올리기 (표 전체 교체)" in body and "부서 전체" not in body
+    r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"c_2026-11-16_dawn": "가상가"}, follow=True)
+    assert "표를 저장했습니다." in r.content.decode() and "명분" not in r.content.decode()
