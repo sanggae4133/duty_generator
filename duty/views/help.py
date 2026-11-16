@@ -26,7 +26,7 @@ def _read(path, start: int, length: int):
 
 def index(request):
     """로그인 전에도 열린다(로그인 화면의 [사용법 보기]): 로그인 안내 + 일반 사용자 영상. 권한 영상·설정 도움말은 로그인 뒤."""
-    return render(request, "duty/help.html", {"videos": guide.for_user(request.user)})
+    return render(request, "duty/help.html", {"videos": guide.for_user(request.user), "texts": guide.texts_for(request.user)})
 
 
 def video(request, name):
