@@ -4,7 +4,7 @@
 
 **Goal:** 직접 입력(`input_mode=direct`) 근무표의 회차 흐름(입력 중 → 확정 → 배포됨)과 입력 표의 채우기 버튼, 그룹 관리자의 그룹 화면, 관리 화면의 근무표·근무 정의·그룹 관리자 편집(설계 4.3 검증), 직접 입력 근무표 관리자용 글 도움말을 만든다. 4단계(시장운영실 개시)를 코드 변경 없이 관리 화면 설정만으로 할 수 있게 한다.
 
-**Architecture:** DB 상태 5개와 제약은 그대로 두고, 직접 입력 근무표에서는 화면 이름만 입력 중(취합 중)·확정(생성됨)·배포됨으로 바꾼다(`models.step_label`). 직접 입력의 회차 규칙은 기존 서비스 세 곳(`periods.save_draft`·`periods.move`·`generate.run_generation`)에 근무표의 입력 방식으로 갈래를 둔다. 채우기는 저장하지 않는 서비스 함수(`collect.fill_week`)가 화면의 표로 그 주만 다시 그리고, 저장은 기존 [표 저장] 한 길이다. 그룹 화면은 새 서비스 `services/groups.py`(쓰기)와 `perms.kept_groups`(읽기). 관리 화면 검증은 폼·폼셋(`admin.BoardShiftForm`·`BoardShiftFormSet`). **스키마 변경이 없어 마이그레이션이 없다.**
+**Architecture:** DB 상태 5개와 제약은 그대로 두고, 직접 입력 근무표에서는 화면 이름만 입력 중(취합 중)·확정(생성됨)·배포됨으로 바꾼다(`models.step_label`). 직접 입력의 회차 규칙은 기존 서비스 세 곳(`periods.save_draft`·`periods.move`·`generate.run_generation`)에 근무표의 입력 방식으로 갈래를 둔다. 채우기는 저장하지 않는 서비스 함수(`collect.fill_week`)가 화면의 표로 그 주만 다시 그리고, 저장은 기존 [표 저장] 한 길이다. 그룹 화면은 새 서비스 `services/groups.py`(쓰기)와 `perms.kept_groups`(읽기). 관리 화면 검증은 폼·폼셋(`admin.BoardShiftForm`·`BoardShiftFormSet`)과 모델 `clean`(저장한 근무 정의의 키 고정·지우기 금지, 근무표 코드, 직접 입력 근무표의 부서 하나). **스키마 변경이 없어 마이그레이션이 없다.**
 
 **Tech Stack:** Python 3.12, Django 5.2, SQLite(WAL), pytest + pytest-django, htmx, Pico.css. 새 의존성 없음.
 
@@ -14,13 +14,17 @@
 
 1. **마이그레이션 없음.** 3단계는 스키마를 바꾸지 않는다(다음 번호 0023 은 쓰지 않는다). 근무 정의 시각 제약(`boardshift_times_valid`)의 한국어 문구는 제약에 `violation_error_message` 를 다는 대신(AlterConstraint 마이그레이션이 생긴다) 폼이 같은 검사를 먼저 해서 `start` 칸에 붙인다. 오류가 난 칸은 Django 가 제약 검사에서 빼므로 영어 제약 문구가 같이 뜨지 않는다.
 2. **직접 입력 회차 상태:** 새 회차는 `save_draft` 가 바로 취합 중(= 입력 중)으로 저장한다(작성 중을 거치지 않음, 상태 기록 `"" → 취합 중`). 작성 중·마감은 직접 입력에서 쓰지 않는다: `periods.move` 는 직접 입력 회차를 취합 중으로만 옮기고([확정 취소]), `run_generation` 은 직접 입력에서 취합 중·생성됨만 받는다(마감 거부). [확정 취소]는 새 뷰 없이 기존 `period_move`(to=collecting)를 쓴다. 기존 테스트 `tests/test_boards_generate.py` 의 `ops_period` 기본 상태(직접 입력 근무표인데 마감)를 취합 중으로 바꾼다(기계적 변경, 테스트 3개).
-3. **화면 이름:** `models.DIRECT_STEPS`·`step_label(board, status)`·`Period.status_label` 이 회차 제목·단계 띠·회차 목록·상태 기록·입력 표 문구·서비스 오류 문구("입력 중인 회차가 아닙니다")에 쓰인다. 부서별 취합은 지금 글자 그대로("취합 중인 회차가 아닙니다" 테스트 그대로).
+3. **화면 이름:** `models.DIRECT_STEPS`·`step_label(board, status)`·`Period.status_label` 이 회차 제목·단계 띠·회차 목록·상태 기록·입력 표 문구·서비스 오류 문구("입력 중인 회차가 아닙니다")·배포 취소 확인창과 설명("확정으로 되돌릴까요", "확정으로 돌아갑니다")·배포 오류("확정한 회차만 배포할 수 있습니다")·빈 [출근표 입력] 목록("입력 중인 회차가 없습니다", 관리하는 근무표가 섞이면 "취합 중·입력 중인 회차가 없습니다")에 쓰인다. 부서별 취합은 지금 글자 그대로("취합 중인 회차가 아닙니다" 테스트 그대로). 회차 삭제 확인창의 "생성 결과" 같은 일반 낱말은 그대로 둔다.
 4. **확정 경고:** 그 근무표 부서 중 하나라도 출근표가 없는 평일(건너뛰는 날 제외)을 날짜만 모아(`periods.empty_days`) 회차 화면(확정 전, ⚠ 줄)과 확정 뒤 메시지 둘 다에 보인다. 점심당번을 못 채운 날 경고(2단계)는 그대로 따로 나온다(같은 날이 두 경고에 다 나올 수 있다).
-5. **채우기 버튼:** 표 저장과 같은 폼 안의 제출 버튼(`fill=2w:YYYY-MM-DD` / `1w:…`)으로 보낸다. 그래서 다른 주에 저장 전 고친 값이 그대로 남고, 회차 기간 안 기준 데이터는 DB 가 아니라 **화면의 표**(저장 전 고친 값 포함)를 쓴다. 회차 밖 날은 배포된 근무표(그날의 주인, `roster.published_days`)를 쓴다. 칸에서 Enter 를 누르면 채우기가 아니라 저장이 되도록 폼 맨 앞에 화면 밖 [표 저장] 버튼을 둔다. 버튼은 직접 입력 근무표의 입력 중 회차에서만 보인다.
+5. **채우기 버튼:** 표 저장과 같은 폼 안의 제출 버튼(`fill=2w:YYYY-MM-DD` / `1w:…`)으로 보낸다. 그래서 다른 주에 저장 전 고친 값이 그대로 남고, 회차 기간 안 기준 데이터는 DB 가 아니라 **화면의 표**(저장 전 고친 값 포함)를 쓴다. 회차 밖 날은 배포된 근무표(그날의 주인, `roster.published_days`)를 쓴다. 칸에서 Enter 를 누르면 채우기가 아니라 저장이 되도록 폼 맨 앞에 화면 밖 [표 저장] 버튼을 둔다. 버튼은 직접 입력 근무표의 입력 중 회차에서만 보인다. 주 머리 줄의 날짜와 버튼 값은 그 주 **월요일**이다(회차가 주 중간에 시작해도, `week_start`).
 6. **[지난주와 같게]의 "사유 제외"** = 근무조는 옮기고 사유는 옮기지 않는다(지난주 휴가였던 사람도 같은 근무조로 들어간다). 지난주 같은 요일에 아무도 없던 날은 이번 주도 빈 줄이 된다("그대로"). 그 주의 줄은 통째로 바뀐다(채우기 전 그 주 값은 버린다).
 7. **[2주 전 기준으로 채우기]:** 2주 전 **그 주 월~금 전체**(회차 기간과 무관)를 본다. 대표 근무조의 세 번째 기준(시작 시각)은 한 사람이 하루 한 근무조라 갈 일이 없어 코드에 두지 않는다(주석). 보이는 조건 = 그 부서의 입력 근무조(`collect.input_keys`)가 정확히 3개. 사람 = 지금 재직하는 그 부서 사람(입력 표가 부서 단위라서). 순수 함수 `shifts.two_week_rotation` 에 둔다(새 파일을 만들지 않음).
 8. **그룹 화면:** 서비스 `services/groups.py`(`add_member`·`remove_member`), 뷰는 `views/manage.py` 의 `groups`(새 뷰 파일 없음), 주소 `/groups/` 하나(POST 는 `group`·`member`·`do=add|remove`). 넣을 후보 = 재직 계정 전부(부서 없는 관리 전용 계정 포함). 넣고 빼기는 로그(`duty.services.groups`, 아이디만)로만 남기고 기록 표는 만들지 않는다. 경고는 **근무표 관리 그룹**이 비었을 때만(입력 그룹은 비어도 경고 없음). 그룹마다 무슨 권한인지 한 줄 설명을 붙인다.
-9. **관리 화면:** 근무표의 `code`(`boards.it_board()` 의 열쇠)와 `input_mode` 는 만든 뒤 읽기 전용(입력 방식을 바꾸면 회차 상태·입력 그룹이 맞지 않는다). 근무표 지우기는 막는다. "쓰인 정의" = 그 근무표에서 그 키의 출근표·당번 배정·변경 기록이 하나라도 있음(`boards.is_used`). "근무조 1개 이상"은 **켜진** 근무조 1개 이상으로 본다(그래서 "장중관제·점심당번은 근무조가 있어야 함"도 함께 지켜진다). 설계 4.3 표의 "장중관제만"(자격)·"근무조만"(기본 알림)도 검사한다. 자격 근무조·자격 구분은 JSON 글 대신 체크박스. 이름 중복은 Django 기본 문구("name의 중복된 데이터를 고쳐주세요")를 그대로 쓴다. 그룹 관리자는 관리 화면 "그룹"의 인라인에서 편집한다(GroupKeeper 는 Group 에 걸린 표라 근무표 인라인이 될 수 없다). 근무표 화면에는 관리 그룹 링크를 둔다.
+9. **관리 화면:** 근무표의 `code`(`boards.it_board()` 의 열쇠)와 `input_mode` 는 만든 뒤 읽기 전용(입력 방식을 바꾸면 회차 상태·입력 그룹이 맞지 않는다). 근무표 지우기는 막는다. 코드는 만들 때 짧은 영문(`[a-z][a-z0-9]{0,15}`, `Board.clean`)만 받는다. 근무표 이름이 다른 근무표와 같으면 한국어 오류.
+   - **저장한 근무 정의는 키를 바꾸거나 지울 수 없다**(쓰였는지 따지지 않는다, 결정됨). 바꿀 수 있는 것은 이름·시각·자격·기본 알림·'사용'. 관리 화면은 저장한 줄의 키 칸을 잠그고 지우기 칸을 없앤다(`can_delete=False`, 아직 저장하지 않은 추가 줄만 화면에서 뺀다). 모델도 막는다: `BoardShift.clean`(키·근무표가 DB 값과 다르면 오류), `BoardShift.delete`(늘 오류). 쿼리셋 일괄 삭제(`QuerySet.delete`)는 거치지 않는다 — 받아들인 한계(`ponytail:` 주석). 그래서 기존 `tests/test_lunch.py` 의 준비 코드 `lunch.delete()` 세 곳을 쿼리셋 삭제로 바꾼다(기계적 변경).
+   - **직접 입력 근무표는 부서 하나**(설계 6.2): `Department.clean` 이 둘째 부서를 막는다(관리 화면 부서 폼이 부른다). ORM `objects.create` 는 거치지 않는다(기존 테스트의 여러 부서 픽스처는 그대로 돈다).
+   - 폼셋 검증(Django 기본 겹침 검사는 부르지 않고 한국어로): 이름 겹침 "근무 정의 이름이 겹칩니다: X", 키 겹침 "키가 겹칩니다: 근무조 1", **켜진** 근무조 1개 이상(그래서 "장중관제·점심당번은 근무조가 있어야 함"도 지켜진다), 켜진 근무조끼리 시작 시각이 다름, 관제 자격 근무조는 이 근무표의 근무조이고 **켜진 관제는 켜진 근무조만**, 근무조를 끈 뒤에도 그 근무표의 부서마다 켜진 입력 근무조가 하나 이상. 설계 4.3 표의 "장중관제만"(자격)·"근무조만"(기본 알림)도 검사한다. 저장된 줄끼리 이름을 맞바꾸는 것처럼 DB 값과 부딪히는 경우는 Django 의 한국어 번역 문구("…을/를 가진 근무 정의이/가 이미 존재합니다")가 나온다.
+   - 자격 근무조·자격 구분은 JSON 글 대신 체크박스. 그룹 관리자는 관리 화면 "그룹"의 인라인에서 편집한다(GroupKeeper 는 Group 에 걸린 표라 근무표 인라인이 될 수 없다). 근무표 화면에는 관리 그룹 링크를 둔다.
 10. **새 부서 폼:** 지금은 새 부서의 출근조 선택지를 IT 정의에서 읽는다(1단계 "새 부서는 IT"). 4단계에서 다른 근무표의 부서를 만들어야 하므로, 새 부서는 중립 이름("근무조 1"~"근무조 4")으로 보이고 저장 때 고른 근무표의 켜진 근무조인지 검사한다(시작 시각 순으로 저장). 저장된 부서는 지금처럼 그 근무표 이름.
 11. **도움말:** 직접 입력 근무표 관리자에게만 `/help/` 에 글 도움말 한 덩어리(`help.TEXTS`·`STEPS["direct"]`, 영상 없음, 로그인 팝업은 그대로). IT 관리자 영상 글은 영상 자막과 맞아야 해서 고치지 않는다.
 12. **[출근표 입력] 메뉴 목록**(`/collect/`)은 직접 입력 회차도 "취합 중"인 동안 그대로 보인다(제목·문구는 그대로 둔다. 직접 입력 관리자는 회차 화면의 [표 입력]으로 들어간다).
@@ -28,7 +32,7 @@
 ## Global Constraints
 
 - IT 알림 문구·hash 는 바뀌지 않는다. `tests/test_alarm_texts_it.py` 는 고치지 않고 그대로 통과한다(알림 코드를 건드리지 않는다).
-- 각 작업이 끝난 시점에 `.venv/bin/pytest -W error -q` 전체가 통과한다(경고 0개). 기대 테스트 수는 참고값(지금 main **1124 passed**).
+- 각 작업이 끝난 시점에 `.venv/bin/pytest -W error -q` 전체가 통과한다(경고 0개). 기대 테스트 수는 참고값(지금 main c93a455 **1125 passed**).
 - TDD(테스트를 먼저 쓰고 실패를 확인한 뒤 구현). DB 를 바꾸는 규칙은 `duty/services/`(뷰·명령에서 모델을 직접 고치지 않는다. 관리 화면의 Django 기본 저장은 그대로). 순수 모듈(`shifts`·`generator`·`csv_io`·`ics`·`alarms/`(senders 제외)·`market_days`)에는 ORM 없음.
 - "오늘"은 `from . import perms` 후 `perms.today()`. 정해진 값 칸은 `choices` + DB `CheckConstraint`, 기록을 남길 FK는 `PROTECT`. 마이그레이션 파일은 지우지 않는다(3단계는 새 마이그레이션이 없다. `makemigrations duty --check --dry-run` → "No changes detected").
 - 화면 문구·오류 메시지는 한국어. 커밋 메시지는 `feat:`/`fix:`/`docs:`/`style:` + 한국어 요약, 끝에 아래 두 줄:
@@ -38,7 +42,7 @@
   ```
 - 실명 데이터 금지(테스트·가짜 데이터는 "가상가" 같은 가상 이름만). `data/`, DB 파일, `.superpowers/`, `.env` 는 열지 않는다. 로그에는 아이디(멤버 코드)만, 실명 금지.
 - 운영은 단순하게: 새 deploy 파일·셸 스크립트·타이머를 만들지 않는다. 정적 파일은 CDN 없이.
-- 화면을 바꾸는 작업은 테스트 통과만으로 끝내지 않고 아래 "브라우저 확인 준비"대로 띄운 가짜 데이터 DB 에서 PC 1400px·휴대폰 390px, 글씨 **아주 크게**(오른쪽 위 [가] 두 번)로 본다. 보는 사람은 시력이 좋지 않고 변화를 싫어하는 60세 가까운 관리자다: 화면마다 진한 버튼 하나, 큰 누름 영역(44px 이상), 가로 스크롤 없음(콘솔 `document.documentElement.scrollWidth > innerWidth` 가 `false`, 넓은 표는 표 안에서만 스크롤).
+- 화면을 바꾸는 작업은 테스트 통과만으로 끝내지 않고 아래 "브라우저 확인 준비"대로 띄운 가짜 데이터 DB 에서 PC 1400px·휴대폰 390px, 글씨 **아주 크게**(오른쪽 위 [가] 두 번), **다크 모드**(오른쪽 위 ◐ 로 다크)로 본다. 모든 브라우저 단계에서 페이지 가로 넘침을 콘솔로 잰다. 보는 사람은 시력이 좋지 않고 변화를 싫어하는 60세 가까운 관리자다: 화면마다 진한 버튼 하나, 큰 누름 영역(44px 이상), 가로 스크롤 없음(콘솔 `document.documentElement.scrollWidth > innerWidth` 가 `false`, 넓은 표는 표 안에서만 스크롤).
 
 ### 브라우저 확인 준비(모든 화면 작업 공통, Task 1 이후)
 
@@ -93,15 +97,15 @@ kill $(cat $W/server.pid); rm -rf $W; unset DUTY_ENV_FILE DUTY_DEBUG DUTY_DATA_D
 
 | Task | 내용 | 마이그레이션 | 테스트 수(참고) |
 |---|---|---|---|
-| 1 | 직접 입력 회차 서비스(입력 중 → 확정, 입력 중 기간 수정, 확정 경고, 확정 취소, 화면 단계 이름) | 없음 | 1139 |
-| 2 | 직접 입력 회차 화면(단계·[표 입력]·[확정]·[확정 취소]·경고, 목록·상태 기록·입력 표 문구) | 없음 | 1146 |
-| 3 | 입력 표의 [2주 전 기준으로 채우기]·[지난주와 같게] | 없음 | 1156 |
-| 4 | 그룹 화면(그룹 관리자의 멤버 넣고 빼기, 메뉴 [그룹]) | 없음 | 1164 |
-| 5 | 관리 화면의 근무표·근무 정의·그룹 관리자 편집과 검증(새 부서 출근조 검사 포함) | 없음 | 1178 |
-| 6 | 직접 입력 근무표 관리자용 글 도움말 | 없음 | 1179 |
-| 7 | 문서(ARCHITECTURE·OVERVIEW·OPERATIONS·PRINCIPLES 결정 기록) | 없음 | 1179 |
+| 1 | 직접 입력 회차 서비스(입력 중 → 확정, 입력 중 기간 수정, 확정 경고, 확정 취소, 화면 단계 이름) | 없음 | 1140 |
+| 2 | 직접 입력 회차 화면(단계·[표 입력]·[확정]·[확정 취소]·경고, 목록·상태 기록·입력 표·배포 취소·배포 오류·빈 입력 목록 문구) | 없음 | 1150 |
+| 3 | 입력 표의 [2주 전 기준으로 채우기]·[지난주와 같게] | 없음 | 1161 |
+| 4 | 그룹 화면(그룹 관리자의 멤버 넣고 빼기, 메뉴 [그룹]) | 없음 | 1169 |
+| 5 | 관리 화면의 근무표·근무 정의·그룹 관리자 편집과 검증(저장한 정의 키 고정·지우기 금지, 코드·부서 하나·새 부서 출근조 검사) | 없음 | 1194 |
+| 6 | 직접 입력 근무표 관리자용 글 도움말 | 없음 | 1195 |
+| 7 | 문서(ARCHITECTURE·OVERVIEW·OPERATIONS·PRINCIPLES 결정 기록) | 없음 | 1195 |
 
-> 검증: Task 1~6 의 코드를 `main`(fb5e55f) 사본(`git archive`)에 그대로 넣어 확인했다. 저장소는 고치지 않았다. 결과: 작업마다 위 표의 수로 `.venv/bin/pytest -W error -q` 전체 통과, 경고 0개, `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'". 각 작업의 "실패 확인" 기대 결과도 사본에서 재현했다. 브라우저 확인은 사본에서 하지 않았다(가짜 데이터 셸 스니펫이 도는 것까지만 확인) — 각 작업의 브라우저 단계에서 사람이 본다.
+> 검증: Task 1~6 의 코드를 이 브랜치(origin/main c93a455 위, PR #38 포함) 사본(`git archive`)에 그대로 넣어 확인했다(Codex 리뷰 반영 뒤 다시 확인). 저장소는 고치지 않았다. 결과: 작업마다 위 표의 수로 `.venv/bin/pytest -W error -q` 전체 통과, 경고 0개, `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'". 각 작업의 "실패 확인" 기대 결과도 사본에서 재현했다. 브라우저 확인은 사본에서 하지 않았다(가짜 데이터 셸 스니펫이 도는 것까지만 확인) — 각 작업의 브라우저 단계에서 사람이 본다.
 
 ---
 
@@ -446,7 +450,7 @@ Run: `.venv/bin/pytest -W error -q tests/test_direct_periods.py tests/test_board
 Expected: 모두 PASS
 
 Run: `.venv/bin/pytest -W error -q`
-Expected: 모두 PASS(사본 기준 **1139 passed**), 경고 0개
+Expected: 모두 PASS(사본 기준 **1140 passed**), 경고 0개
 
 - [ ] **Step 9: 커밋**
 
@@ -465,14 +469,18 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 **Files:**
 - Modify: `duty/views/manage.py` — models import, `period_list` 의 회차 목록(`select_related`), `_render_detail`
 - Modify: `duty/templates/duty/period_detail.html`, `duty/templates/duty/periods.html`, `duty/templates/duty/collect_table.html`
-- Modify: `duty/views/collect.py` — models import, `_render_table` 컨텍스트(`direct`)
+- Modify: `duty/views/collect.py` — models import, `index` 의 render(`waiting`), `_render_table` 컨텍스트(`direct`)
+- Modify: `duty/templates/duty/collect_index.html` — 빈 목록 문구
+- Modify: `duty/services/publish.py` — models import, `_validate` 의 상태 오류 문구
 - Test: `tests/test_views_direct.py`(새 파일)
 
 **Interfaces:**
 - Consumes(Task 1): `DIRECT_STEPS`, `step_label`, `Period.status_label`, `periods.empty_days`, `InputMode`
 - Produces:
   - `_render_detail` 컨텍스트에 `direct: bool`, `steps`(직접 입력이면 `DIRECT_STEPS`), `movable`(직접 입력이면 `[]`), `events: list[tuple[PeriodEvent, str, str]]`(기록, 전 상태 화면 이름 또는 `""`, 후 상태 화면 이름), `input_depts`(직접 입력이면 그 근무표 부서, `order`·`code` 순), `empty_days`(직접 입력 입력 중일 때만)
-  - `collect_table.html` 컨텍스트에 `direct: bool`(Task 3 도 쓴다)
+  - `_render_detail` 컨텍스트에 `generated_label`(= `step_label(board, GENERATED)`: 생성됨 / 확정) — 배포 취소 확인창·설명에 쓴다
+  - `collect_table.html` 컨텍스트에 `direct: bool`(Task 3 도 쓴다), `collect_index.html` 컨텍스트에 `waiting: str`(관리하는 부서들 근무표의 취합 중 단계 이름, 겹치면 한 번, "·"로 이음)
+  - `publish._validate`: 직접 입력이면 `DutyError("확정한 회차만 배포할 수 있습니다.")`, 아니면 지금 문구
   - 화면: 직접 입력 입력 중 = 기간 폼 + [표 입력](부서마다) + [확정](확인창) + ⚠ 빈 평일 줄. 확정 = [배포…] + [확정 취소](`period_move`, `to=collecting`, 확인창). 입력 현황·편차 표·생성 방식·"다른 상태로 옮기기"는 숨김. 진한 버튼은 하나: 빈 평일이 있으면 [표 입력], 없으면 [확정].
 
 - [ ] **Step 1: 실패 테스트를 쓴다**
@@ -576,12 +584,36 @@ def test_collect_period_page_unchanged(admin_client_ok, it_board):
     body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
     assert "<small>(취합 중)</small>" in body and "취합 마감" in body and "부서별 입력 현황" in body
     assert ">표 입력</a>" not in body and ">확정</button>" not in body
+
+
+def test_published_page_names_confirmed_state_in_unpublish(admin_client_ok, ops):
+    board, dept = ops
+    from duty.services.publish import publish
+    p = Period.objects.create(board=board, name="p", start_date=MON, end_date=FRI, status=S.GENERATED)
+    publish(p, MON)
+    body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
+    assert "<small>(배포됨)</small>" in body
+    assert "이 회차를 확정으로 되돌릴까요?" in body and "이 회차는 확정으로 돌아갑니다" in body and "생성됨" not in body
+
+
+def test_publish_error_names_confirm(ops):
+    from duty.errors import DutyError
+    from duty.services.publish import publish
+    p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
+    with pytest.raises(DutyError, match="확정한 회차만 배포할 수 있습니다"):
+        publish(p, MON)
+
+
+def test_empty_input_list_names_input_state(client, ops, admin_user, it_board):
+    it_board.admin_group.user_set.remove(admin_user)  # 운영팀(직접 입력)만 관리
+    client.force_login(admin_user)
+    assert "<p>입력 중인 회차가 없습니다.</p>" in client.get("/collect/").content.decode()
 ```
 
 - [ ] **Step 2: 실패를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_views_direct.py`
-Expected: `5 failed, 2 passed`(화면이 아직 "취합 중"·[취합 마감]을 그린다. 확정 취소 POST 와 IT 화면 테스트는 이미 통과)
+Expected: `8 failed, 2 passed`(화면·문구가 아직 "취합 중"·[취합 마감]·"생성됨"·"생성이 끝난"이다. 확정 취소 POST 와 IT 화면 테스트는 이미 통과)
 
 - [ ] **Step 3: 회차 화면 컨텍스트(`views/manage.py`)**
 
@@ -614,7 +646,7 @@ def _render_detail(request, period, failures):
     direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력: 입력 중 → 확정 → 배포됨(설계 6.1·7)
     S = Period.Status
     return render(request, "duty/period_detail.html", {
-        "period": period, "S": S, "direct": direct,
+        "period": period, "S": S, "direct": direct, "generated_label": step_label(period.board, S.GENERATED),
         "steps": DIRECT_STEPS if direct else S.choices,
         "movable": [] if direct or period.status == S.PUBLISHED  # 직접 입력은 [확정 취소] 하나로 되돌린다
         else [(s, S(s).label) for s in periods.MOVABLE if s != period.status],
@@ -677,6 +709,15 @@ def _render_detail(request, period, failures):
 
 편차 표 조건 `{% if counts %}` → `{% if counts and not direct %}`.
 
+배포 취소 상자의 두 곳(확인창과 설명)에서 "생성됨"을 화면 이름으로:
+```html
+onsubmit="return confirm('배포를 취소하고 이 회차를 {{ generated_label }}으로 되돌릴까요?')">
+```
+```html
+이 회차는 {{ generated_label }}으로 돌아갑니다(근무표에서 빠집니다).
+```
+(바꾸기 전 글자는 각각 `onsubmit="return confirm('배포를 취소하고 이 회차를 생성됨으로 되돌릴까요?')">` 와 `이 회차는 생성됨으로 돌아갑니다(근무표에서 빠집니다).`)
+
 상태 기록 표의 `<tbody>…</tbody>` 두 줄을:
 ```html
 <tbody>{% for e, frm, to in events %}<tr><td class="nw">{{ e.at|date:"Y-m-d H:i" }}</td><td class="nw">{% if e.by %}{{ e.by.name|default:e.by.username }}{% else %}-{% endif %}</td>
@@ -694,7 +735,17 @@ def _render_detail(request, period, failures):
 
 `periods.html`: `{{ p.get_status_display }}` → `{{ p.status_label }}`.
 
-`views/collect.py` — import `from ..models import Board, Department, Period, User`, `_render_table` 컨텍스트의
+`views/collect.py` — import `from ..models import Board, Department, Period, User, step_label`, `index` 의 마지막 줄
+```python
+    return render(request, "duty/collect_index.html", {"items": items})
+```
+을:
+```python
+    # 목록이 비었을 때 문구: 근무표의 화면 단계 이름(취합 중 / 입력 중), 겹치는 이름은 한 번만
+    waiting = "·".join(dict.fromkeys(step_label(d.board, Period.Status.COLLECTING) for d in depts))
+    return render(request, "duty/collect_index.html", {"items": items, "waiting": waiting})
+```
+그리고 `_render_table` 컨텍스트의
 ```python
         "is_open": period.status == Period.Status.COLLECTING,
 ```
@@ -713,28 +764,48 @@ def _render_detail(request, period, failures):
 {% if not is_open %}<p>{% if direct %}입력 중인 회차가 아니라{% else %}취합이 열려 있지 않아{% endif %} 저장할 수 없습니다.</p>{% endif %}
 ```
 
+`collect_index.html` 의
+```html
+{% empty %}<p>취합 중인 회차가 없습니다.</p>{% endfor %}
+```
+를:
+```html
+{% empty %}<p>{{ waiting }}인 회차가 없습니다.</p>{% endfor %}
+```
+
+`services/publish.py` — import 를 `from ..models import ChangeLog, Commute, DutyAssignment, InputMode, Period, PeriodEvent, User` 로, `_validate` 의
+```python
+        raise DutyError("생성이 끝난 회차만 배포할 수 있습니다.")
+```
+를:
+```python
+        raise DutyError("확정한 회차만 배포할 수 있습니다." if period.board.input_mode == InputMode.DIRECT
+                        else "생성이 끝난 회차만 배포할 수 있습니다.")
+```
+
 - [ ] **Step 6: 통과를 확인한다**
 
-Run: `.venv/bin/pytest -W error -q tests/test_views_direct.py tests/test_views_manage.py tests/test_views_collect.py tests/test_boards_generate.py`
+Run: `.venv/bin/pytest -W error -q tests/test_views_direct.py tests/test_views_manage.py tests/test_views_collect.py tests/test_boards_generate.py tests/test_publish.py`
 Expected: 모두 PASS
 
 Run: `.venv/bin/pytest -W error -q`
-Expected: 모두 PASS(사본 기준 **1146 passed**), 경고 0개
+Expected: 모두 PASS(사본 기준 **1150 passed**), 경고 0개
 
-- [ ] **Step 7: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게)**
+- [ ] **Step 7: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게·다크 모드)**
 
 "브라우저 확인 준비"대로 띄우고 `admin` 으로:
 - [회차] 목록에 "이번 2주"가 **입력 중** 알약으로, "지난 2주"가 **배포됨**으로 보인다. IT 회차는 지금 글자 그대로.
 - "이번 2주": 단계 띠 입력 중 → 확정 → 배포됨, 기간 폼, 진한 [표 입력]과 테두리 [확정], ⚠ 빈 평일 줄(모든 평일). [표 입력] → 입력 표 위 "← 회차 화면으로" 링크.
 - 표에 한두 날만 넣고 저장 → 회차 화면에서 [확정] → 확인창 → 경고 메시지 두 줄(빈 평일, 점심당번 못 채운 날). 단계 "확정", [배포…]·[확정 취소]. [확정 취소] → 확인창 → 입력 중으로 돌아옴. 상태 기록이 "입력 중 → 확정"처럼 보인다.
-- 390px·아주 크게에서 버튼이 줄바꿈되고 가로 스크롤이 없다.
+- "지난 2주"(배포됨): 배포 취소 상자가 "이 회차는 확정으로 돌아갑니다", 확인창이 "확정으로 되돌릴까요?". [출근표 입력] 메뉴에서 회차가 없을 때 "입력 중인 회차가 없습니다"(admin 은 IT 도 관리하므로 "취합 중·입력 중인 회차가 없습니다"로 보일 수 있다).
+- 390px·아주 크게, 그리고 다크 모드에서 버튼이 줄바꿈되고 ⚠ 줄·단계 띠 글씨가 읽힌다. 화면마다 콘솔 `document.documentElement.scrollWidth > innerWidth` 가 `false`.
 
 끝나면 서버를 끄고 임시 폴더를 지운다.
 
 - [ ] **Step 8: 커밋**
 
 ```bash
-git add duty/views/manage.py duty/views/collect.py duty/templates/duty/period_detail.html duty/templates/duty/periods.html duty/templates/duty/collect_table.html tests/test_views_direct.py
+git add duty/views/manage.py duty/views/collect.py duty/services/publish.py duty/templates/duty/period_detail.html duty/templates/duty/periods.html duty/templates/duty/collect_table.html duty/templates/duty/collect_index.html tests/test_views_direct.py
 git commit -m "feat: 직접 입력 회차 화면(입력 중·확정·배포됨 단계, 표 입력·확정·확정 취소, 빈 평일 경고)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -757,7 +828,7 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 - Produces:
   - `duty.shifts.two_week_rotation(base: dict[date, dict[str, str]], names: list[str], keys: list[str]) -> dict[str, str]`(순수). `keys = [이른, 가운데, 늦은]`
   - `duty.services.collect.FILL_2W = "2w"`, `FILL_1W = "1w"`, `can_rotate(dept) -> bool`(입력 근무조 3개), `fill_week(period, dept, table: CommuteTable, day: date, how: str) -> CommuteTable`(저장 안 함. 오류는 `DutyError`: 직접 입력이 아님 / 알 수 없는 채우기 / 근무조 3개가 아님 / 회차 기간 밖의 주)
-  - 화면: 직접 입력 입력 중 회차의 입력 표에 주마다 머리 줄(`<tr class="week">`, "11/16 주", 버튼 `name="fill" value="2w:2026-11-16"`·`"1w:…"`). 채운 결과는 바뀐 칸에 `class="filled"`, 위에 "N칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다. …". 폼 맨 앞에 화면 밖 `<button class="enter-save">표 저장</button>`.
+  - 화면: 직접 입력 입력 중 회차의 입력 표에 주마다 머리 줄(`<tr class="week">`, 행의 `week_start` = 그 주 월요일. "11/16 주", 버튼 `name="fill" value="2w:2026-11-16"`·`"1w:…"` — 회차가 수요일에 시작해도 월요일). 채운 결과는 바뀐 칸에 `class="filled"`, 위에 "N칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다. …". 폼 맨 앞에 화면 밖 `<button class="enter-save">표 저장</button>`.
 
 - [ ] **Step 1: 실패 테스트를 쓴다**
 
@@ -918,6 +989,17 @@ def test_no_fill_buttons_on_collect_board_or_closed_period(client, admin_user, i
     client.force_login(admin_user)
     assert 'name="fill"' not in client.get(f"/collect/{it.pk}/MEMS/").content.decode()
     assert 'name="fill"' not in client.get(f"/collect/{p.pk}/OPS/").content.decode()
+
+
+def test_week_header_uses_monday_when_period_starts_midweek(ops_admin, ops):
+    p, _ = ops
+    p.start_date = d(11, 18)  # 수요일에 시작
+    p.save()
+    body = ops_admin.get(f"/collect/{p.pk}/OPS/").content.decode()
+    assert "<strong>11/16 주</strong>" in body and 'value="2w:2026-11-16"' in body and 'value="1w:2026-11-16"' in body
+    assert body.count('name="fill" value="1w:') == 3  # 11/16·11/23·11/30 주
+    r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "1w:2026-11-16"})
+    assert 'name="c_2026-11-18_dawn"' in r.content.decode()  # 월·화는 회차 밖이라 줄이 없다
 ```
 
 - [ ] **Step 2: 실패를 확인한다**
@@ -1024,7 +1106,7 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
 ```
 
 Run: `.venv/bin/pytest -W error -q tests/test_fill.py -k "rotation or fills or inside or same_as or errors"`
-Expected: 6 passed(화면 테스트 4개는 아직 FAIL)
+Expected: 6 passed(화면 테스트 5개는 아직 FAIL)
 
 - [ ] **Step 5: 화면(`views/collect.py`)**
 
@@ -1048,18 +1130,18 @@ def _render_table(request, period, dept, table, errors, before=None):
                   "changed": before is not None
                   and sorted(table.get(d, {}).get(k, [])) != sorted(before.get(d, {}).get(k, []))} for k in keys]
         rows.append({"date": d, "weekday": DAY_LABELS[d.weekday()], "locked": d < today and not admin,
-                     "closed": skip.get(d, ""), "cells": cells, "week": monday not in weeks})  # week: 그 주 첫 줄
+                     "closed": skip.get(d, ""), "cells": cells,
+                     "week_start": None if monday in weeks else monday})  # 그 주 첫 줄에만: 그 주 월요일(회차가 주 중간에 시작해도)
         weeks.add(monday)
     is_open = period.status == Period.Status.COLLECTING
-    changed = sum(c["changed"] for r in rows for c in r["cells"])
+    direct = period.board.input_mode == Board.InputMode.DIRECT
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
         "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
-        "is_open": is_open, "direct": period.board.input_mode == Board.InputMode.DIRECT, "ncols": len(keys) + 2,
-        # 채우기 버튼(설계 6.2): 직접 입력 근무표의 입력 중 회차에서만, 주마다
-        "show_fill": is_open and period.board.input_mode == Board.InputMode.DIRECT, "can_rotate": collect.can_rotate(dept),
-        "filled": before is not None, "changed": changed,
+        "is_open": is_open, "direct": direct, "ncols": len(keys) + 2,
+        "show_fill": is_open and direct, "can_rotate": collect.can_rotate(dept),  # 채우기 버튼(설계 6.2): 직접 입력의 입력 중 회차만
+        "filled": before is not None, "changed": sum(c["changed"] for r in rows for c in r["cells"]),
     }, status=400 if errors else 200)
 
 
@@ -1122,9 +1204,9 @@ def _posted(request, period, dept):
 를 바꾼다(`<tr>` 뒤는 그대로):
 ```html
   <tbody>{% for r in rows %}
-    {% if show_fill and r.week %}<tr class="week"><td colspan="{{ ncols }}"><strong>{{ r.date|date:"n/j" }} 주</strong>
-      {% if can_rotate %}<button name="fill" value="2w:{{ r.date|date:'Y-m-d' }}" class="outline">2주 전 기준으로 채우기</button>{% endif %}
-      <button name="fill" value="1w:{{ r.date|date:'Y-m-d' }}" class="outline">지난주와 같게</button></td></tr>{% endif %}
+    {% if show_fill and r.week_start %}<tr class="week"><td colspan="{{ ncols }}"><strong>{{ r.week_start|date:"n/j" }} 주</strong>
+      {% if can_rotate %}<button name="fill" value="2w:{{ r.week_start|date:'Y-m-d' }}" class="outline">2주 전 기준으로 채우기</button>{% endif %}
+      <button name="fill" value="1w:{{ r.week_start|date:'Y-m-d' }}" class="outline">지난주와 같게</button></td></tr>{% endif %}
     <tr>
 ```
 
@@ -1151,15 +1233,16 @@ Run: `.venv/bin/pytest -W error -q tests/test_fill.py tests/test_views_collect.p
 Expected: 모두 PASS
 
 Run: `.venv/bin/pytest -W error -q`
-Expected: 모두 PASS(사본 기준 **1156 passed**), 경고 0개
+Expected: 모두 PASS(사본 기준 **1161 passed**), 경고 0개
 
-- [ ] **Step 8: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게)**
+- [ ] **Step 8: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게·다크 모드)**
 
 "브라우저 확인 준비"대로 띄우고 `admin` 으로 [회차] → "이번 2주" → [표 입력]:
-- 주마다 "M/D 주" 줄에 [2주 전 기준으로 채우기]·[지난주와 같게]. 첫 주 [2주 전 기준으로 채우기] → 이른 조 ↔ 늦은 조가 바뀐 표, 바뀐 칸이 색칠되고 위에 "N칸을 채웠습니다 … 아직 저장하지 않았습니다". 다른 주에 미리 적어 둔 이름은 그대로.
+- 주마다 "M/D 주"(그 주 월요일) 줄에 [2주 전 기준으로 채우기]·[지난주와 같게]. 첫 주 [2주 전 기준으로 채우기] → 이른 조 ↔ 늦은 조가 바뀐 표, 바뀐 칸이 색칠되고 위에 "N칸을 채웠습니다 … 아직 저장하지 않았습니다". 다른 주에 미리 적어 둔 이름은 그대로.
 - [지난주와 같게]는 지난주가 이 회차 밖이면 배포된 "지난 2주"의 같은 요일을 옮긴다.
 - 칸에 커서를 두고 Enter → 저장된다("N명분을 저장했습니다"), 채우기가 눌리지 않는다.
-- [표 저장] → 저장. 390px·아주 크게에서 버튼이 표 안에서 줄바꿈되고(표는 가로로만 스크롤), 페이지 가로 스크롤이 없다.
+- [표 저장] → 저장. 390px·아주 크게에서 버튼이 표 안에서 줄바꿈되고(표는 표 안에서만 가로 스크롤), 콘솔 `document.documentElement.scrollWidth > innerWidth` 가 `false`.
+- 다크 모드에서 색칠한 칸(주황 테두리)과 채움 안내가 읽힌다.
 - IT 회차의 입력 표(manager 계정)에는 버튼이 없다.
 
 - [ ] **Step 9: 커밋**
@@ -1488,15 +1571,15 @@ Run: `.venv/bin/pytest -W error -q tests/test_groups.py tests/test_perms.py test
 Expected: 모두 PASS
 
 Run: `.venv/bin/pytest -W error -q`
-Expected: 모두 PASS(사본 기준 **1164 passed**), 경고 0개
+Expected: 모두 PASS(사본 기준 **1169 passed**), 경고 0개
 
-- [ ] **Step 6: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게)**
+- [ ] **Step 6: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게·다크 모드)**
 
 "브라우저 확인 준비"대로 띄운다. `admin` 은 운영팀 관리 그룹의 그룹 관리자다(가짜 데이터 셸이 넣음).
 - 메뉴에 [그룹]이 [관리] 앞에 보인다. `member` 로는 안 보이고 `/groups/` 가 403.
 - "운영팀 근무표 관리" 카드: 설명 한 줄, 멤버(나관리), [빼기]는 테두리, [넣기]는 진한 버튼. 가상하나를 넣고 → 성공 메시지 → 목록에 보임. 가상하나를 [빼기] → 확인창 → 빠짐. 나관리를 빼면(마지막 멤버) ⚠ "운영팀 근무표 관리자가 아무도 없습니다…" 경고가 나온다(나관리는 IT 관리자이기도 해서 메뉴 [회차]는 남는다. 확인 뒤 [넣기]로 다시 넣는다).
 - 관리 화면에서 가상두리를 퇴사(재직 끔)로 바꾼 뒤 그룹에 남아 있으면 "가상두리 (퇴사)"로 보이고 뺄 수 있다.
-- 390px·아주 크게에서 이름과 [빼기]가 줄바꿈되고 버튼 높이가 손가락 크기다.
+- 390px·아주 크게에서 이름과 [빼기]가 줄바꿈되고 버튼 높이가 손가락 크기다. 다크 모드에서 카드·구분선이 보인다. 콘솔 `document.documentElement.scrollWidth > innerWidth` 가 `false`.
 
 - [ ] **Step 7: 커밋**
 
@@ -1513,17 +1596,23 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 ### Task 5: 관리 화면의 근무표·근무 정의·그룹 관리자 편집과 검증
 
 **Files:**
-- Modify: `duty/services/boards.py` — models import, `board_of` 앞(`is_used`)
+- Modify: `duty/models.py` — `import re`, `Board.clean`(만들 때 코드 검사), `BoardShift.clean`·`delete`(저장한 정의의 키·근무표 바꾸기와 지우기 금지), `Department.clean`(직접 입력 근무표는 부서 하나)
 - Modify: `duty/admin.py` — import, `SHIFT_KEY_CHOICES`, `DepartmentForm.__init__`·`clean_shifts`, `_ViewOnly`·`BoardShiftInline`·`BoardAdmin`·`GroupKeeperInline` 교체, `GroupAdmin` 설명
+- Modify(기계적 변경, 단언 그대로): `tests/test_lunch.py` — 점심당번 정의를 지우는 준비 코드 세 곳 `lunch.delete()` → `BoardShift.objects.filter(pk=lunch.pk).delete()`(이제 `instance.delete()` 는 막힌다)
 - Modify(기대 값 변경: 1단계 보기 전용 → 3단계 편집): `tests/test_admin_boards.py` 통째로 다시 씀
 - Test: `tests/test_admin_boards.py`
 
 **Interfaces:**
-- Consumes: `BoardShift` 모델(키 선택지 표시 이름 "근무조 1"~"근무조 4"·"관제 1"~"관제 10"·"점심당번"), `Board.save`(관리 그룹 자동 생성), `GroupKeeper`, `Commute`·`DutyAssignment`·`ChangeLog`
+- Consumes: `BoardShift` 모델(키 선택지 표시 이름 "근무조 1"~"근무조 4"·"관제 1"~"관제 10"·"점심당번"), `Board.save`(관리 그룹 자동 생성), `GroupKeeper`, `Department.shift_keys()`, `Board.departments`(related_name)
 - Produces:
-  - `boards.is_used(board, key: str) -> bool`: 그 근무표에서 그 키의 출근표·당번 배정·변경 기록이 하나라도 있음
+  - `Board.clean()`: 새 근무표의 `code` 가 `[a-z][a-z0-9]{0,15}` 이 아니면 `ValidationError({"code": "코드는 영문 소문자로 시작하는 영문 소문자·숫자 16자 이내입니다(예: ops)."})`(만든 뒤에는 보지 않는다 — 관리 화면에서 읽기 전용)
+  - `BoardShift.clean()`: 저장한 줄의 `(board, key)` 가 DB 값과 다르면 `ValidationError("저장한 근무 정의의 키·근무표는 바꿀 수 없습니다. …")`. `BoardShift.delete()`: 늘 `ValidationError("저장한 근무 정의는 지울 수 없습니다. '사용'을 끄세요.")`(쿼리셋 일괄 삭제 `QuerySet.delete()` 는 이 검사를 거치지 않는다 — 받아들인 한계, 코드에 `ponytail:` 주석)
+  - `Department.clean()`: 직접 입력 근무표에 다른 부서가 이미 있으면 `ValidationError({"board": "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다."})`(관리 화면 부서 폼이 이 검사를 부른다)
   - `admin.SHIFT_KEY_CHOICES: list[tuple[str, str]]`(근무조 키 4개와 중립 이름)
-  - `admin.BoardShiftForm`(한 줄 검증: 이름 규칙, 시각(start 칸에 오류), 자격은 장중관제만, 기본 알림은 근무조만, 쓰인 정의의 키 바꾸기 금지), `admin.BoardShiftFormSet`(켜진 근무조 ≥ 1, 켜진 근무조 시작 시각이 서로 다름, 관제 자격 근무조 ⊆ 이 근무표 근무조, 쓰인 정의 지우기 금지), `admin.BoardForm`(새 근무표의 관리 그룹 이름 충돌을 칸 오류로)
+  - `admin.BoardShiftForm`: 저장한 줄은 `key` 칸 disabled(보낸 값 무시). 한 줄 검증: 이름 규칙, 시각(start 칸에 오류), 자격은 장중관제만, 기본 알림은 근무조만
+  - `admin.BoardShiftFormSet.clean()`: Django 기본 겹침 검사를 부르지 않고 한국어로 — "근무 정의 이름이 겹칩니다: X", "키가 겹칩니다: 근무조 1", 켜진 근무조 ≥ 1, 켜진 근무조 시작 시각이 서로 다름, 관제 자격 근무조 ⊆ 이 근무표 근무조, 켜진 관제의 자격 근무조 ⊆ 켜진 근무조, 저장된 근무표면 부서마다 (부서 출근조 ∩ 켜진 근무조) ≠ ∅
+  - `BoardShiftInline.can_delete = False`(저장한 줄은 지우기 칸이 없다. 아직 저장하지 않은 추가 줄은 Django 화면의 ✕ 로 뺀다)
+  - `admin.BoardForm.clean()`: 같은 이름의 다른 근무표가 있으면 "같은 이름의 근무표가 이미 있습니다: X", 새 근무표의 관리 그룹 이름이 이미 있으면 "같은 이름의 그룹이 이미 있습니다: X 근무표 관리"
   - `BoardAdmin`: 추가·편집 가능, 만든 뒤 `code`·`input_mode` 읽기 전용, 관리 그룹 링크(`group_link`), 지우기 금지. `GroupKeeperInline`: 편집 가능(관리 화면 "그룹").
   - 새 부서 폼: 출근조 선택지 = `SHIFT_KEY_CHOICES`, 저장 때 고른 근무표의 켜진 근무조인지 검사(오류 "이 근무표에 켜진 근무조가 아닙니다: 근무조 2"), 시작 시각 순으로 저장.
 
@@ -1536,9 +1625,11 @@ from datetime import time
 
 import pytest
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from duty.models import Board, BoardShift, Commute, Department, GroupKeeper, Period, User
+from duty.admin import DepartmentForm
+from duty.models import Board, BoardShift, Department, GroupKeeper
 
 ADD = reverse("admin:duty_board_add")
 
@@ -1612,6 +1703,13 @@ def test_add_board_with_definitions(su_client, it_board):
         ("dawn", "이른"), ("normal", "가운데"), ("dinner", "늦은")]
 
 
+@pytest.mark.parametrize("code", ["운영", "Ops", "1ops", "ops-team", "a" * 17])
+def test_add_board_code_must_be_short_ascii(su_client, it_board, code):
+    r = su_client.post(ADD, form(three(), code=code, name="운영팀", input_mode="direct"))
+    assert r.status_code == 200 and "코드는 영문 소문자로 시작하는 영문 소문자·숫자 16자 이내입니다" in r.content.decode()
+    assert not Board.objects.filter(name="운영팀").exists()
+
+
 def test_add_board_needs_a_shift(su_client, it_board):
     r = su_client.post(ADD, form([row(0, "lunch", "점심당번")], code="ops", name="운영팀", input_mode="direct"))
     assert r.status_code == 200 and "켜진 근무조가 하나 이상 있어야 합니다." in r.content.decode()
@@ -1624,6 +1722,16 @@ def test_add_board_group_name_clash(su_client, it_board):
     assert r.status_code == 200 and "같은 이름의 그룹이 이미 있습니다: 운영팀 근무표 관리" in r.content.decode()
 
 
+def test_board_name_must_be_unique(su_client, ops, it_board):
+    r = su_client.post(ADD, form(three(), code="ops2", name="운영팀", input_mode="direct"))
+    assert r.status_code == 200 and "같은 이름의 근무표가 이미 있습니다: 운영팀" in r.content.decode()
+    board, a, b = ops
+    data = change(board, [a, b])
+    data["name"] = it_board.name
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    assert r.status_code == 200 and f"같은 이름의 근무표가 이미 있습니다: {it_board.name}" in r.content.decode()
+
+
 @pytest.mark.parametrize("rows,message", [
     ([row(0, "dawn", "이른", "07:30", "16:30"), row(1, "dinner", "늦은", "07:30", "20:00")],
      "켜진 근무조끼리 시작 시각이 달라야 합니다"),
@@ -1633,16 +1741,20 @@ def test_add_board_group_name_clash(su_client, it_board):
     ([row(0, "dawn", "이른(조)", "07:30", "16:30")], "이름은 date·day 가 아니어야 하고"),
     ([row(0, "dawn", "이른", "07:30", "16:30"), row(1, "slot0", "점검", "09:00", "10:00", eligible_shifts="night")],
      "점검: 자격 근무조는 이 근무표의 근무조여야 합니다."),
+    ([row(0, "dawn", "이른", "07:30", "16:30"), row(1, "normal", "가운데", "09:00", "18:00", active=False),
+      row(2, "slot0", "점검", "09:00", "10:00", eligible_shifts="normal")],
+     "점검: 켜진 관제의 자격 근무조는 켜진 근무조여야 합니다."),
     ([row(0, "dawn", "이른", "07:30", "16:30", eligible_types="직원")], "자격 근무조·자격 구분은 장중관제 칸에만 씁니다."),
     ([row(0, "dawn", "이른", "07:30", "16:30"), row(1, "slot0", "점검", "09:00", "10:00", default_alarm="on")],
      "기본 알림 대상은 근무조에만 씁니다."),
-    ([row(0, "dawn", "같음", "07:30", "16:30"), row(1, "dinner", "같음", "11:00", "20:00")],
-     "중복된 데이터를 고쳐주세요"),  # 이름은 근무표 안에서 하나(boardshift_one_per_name, Django 기본 문구)
+    ([row(0, "dawn", "같음", "07:30", "16:30"), row(1, "dinner", "같음", "11:00", "20:00")], "근무 정의 이름이 겹칩니다: 같음"),
+    ([row(0, "dawn", "이른", "07:30", "16:30"), row(1, "dawn", "늦은", "11:00", "20:00")], "키가 겹칩니다: 근무조 1"),
 ])
 def test_definition_rules(su_client, it_board, rows, message):
     r = su_client.post(ADD, form(rows, code="ops", name="운영팀", input_mode="direct"))
     body = r.content.decode()
-    assert r.status_code == 200 and message in body and "Constraint" not in body and "제약" not in body
+    assert r.status_code == 200 and message in body
+    assert "Constraint" not in body and "제약" not in body and "name의" not in body and "key의" not in body
     assert not Board.objects.filter(code="ops").exists()
 
 
@@ -1656,12 +1768,13 @@ def test_slot_with_shift_eligibility_saves(su_client, it_board):
 
 # ── 근무표 고치기 ──
 
-def test_code_and_input_mode_fixed_after_creation(su_client, ops):
+def test_change_page_locks_code_mode_keys_and_has_no_delete(su_client, ops):
     board, *_ = ops
     body = su_client.get(reverse("admin:duty_board_change", args=[board.pk])).content.decode()
     assert 'name="name"' in body and 'name="code"' not in body and 'name="input_mode"' not in body
     assert reverse("admin:auth_group_change", args=[board.admin_group_id]) in body  # 관리 그룹 링크(그룹 관리자 지정)
-    assert 'name="shifts-0-active"' in body and 'name="shifts-0-DELETE"' in body
+    assert 'name="shifts-0-active"' in body and 'name="shifts-0-DELETE"' not in body
+    assert '<select name="shifts-0-key"' in body and "disabled" in body.split('name="shifts-0-key"')[1].split(">")[0]
 
 
 def test_rename_board_and_add_definition(su_client, ops):
@@ -1674,43 +1787,61 @@ def test_rename_board_and_add_definition(su_client, ops):
     assert board.name == "운영팀2" and BoardShift.objects.filter(board=board).count() == 3
 
 
-def _used(board, a):
-    """정의 a 를 출근표에 한 번 쓴다."""
-    p = Period.objects.create(board=board, name="p", start_date="2026-11-16", end_date="2026-11-20")
-    dept = Department.objects.create(code="OPS", name="운영", shifts="dawn,dinner", board=board)
-    m = User.objects.create_user("OPS1", password=None, name="가상가", department=dept, part="", type="직원")
-    Commute.objects.create(period=p, date="2026-11-16", member=m, shift=a.key)
-
-
-def test_used_definition_cannot_be_deleted_or_rekeyed_but_can_be_turned_off(su_client, ops):
+def test_saved_definition_key_and_delete_ignored_but_can_be_turned_off(su_client, ops):
     board, a, b = ops
-    _used(board, a)
     url = reverse("admin:duty_board_change", args=[board.pk])
-    data = change(board, [a, b])
-    data["shifts-0-DELETE"] = "on"
+    data = change(board, [a, b], dawn={"key": "normal", "active": False})  # 키는 잠겨 있어 보낸 값이 무시된다
+    data["shifts-0-DELETE"] = "on"  # 지우기 칸이 없다
+    data["shifts-1-name"] = "늦은조"
     r = su_client.post(url, data)
-    assert r.status_code == 200 and "이른: 이미 근무표에 쓰인 정의라 지울 수 없습니다." in r.content.decode()
-    r = su_client.post(url, change(board, [a, b], dawn={"key": "normal"}))
-    assert r.status_code == 200 and "이미 근무표에 쓰인 정의라 키를 바꿀 수 없습니다" in r.content.decode()
-    r = su_client.post(url, change(board, [a, b], dawn={"active": False}))
     assert r.status_code == 302, errors(r)
-    a.refresh_from_db()
-    assert a.active is False and a.key == "dawn"
+    assert sorted(BoardShift.objects.filter(board=board).values_list("key", "name", "active")) == [
+        ("dawn", "이른", False), ("dinner", "늦은조", True)]
 
 
-def test_unused_definition_can_be_deleted(su_client, ops):
+def test_turning_off_last_input_shift_of_a_department_is_refused(su_client, ops):
     board, a, b = ops
-    data = change(board, [a, b])
-    data["shifts-1-DELETE"] = "on"
-    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
-    assert r.status_code == 302, errors(r)
-    assert list(BoardShift.objects.filter(board=board).values_list("key", flat=True)) == ["dawn"]
+    Department.objects.create(code="OPS", name="운영", shifts="dawn", board=board)
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), change(board, [a, b], dawn={"active": False}))
+    assert r.status_code == 200 and "운영 부서에 켜진 근무조가 하나도 남지 않습니다" in r.content.decode()
+    a.refresh_from_db()
+    assert a.active
 
 
 def test_board_cannot_be_deleted(su_client, ops):
     board, *_ = ops
     assert su_client.post(reverse("admin:duty_board_delete", args=[board.pk]), {"post": "yes"}).status_code == 403
     assert Board.objects.filter(pk=board.pk).exists()
+
+
+# ── 모델에서도 막는다(관리 화면을 거치지 않는 길) ──
+
+def test_model_refuses_key_change_and_delete(ops):
+    board, a, b = ops
+    a.key = "normal"
+    with pytest.raises(ValidationError, match="저장한 근무 정의의 키·근무표는 바꿀 수 없습니다"):
+        a.full_clean()
+    a.refresh_from_db()
+    with pytest.raises(ValidationError, match="저장한 근무 정의는 지울 수 없습니다"):
+        a.delete()
+    assert BoardShift.objects.filter(pk=a.pk).exists()
+
+
+def test_model_refuses_bad_code_on_create(it_board):
+    with pytest.raises(ValidationError, match="코드는 영문 소문자로"):
+        Board(code="운영", name="운영팀").full_clean()
+
+
+def test_direct_board_has_one_department(ops, it_board):
+    board, *_ = ops
+    Department.objects.create(code="OPS", name="운영", shifts="dawn", board=board)
+    data = {"code": "OPS2", "name": "운영2", "board": board.pk, "order": 1, "shifts": ["dawn"], "managers": []}
+    f = DepartmentForm(data)
+    assert not f.is_valid() and "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다." in str(f.errors["board"])
+    with pytest.raises(ValidationError, match="부서를 하나만"):
+        Department(code="OPS3", name="운영3", shifts="dawn", board=board).full_clean()
+    it = DepartmentForm({**data, "board": it_board.pk, "shifts": ["dawn"]})
+    assert it.is_valid(), it.errors  # 부서별 취합 근무표는 여러 부서
 
 
 # ── 그룹 관리자 ──
@@ -1742,27 +1873,62 @@ def test_new_department_shifts_checked_against_chosen_board(su_client, ops):
     assert Department.objects.get(code="OPS").shifts == "dawn,dinner"  # 시작 시각 순
 ```
 
+`tests/test_lunch.py` 의 `lunch.delete()` 세 줄을 바꾼다(기계적 변경, 단언 그대로):
+```python
+    BoardShift.objects.filter(pk=lunch.pk).delete()  # 저장한 정의는 instance.delete() 가 막는다(3단계), 시험 준비는 쿼리셋으로
+```
+
 - [ ] **Step 2: 실패를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_admin_boards.py`
-Expected: `19 failed, 1 passed`(근무표 추가·고치기가 403, 그룹 관리자 인라인이 보기 전용. 근무표 지우기 403 테스트만 이미 통과)
+Expected: `30 failed, 1 passed`(근무표 추가·고치기가 403, 그룹 관리자 인라인이 보기 전용, 모델 검사 없음. 근무표 지우기 403 테스트만 이미 통과)
 
-- [ ] **Step 3: 쓰인 정의 판단(`services/boards.py`)**
+- [ ] **Step 3: 모델 검사(`models.py`)**
 
-import:
+맨 위에:
 ```python
-from ..models import Board, BoardShift, ChangeLog, Commute, DutyAssignment, Period, PeriodEvent
-```
-`def board_of(` 바로 앞에:
-```python
-def is_used(board: Board, key: str) -> bool:
-    """그 근무표에서 그 키가 쓰였는가(출근표·당번 배정·변경 기록). 쓰인 정의는 지우거나 키를 바꾸지 않고 끈다(설계 4.3)."""
-    return (Commute.objects.filter(period__board=board, shift=key).exists()
-            or DutyAssignment.objects.filter(period__board=board, cell=key).exists()
-            or ChangeLog.objects.filter(period__board=board, cell=key).exists())
-
+import re
 
 ```
+`class Board` 의 `def save(` 바로 앞에:
+```python
+    def clean(self):
+        # 코드는 ?board= 쿼리에 쓰는 짧은 영문(설계 4.2). 만들 때만 본다(만든 뒤에는 관리 화면에서 읽기 전용)
+        if self._state.adding and not re.fullmatch(r"[a-z][a-z0-9]{0,15}", self.code or ""):
+            raise ValidationError({"code": "코드는 영문 소문자로 시작하는 영문 소문자·숫자 16자 이내입니다(예: ops)."})
+
+```
+`class BoardShift` 의 `__str__` 뒤에:
+```python
+
+    def clean(self):
+        # 저장한 정의의 키·근무표는 바꾸지 않는다(지난 행·기록이 키로 이름을 찾는다, 설계 4.3). 관리 화면은 키 칸을 잠근다
+        if self.pk:
+            old = BoardShift.objects.filter(pk=self.pk).values_list("board_id", "key").first()
+            if old and old != (self.board_id, self.key):
+                raise ValidationError("저장한 근무 정의의 키·근무표는 바꿀 수 없습니다. 이 줄은 '사용'을 끄고 새 줄을 더하세요.")
+
+    def delete(self, *args, **kwargs):
+        # 저장한 정의는 지우지 않고 끈다. ponytail: 쿼리셋 일괄 삭제(QuerySet.delete)는 이 검사를 거치지 않는다
+        raise ValidationError("저장한 근무 정의는 지울 수 없습니다. '사용'을 끄세요.")
+```
+(`clean` 의 오류는 칸 이름 없이 둔다: 관리 화면에서 key 칸이 disabled 라도 폼에 없는 칸 이름으로 오류를 붙이면 `ValueError` 가 난다.)
+
+`class Department` 의 `def save(` 바로 앞에:
+```python
+    def clean(self):
+        # 직접 입력 근무표는 부서 하나짜리(설계 6.2): 입력 표·채우기·확정 경고가 부서 하나를 전제로 한다
+        if (self.board_id and self.board.input_mode == InputMode.DIRECT
+                and Department.objects.filter(board_id=self.board_id).exclude(pk=self.pk).exists()):
+            raise ValidationError({"board": "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다."})
+
+```
+
+Run: `.venv/bin/pytest -W error -q tests/test_admin_boards.py -k "model or one_department"`
+Expected: 3 passed(모델 검사 테스트. 관리 화면 테스트는 아직 FAIL 이라 `-k` 로 뺐다)
+
+Run: `.venv/bin/pytest -W error -q tests/test_lunch.py`
+Expected: 모두 PASS(준비 코드를 쿼리셋 삭제로 바꿨다)
 
 - [ ] **Step 4: 관리 화면(`admin.py`)**
 
@@ -1819,8 +1985,8 @@ SHIFT_KEY_CHOICES = [(k, label) for k, label in BoardShift._meta.get_field("key"
 `class _ViewOnly:` 부터 `@admin.register(Holiday)` 바로 앞까지(`_ViewOnly`·`BoardShiftInline`·`BoardAdmin`·`GroupKeeperInline`)를 통째로 바꾼다:
 ```python
 class BoardShiftForm(forms.ModelForm):
-    """근무 정의 한 줄의 검증(설계 4.3). 시각 오류는 start 칸에 붙인다: 그 칸이 오류면 DB 제약(boardshift_times_valid)
-    검사를 건너뛰어 영어 제약 문구가 함께 뜨지 않는다."""
+    """근무 정의 한 줄의 검증(설계 4.3). 저장한 줄은 키 칸을 잠근다(BoardShift.clean 이 한 번 더 막는다).
+    시각 오류는 start 칸에 붙인다: 그 칸이 오류면 DB 제약(boardshift_times_valid) 검사를 건너뛰어 영어 제약 문구가 함께 뜨지 않는다."""
     eligible_shifts = forms.MultipleChoiceField(label="자격 근무조", required=False, choices=SHIFT_KEY_CHOICES,
                                                 widget=forms.CheckboxSelectMultiple, help_text="장중관제 칸만")
     eligible_types = forms.MultipleChoiceField(label="자격 구분", required=False, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)],
@@ -1829,6 +1995,11 @@ class BoardShiftForm(forms.ModelForm):
     class Meta:
         model = BoardShift
         fields = ["key", "name", "start", "end", "eligible_shifts", "eligible_types", "default_alarm", "active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:  # 저장한 정의의 키는 바꾸지 않는다(보낸 값은 무시된다)
+            self.fields["key"].disabled = True
 
     def clean_name(self):
         v = self.cleaned_data["name"].strip()
@@ -1853,40 +2024,49 @@ class BoardShiftForm(forms.ModelForm):
             self.add_error("eligible_shifts", "자격 근무조·자격 구분은 장중관제 칸에만 씁니다.")
         if key not in SHIFT_KEYS and c.get("default_alarm"):
             self.add_error("default_alarm", "기본 알림 대상은 근무조에만 씁니다.")
-        old = self.instance.key if self.instance.pk else None
-        if old and key != old and boards.is_used(self.instance.board, old):
-            self.add_error("key", "이미 근무표에 쓰인 정의라 키를 바꿀 수 없습니다. 이 줄은 '사용'을 끄고 새 줄을 더하세요.")
         return c
 
 
 class BoardShiftFormSet(forms.BaseInlineFormSet):
-    """근무표 전체의 검증(설계 4.3): 켜진 근무조 하나 이상, 켜진 근무조끼리 시작 시각이 다름(가장 이른 조·이른/가운데/늦은 조가
-    하나로 정해지게), 관제 자격 근무조는 이 근무표의 근무조, 쓰인 정의는 지우지 않는다."""
+    """근무표 전체의 검증(설계 4.3). Django 기본 겹침 검사(영어 칸 이름이 섞인 문구)는 부르지 않고 한국어로 직접 본다:
+    이름·키 겹침, 켜진 근무조 하나 이상, 켜진 근무조끼리 시작 시각이 다름(가장 이른 조·이른/가운데/늦은 조가 하나로 정해지게),
+    관제 자격 근무조는 이 근무표의 근무조(켜진 관제는 켜진 근무조만), 끄고 나서도 부서마다 켜진 입력 근무조가 하나 이상."""
 
     def clean(self):
-        super().clean()
-        for f in self.deleted_forms:
-            if f.instance.pk and boards.is_used(self.instance, f.instance.key):
-                raise ValidationError(f"{f.instance.name}: 이미 근무표에 쓰인 정의라 지울 수 없습니다. '사용'을 끄세요.")
         if any(self.errors):
             return
-        rows = [f.cleaned_data for f in self.forms if f.cleaned_data and f not in self.deleted_forms]
+        rows = [f.cleaned_data for f in self.forms if f.cleaned_data.get("key")]  # 비워 둔 추가 줄은 빠진다
+        for field, label in (("name", "근무 정의 이름이 겹칩니다"), ("key", "키가 겹칩니다")):
+            values = [r[field] for r in rows]
+            dup = sorted({v for v in values if values.count(v) > 1})
+            if dup:
+                names = dict(BoardShift._meta.get_field("key").choices) if field == "key" else {}
+                raise ValidationError(f"{label}: {', '.join(names.get(v, v) for v in dup)}")
         on = [r for r in rows if r["key"] in SHIFT_KEYS and r["active"]]
         if not on:
             raise ValidationError("켜진 근무조가 하나 이상 있어야 합니다.")
         if len({r["start"] for r in on}) != len(on):
             raise ValidationError("켜진 근무조끼리 시작 시각이 달라야 합니다(가장 이른 조를 하나로 정할 수 있게).")
-        keys = {r["key"] for r in rows if r["key"] in SHIFT_KEYS}
+        keys, on_keys = {r["key"] for r in rows if r["key"] in SHIFT_KEYS}, {r["key"] for r in on}
         for r in rows:
-            if set(r.get("eligible_shifts") or ()) - keys:
+            picked = set(r.get("eligible_shifts") or ())
+            if picked - keys:
                 raise ValidationError(f"{r['name']}: 자격 근무조는 이 근무표의 근무조여야 합니다.")
+            if r["active"] and picked - on_keys:
+                raise ValidationError(f"{r['name']}: 켜진 관제의 자격 근무조는 켜진 근무조여야 합니다.")
+        if self.instance.pk:
+            for dept in self.instance.departments.all():
+                if not set(dept.shift_keys()) & on_keys:
+                    raise ValidationError(f"{dept.name} 부서에 켜진 근무조가 하나도 남지 않습니다. 부서의 출근조를 먼저 바꾸세요.")
 
 
 class BoardShiftInline(admin.TabularInline):
+    """저장한 줄은 지우지 않는다(끄기만). 아직 저장하지 않은 추가 줄은 화면에서 뺄 수 있다."""
     model = BoardShift
     form = BoardShiftForm
     formset = BoardShiftFormSet
     extra = 0
+    can_delete = False
 
 
 class BoardForm(forms.ModelForm):
@@ -1896,10 +2076,12 @@ class BoardForm(forms.ModelForm):
 
     def clean(self):
         c = super().clean()
+        name = c.get("name")
         # Board.save 가 만들 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
-        group = f"{c.get('name')} 근무표 관리"
-        if c.get("name") and not self.instance.pk and Group.objects.filter(name=group).exists():
-            self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
+        if name and Board.objects.exclude(pk=self.instance.pk).filter(name=name).exists():
+            self.add_error("name", f"같은 이름의 근무표가 이미 있습니다: {name}")
+        elif name and not self.instance.pk and Group.objects.filter(name=f"{name} 근무표 관리").exists():
+            self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {name} 근무표 관리")
         return c
 
 
@@ -1915,8 +2097,8 @@ class BoardAdmin(admin.ModelAdmin):
         fields = ["code", "name", "input_mode"] + ([] if obj is None else ["group_link"])
         return [(None, {"fields": fields, "description": (
             "근무 정의의 이름·시각을 운영 중에 바꾸면 발송 창이 열린 알림이 한 번 다시 나가고, 예전에 내려받은 CSV 의 "
-            "열 이름이 맞지 않습니다. 쓰인 정의는 지우거나 키를 바꿀 수 없으니 '사용'을 끕니다. "
-            "근무조 1~4 는 이름일 뿐이고 이른·늦은 조는 시작 시각으로 정합니다.")})]
+            "열 이름이 맞지 않습니다. 저장한 정의는 지우거나 키를 바꿀 수 없으니 '사용'을 끄고 새 줄을 더합니다. "
+            "근무조 1~4 는 이름일 뿐이고 이른·늦은 조는 시작 시각으로 정합니다. 직접 입력 근무표에는 부서를 하나만 둡니다.")})]
 
     def get_readonly_fields(self, request, obj=None):
         return [] if obj is None else ["code", "input_mode", "group_link"]
@@ -1934,8 +2116,6 @@ class GroupKeeperInline(admin.TabularInline):
     """그룹 관리자(설계 4.5): 이 그룹에 멤버를 넣고 빼는 사람. 슈퍼유저가 여기서 정하고, 그 뒤 멤버는 그 사람이 [그룹] 화면에서."""
     model = GroupKeeper
     extra = 0
-
-
 ```
 
 `GroupAdmin` 의 설명 줄을 바꾼다:
@@ -1945,28 +2125,28 @@ class GroupKeeperInline(admin.TabularInline):
 
 - [ ] **Step 5: 통과를 확인한다**
 
-Run: `.venv/bin/pytest -W error -q tests/test_admin_boards.py tests/test_admin_department.py tests/test_boards_models.py`
+Run: `.venv/bin/pytest -W error -q tests/test_admin_boards.py tests/test_admin_department.py tests/test_boards_models.py tests/test_lunch.py`
 Expected: 모두 PASS
 
 Run: `.venv/bin/pytest -W error -q`
-Expected: 모두 PASS(사본 기준 **1178 passed**: 1164 + 새 20 − 지운 6), 경고 0개
+Expected: 모두 PASS(사본 기준 **1194 passed**: 1169 + 새 31 − 지운 6), 경고 0개
 
 Run: `DJANGO_SETTINGS_MODULE=config.test_settings .venv/bin/python manage.py makemigrations duty --check --dry-run`
 Expected: `No changes detected in app 'duty'`
 
-- [ ] **Step 6: 브라우저로 확인한다(관리 화면, PC 1400px. 슈퍼유저만 쓰는 화면이라 390px 는 깨지지 않는지만)**
+- [ ] **Step 6: 브라우저로 확인한다(관리 화면. PC 1400px·다크 모드, 390px·아주 크게는 깨지거나 페이지 가로 스크롤이 생기지 않는지만)**
 
 "브라우저 확인 준비"대로 띄우고 `admin` 으로 `/admin/`:
-- "근무표" → [근무표 추가]: 코드 `tst`, 이름 "시험팀", 직접 입력, 근무 정의 줄을 더해 근무조 2개(시각 다르게) 저장 → 목록에 보이고 "그룹"에 "시험팀 근무표 관리"가 생긴다. 근무조 없이·같은 시작 시각·점심당번에 시각 넣기로 저장하면 한국어 오류가 칸이나 위에 보이고 영어 "Constraint" 문구가 없다.
-- "운영팀" 고치기: 코드·입력 방식은 글자로만 보이고, "관리 그룹" 링크 → 그룹 화면에서 "그룹 관리자" 줄을 더해 가상하나를 지정 → 저장. 가상하나로 로그인하면 메뉴 [그룹]이 보인다.
-- "운영팀"의 "이른" 줄에 지우기 체크 → 저장 → "이미 근무표에 쓰인 정의라 지울 수 없습니다" 오류. '사용'을 끄면 저장된다(다시 켜 둔다).
-- "부서" → [부서 추가]: 출근조가 "근무조 1~4"로 보인다. 시험팀을 고르고 시험팀에 없는 근무조를 체크하면 "이 근무표에 켜진 근무조가 아닙니다" 오류.
+- "근무표" → [근무표 추가]: 코드 `tst`, 이름 "시험팀", 직접 입력, 근무 정의 줄을 더해 근무조 2개(시각 다르게) 저장 → 목록에 보이고 "그룹"에 "시험팀 근무표 관리"가 생긴다. 코드에 한글·대문자, 근무조 없이, 같은 시작 시각, 같은 이름 두 줄, 점심당번에 시각 넣기로 저장하면 한국어 오류가 칸이나 위에 보이고 영어 "Constraint"·"name의" 문구가 없다.
+- "운영팀" 고치기: 코드·입력 방식은 글자로만, 저장한 줄의 키는 잠겨 있고 지우기 칸이 없다. 새로 더한 줄은 저장 전 ✕ 로 뺄 수 있다. "이른"의 '사용'만 끄고 저장 → 저장된다(다시 켜 둔다). 운영 부서의 출근조가 모두 꺼지게 끄면 "운영 부서에 켜진 근무조가 하나도 남지 않습니다".
+- "관리 그룹" 링크 → 그룹 화면에서 "그룹 관리자" 줄을 더해 가상하나를 지정 → 저장. 가상하나(`OPS0` / `Demo-pass-123`)로 로그인하면 메뉴 [그룹]이 보인다.
+- "부서" → [부서 추가]: 출근조가 "근무조 1~4"로 보인다. 운영팀을 고르면 "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다". 시험팀을 고르고 시험팀에 없는 근무조를 체크하면 "이 근무표에 켜진 근무조가 아닙니다".
 
 - [ ] **Step 7: 커밋**
 
 ```bash
-git add duty/services/boards.py duty/admin.py tests/test_admin_boards.py
-git commit -m "feat: 관리 화면에서 근무표·근무 정의·그룹 관리자 편집(설계 4.3 검증, 쓰인 정의는 끄기만, 새 부서 출근조 검사)
+git add duty/models.py duty/admin.py tests/test_admin_boards.py tests/test_lunch.py
+git commit -m "feat: 관리 화면에서 근무표·근무 정의·그룹 관리자 편집(설계 4.3 검증, 저장한 정의는 끄기만, 코드·부서 하나 검사)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
@@ -2037,7 +2217,7 @@ TEXTS = [  # 영상 없이 글로만 보는 사용법 (이름, 제목, 누구를
         "채우기는 그 주 표를 그려 보여 주기만 합니다. 바뀐 칸은 색칠됩니다. 확인하고 고친 뒤 화면 아래 [표 저장]을 눌러야 저장됩니다.",
         "다 넣었으면 회차 화면에서 [확정]을 누릅니다. 점심당번이 있으면 가장 이른 근무조 사람으로 채웁니다. 비어 있는 평일이 있으면 경고만 보이고 확정은 됩니다.",
         "확정한 뒤 [배포…]로 근무표에 내보냅니다. 배포 전에 고칠 것이 있으면 [확정 취소]로 입력 중으로 돌아갑니다(출근표는 그대로, 점심당번은 다시 확정할 때 새로 채웁니다).",
-        "배포한 뒤에는 근무표 화면에서 칸을 눌러 바꿉니다. 잘못 배포했으면 회차 화면의 [배포 취소]로 되돌립니다(가장 최근 배포만).",
+        "배포한 뒤에는 근무표 화면에서 칸을 눌러 바꿉니다. 잘못 배포했으면 회차 화면의 [배포 취소]로 되돌립니다(가장 최근 배포만, 회차는 확정으로 돌아갑니다).",
     ],
 ```
 `allowed` 의 마지막 줄 `return name == "admin" and perms.is_admin(user)` 바로 앞에:
@@ -2074,11 +2254,11 @@ Run: `.venv/bin/pytest -W error -q tests/test_help.py`
 Expected: 모두 PASS
 
 Run: `.venv/bin/pytest -W error -q`
-Expected: 모두 PASS(사본 기준 **1179 passed**), 경고 0개
+Expected: 모두 PASS(사본 기준 **1195 passed**), 경고 0개
 
-- [ ] **Step 5: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게)**
+- [ ] **Step 5: 브라우저로 확인한다(PC 1400px·휴대폰 390px·아주 크게·다크 모드)**
 
-"브라우저 확인 준비"대로 띄우고 `admin`(운영팀 관리자)으로 [도움말]: 영상 셋 아래 "직접 입력 근무표 운영(입력 중·확정·배포)" 글이 펼쳐진 번호 목록으로 보인다. `member` 와 IT 입력 담당(`manager`)에게는 안 보인다. 아주 크게 + 390px 에서 글이 줄바꿈되고 가로 스크롤이 없다.
+"브라우저 확인 준비"대로 띄우고 `admin`(운영팀 관리자)으로 [도움말]: 영상 셋 아래 "직접 입력 근무표 운영(입력 중·확정·배포)" 글이 펼쳐진 번호 목록으로 보인다. `member` 와 IT 입력 담당(`manager`)에게는 안 보인다. 아주 크게 + 390px, 다크 모드에서 글이 줄바꿈되어 읽히고 콘솔 `document.documentElement.scrollWidth > innerWidth` 가 `false`.
 
 - [ ] **Step 6: 커밋**
 
@@ -2113,7 +2293,7 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 ```
 를 바꾼다:
 ```
-- 근무표와 근무 정의는 슈퍼유저가 관리 화면 "근무표"에서 추가·편집한다(`admin.BoardShiftForm`·`BoardShiftFormSet`): 시각이 있으면 시작 < 끝(점심당번은 시각 없음), 켜진 근무조 하나 이상, 켜진 근무조끼리 시작 시각이 다름, 관제 자격 근무조는 그 근무표의 근무조, 자격은 장중관제만·기본 알림은 근무조만, 이름은 근무표 안에서 하나이고 `date`·`day`·`(`·줄바꿈 금지(CSV 열 이름). 쓰인 정의(`boards.is_used`: 그 키의 출근표·당번 배정·변경 기록)는 지우거나 키를 바꿀 수 없고 '사용'을 끈다. code(`boards.it_board()` 가 IT 근무표를 찾는 열쇠)와 입력 방식은 만든 뒤 바꾸지 않고, 근무표는 지우지 않는다. 새 부서의 출근조는 중립 이름(근무조 1~4)으로 고르고 저장 때 그 근무표의 켜진 근무조인지 본다.
+- 근무표와 근무 정의는 슈퍼유저가 관리 화면 "근무표"에서 추가·편집한다(`admin.BoardShiftForm`·`BoardShiftFormSet`): 시각이 있으면 시작 < 끝(점심당번은 시각 없음), 이름·키 겹침 없음, 켜진 근무조 하나 이상, 켜진 근무조끼리 시작 시각이 다름, 관제 자격 근무조는 그 근무표의 근무조(켜진 관제는 켜진 근무조만), 근무조를 꺼도 부서마다 켜진 입력 근무조가 하나 이상, 자격은 장중관제만·기본 알림은 근무조만, 이름은 `date`·`day`·`(`·줄바꿈 금지(CSV 열 이름). **저장한 정의는 키를 바꾸거나 지울 수 없고** '사용'을 끈다(관리 화면은 키 칸을 잠그고 지우기 칸이 없다. 모델도 `BoardShift.clean`·`delete` 로 막는다, 쿼리셋 일괄 삭제만 예외). code 는 만들 때 짧은 영문 소문자(`Board.clean`)이고, code(`boards.it_board()` 가 IT 근무표를 찾는 열쇠)와 입력 방식은 만든 뒤 바꾸지 않으며, 근무표는 지우지 않는다. 직접 입력 근무표에는 부서를 하나만 둔다(`Department.clean`). 새 부서의 출근조는 중립 이름(근무조 1~4)으로 고르고 저장 때 그 근무표의 켜진 근무조인지 본다.
 ```
 
 역할 표의 그룹 관리자·슈퍼유저 두 줄을 바꾼다:
@@ -2174,7 +2354,7 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 
 "업그레이드·롤백"의 2단계 묶음 뒤, `- nginx 를 켜 둔 서버는 …` 항목 앞에:
 ```
-- **근무표 일반화 3단계로 올릴 때**: 마이그레이션이 없다(업그레이드 절차 그대로, `migrate` 는 "No migrations to apply"). 바뀌는 것: 관리 화면 "근무표"에서 근무표·근무 정의를 추가·편집한다(쓰인 정의는 지우지 못하고 '사용'을 끈다, code·입력 방식은 만든 뒤 못 바꾼다). 관리 화면 "그룹"에서 그룹 관리자를 정하면 그 사람에게 메뉴 [그룹]이 생긴다(1단계 마이그레이션이 지금 슈퍼유저를 모든 그룹의 그룹 관리자로 넣어 두었으므로 슈퍼유저에게도 [그룹]이 보인다). 새 부서의 출근조는 "근무조 1~4"로 고르고 고른 근무표에 있는 근무조만 저장된다. 직접 입력 근무표의 회차 화면(입력 중 → 확정 → 배포됨)과 채우기 버튼은 직접 입력 근무표가 생길 때(4단계)부터 보인다. IT 화면·알림은 그대로다.
+- **근무표 일반화 3단계로 올릴 때**: 마이그레이션이 없다(업그레이드 절차 그대로, `migrate` 는 "No migrations to apply"). 바뀌는 것: 관리 화면 "근무표"에서 근무표·근무 정의를 추가·편집한다(저장한 정의는 지우거나 키를 바꾸지 못하고 '사용'을 끈다, code·입력 방식은 만든 뒤 못 바꾼다, 직접 입력 근무표에는 부서 하나). 관리 화면 "그룹"에서 그룹 관리자를 정하면 그 사람에게 메뉴 [그룹]이 생긴다(1단계 마이그레이션이 지금 슈퍼유저를 모든 그룹의 그룹 관리자로 넣어 두었으므로 슈퍼유저에게도 [그룹]이 보인다). 새 부서의 출근조는 "근무조 1~4"로 고르고 고른 근무표에 있는 근무조만 저장된다. 직접 입력 근무표의 회차 화면(입력 중 → 확정 → 배포됨)과 채우기 버튼은 직접 입력 근무표가 생길 때(4단계)부터 보인다. IT 화면·알림은 그대로다.
 ```
 
 - [ ] **Step 4: PRINCIPLES.md 결정 기록(표 끝에 네 줄)**
@@ -2183,7 +2363,7 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 | 2026-11-16 | 직접 입력 근무표는 DB 상태를 그대로 쓰고 화면 이름만 입력 중(취합 중)·확정(생성됨)·배포됨으로 바꾼다. 새 회차는 바로 입력 중, 입력 중에도 기간 수정, 빈 평일은 확정 경고만, [확정 취소]는 입력 중으로만 | 상태·제약·배포·배포 취소 코드를 하나로 두고, 부서 취합이 없는 팀에서 취합 열기·마감 단계를 없앤다 |
 | 2026-11-16 | 채우기 버튼은 저장하지 않고 그 주의 줄만 다시 그린다. 회차 안의 기준은 화면의 표(저장 전 고친 것 포함), 밖은 배포된 근무표. [지난주와 같게]는 근무조만 옮기고 사유는 옮기지 않는다 | 저장은 [표 저장]의 기존 검증 한 길로만. 저장 전에 고친 다른 주가 날아가지 않게. 지난주 휴가가 이번 주로 따라오면 안 된다 |
 | 2026-11-16 | 그룹 화면은 그룹 관리자만, 멤버 넣고 빼기만(근무표 관리 그룹이 비면 경고만, 기록은 로그). 그룹 관리자 지정은 슈퍼유저가 관리 화면 "그룹"에서 | 관리자를 바꿀 때마다 슈퍼유저를 거치지 않게 하되, 권한을 나눠 주는 권한은 슈퍼유저에게 둔다 |
-| 2026-11-16 | 관리 화면에서 근무표·근무 정의를 편집한다(설계 4.3 검증은 폼이 먼저 해서 한국어로, 마이그레이션 없음). code·입력 방식은 만든 뒤 바꾸지 않고, 쓰인 정의는 지우거나 키를 바꾸지 않고 끈다. 근무표는 지우지 않는다 | code 는 `boards.it_board()` 의 열쇠이고, 입력 방식을 바꾸면 회차 상태·입력 그룹이 맞지 않는다. 지난 행·기록의 이름을 계속 찾아야 한다 |
+| 2026-11-16 | 관리 화면에서 근무표·근무 정의를 편집한다(설계 4.3 검증은 폼이 먼저 해서 한국어로, 마이그레이션 없음). code·입력 방식은 만든 뒤 바꾸지 않고, 저장한 근무 정의는 쓰였는지와 상관없이 지우거나 키를 바꾸지 않고 끈다(모델에서도 막음). 근무표는 지우지 않고, 직접 입력 근무표는 부서 하나 | code 는 `boards.it_board()` 의 열쇠이고, 입력 방식을 바꾸면 회차 상태·입력 그룹이 맞지 않는다. 지난 행·기록·알림 발송 기록이 키로 이름을 찾고, "쓰였나" 판단은 빠뜨리기 쉽다. 입력 표·채우기·확정 경고가 부서 하나를 전제로 한다 |
 ```
 
 - [ ] **Step 5: 남은 옛 말이 없는지 본다**
@@ -2196,13 +2376,13 @@ Expected: 출력 없음(OPERATIONS 의 1단계 업그레이드 묶음 "그룹 �
 - [ ] **Step 6: 전체 확인**
 
 ```bash
-.venv/bin/pytest -W error -q                                                       # 모두 PASS(사본 기준 1179 passed), 경고 0개
+.venv/bin/pytest -W error -q                                                       # 모두 PASS(사본 기준 1195 passed), 경고 0개
 .venv/bin/pytest -W error -q tests/test_alarm_texts_it.py                          # 그대로 통과(IT 문구 불변)
 DJANGO_SETTINGS_MODULE=config.test_settings .venv/bin/python manage.py makemigrations duty --check --dry-run   # No changes detected
 git diff --stat main -- tests/test_alarm_texts_it.py                               # 출력 없음(고치지 않았다)
 ```
 
-마지막으로 "브라우저 확인 준비"대로 한 번 더 띄워 IT 화면(`member`: 근무표 주간·월간, `admin`: IT 회차 화면·입력 표)이 3단계 전과 같은지(단계 띠·버튼·문구) 1400px·390px 로 보고 서버를 끈 뒤 임시 폴더를 지운다.
+마지막으로 "브라우저 확인 준비"대로 한 번 더 띄워 IT 화면(`member`: 근무표 주간·월간, `admin`: IT 회차 화면·입력 표)이 3단계 전과 같은지(단계 띠·버튼·문구) 1400px·390px·아주 크게·다크 모드로 보고(가로 넘침 콘솔 확인 포함) 서버를 끈 뒤 임시 폴더를 지운다.
 
 - [ ] **Step 7: 커밋**
 
