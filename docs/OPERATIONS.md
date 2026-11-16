@@ -318,8 +318,8 @@ IT 당번표 말고 근무표를 하나 더 만드는 절차다(예: 시장운�
 명단은 실명이라 운영자 자기 홈에 두고 남이 못 읽게 한 뒤 표준 입력(`--people -`)으로 넘긴다. `<` 는 운영자 셸이 여니 duty 사용자는 파일을 읽지 않는다. 성공하든 실패하든 끝나면 지운다.
 
 ```bash
+install -m 600 /dev/null ~/mops.txt   # 나만 읽는 빈 파일을 먼저 만든다(실명을 적기 전에)
 nano ~/mops.txt          # 한 줄에 이름 하나
-chmod 600 ~/mops.txt
 sudo -u duty .venv/bin/python manage.py add_board mops 시장운영실 \
     --shifts 07:30-16:30,09:00-18:00,11:00-20:00 --lunch 11:30-12:30 \
     --people - --admin <근무표 관리자 아이디> < ~/mops.txt
