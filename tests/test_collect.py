@@ -171,3 +171,12 @@ def test_inactive_shift_left_out_of_input_but_kept_on_save(setup, it_board, clie
     with pytest.raises(CsvInvalid) as e:
         collect.apply_csv(user, p, dept, 'date,정상,석식교대,야간\n2026-11-09,가,,\n'.encode())
     assert any("이미 사용하지 않는 근무조에 배정돼 있습니다" in err.reason for err in e.value.errors)
+
+
+def test_input_order_follows_current_start_times(setup, it_board):
+    # 부서 출근조는 저장한 순서가 아니라 지금 정의의 시작 시각 순으로 입력 표·CSV 열에 놓인다(설계: 시작 시각 순)
+    p, dept, _ = setup
+    BoardShift.objects.filter(board=it_board, key="dawn").update(start="10:00")
+    assert dept.shifts == "dawn,normal,dinner,night"  # 저장값은 그대로
+    assert collect.input_keys(dept) == ["normal", "dinner", "dawn", "night"] == list(collect.shift_names(dept))
+    assert collect.export_csv(p, dept).decode("utf-8-sig").splitlines()[0] == "date,day,정상,석식교대,새벽,야간"

@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from duty.admin import DepartmentForm
-from duty.models import Board, BoardShift, Department, GroupKeeper
+from duty.models import Board, BoardShift, Department, GroupKeeper, User
 
 ADD = reverse("admin:duty_board_add")
 
@@ -249,3 +249,104 @@ def test_new_department_shifts_checked_against_chosen_board(su_client, ops):
     r = su_client.post(url, {**data, "shifts": ["dinner", "dawn"]})
     assert r.status_code == 302, errors(r)
     assert Department.objects.get(code="OPS").shifts == "dawn,dinner"  # 시작 시각 순
+
+
+# ── 관리 화면은 슈퍼유저만 ──
+
+def test_staff_with_model_permissions_cannot_use_board_admin(client, ops):
+    from django.contrib.auth.models import Permission
+    board, a, b = ops
+    staff = User.objects.create_user("staff1", password="unused-Pw-123", name="스태프", is_staff=True)
+    staff.user_permissions.set(Permission.objects.filter(content_type__app_label="duty",
+                                                         codename__in=["change_board", "view_board", "change_boardshift",
+                                                                       "add_boardshift", "view_boardshift"]))
+    client.force_login(staff)
+    url = reverse("admin:duty_board_change", args=[board.pk])
+    login = reverse("admin:login")
+    r = client.get(url)
+    assert r.status_code == 302 and r.url.startswith(login)
+    data = change(board, [a, b], dawn={"name": "바뀜"})
+    data["name"] = "바뀐 운영팀"
+    r = client.post(url, data)
+    assert r.status_code == 302 and r.url.startswith(login)
+    board.refresh_from_db()
+    a.refresh_from_db()
+    assert board.name == "운영팀" and a.name == "이른"
+
+
+# ── 이름을 바꾸면 관리 그룹 이름도 ──
+
+def test_rename_board_renames_admin_group(su_client, ops):
+    board, a, b = ops
+    data = change(board, [a, b])
+    data["name"] = "운영본부"
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    assert r.status_code == 302, errors(r)
+    board.refresh_from_db()
+    assert board.name == "운영본부" and board.admin_group.name == "운영본부 근무표 관리"
+
+
+def test_rename_board_refused_when_group_name_taken(su_client, ops):
+    board, a, b = ops
+    other = Group.objects.create(name="운영본부 근무표 관리")
+    data = change(board, [a, b], dawn={"name": "바뀜"})
+    data["name"] = "운영본부"
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    assert r.status_code == 200 and "같은 이름의 그룹이 이미 있습니다: 운영본부 근무표 관리" in r.content.decode()
+    board.refresh_from_db()
+    a.refresh_from_db()
+    assert board.name == "운영팀" and board.admin_group.name == "운영팀 근무표 관리" and a.name == "이른"
+    assert Group.objects.get(pk=other.pk).name == "운영본부 근무표 관리"
+
+
+# ── 배포된 회차가 있는 정의를 고쳐도 근무표·캘린더·배포 취소가 그대로(회귀) ──
+
+def test_editing_definitions_keeps_published_rows(su_client, client, it_board, make_member, fixed_today, settings):
+    from datetime import date
+
+    from duty.models import Commute, DutyAssignment, Period
+    from duty.services import calendar
+    from duty.services.publish import publish, unpublish
+    from duty.shifts import weekdays
+    from tests.test_calendar_feed import vevents
+
+    settings.SITE_URL = "https://duty.example"
+    fixed_today(date(2026, 11, 11))
+    me = make_member("가상일", user=True)
+    d1, d2 = date(2026, 11, 12), date(2026, 11, 13)
+    a = Period.objects.create(board=it_board, name="A", start_date=d1, end_date=d2, status=Period.Status.GENERATED)
+    for x in weekdays(d1, d2):
+        Commute.objects.create(period=a, date=x, member=me, shift="dawn")
+        DutyAssignment.objects.create(period=a, date=x, cell="slot0", member=me)
+    b = Period.objects.create(board=it_board, name="B", start_date=d2, end_date=d2, status=Period.Status.GENERATED)
+    Commute.objects.create(period=b, date=d2, member=me, shift="normal")
+    publish(a, d1)
+    publish(b, d2)
+
+    # 새벽(출근)·08:30 관제 칸의 이름·시작 시각을 바꾸고 끈다. 나머지 칸은 지금 값 그대로 보낸다
+    shifts = list(BoardShift.objects.filter(board=it_board).order_by("pk"))
+    data = change(it_board, shifts, dawn={"name": "새벽2", "start": "07:00", "active": False},
+                  slot0={"name": "첫 관제", "start": "08:40", "active": False})
+    for i, s in enumerate(shifts):
+        data[f"shifts-{i}-eligible_shifts"] = s.eligible_shifts
+        data[f"shifts-{i}-eligible_types"] = s.eligible_types
+        if s.default_alarm:
+            data[f"shifts-{i}-default_alarm"] = "on"
+    r = su_client.post(reverse("admin:duty_board_change", args=[it_board.pk]), data)
+    assert r.status_code == 302, errors(r)
+    assert BoardShift.objects.get(board=it_board, key="slot0").eligible_shifts == ["normal"]  # 다른 칸은 그대로
+
+    # 근무표: 꺼진 정의의 행도 바뀐 이름으로 보인다(설계 4.3 '끄면 새 입력에서만 빠진다')
+    client.force_login(me)
+    body = client.get(f"/day/{d1}/").content.decode()
+    assert "새벽2" in body and "첫 관제" in body and "가상일" in body
+
+    # 캘린더: 바뀐 이름·시작 시각(KST 07:00 = UTC 전날 22:00, 08:40 = UTC 23:40)
+    token = calendar.issue(me).rsplit("/", 1)[1].removesuffix(".ics")
+    evs = {e["DTSTART"]: e["SUMMARY"] for e in vevents(client.get(f"/calendar/{token}.ics"))}
+    assert evs["20261111T220000Z"].startswith("새벽2") and evs["20261111T234000Z"] == "장중관제 첫 관제"
+
+    # 배포 취소: B 가 덮어쓴 A 의 13일 행(꺼진 정의의 행)이 되살아난다
+    unpublish(b)
+    assert sorted(Commute.objects.filter(period=a).values_list("date", "shift")) == [(d1, "dawn"), (d2, "dawn")]
+    assert DutyAssignment.objects.filter(period=a, cell="slot0").count() == 2

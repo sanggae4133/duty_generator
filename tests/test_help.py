@@ -196,8 +196,11 @@ def test_direct_board_admin_text_help(client, people, videos, make_member):
     ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
     client.force_login(people["admin"])  # IT(부서별 취합)만 관리
     assert "직접 입력 근무표 운영" not in client.get("/help/").content.decode()
+    assert "<h4>글 도움말</h4>" not in client.get("/help/").content.decode()
     ops.admin_group.user_set.add(people["admin"])
     body = client.get("/help/").content.decode()
+    # 영상이 없는 글 도움말은 '사용법 영상' 아래가 아니라 제 머리말 아래에
+    assert body.index("<h4>사용법 영상</h4>") < body.index("<h4>글 도움말</h4>") < body.index("직접 입력 근무표 운영(")
     assert "직접 입력 근무표 운영(입력 중·확정·배포)" in body and "· 직접 입력 근무표 관리자" in body
     for word in ("[2주 전 기준으로 채우기]", "[지난주와 같게]", "[표 저장]", "[확정]", "[확정 취소]", "[배포…]"):
         assert word in body, word

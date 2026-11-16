@@ -4,7 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser, Group, UserManager as DjangoUserManager
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Func, Q, Value
 from django.db.models.lookups import Exact
 
@@ -64,9 +64,16 @@ class Board(models.Model):
         if self._state.adding and not re.fullmatch(r"[a-z][a-z0-9]{0,15}", self.code or ""):
             raise ValidationError({"code": "코드는 영문 소문자로 시작하는 영문 소문자·숫자 16자 이내입니다(예: ops)."})
 
+    def admin_group_name(self) -> str:
+        return f"{self.name} 근무표 관리"
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
         if self.admin_group_id is None:  # 어느 길로 만들어도 관리 그룹이 빠지지 않게
-            self.admin_group = Group.objects.create(name=f"{self.name} 근무표 관리")
+            self.admin_group = Group.objects.create(name=self.admin_group_name())
+        elif self.admin_group.name != self.admin_group_name():  # 이름을 바꾸면 관리 그룹 이름도 같은 저장에서
+            Group.objects.filter(pk=self.admin_group_id).update(name=self.admin_group_name())
+            self.admin_group.name = self.admin_group_name()
         super().save(*args, **kwargs)
 
 

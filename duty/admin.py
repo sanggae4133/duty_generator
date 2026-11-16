@@ -279,10 +279,10 @@ class BoardForm(forms.ModelForm):
     def clean(self):
         c = super().clean()
         name = c.get("name")
-        # Board.save 가 만들 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
+        # Board.save 가 만들거나 바꿀 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         if name and Board.objects.exclude(pk=self.instance.pk).filter(name=name).exists():
             self.add_error("name", f"같은 이름의 근무표가 이미 있습니다: {name}")
-        elif name and not self.instance.pk and Group.objects.filter(name=f"{name} 근무표 관리").exists():
+        elif name and Group.objects.exclude(pk=self.instance.admin_group_id).filter(name=f"{name} 근무표 관리").exists():
             self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {name} 근무표 관리")
         return c
 

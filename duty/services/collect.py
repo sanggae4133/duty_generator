@@ -25,9 +25,10 @@ def _require_input(user, period: Period, dept: Department) -> None:
 
 
 def input_keys(dept: Department) -> list[str]:
-    """입력 표·CSV 의 근무조 키: 부서 출근조 가운데 켜진 근무조 정의가 있는 것. 순서 = 부서 출근조 순서."""
-    on = {x.key for x in shift_defs(boards.active_defs(dept.board))}
-    return [k for k in dept.shift_keys() if k in on]
+    """입력 표·CSV 의 근무조 키: 부서 출근조 가운데 켜진 근무조 정의가 있는 것. 순서 = 지금 정의의 시작 시각 순
+    (저장한 부서 출근조 순서는 정의 시각을 바꾸면 낡는다)."""
+    mine = set(dept.shift_keys())
+    return [x.key for x in shift_defs(boards.active_defs(dept.board)) if x.key in mine]
 
 
 def _kept_keys(dept: Department) -> set[str]:
