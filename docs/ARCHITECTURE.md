@@ -30,7 +30,7 @@
 | `duty/perms.py` | 오늘 날짜, 근무표 관리자·출근표 입력 담당(그룹), 근무 변경·지난 날짜 권한 | |
 | `duty/services/` | **DB를 바꾸는 규칙은 전부 여기**. 뷰·관리 명령은 서비스만 부른다. 근무표·근무 정의 읽기와 그날의 주인은 `boards.py` | O |
 | `duty/views/` | 화면. 요청을 읽고 서비스를 부르고 템플릿을 그린다 | 읽기만 |
-| `duty/management/commands/` | `run_worker`, `backup`, `restore` | |
+| `duty/management/commands/` | `run_worker`, `backup`, `restore`, `add_board`(직접 입력 근무표 한 번에 만들기, 규칙은 `services/board_setup.py`) | |
 | `duty/admin.py` | Django 관리 화면(사용자·부서(점심 시각)·근무표와 근무 정의(편집·설계 4.3 검증)·그룹(그룹 관리자)·휴장일·계정 발급·알림 설정) | |
 | `deploy/` | systemd 유닛 두 개 | |
 
