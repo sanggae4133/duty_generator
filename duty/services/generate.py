@@ -7,10 +7,10 @@ from django.utils import timezone
 from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
-from ..models import Commute, DutyAssignment, Period, User
+from ..models import Commute, DutyAssignment, InputMode, Period, User
 from ..shifts import LUNCH, by_key, shift_defs, slot_defs
 from . import boards, holidays
-from .periods import missing_dates, record
+from .periods import empty_days, missing_dates, record
 
 S = Period.Status
 
@@ -18,18 +18,29 @@ S = Period.Status
 @transaction.atomic  # 검사·입력 읽기·저장을 한 트랜잭션에(IMMEDIATE: 그동안 다른 쓰기는 기다린다)
 def run_generation(period: Period, seed: int | None = None, by=None) -> GenerationOutput:
     period.refresh_from_db()
-    if period.status not in {S.CLOSED, S.GENERATED}:
+    direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력의 [확정](설계 6.1·6.3)
+    if direct and period.status not in {S.COLLECTING, S.GENERATED}:
+        raise DutyError("입력 중인 회차만 확정할 수 있습니다.")
+    if not direct and period.status not in {S.CLOSED, S.GENERATED}:
         raise DutyError("마감된 회차만 생성할 수 있습니다.")
     holidays.sync(perms.today())  # 작업자가 꺼져 있어도 휴장일 표가 비어 있지 않게
-    missing = missing_dates(period)
-    if missing:
-        detail = ", ".join(f"{code} {len(ds)}일" for code, ds in missing.items())
-        raise DutyError(f"출근표가 비어 있는 날짜가 있습니다: {detail}")
+    warnings = []
+    empty = []
+    if direct:  # 직접 입력은 빈 평일을 막지 않고 경고로만 알린다
+        empty = empty_days(period)
+        if empty:
+            warnings.append(f"입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): {_days(empty)}")
+    else:
+        missing = missing_dates(period)
+        if missing:
+            detail = ", ".join(f"{code} {len(ds)}일" for code, ds in missing.items())
+            raise DutyError(f"출근표가 비어 있는 날짜가 있습니다: {detail}")
     if seed is None:
         seed = random.SystemRandom().randrange(2**31)
 
     skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
     dates = [d for d in period.dates() if d not in skip]
+    slot_dates = [d for d in dates if d not in empty]  # 직접 입력의 빈 평일은 후보가 없으니 관제를 만들지 않는다
     active = boards.active_defs(period.board)
     slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
@@ -41,7 +52,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
         for typ, code in User.objects.roster().filter(department__board=period.board).values_list("type", "username"):
             members_by_type[typ].add(code)
         out = generate_control_duty(
-            dates, commutes, dict(members_by_type), seed,
+            slot_dates, commutes, dict(members_by_type), seed,
             [(x.name, x.eligible_shifts, x.eligible_types) for x in slots],
         )  # GenerationError 전파
     else:  # 장중관제 정의가 없는 근무표는 생성기를 부르지 않는다
@@ -54,6 +65,7 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
         for d, picked in out.assignments.items()
         for i, code in enumerate(picked)
     )
+    out.warnings[:0] = warnings
     if LUNCH in by_key(active) and shift_defs(active):
         out.warnings += _fill_lunch(period, dates, skip, shift_defs(active)[0])
     old = period.status
@@ -61,6 +73,10 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     period.save()
     record(period, old, by, "재생성" if old == S.GENERATED else "")
     return out
+
+
+def _days(days) -> str:
+    return ", ".join(f"{d.month}/{d.day}" for d in days)
 
 
 def _fill_lunch(period: Period, dates: list, skip: set, early) -> list[str]:
@@ -75,4 +91,4 @@ def _fill_lunch(period: Period, dates: list, skip: set, early) -> list[str]:
     empty = [d for d in dates if not by_day[d]]
     if not empty:
         return []
-    return [f"점심당번을 채우지 못한 날({early.name} 출근 없음): {', '.join(f'{d.month}/{d.day}' for d in empty)}"]
+    return [f"점심당번을 채우지 못한 날({early.name} 출근 없음): {_days(empty)}"]

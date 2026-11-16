@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import Http404
@@ -11,8 +12,9 @@ from .. import perms
 from ..csv_io import join_reason
 from ..errors import DutyError
 from ..generator import GenerationError
-from ..models import Board, ChangeLog, Period
+from ..models import DIRECT_STEPS, Board, ChangeLog, Department, InputMode, Period, User, step_label
 from ..services import boards, collect, generate, periods, stats
+from ..services import groups as group_service
 from ..services import publish as publishing
 from ..shifts import cell_label, slot_defs
 from .common import admin_required, date_param
@@ -63,18 +65,32 @@ def period_list(request):
             return redirect("period_detail", p.pk)
         return redirect("periods")
     return render(request, "duty/periods.html", {
-        "periods": Period.objects.filter(board__in=mine).order_by("-start_date"), "boards": mine,
+        "periods": Period.objects.filter(board__in=mine).select_related("board").order_by("-start_date"), "boards": mine,
     })
+
+
+def _movable(period, direct):
+    S = Period.Status
+    if direct:  # 직접 입력은 [확정 취소] 하나로 되돌린다. 입력 방식이 바뀌어 작성 중·마감에 남은 회차만 입력 중으로
+        return [(S.COLLECTING, step_label(period.board, S.COLLECTING))] if period.status in {S.DRAFT, S.CLOSED} else []
+    if period.status == S.PUBLISHED:
+        return []
+    return [(s, S(s).label) for s in periods.MOVABLE if s != period.status]
 
 
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
     slot_names = [x.name for x in slot_defs(boards.active_defs(period.board))]  # generator 의 칸 번호 = 켜진 관제 정의 순서
+    direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력: 입력 중 → 확정 → 배포됨(설계 6.1·7)
+    S = Period.Status
     return render(request, "duty/period_detail.html", {
-        "period": period, "S": Period.Status,
-        "steps": Period.Status.choices, "movable": [] if period.status == Period.Status.PUBLISHED
-        else [(s, Period.Status(s).label) for s in periods.MOVABLE if s != period.status],
-        "events": period.events.select_related("by"),
+        "period": period, "S": S, "direct": direct, "generated_label": step_label(period.board, S.GENERATED),
+        "steps": DIRECT_STEPS if direct else S.choices,
+        "movable": _movable(period, direct),
+        "events": [(e, e.from_status and step_label(period.board, e.from_status), step_label(period.board, e.to_status))
+                   for e in period.events.select_related("by")],
+        "input_depts": Department.objects.filter(board=period.board).order_by("order", "code") if direct else [],
+        "empty_days": periods.empty_days(period) if direct and period.status == S.COLLECTING else [],
         "undo": publishing.unpublish_info(period) if period.status == Period.Status.PUBLISHED else None,
         "progress": collect.progress(period), "missing": periods.missing_dates(period),
         "counts": counts, "spread": spread, "reached": reached,
@@ -218,3 +234,46 @@ def change_log(request):
     return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end,
                                                  "board_choices": mine if len(mine) > 1 else [], "board_code": board_code})
 
+
+def _about(group) -> str:
+    """그룹이 무슨 권한인지 한 줄(나이 든 관리자가 그룹 이름만 보고 헷갈리지 않게)."""
+    board = getattr(group, "admin_board", None)
+    if board:
+        return f"{board.name} 근무표 관리자(회차·배포·메모·지난 날짜 수정)"
+    dept = getattr(group, "input_department", None)
+    return f"{dept.name} 출근표 입력 담당" if dept else ""
+
+
+@login_required
+def groups(request):
+    """그룹 화면(설계 7절): 내가 그룹 관리자인 그룹의 멤버를 보고 넣고 뺀다. 그룹 관리자가 아니면 403."""
+    kept = list(perms.kept_groups(request.user).order_by("name").prefetch_related("user_set__department"))
+    if not kept:
+        raise PermissionDenied
+    if request.method == "POST":
+        group = next((g for g in kept if str(g.pk) == request.POST.get("group")), None)
+        pid = request.POST.get("member", "")
+        member = User.objects.filter(pk=pid).first() if pid.isdigit() else None
+        do = request.POST.get("do")
+        if group is None or member is None or do not in ("add", "remove"):  # 맡지 않은 그룹·없는 사람·모르는 동작
+            raise Http404
+        try:
+            if do == "remove":
+                warning = group_service.remove_member(request.user, group, member)
+                messages.success(request, f"{member.name}을(를) {group.name}에서 뺐습니다.")
+                if warning:
+                    messages.warning(request, warning)
+            else:
+                group_service.add_member(request.user, group, member)
+                messages.success(request, f"{member.name}을(를) {group.name}에 넣었습니다.")
+        except DutyError as e:
+            messages.error(request, str(e))
+        return redirect("groups")
+    active = list(User.objects.filter(is_active=True).select_related("department").order_by("name"))
+    items = []
+    for g in kept:
+        members = sorted(g.user_set.all(), key=lambda u: u.name)
+        ids = {u.pk for u in members}
+        items.append({"group": g, "about": _about(g), "members": members,
+                      "candidates": [u for u in active if u.pk not in ids]})  # 후보 = 재직 계정(퇴사자는 넣지 않는다)
+    return render(request, "duty/groups.html", {"items": items})

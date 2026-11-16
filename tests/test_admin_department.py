@@ -107,3 +107,52 @@ def test_new_department_input_group_name_clash(it_board):
     form = DepartmentForm(data)
     assert not form.is_valid()
     assert "같은 이름의 그룹이 이미 있습니다: 품질 출근표 입력" in str(form.errors.get("name", ""))
+
+
+def test_rename_department_renames_input_group(su_client, depts):
+    ui = depts["UI"]
+    data = {**_data(ui, ["normal", "dinner", "night"]), "name": "화면개발"}
+    r = su_client.post(reverse("admin:duty_department_change", args=["UI"]), data)
+    assert r.status_code == 302, r.content.decode()[:2000]
+    ui.refresh_from_db()
+    assert ui.name == "화면개발" and ui.input_group.name == "화면개발 출근표 입력"
+
+
+def test_rename_department_refused_when_group_name_taken(su_client, depts):
+    ui = depts["UI"]
+    Group.objects.create(name="화면개발 출근표 입력")
+    data = {**_data(ui, ["normal"]), "name": "화면개발"}
+    r = su_client.post(reverse("admin:duty_department_change", args=["UI"]), data)
+    assert r.status_code == 200 and "같은 이름의 그룹이 이미 있습니다: 화면개발 출근표 입력" in r.content.decode()
+    ui.refresh_from_db()
+    assert (ui.name, ui.shifts, ui.input_group.name) == ("UI", "normal,dinner,night", "UI 출근표 입력")
+
+
+def test_changelist_shifts_follow_current_start_times(su_client, depts, it_board):
+    # 입력 표(collect.input_keys)와 같은 순서: 저장 순서가 아니라 지금 시작 시각 순
+    BoardShift.objects.filter(board=it_board, key="normal").update(start="10:00")
+    html = su_client.get(reverse("admin:duty_department_changelist")).content.decode()
+    assert "석식교대·정상·야간" in html
+
+
+def test_change_page_code_is_readonly(su_client, depts):
+    """부서 코드는 기본키: 바꾸면 새 부서가 생기므로 만든 뒤에는 고칠 수 없다."""
+    d = depts["UI"]
+    url = reverse("admin:duty_department_change", args=[d.pk])
+    assert 'name="code"' not in su_client.get(url).content.decode()
+    n = Department.objects.count()
+    data = {**_data(d, ["normal"]), "code": "ZZ"}
+    su_client.post(url, data)
+    assert Department.objects.count() == n and not Department.objects.filter(code="ZZ").exists()
+
+
+def test_direct_board_department_refuses_input_managers(it_board, make_member):
+    """직접 입력 근무표의 부서는 입력 그룹이 없다: 입력 담당자를 고르면 조용히 버리지 않고 칸 오류."""
+    ops = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    BoardShift.objects.create(board=ops, key="normal", name="가운데", start="09:00", end="18:00")
+    m = make_member("가", dept="UI")
+    data = {"code": "OPS", "name": "운영", "board": ops.pk, "order": 9, "shifts": ["normal"], "managers": [m.pk]}
+    form = DepartmentForm(data)
+    assert not form.is_valid()
+    assert "직접 입력 근무표의 부서는 입력 담당자가 없습니다" in str(form.errors.get("managers", ""))
+    assert DepartmentForm({**data, "managers": []}).is_valid()

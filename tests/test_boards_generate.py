@@ -31,7 +31,7 @@ def ops_member(dept, name="운영가", type="직원"):
                                     department=dept, part="", type=type)
 
 
-def ops_period(board, member, status=S.CLOSED):
+def ops_period(board, member, status=S.COLLECTING):  # 직접 입력 근무표는 입력 중에서 확정한다(3단계)
     p = Period.objects.create(board=board, name="운영회차", start_date=NOV9, end_date=NOV13, status=status)
     for x in p.dates():
         Commute.objects.create(period=p, date=x, member=member, shift="normal")

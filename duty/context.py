@@ -20,6 +20,8 @@ def nav(request):
         if perms.stats_boards(user).exists():  # 통계는 slot* 정의가 있는 근무표의 관리 그룹만(설계 7절)
             items.append(("통계", "/stats/", ()))
         items.append(("이력", "/changes/", ()))
+    if perms.kept_groups(user).exists():  # 그룹 관리자(GroupKeeper)만(설계 7절)
+        items.append(("그룹", "/groups/", ()))
     if user.is_superuser:
         items.append(("관리", reverse("admin:index"), ()))
     items.append(("도움말", "/help/", ()))

@@ -109,3 +109,18 @@ def weekdays(start: date, end: date) -> list[date]:
             out.append(d)
         d += timedelta(days=1)
     return out
+
+
+def two_week_rotation(base: dict[date, dict[str, str]], names: list[str], keys: list[str]) -> dict[str, str]:
+    """[2주 전 기준으로 채우기](설계 6.2): 사람마다 이번 주에 넣을 근무조 {이름: 키}.
+    keys = [이른, 가운데, 늦은] 근무조(시작 시각 순), base = 2주 전 그 주의 {날짜: {이름: 근무조}}(근무로 친 날만).
+    대표 근무조 = 가장 많이 나온 근무조, 같으면 그 주에 먼저 나온 것(한 사람은 하루 한 근무조라 첫 날이 겹치지 않아
+    설계의 세 번째 기준 '시작 시각'까지 갈 일이 없다). 이른 → 늦은, 늦은 → 이른, 나머지·2주 전 근무가 없던 사람 → 가운데."""
+    early, mid, late = keys
+    out = {}
+    for name in names:
+        seen = [day[name] for _, day in sorted(base.items()) if name in day]
+        top = max(map(seen.count, seen), default=0)
+        rep = next((k for k in seen if seen.count(k) == top), None)
+        out[name] = {early: late, late: early}.get(rep, mid)
+    return out
