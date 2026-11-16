@@ -153,7 +153,7 @@ def set_reason(user, board, d: date, member: User, reason: str) -> list[str]:
     defs = boards.defs(board)
     labels = ", ".join(f"{SLOT_GROUP_NAME} {cell_label(defs, x.cell)}" if is_slot_cell(x.cell) else cell_label(defs, x.cell)
                        for x in duties)
-    return [f"{member.name}은(는) 그날 {labels} 칸에 남아 있습니다. 다른 사람으로 바꾸세요."]
+    return [f"{member.name}은(는) 그날 {labels} 칸에 남아 있습니다. 그 칸을 눌러 다른 사람으로 바꾸거나 빼세요."]
 
 
 @transaction.atomic

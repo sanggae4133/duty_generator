@@ -243,7 +243,7 @@ def test_carry_lunch_on_swap_from_other_side(pub, it_board):
 def test_set_reason_warns_lunch(pub, it_board):
     _, m = pub
     assert changes.set_reason(m["다"], it_board, T, m["가"], "휴가") == [
-        "가은(는) 그날 점심당번 칸에 남아 있습니다. 다른 사람으로 바꾸세요."]  # 자동으로 빼지 않는다
+        "가은(는) 그날 점심당번 칸에 남아 있습니다. 그 칸을 눌러 다른 사람으로 바꾸거나 빼세요."]  # 자동으로 빼지 않는다
 
 
 # ── 화면: 근무조 → 점심당번 → 관제, 시각 없이 "점심당번", 근무 변경 창 ──

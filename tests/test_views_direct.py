@@ -159,4 +159,4 @@ def test_confirm_message_says_what_happened(admin_client_ok, ops):
     p = Period.objects.create(board=board, name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
     fill(p, ops_member(dept, "가상가"), p.dates())
     body = admin_client_ok.post(f"/periods/{p.pk}/action/generate/", follow=True).content.decode()
-    assert "확정했습니다. 근무표 화면에서 확인한 뒤 [배포…]를 누르세요." in body and "완료했습니다" not in body
+    assert "확정했습니다. 근무표 화면에는 배포한 뒤에 보입니다. 아래 경고를 확인하고 [배포…]를 누르세요." in body and "완료했습니다" not in body

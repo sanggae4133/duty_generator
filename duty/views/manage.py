@@ -136,7 +136,7 @@ def period_action(request, pid, action):
         period.refresh_from_db()
         done = f"'{step_label(period.board, period.status)}' 상태로 바꿨습니다."
         if action == "generate" and period.board.input_mode == Board.InputMode.DIRECT:
-            done = "확정했습니다. 근무표 화면에서 확인한 뒤 [배포…]를 누르세요."
+            done = "확정했습니다. 근무표 화면에는 배포한 뒤에 보입니다. 아래 경고를 확인하고 [배포…]를 누르세요."
         messages.success(request, done)
         for w in getattr(result, "warnings", ()):  # 생성: 점심당번을 못 채운 날
             messages.warning(request, w)
