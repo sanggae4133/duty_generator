@@ -24,14 +24,14 @@
       --pico-primary-background: #2b1b40; --pico-primary-hover-background: #3f2a5e; --pico-primary-border: #2b1b40;
       --pico-primary-hover-border: #3f2a5e; --pico-primary-focus: rgba(75, 47, 127, .35); --pico-primary-inverse: #fff;
       --nxt-red: #e50038; --day-line: #9aa4b1; --duty-line: #dfe3e8; --chg: #e91e63; --pill-collect: #8a5300; --logo-filter: none;
-      --memo-bg: #fff3cd; --memo-bar: #e0a100; --memo-fg: #3d2a00;
+      --memo-bg: #fff3cd; --memo-bar: #e0a100; --memo-fg: #3d2a00; --exc: #4b515b;
     }
     @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) {
       --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
       --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
-      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3;
+      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8;
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     } }
     :root[data-theme=dark] {
@@ -39,7 +39,7 @@
       --pico-primary-background: #6a4fb0; --pico-primary-hover-background: #7c62c2; --pico-primary-border: #6a4fb0;
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
-      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3;
+      --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8;
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     }
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
@@ -82,7 +82,7 @@
     /* 메모: 날 메모는 휴장일 아래 한 줄, 근무 없음은 칸 전체를 덮는다. 주·달 메모는 표 위·아래(월간 주 메모는 그 주 행 아래) */
     .memo { margin: .2rem 0 0; }
     .memo, .memo-note.filled { padding: .15rem .4rem; border-left: 3px solid var(--memo-bar); border-radius: .25rem; background: var(--memo-bg); color: var(--memo-fg); font-weight: 700; }  /* 메모 글: 노란 상자 + 왼쪽 띠(밝게·어둡게 모두 대비) */
-    .exc { font-weight: 400; font-style: normal; color: var(--pico-muted-color); }  /* 사유 있는 사람: "이름(사유)" 전체 취소선·옅은 회색(변경 내역을 끄면 안 보임) */
+    .exc { font-weight: 400; font-style: normal; color: var(--exc); }  /* 사유 있는 사람: "이름(사유)" 전체 취소선·회색(배경과 대비 4.5:1 이상, 변경 내역을 끄면 안 보임) */
     .nowork { margin: .4rem 0 0; padding: 1.2rem .4rem; border-radius: .3rem; text-align: center; font-weight: 700; background: var(--duty-line); }
     .memo-btn { margin-left: .3rem; font-size: .8rem; white-space: nowrap; }
     .memo-note { margin: .3rem 0 .6rem; }
@@ -108,7 +108,7 @@
     table.roster td, table.roster th { scroll-margin-top: 2.6rem; }  /* 오늘 칸으로 스크롤해도 고정 헤더에 안 가려지게 */
     table.roster.month td.other { opacity: .35; }
     table.roster.month .line { white-space: normal; }
-    table.roster.month .sec > small { display: block; opacity: .7; }
+    table.roster.month .sec > .sh { display: block; }  /* 칸 머리(근무조·당번·관제): 이름과 같은 크기·굵게·본문 색(글씨 크기 설정을 따른다) */
     table.roster.month td { border: 2px solid var(--day-line); }
     table.roster.month .sec { border: 1px solid var(--duty-line); border-radius: .3rem; padding: .15rem .3rem; margin-top: .3rem; }
     /* 오늘 표시는 border-collapse 경합을 피하려고 inset 그림자로 그린다 */
@@ -126,7 +126,7 @@
     .chg .hl1, .chg .hl2, .chg .hl3 { color: #ad1457; }
     .hl1, .hl2, .hl3 { font-weight: bold; padding: 0 .25em; border-radius: .25em; color: #000; }
     .hl1 { background: #ffeb3b; } .hl2 { background: #81d4fa; } .hl3 { background: #aed581; }
-    .exc .hl1, .exc .hl2, .exc .hl3 { font-weight: 400; color: #4b515b; }  /* 사유 있는 사람은 강조 칠을 해도 흐린 글씨(밝은 칠 위라 두 모드 같은 색) */
+    .exc .hl1, .exc .hl2, .exc .hl3 { font-weight: 400; color: #3d424a; }  /* 사유 있는 사람은 강조 칠을 해도 회색 글씨(밝은 칠 위라 두 모드 같은 색, 대비 6:1 이상) */
     .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: .25em; vertical-align: middle; outline: 1px solid rgba(0,0,0,.25); }
     /* 상단바: 위 줄 = 로고 + 계정, 아래 줄 = 메뉴 알약(좁으면 여러 줄로 — 숨은 메뉴가 없게) */
     .topbar { border-bottom: 1px solid var(--duty-line); margin-bottom: 1rem; }

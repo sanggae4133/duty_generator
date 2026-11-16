@@ -253,7 +253,7 @@ def test_roster_and_day_order(pub, client):
     client.force_login(m["나"])
     for url in ["/?date=2026-11-10", "/?view=month&date=2026-11-10"]:
         body = client.get(url).content.decode()
-        assert body.index("<small>야간</small>") < body.index("<small>점심당번</small>") < body.index("<small>관제</small>")
+        assert body.index('<b class="sh">야간</b>') < body.index('<b class="sh">점심당번</b>') < body.index('<b class="sh">관제</b>')
         assert 'href="/day/2026-11-10/#lunch"' in body  # 칸을 눌러 바꾼다
     body = client.get("/day/2026-11-10/").content.decode()
     assert body.index("<strong>야간</strong>") < body.index("<strong>점심당번</strong>") < body.index("<strong>08:30~09:30</strong>")
@@ -268,7 +268,7 @@ def test_schedule_filter_and_me(pub, client):
     _, m = pub
     client.force_login(m["가"])
     body = client.get("/?date=2026-11-10&f=1&shift=lunch").content.decode()
-    assert "<small>점심당번</small>" in body and "<small>새벽</small>" not in body and "<small>관제</small>" not in body
+    assert '<b class="sh">점심당번</b>' in body and '<b class="sh">새벽</b>' not in body and '<b class="sh">관제</b>' not in body
     me = client.get("/me/").content.decode()
     assert 'value="lunch"' in me and "점심당번" in me
 
