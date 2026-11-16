@@ -133,3 +133,14 @@ def test_changelist_shifts_follow_current_start_times(su_client, depts, it_board
     BoardShift.objects.filter(board=it_board, key="normal").update(start="10:00")
     html = su_client.get(reverse("admin:duty_department_changelist")).content.decode()
     assert "석식교대·정상·야간" in html
+
+
+def test_change_page_code_is_readonly(su_client, depts):
+    """부서 코드는 기본키: 바꾸면 새 부서가 생기므로 만든 뒤에는 고칠 수 없다."""
+    d = depts["UI"]
+    url = reverse("admin:duty_department_change", args=[d.pk])
+    assert 'name="code"' not in su_client.get(url).content.decode()
+    n = Department.objects.count()
+    data = {**_data(d, ["normal"]), "code": "ZZ"}
+    su_client.post(url, data)
+    assert Department.objects.count() == n and not Department.objects.filter(code="ZZ").exists()

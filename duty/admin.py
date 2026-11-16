@@ -84,6 +84,9 @@ class DepartmentAdmin(admin.ModelAdmin):
     form = DepartmentForm
     list_display = ["code", "name", "shift_labels", "member_count", "manager_names"]
 
+    def get_readonly_fields(self, request, obj=None):
+        return ("code",) if obj else ()  # 코드는 기본키: 바꾸면 새 부서가 생긴다
+
     def get_queryset(self, request):
         return (super().get_queryset(request).annotate(_n=Count("members", distinct=True))
                 .prefetch_related("input_group__user_set"))
