@@ -102,8 +102,11 @@ def gen_help(defs: list[Def]) -> dict | None:
     rest = joined(common) + (" 둘 다" if len(common) == 2 else " 모두" if len(common) > 2 else "만")
     rule = [f"{x.start:%H:%M} 칸은 {joined(s)}" for x, s in zip(slots, sets) if s != common]
     rule.append(f"{'나머지 칸' if rule else '모든 칸'}은 {rest} 됩니다.")
-    types = "·".join(dict.fromkeys(t for x in slots for t in x.eligible_types))  # 비면 구분 없이 누구나
-    who = types or "사람"
+    if len({frozenset(x.eligible_types) for x in slots}) == 1:
+        types = "·".join(slots[0].eligible_types)  # 비면 구분 없이 누구나
+        who = types or "사람"
+    else:  # 칸마다 유형이 다르거나 일부만 누구나: 합치면 틀린 문장이 된다
+        types, who = "칸마다 정한 유형", "사람"
     return {"count": len(slots), "start": min(x.start for x in slots), "end": max(x.end for x in slots), "types": types,
             "who": who, "whom": who + josa(who, "을/를"), "rule": ", ".join(rule)}
 
