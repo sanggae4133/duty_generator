@@ -113,3 +113,54 @@ def test_my_own_row_points_to_password_menu(ops_client, ops_admin, it_board):
     mine = _row(body, ops_admin)
     assert "내 비밀번호는 메뉴 [비밀번호]에서" in mine and "<details" not in mine and "관리자 계정은" not in mine
     assert "관리자 계정은 슈퍼유저에게" in _row(body, other)
+
+
+# ── 퇴사·다시 재직 ──
+
+def test_leave_confirm_then_list_then_rejoin(ops_client, ops_board, fixed_today):
+    fixed_today(date(2026, 12, 2))
+    m = _ops_member("가상하나", "ops01")
+    done = Period.objects.create(board=ops_board, name="12월 회차", start_date=date(2026, 11, 30), end_date=date(2026, 12, 4),
+                                 status="published")
+    Commute.objects.create(period=done, date=date(2026, 12, 3), member=m, shift="normal")
+    nxt = Period.objects.create(board=ops_board, name="1월 회차", start_date=date(2027, 1, 4), end_date=date(2027, 1, 15),
+                                status="collecting")
+    Commute.objects.create(period=nxt, date=date(2027, 1, 5), member=m, shift="dawn")
+    body = ops_client.get(OPS).content.decode()
+    assert "을(를) 퇴사 처리할까요? 로그인할 수 없고 캘린더·텔레그램·푸시 연결이 모두 끊깁니다." in _row(body, m)
+    r = ops_client.post(OPS, {"do": "leave", "user": m.pk})  # 남은 근무가 있다: 저장하지 않고 그 줄 아래에서 묻는다
+    row = _row(r.content.decode(), m)
+    assert r.status_code == 200 and "<details open>" in row and User.objects.get(pk=m.pk).is_active
+    assert "12/3 가운데 — 12월 회차(배포됨)" in row and "1/5 이른 — 1월 회차(입력 중)" in row
+    assert "이 근무 2칸은 그대로 남습니다. 근무표·입력 표에서 다른 사람으로 바꾸세요." in row
+    assert '<button class="danger-btn" name="confirm" value="2">그래도 퇴사 처리</button>' in row
+    r = ops_client.post(OPS, {"do": "leave", "user": m.pk, "confirm": "2"})
+    assert r.status_code == 302 and r.url == OPS + "#people" and not User.objects.get(pk=m.pk).is_active
+    body = ops_client.get(r.url).content.decode()
+    assert "가상하나를 퇴사 처리했습니다. [다시 재직]으로 되돌릴 수 있습니다." in body
+    assert '<a href="/day/2026-12-03/">12/3 가운데 — 12월 회차(배포됨)</a>' in body  # 운영팀이 이 관리자의 내 근무표
+    assert f'<a href="/collect/{nxt.pk}/OPS/">1/5 이른 — 1월 회차(입력 중)</a>' in body
+    assert f'<tr id="p-{m.pk}">' not in body  # 표에서 빠지고
+    departed = body[body.index('<details id="departed"'):]
+    assert "퇴사한 사람 1명" in departed and "가상하나" in departed and ">다시 재직</button>" in departed
+    r = ops_client.post(OPS, {"do": "rejoin", "user": m.pk})
+    assert r.status_code == 302 and User.objects.get(pk=m.pk).is_active
+    body = ops_client.get(r.url).content.decode()
+    assert "가상하나를 다시 재직으로 돌렸습니다. 로그인하려면 [계정 발급]을 다시 누르세요." in body
+    assert "발급 전" in _row(body, m)
+
+
+def test_leave_links_generated_duty_to_period_page(ops_client, ops_board, fixed_today):
+    """생성된 회차의 당번 칸(DutyAssignment)은 입력 표에 없으니 회차 화면으로, 출근표 칸은 입력 표로."""
+    from duty.models import DutyAssignment
+    fixed_today(date(2026, 12, 2))
+    m = _ops_member("가상하나", "ops01")
+    gen = Period.objects.create(board=ops_board, name="1월 회차", start_date=date(2027, 1, 4), end_date=date(2027, 1, 15),
+                                status="generated")
+    Commute.objects.create(period=gen, date=date(2027, 1, 5), member=m, shift="dawn")
+    DutyAssignment.objects.create(period=gen, date=date(2027, 1, 5), cell="lunch", member=m)
+    r = ops_client.post(OPS, {"do": "leave", "user": m.pk, "confirm": "2"})
+    assert r.status_code == 302
+    body = ops_client.get(r.url).content.decode()
+    assert f'<a href="/collect/{gen.pk}/OPS/">1/5 이른 — 1월 회차(' in body
+    assert f'<a href="/periods/{gen.pk}/">1/5 점심당번 — 1월 회차(' in body

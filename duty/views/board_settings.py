@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.html import format_html, format_html_join
 
 from .. import perms
 from ..errors import DutyError
@@ -102,6 +103,43 @@ def _set_person(request, board):
     return f"{name}{josa(name, '을/를')} 저장했습니다."
 
 
+def _cells(request, board, user, cells) -> list[tuple[str, str]]:
+    """남은 근무 목록 (링크, 글 "12/3 정상 — 12월 회차(배포됨)"): 배포된 날은 하루 화면, 배포 전 회차의 출근표 칸은 그 사람 부서의
+    입력 표, 생성된 회차의 당번 칸(점심당번·장중관제, 입력 표에 없다)은 회차 화면."""
+    q = boards.board_query(request.user, board)
+    shifts = {x.name for x in shift_defs(boards.defs(board))}
+
+    def url(d, cell, p):
+        if p.status == Period.Status.PUBLISHED:
+            return reverse("day", args=[d]) + q
+        if cell in shifts:
+            return reverse("collect_table", args=[p.pk, user.department_id])
+        return reverse("period_detail", args=[p.pk])
+    return [(url(d, cell, p), f"{d.month}/{d.day} {cell} — {p.name}({step})") for d, cell, p, step in cells]
+
+
+def _leave(request, board):
+    user, confirm = _user(request), request.POST.get("confirm", "")
+    try:
+        cells = board_settings.set_active(request.user, board, user, False, int(confirm) if confirm.isdigit() else None)
+    except board_settings.NeedsConfirm as e:  # 오늘 이후 근무가 남았다: 그 줄 아래에 목록과 [그래도 퇴사 처리](본 칸 수)
+        rows = _cells(request, board, user, board_settings.future_cells(board, user))
+        return _render(request, board, leave={"pk": user.pk, "cells": rows, "msg": str(e), "n": len(rows)})
+    messages.success(request, f"{user.name}{josa(user.name, '을/를')} 퇴사 처리했습니다. [다시 재직]으로 되돌릴 수 있습니다.",
+                     extra_tags="people")
+    if cells:  # 퇴사 뒤에도 남은 근무를 링크로(설계 7.2). format_html 이라 회차 이름은 이스케이프된다
+        messages.warning(request, format_html(
+            "남은 근무 {}칸 — 근무표·입력 표에서 다른 사람으로 바꾸세요.<ul>{}</ul>", len(cells),
+            format_html_join("", '<li><a href="{}">{}</a></li>', _cells(request, board, user, cells))), extra_tags="people")
+    return redirect(f"{_here(board)}#people")
+
+
+def _rejoin(request, board):
+    user = _user(request)
+    board_settings.set_active(request.user, board, user, True)
+    return f"{user.name}{josa(user.name, '을/를')} 다시 재직으로 돌렸습니다. 로그인하려면 [계정 발급]을 다시 누르세요."
+
+
 def _shifts(request, board):
     # 그 근무표 밖의 근무 정의 id·부서 칸을 섞어 보내면 404(설계 6.2 범위 검사. 폼도 그 근무표 것만 만든다)
     ids = {str(pk) for pk in board.shifts.values_list("pk", flat=True)}
@@ -147,6 +185,7 @@ def _steps(request, board):
 
 ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시지)이나 응답(다시 그리기·다른 곳으로)을 돌려준다
     "add_person": ("people", _add_person), "set_person": ("people", _set_person),
+    "leave": ("people", _leave), "rejoin": ("people", _rejoin),
     "add_admin": ("admins", _add_admin), "remove_admin": ("admins", _remove_admin),
     "add_assignee": ("assignees", _add_assignee), "remove_assignee": ("assignees", _remove_assignee),
     "shifts": ("shifts", _shifts), "steps": ("steps", _steps),
@@ -160,17 +199,18 @@ def _state(u) -> str:
     return "첫 로그인 대기" if u.must_change_password else "사용 중"
 
 
-def _people(board, edit=None) -> list[dict]:
+def _people(board, edit=None, leave=None) -> list[dict]:
     """사람 칸 줄: 그 근무표 부서 사람(퇴사자 포함), 부서 순 → 이름 순. locked = 사람 함수의 대상이 아닌 계정
     (관리자 계정·슈퍼유저, board_settings.locked_ids): 체크박스·[고치기]·동작 없이 안내 글만.
-    edit = 고치기 오류로 다시 그릴 때 그 줄의 보낸 값과 오류."""
+    edit = 고치기 오류로 다시 그릴 때 그 줄의 보낸 값과 오류, leave = 퇴사 확인으로 다시 그릴 때 그 줄의 남은 근무."""
     locked = board_settings.locked_ids()
     rows = []
     for u in (User.objects.filter(department__board=board).select_related("department")
               .order_by("department__order", "department__code", "name")):
         e = edit if edit and edit["pk"] == u.pk else {}
+        lv = leave if leave and leave["pk"] == u.pk else None
         rows.append({"u": u, "locked": u.pk in locked, "state": _state(u), "name": e.get("name", u.name),
-                     "type": e.get("type", u.type), "error": e.get("error"), "open": bool(e)})
+                     "type": e.get("type", u.type), "error": e.get("error"), "leave": lv, "open": bool(e or lv)})
     return rows
 
 
@@ -187,7 +227,7 @@ def _buttons(board, has_slots) -> list[str]:
             + [x for x in (b["undo"], b["regenerate"]) if x] + ["배포…"])
 
 
-def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=None):
+def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=None, leave=None):
     me = request.user
     admins = sorted(board.admin_group.user_set.select_related("department"), key=lambda u: u.name)
     active_n = sum(u.is_active for u in admins)
@@ -201,10 +241,11 @@ def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=No
     active = boards.active_defs(board)
     steps = steps or StepsForm(instance=board)
     on = board.steps()
-    rows = _people(board, edit)
+    rows = _people(board, edit, leave)
     return render(request, "duty/board_settings.html", {
         "board": board, "boards": _mine(request), "here": _here(board),
-        "people": [r for r in rows if r["u"].is_active], "has_types": prefs.has_types(active), "types": [STAFF, DEVELOPER],
+        "people": [r for r in rows if r["u"].is_active], "departed": [r for r in rows if not r["u"].is_active],
+        "has_types": prefs.has_types(active), "types": [STAFF, DEVELOPER],
         "people_depts": list(board.departments.order_by("order", "code")),
         "add": add or {"username": board_settings.next_username(board)},
         "admin_rows": admin_rows, "admin_candidates": board_settings.admin_candidates(board), "depts": depts,
