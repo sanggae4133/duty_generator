@@ -118,3 +118,16 @@ def test_department_save_without_rename_keeps_input_group_name(it_board):
     d.save()
     d.refresh_from_db()
     assert d.input_group.name == "품질관리 출근표 입력"
+
+
+@pytest.mark.parametrize("names,bad", [
+    ({}, []),
+    (OPS_STEPS, []),
+    ({"step_generated": "배포…됨"}, ["배포…"]),                               # 생성 글자가 [배포…]와 같다
+    ({"step_generated": "재생성됨"}, []),                                     # 관제 없는 화면엔 [재생성]이 없다
+    ({"step_collecting": "장중관제 중", "step_closed": "생성"}, ["장중관제 생성"]),  # 관제 있을 때만 겹친다
+    ({"step_collecting": "장중관제 중", "step_closed": "생성", "use_close": False}, []),  # 마감을 끄면 그 버튼이 없다
+])
+def test_bad_buttons(names, bad):
+    """켠 단계의 버튼 글자 중 비거나 겹치는 것(관제 있을 때·없을 때 둘 다, 설계 5.4)."""
+    assert Board(code="x", name="x", **names).bad_buttons() == bad

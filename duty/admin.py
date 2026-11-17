@@ -298,11 +298,14 @@ class BoardForm(forms.ModelForm):
                 self.add_error(f, "단계 이름에 줄바꿈을 쓸 수 없습니다.")
             elif v and names.count(v) > 1:
                 self.add_error(f, f"단계 이름이 겹칩니다: {v}")
-        if not self.errors and all(names):  # 버튼 글자 검사(설계 5.4): 저장된 근무표는 단계 칸이 읽기 전용이라 만들 때만
+        # 버튼 글자 검사(설계 5.4): 저장된 근무표는 단계 칸이 읽기 전용이라 만들 때만. 단계 칸 자체 오류가 없으면 본다
+        if all(names) and not set(STEP_FIELDS) & set(self.errors):
             steps = Board(use_draft=c.get("use_draft"), use_close=c.get("use_close"), **dict(zip(STEP_FIELDS, names)))
-            gen = steps.step_buttons(False)
+            gen, slot = steps.step_buttons(False), steps.step_buttons(True)
             for x in steps.bad_buttons():  # 생성·취소 글자는 생성됨 이름에서, 열기·마감은 취합 중 이름에서 나온다
-                field = "step_generated" if x in (gen["generate"], gen["undo"]) else "step_collecting"
+                # 관제 있을 때의 고정 글자([장중관제 생성]·[재생성]…)와 겹치면 생성됨 이름을 고쳐도 남는다
+                fixed = x.strip() and x in (slot["generate"], slot["undo"], slot["regenerate"])
+                field = "step_generated" if x in (gen["generate"], gen["undo"]) and not fixed else "step_collecting"
                 self.add_error(field, f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{x}]")
         name = c.get("name")
         # Board.save 가 만들거나 바꿀 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로

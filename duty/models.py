@@ -116,8 +116,8 @@ class Board(models.Model):
             b = self.step_buttons(has_slots)
             labels = ([b["generate"], "배포…"] + [b["open"]] * self.use_draft + [b["close"]] * self.use_close
                       + [x for x in (b["undo"], b["regenerate"]) if x])
-            bad += [x for x in labels if (not x.strip() or labels.count(x) > 1) and x not in bad]
-        return bad
+            bad += [x for x in labels if not x.strip() or labels.count(x) > 1]
+        return list(dict.fromkeys(bad))  # 같은 글자는 한 번만(겹친 글자는 labels 에 둘 이상 있다)
 
     def move_targets(self, status: str) -> list[str]:
         """'다른 상태로 옮기기'로 갈 수 있는 상태: 켠 배포 전 단계 중 지금 것 빼고. 배포됨에서는 없다(배포 취소로만)."""

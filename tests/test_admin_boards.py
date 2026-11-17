@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from duty.admin import STEP_FIELDS, DepartmentForm
+from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm
 from duty.models import Board, BoardShift, Department, GroupKeeper, User
 from tests.it_defs import OPS_STEPS
 
@@ -254,6 +254,19 @@ def test_step_names_checked(su_client, it_board, names, msg):
     r = su_client.post(ADD, form(three(), code="ops", name="운영팀", **steps_form(**names)))
     assert r.status_code == 200 and msg in r.content.decode()
     assert not Board.objects.filter(code="ops").exists()
+
+
+@pytest.mark.parametrize("data,field,label", [
+    # 관제 있을 때의 [장중관제 생성]과 겹친다: 생성됨 이름을 고쳐도 남으니 취합 중 이름 칸에(설계 5.4)
+    ({"use_close": "on", "step_collecting": "장중관제 중", "step_closed": "생성", "step_generated": "장중관제 생성됨"},
+     "step_collecting", "장중관제 생성"),
+    ({"name": "", "step_generated": "됨"}, "step_generated", ""),  # 다른 칸 오류가 있어도 버튼 글자는 본다
+    ({"use_draft": "on", "step_generated": "됨"}, "step_generated", ""),  # 옮길 곳이 둘이라 취소 글자가 비어도
+])
+def test_bad_button_error_field(it_board, data, field, label):
+    f = BoardForm({"code": "ops", "name": "운영팀"} | steps_form() | data)
+    assert not f.is_valid()
+    assert f.errors[field] == [f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{label}]"]
 
 
 def test_saved_board_steps_are_read_only(su_client, ops):
