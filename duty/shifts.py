@@ -85,6 +85,17 @@ def josa(word: str, pair: str) -> str:
     return a if jong else b
 
 
+def day_spans(days) -> str:
+    """날짜들을 이어진 평일끼리 묶어 '11/16~11/20, 11/24' 꼴로(금 → 월도 이어진 것으로). 긴 빈 날 목록을 줄인다."""
+    runs: list[list[date]] = []
+    for d in sorted(days):
+        if runs and d == runs[-1][1] + timedelta(days=3 if runs[-1][1].weekday() == 4 else 1):
+            runs[-1][1] = d
+        else:
+            runs.append([d, d])
+    return ", ".join(f"{a.month}/{a.day}" + (f"~{b.month}/{b.day}" if b != a else "") for a, b in runs)
+
+
 def lunch_defs(defs: list[Def]) -> list[Def]:
     """점심당번 정의(없으면 빈 목록)."""
     return [x for x in defs if x.key == LUNCH]

@@ -72,7 +72,7 @@ def test_confirm_shows_empty_day_warning(admin_client_ok, ops):
     fill(p, ops_member(dept, "가상가"), p.dates()[:4])
     r = admin_client_ok.post(f"/periods/{p.pk}/action/generate/", follow=True)
     body = r.content.decode()
-    assert "입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): 11/20" in body
+    assert "출근표가 비어 있는 날이 있습니다: 운영 1일(11/20). 그날 그 부서는 근무자가 없습니다." in body
     assert "<small>(확정)</small>" in body
     assert "확정 → 확정" not in body and "입력 중 → 확정" in body  # 상태 기록도 화면 이름으로
 
@@ -113,7 +113,7 @@ def test_publish_error_names_confirm(ops):
     from duty.errors import DutyError
     from duty.services.publish import publish
     p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
-    with pytest.raises(DutyError, match="확정한 회차만 배포할 수 있습니다"):
+    with pytest.raises(DutyError, match="'확정'인 회차만 배포할 수 있습니다"):
         publish(p, MON)
 
 

@@ -40,17 +40,18 @@ def test_regenerate_replaces(closed_period):
     assert DutyAssignment.objects.filter(period=closed_period).count() == 50
 
 
-def test_missing_department_dates_block_generation(closed_period):
+def test_missing_department_dates_only_warn(closed_period):
+    """빈 평일은 IT 도 막지 않고 경고만(근무표 통합 2단계). 다른 부서 사람이 있는 날은 관제도 채운다."""
     Commute.objects.filter(period=closed_period, member__department="UI", date=date(2026, 11, 13)).delete()
-    with pytest.raises(DutyError) as e:
-        run_generation(closed_period)
-    assert "UI" in str(e.value)
+    out = run_generation(closed_period, seed=5)
+    assert out.warnings[0] == "출근표가 비어 있는 날이 있습니다: UI 1일(11/13). 그날 그 부서는 근무자가 없습니다."
+    assert DutyAssignment.objects.filter(period=closed_period, date=date(2026, 11, 13)).count() == 10
 
 
 def test_wrong_status(closed_period):
     closed_period.status = S.COLLECTING
     closed_period.save()
-    with pytest.raises(DutyError):
+    with pytest.raises(DutyError, match="'마감'인 회차만 장중관제 생성할 수 있습니다"):
         run_generation(closed_period)
 
 

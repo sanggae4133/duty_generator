@@ -16,13 +16,17 @@ def record(period: Period, old: str, by=None, note: str = "") -> None:
     PeriodEvent.objects.create(period=period, from_status=old, to_status=period.status, by=by, note=note)
 
 
+def _names(board, statuses) -> str:
+    """켠 단계 중 statuses 에 든 것의 이름(단계 순). 끈 단계 이름은 오류 글에 나오지 않는다(설계 6.1)."""
+    return "·".join(board.step_name(s) for s in board.steps() if s in statuses)
+
+
 @transaction.atomic
 def save_draft(period: Period, by=None) -> Period:
     board = period.board
     row = Period.objects.select_for_update().get(pk=period.pk) if period.pk else None  # 상태는 DB 에서(낡은 객체 대비)
     if row and row.status not in board.editable():  # 작성 중, 작성 중을 안 쓰면 취합 중에서도(설계 5.2)
-        raise DutyError("기간은 입력 중에만 수정할 수 있습니다." if boards.legacy_admin_entry(board)
-                        else "기간은 작성 중(draft) 상태에서만 수정할 수 있습니다.")
+        raise DutyError(f"기간은 '{_names(board, board.editable())}' 단계에서만 고칠 수 있습니다.")
     if period.start_date > period.end_date:
         raise DutyError("시작일이 종료일보다 늦습니다.")
     if not period.dates():
@@ -61,7 +65,7 @@ def move(period: Period, to: str, by=None) -> None:
         raise DutyError("이미 그 상태입니다.")
     if to not in period.board.move_targets(period.status):  # 켠 배포 전 단계로만(설계 5.2)
         raise DutyError("옮길 수 없는 상태입니다." if to not in MOVABLE
-                        else "직접 입력 근무표는 입력 중으로만 옮길 수 있습니다.")
+                        else f"'{_names(period.board, MOVABLE)}'(으)로만 옮길 수 있습니다.")
     old = period.status
     DutyAssignment.objects.filter(period=period).delete()
     period.status, period.seed, period.generated_at = to, None, None

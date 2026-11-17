@@ -9,7 +9,7 @@ from duty.errors import DutyError
 from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
 from duty.services import boards, collect, periods, publish
 from duty.services.generate import run_generation
-from duty.shifts import josa
+from duty.shifts import day_spans, josa
 from tests.it_defs import OPS_STEPS
 
 S = Period.Status
@@ -92,8 +92,8 @@ def test_dates_editable_while_collecting_without_draft(it_board):
 
 
 @pytest.mark.parametrize("flags,ok,refused,msg", [
-    ((False, True), X, C, "마감된 회차만 생성할 수 있습니다"),
-    ((True, False), C, X, "입력 중인 회차만 확정할 수 있습니다"),  # 1단계: 마감을 안 쓰면 옛 직접 입력 문구
+    ((False, True), X, C, "'마감'인 회차만 장중관제 생성할 수 있습니다"),
+    ((True, False), C, X, "'취합 중'인 회차만 장중관제 생성할 수 있습니다"),
 ])
 def test_generate_from_rule(it_board, flags, ok, refused, msg):
     b = board_with(*flags)
@@ -109,7 +109,7 @@ def test_generate_from_rule(it_board, flags, ok, refused, msg):
 
 
 @pytest.mark.parametrize("flags,status,to,msg", [  # 검사 순서: 배포됨 → 같은 상태 → move_targets(설계 6.1)
-    ((False, True), G, D, "직접 입력 근무표는 입력 중으로만 옮길 수 있습니다."),  # 끈 단계로(1단계 글)
+    ((False, True), G, D, "'취합 중·마감'(으)로만 옮길 수 있습니다."),  # 끈 단계로: 켠 단계 이름만
     ((True, True), D, G, "옮길 수 없는 상태입니다."),                            # MOVABLE 밖
     ((True, True), P, G, "배포된 회차는 배포 취소로만 되돌릴 수 있습니다."),     # 배포됨이 먼저(main 은 '옮길 수 없는')
 ])
@@ -121,7 +121,7 @@ def test_move_checks_in_order(it_board, flags, status, to, msg):
 
 
 def test_slots_skip_only_days_without_any_rows(it_board):
-    """1단계: 관제는 출근 행이 하나도 없는 날만 뺀다. 한 부서만 빈 날(목·금)은 다른 부서 사람으로 채운다(경고는 그대로)."""
+    """관제는 출근 행이 하나도 없는 날만 뺀다. 한 부서만 빈 날(목·금)은 다른 부서 사람으로 채운다(경고는 부서별)."""
     b = board_with(False, False)
     p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
     a, z = person("STA"), person("STB")
@@ -130,7 +130,7 @@ def test_slots_skip_only_days_without_any_rows(it_board):
     for x in p.dates()[:3]:
         Commute.objects.create(period=p, date=x, member=z, shift="dawn")
     out = run_generation(p, seed=1)
-    assert out.warnings[0] == "입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): 11/19, 11/20"
+    assert out.warnings[0] == "출근표가 비어 있는 날이 있습니다: 단계STB 2일(11/19~11/20). 그날 그 부서는 근무자가 없습니다."
     assert sorted(DutyAssignment.objects.filter(period=p).values_list("date", flat=True)) == p.dates()
 
 
@@ -145,24 +145,20 @@ def test_names_come_from_board(it_board, admin_user):
         collect.apply_table(admin_user, p, Department.objects.get(code="STA"), {})
 
 
-@pytest.mark.parametrize("flags,allowed", [((False, False), True), ((True, False), True), ((True, True), False)])
-def test_fill_follows_legacy_rule(it_board, flags, allowed):
-    """1단계: 채우기는 마감을 안 쓰는 근무표에서만(2단계에서 모든 근무표)."""
-    b = board_with(*flags)
+def test_messages_use_step_names(it_board):
+    """오류 글은 그 근무표의 단계 이름을 쓴다(근무표 통합 2단계)."""
+    b = board_with(True, True, step_draft="준비", step_generated="만듦")
     p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
-    dept = Department.objects.get(code="STA")
-    if allowed:
-        assert collect.fill_week(p, dept, {}, MON, collect.FILL_1W) == {}
-    else:
-        with pytest.raises(DutyError, match="채우기는 직접 입력 근무표에서만 씁니다"):
-            collect.fill_week(p, dept, {}, MON, collect.FILL_1W)
-
-
-@pytest.mark.parametrize("flags,msg", [((False, False), "확정한 회차만"), ((True, True), "생성이 끝난 회차만")])
-def test_publish_message_follows_legacy_rule(it_board, flags, msg):
-    p = Period.objects.create(board=board_with(*flags), name="p", start_date=MON, end_date=FRI, status=C)
-    with pytest.raises(DutyError, match=msg):
+    with pytest.raises(DutyError, match="'만듦'인 회차만 배포할 수 있습니다"):
         publish.publish(p, MON)
+    with pytest.raises(DutyError, match="기간은 '준비' 단계에서만 고칠 수 있습니다"):
+        periods.save_draft(p)
+
+
+def test_day_spans():
+    """긴 날짜 목록은 이어진 평일끼리 묶는다(금 → 월도 이어진 것으로)."""
+    days = [date(2026, 11, d) for d in (16, 17, 18, 19, 20, 23, 25)]
+    assert day_spans(days) == "11/16~11/23, 11/25" and day_spans([MON]) == "11/16" and day_spans([]) == ""
 
 
 # ── 화면: 버튼 글자·생성 방식 문장·갈래가 단계 설정에서 나온다 ──

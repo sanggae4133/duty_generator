@@ -103,10 +103,16 @@ def test_fill_errors(ops, it_board):
     dept.save()
     with pytest.raises(DutyError, match="근무조가 3개일 때만"):
         collect.fill_week(p, dept, {}, d(11, 16), collect.FILL_2W)
+    p.status = S.GENERATED  # 채우기는 입력을 받는 동안만(모든 근무표, 근무표 통합 2단계)
+    with pytest.raises(DutyError, match="입력 중인 회차가 아닙니다"):
+        collect.fill_week(p, dept, {}, d(11, 16), collect.FILL_1W)
+
+
+def test_fill_works_on_it_board(it_board):
+    """IT(마감을 쓰는 근무표)도 취합 중이면 채운다(근무표 통합 2단계)."""
     it = Period.objects.create(board=it_board, name="it", start_date=d(11, 16), end_date=d(11, 20), status=S.COLLECTING)
     mems = Department.objects.create(code="MEMS", name="매칭엔진실", shifts="dawn,normal,dinner", board=it_board)
-    with pytest.raises(DutyError, match="직접 입력 근무표에서만"):
-        collect.fill_week(it, mems, {}, d(11, 16), collect.FILL_1W)
+    assert collect.fill_week(it, mems, {}, d(11, 16), collect.FILL_1W) == {}
 
 
 # ── 화면 ──

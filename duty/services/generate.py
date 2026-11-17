@@ -7,10 +7,10 @@ from django.utils import timezone
 from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
-from ..models import Commute, DutyAssignment, Period, User
-from ..shifts import LUNCH, by_key, shift_defs, slot_defs
+from ..models import Commute, Department, DutyAssignment, Period, User
+from ..shifts import LUNCH, by_key, day_spans, shift_defs, slot_defs
 from . import boards, holidays
-from .periods import empty_days, missing_dates, record
+from .periods import missing_dates, record
 
 S = Period.Status
 
@@ -18,20 +18,19 @@ S = Period.Status
 @transaction.atomic  # 검사·입력 읽기·저장을 한 트랜잭션에(IMMEDIATE: 그동안 다른 쓰기는 기다린다)
 def run_generation(period: Period, seed: int | None = None, by=None) -> GenerationOutput:
     period.refresh_from_db()
-    legacy = boards.legacy_admin_entry(period.board)  # 1단계 임시 기준(문구·빈 평일), 2단계에서 지운다
-    if period.status not in {period.board.generate_from(), S.GENERATED}:  # 마감을 쓰면 마감에서, 아니면 취합 중에서
-        raise DutyError("입력 중인 회차만 확정할 수 있습니다." if legacy else "마감된 회차만 생성할 수 있습니다.")
+    board = period.board
+    active = boards.active_defs(board)
+    slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
+    if period.status not in {board.generate_from(), S.GENERATED}:  # 마감을 쓰면 마감에서, 아니면 취합 중에서
+        raise DutyError(f"'{board.step_name(board.generate_from())}'인 회차만 "
+                        f"{board.step_buttons(bool(slots))['generate']}할 수 있습니다.")
     holidays.sync(perms.today())  # 작업자가 꺼져 있어도 휴장일 표가 비어 있지 않게
     warnings = []
-    if legacy:  # 빈 평일을 막지 않고 경고로만 알린다
-        empty = empty_days(period)
-        if empty:
-            warnings.append(f"입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): {_days(empty)}")
-    else:
-        missing = missing_dates(period)
-        if missing:
-            detail = ", ".join(f"{code} {len(ds)}일" for code, ds in missing.items())
-            raise DutyError(f"출근표가 비어 있는 날짜가 있습니다: {detail}")
+    missing = missing_dates(period)  # 빈 평일은 모든 근무표에서 막지 않고 경고로만 알린다(설계 6.1)
+    if missing:
+        names = dict(Department.objects.filter(board=board).values_list("code", "name"))
+        detail = ", ".join(f"{names[code]} {len(ds)}일({day_spans(ds)})" for code, ds in missing.items())
+        warnings.append(f"출근표가 비어 있는 날이 있습니다: {detail}. 그날 그 부서는 근무자가 없습니다.")
     if seed is None:
         seed = random.SystemRandom().randrange(2**31)
 
@@ -40,8 +39,6 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
     worked = set(Commute.objects.filter(period=period, member__department__board=period.board)  # 다른 근무표로 옮긴 사람 행은 빼고
                  .values_list("date", flat=True))
     slot_dates = [d for d in dates if d in worked]  # 출근 행이 하나도 없는 날은 후보가 없으니 관제를 만들지 않는다
-    active = boards.active_defs(period.board)
-    slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
         commutes: dict = defaultdict(lambda: defaultdict(set))
         rows = Commute.objects.filter(period=period, reason="").exclude(date__in=skip)  # 사유가 있으면 후보가 아니다
