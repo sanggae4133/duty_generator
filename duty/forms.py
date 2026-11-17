@@ -149,12 +149,15 @@ class DeptShiftsForm(forms.ModelForm):
 
     def shown(self) -> set[str]:
         """화면이 그린 때 체크박스로 보인 키(템플릿이 숨은 칸 "<prefix>-shown" 으로 보낸다). 보내지 않았으면 지금 선택지.
-        save_shifts 는 이 밖의 저장된 키를 남긴다: 그린 뒤 다른 관리자가 켠 근무조를 이 저장이 빼지 않게."""
+        save_shifts 는 이 밖의 저장된 키를 남긴다: 그린 뒤 다른 관리자가 켠 근무조를 이 저장이 빼지 않게.
+        보낸 값은 참고일 뿐이다: 저장된 키를 남기게만 할 뿐 키를 더하지는 못한다(더하는 것은 체크한 출근조뿐)."""
         raw = self.data.get(self.add_prefix("shown")) if self.is_bound else None
         return set(raw.split(",")) - {""} if raw is not None else {k for k, _ in self.fields["shifts"].choices}
 
     def shown_value(self) -> str:
-        return ",".join(k for k, _ in self.fields["shifts"].choices)
+        """숨은 칸에 실을 값. 보낸 폼을 다시 그릴 때(확인·오류)는 보낸 값 그대로: 처음 그린 때 보인 키를 지킨다."""
+        raw = self.data.get(self.add_prefix("shown")) if self.is_bound else None
+        return raw if raw is not None else ",".join(k for k, _ in self.fields["shifts"].choices)
 
 
 # [근무표 설정] 근무 정의 칸: 관리 화면 인라인과 같은 폼·검사, 빈 추가 줄 하나, 지우기 없음(prefix "shifts")

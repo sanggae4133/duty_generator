@@ -107,6 +107,16 @@ def test_shift_turned_on_by_other_admin_after_render_is_kept(ops_board, ops_admi
     assert _dept().shifts == "dawn,normal"
 
 
+def test_redraw_keeps_posted_shown_value(ops_board):
+    """확인·오류로 다시 그릴 때 숨은 칸은 처음 그린 때 보인 키를 그대로 싣는다(그사이 켜진 근무조를 더하지 않게)."""
+    data = shift_data(ops_board, depts={"OPS": {"shifts": ["dawn"], "shown": "dawn,normal"}})
+    _, (form,) = shift_forms(ops_board, data)
+    assert form.shown_value() == "dawn,normal"
+    data.pop("d-OPS-shown")
+    _, (form,) = shift_forms(ops_board, data)
+    assert form.shown_value() == "dawn,normal,dinner"
+
+
 def test_department_left_without_active_shift_is_refused(ops_board, ops_admin):
     Department.objects.filter(code="OPS").update(shifts="dawn")
     formset, dept_forms = shift_forms(ops_board, shift_data(ops_board, change={"dawn": {"active": None}}))
