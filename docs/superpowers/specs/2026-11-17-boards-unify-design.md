@@ -372,7 +372,7 @@ def move_targets(self, status) -> list[str] # [s for s in MOVABLE if s in steps(
 
 거꾸로(0018~0022 처럼 **잃을 데이터가 있을 때만** 거부): `input_mode` 를 되살리고 근무표마다 채운다 — 둘 다 켬 + 다섯 이름이 IT 기본값이면 `collect`, 둘 다 끔 + 이름이 직접 입력 기본값(작성 중·입력 중·마감·확정·배포됨)이면 `direct`. 그 밖(하나만 끔, 이름을 고침)은 `input_mode` 로 나타낼 수 없어 그 근무표 code 를 알려 주며 거부("되돌리기는 업그레이드 전 백업 복원으로만"). 그래서 마이그레이션이 만든 IT 근무표만 있는 테스트 DB·지금 운영 데이터는 거꾸로 돈다.
 
-**0024_drop_groupkeeper(3단계)** — `DeleteModel GroupKeeper` 하나. 거꾸로는 빈 표가 돌아온다(거부하지 않는다: 늘 거부하면 0024 아래로 내려가는 마이그레이션 테스트가 모두 깨진다). 행은 기록이 아니라 권한 지정이지만 사라지므로, 업그레이드 전에 전부 내보내 두고(10.3 ②) 롤백하면 그 파일이나 업그레이드 전 백업 복원으로 그룹 관리자를 되살린다(OPERATIONS 롤백 절에 적는다).
+**0024_drop_groupkeeper(3단계)** — `DeleteModel GroupKeeper` 하나. 거꾸로는 빈 표가 돌아온다(거부하지 않는다: 늘 거부하면 0024 아래로 내려가는 마이그레이션 테스트가 모두 깨진다). 행은 기록이 아니라 권한 지정이지만 사라지므로, 업그레이드 전에 참고용으로 전부 내보내 두고(10.3 ②), 3단계 롤백은 업그레이드 전 백업 복원만 지원한다(OPERATIONS 롤백 절에 적는다).
 
 **0025_rosterpref_boards(5단계)** — `AddField RosterPref.boards`(기본 `[]`) → `RunPython(forward, backward)`: `board` 가 있는 행은 `boards=[board.code]` → `RemoveField RosterPref.board`. 거꾸로: `boards` 에 둘 이상 든 행이 있으면 거부, 하나짜리는 `board` 로 옮긴다.
 
@@ -388,7 +388,7 @@ OPERATIONS "업그레이드·롤백"에 단계별로 적는다(기존 형식: `s
   `SELECT p.id, p.status FROM duty_period p JOIN duty_board b ON b.id = p.board_id WHERE b.code = 'it' AND p.status IN ('collecting', 'closed', 'generated');`
 - 3단계 ①(올리기 전에 해결): 근무표별 재직 관리자 수. **0 인 근무표가 있으면 3단계를 올리기 전에** 관리 화면 사용자 편집의 "그룹" 칸으로 그 근무표 관리 그룹에 재직자를 넣는다(3단계부터는 재직 관리자 0명인 근무표를 앱에서 아무도 고칠 수 없고, 관리 화면도 재직 관리자를 빼는 쪽만 막으므로 넣기는 된다).
   `SELECT b.code, (SELECT COUNT(*) FROM duty_user_groups ug JOIN duty_user u ON u.id = ug.user_id WHERE ug.group_id = b.admin_group_id AND u.is_active = 1) AS active_admins FROM duty_board b ORDER BY 1;`
-- 3단계 ②(내보내 둘 것): 그룹 관리자 **전부**(슈퍼유저·근무표나 부서에 걸리지 않은 그룹 포함)를 `아이디,그룹 이름` CSV 로 서버 파일에 남긴다. 0024 가 표를 지우고 거꾸로 돌려도 빈 표만 돌아오므로, 롤백할 때 그룹 관리자는 이 파일(또는 업그레이드 전 백업 복원)로 되살린다.
+- 3단계 ②(내보내 둘 것): 그룹 관리자 **전부**(슈퍼유저·근무표나 부서에 걸리지 않은 그룹 포함)를 `아이디,그룹 이름` CSV 로 서버 파일에 남긴다. 0024 가 표를 지우고 거꾸로 돌려도 빈 표만 돌아온다. **3단계 롤백은 업그레이드 전 백업 복원만 지원한다**(그룹 관리자도 그대로 돌아온다). 이 CSV 는 복원 도구가 아니라 "누가 그룹 관리자였는지" 사람이 보는 참고 기록이다(아이디·그룹 이름은 바뀔 수 있으므로 자동 복원에 쓰지 않는다).
   `sudo -u duty sqlite3 -readonly -csv data/db.sqlite3 "SELECT u.username, g.name FROM duty_groupkeeper k JOIN auth_group g ON g.id = k.group_id JOIN duty_user u ON u.id = k.user_id ORDER BY 2, 1;" | sudo -u duty tee data/groupkeepers-before-phase3.csv`(`data/` 안이라 백업·권한 규칙을 따른다. 아이디·그룹 이름만이라 실명은 없다)
   그중 근무표 관리자가 아닌 사람이 계속 멤버를 고쳐야 하면 업그레이드 뒤 그 근무표 관리자가 관리자로 넣을지 정한다.
 
@@ -494,4 +494,4 @@ OPERATIONS "업그레이드·롤백"에 단계별로 적는다(기존 형식: `s
 - 버튼 글자: 떼기를 못 하는 이름은 이름 전체 꼴이고, 비거나 겹치는 글자가 나오는 이름은 폼이 막는다. 기본 이름은 떼기가 되어 지금 글자 그대로다(5.4).
 - 겹친 화면에서 팝업을 거쳐도 `next` 가 고른 근무표·검색·필터·앵커를 지키고, 근무표 고르기 폼도 검색·필터를 숨은 칸으로 넘긴다(9.1·9.4).
 - 2단계 올리는 조건은 "IT 에 취합 중·마감·생성됨 회차가 없음"이고 10.3 쿼리가 그대로 그것을 본다.
-- 0024 거꾸로는 빈 표(테스트를 위해 거부하지 않음)이고, 그룹 관리자는 10.3 ② 내보낸 파일이나 백업으로 되살린다.
+- 0024 거꾸로는 빈 표(테스트를 위해 거부하지 않음)이고, 3단계 롤백은 백업 복원만 지원하고 10.3 ② 파일은 참고용이다.
