@@ -1,3 +1,4 @@
+from datetime import time
 from itertools import count
 
 import pytest
@@ -24,6 +25,17 @@ def it_board(db):
             eligible_types=list(d.eligible_types), default_alarm=d.default_alarm))
     # 마이그레이션 0022 가 넣은 점심당번 정의는 뺀다: 기본 테스트는 1단계 IT 정의로 돌고, 점심당번 테스트는 lunch 픽스처로 켠다
     BoardShift.objects.filter(board=board, key=LUNCH).delete()
+    return board
+
+
+@pytest.fixture
+def ops_board(it_board):
+    """가짜 '운영팀' 근무표(시장운영실과 같은 모양): 작성 중·마감 없음, 근무조 셋 + 점심당번, 부서 하나, 장중관제 없음."""
+    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    for key, name, h in (("dawn", "이른", 7), ("normal", "가운데", 9), ("dinner", "늦은", 11)):
+        BoardShift.objects.create(board=board, key=key, name=name, start=time(h, 30), end=time(h + 9, 30), default_alarm=True)
+    BoardShift.objects.create(board=board, key=LUNCH, name="점심당번")
+    Department.objects.create(code="OPS", name="운영", shifts="dawn,normal,dinner", board=board)
     return board
 
 

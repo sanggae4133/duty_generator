@@ -1,0 +1,148 @@
+<h3>회차</h3>
+<details class="new-period">
+<summary role="button" class="outline">+ 새 회차</summary>
+<form method="post" class="search labeled">
+<input type="hidden" name="csrfmiddlewaretoken">
+<label>근무표 <select name="board" required>
+<option value="1">IT 당번표</option>
+<option value="2">운영팀</option>
+</select>
+</label>
+<label>이름 <input name="name" placeholder="예: 2026년 12월" required>
+</label>
+<label>시작일 <input type="date" name="start_date" required>
+</label>
+<label>종료일 <input type="date" name="end_date" required>
+</label>
+<button>만들기</button>
+</form>
+</details>
+<table>
+<thead>
+<tr>
+<th>이름</th>
+<th>기간</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<a href="/periods/N/">it draft</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-draft">작성 중</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">it collecting</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-collecting">취합 중</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">it closed</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-closed">마감</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">it generated</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-generated">생성됨</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">it published</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-published">배포됨</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">it full closed</a>
+</td>
+<td>2026-11-16 ~ 2026-11-16</td>
+<td>
+<span class="pill st-closed">마감</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">it full generated</a>
+</td>
+<td>2026-11-16 ~ 2026-11-16</td>
+<td>
+<span class="pill st-generated">생성됨</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">ops draft</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-draft">작성 중</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">ops collecting</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-collecting">입력 중</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">ops closed</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-closed">마감</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">ops generated</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-generated">확정</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">ops published</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-published">배포됨</span>
+</td>
+</tr>
+<tr>
+<td>
+<a href="/periods/N/">ops slot history</a>
+</td>
+<td>2026-11-16 ~ 2026-11-20</td>
+<td>
+<span class="pill st-generated">확정</span>
+</td>
+</tr>
+</tbody>
+</table>
+<style> details.new-period summary[role=button] { width: auto; display: inline-block; margin-bottom: .8rem; } .pill { display: inline-block; padding: .1rem .6rem; border-radius: 1rem; font-size: .8rem; white-space: nowrap; border: 1px solid var(--duty-line); } .pill.st-collecting { border-color: var(--pill-collect); color: var(--pill-collect); } .pill.st-generated { border-color: var(--pico-primary); color: var(--pico-primary); } .pill.st-published { background: var(--pico-primary-background); border-color: var(--pico-primary-background); color: var(--pico-primary-inverse); } </style>

@@ -265,3 +265,25 @@ def test_delete_rechecks_stale_object(make_member):
     Period.objects.filter(pk=p.pk).update(status=S.PUBLISHED)
     with pytest.raises(DutyError):
         periods.delete(stale)
+
+
+# ── 옮기기 오류 글(근무표 통합 1단계가 순서를 바꿔도 네 글자는 그대로, 설계 6.1) ──
+
+@pytest.mark.parametrize("status,to,msg", [
+    (S.PUBLISHED, S.COLLECTING, "배포된 회차는 배포 취소로만 되돌릴 수 있습니다."),
+    (S.COLLECTING, S.COLLECTING, "이미 그 상태입니다."),
+    (S.DRAFT, S.GENERATED, "옮길 수 없는 상태입니다."),
+])
+def test_move_messages(it_board, status, to, msg):
+    p = Period.objects.create(board=it_board, name="p", start_date=d(11, 9), end_date=d(11, 13), status=status)
+    with pytest.raises(DutyError) as e:
+        periods.move(p, to)
+    assert str(e.value) == msg
+
+
+def test_move_message_for_board_without_draft_and_close(it_board):
+    ops = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    p = Period.objects.create(board=ops, name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.GENERATED)
+    with pytest.raises(DutyError) as e:
+        periods.move(p, S.DRAFT)
+    assert str(e.value) == "직접 입력 근무표는 입력 중으로만 옮길 수 있습니다."

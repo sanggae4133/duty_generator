@@ -1,0 +1,602 @@
+<nav aria-label="날짜 이동">
+<ul>
+<li>
+<a href="/day/2026-11-13/?f=1">◀</a>
+</li>
+</ul>
+<ul>
+<li>
+<strong>2026-11-16 (월)</strong>
+</li>
+</ul>
+<ul>
+<li>
+<a href="/day/2026-11-17/?f=1">▶</a>
+</li>
+</ul>
+</nav>
+<form method="get" class="search">
+<input type="hidden" name="f" value="1">
+<details class="filters">
+<summary>필터</summary>
+<div class="filters-body">
+<fieldset class="filter">
+<legend>부서</legend>
+<label>
+<input type="checkbox" name="dept" value="MEMS" checked> 매칭엔진실</label>
+<label>
+<input type="checkbox" name="dept" value="TMCH" checked> 매매지원실</label>
+<label>
+<input type="checkbox" name="dept" value="MD" checked> 정보분배</label>
+<label>
+<input type="checkbox" name="dept" value="UI" checked> UI</label>
+</fieldset>
+<fieldset class="filter">
+<legend>유형</legend>
+<label>
+<input type="checkbox" name="type" value="직원" checked> 직원</label>
+<label>
+<input type="checkbox" name="type" value="개발자" checked> 개발자</label>
+</fieldset>
+<fieldset class="filter">
+<legend>스케줄</legend>
+<label>
+<input type="checkbox" name="shift" value="dawn" checked> 새벽</label>
+<label>
+<input type="checkbox" name="shift" value="normal" checked> 정상</label>
+<label>
+<input type="checkbox" name="shift" value="dinner" checked> 석식교대</label>
+<label>
+<input type="checkbox" name="shift" value="night" checked> 야간</label>
+<label>
+<input type="checkbox" name="shift" value="slots" checked> 장중관제</label>
+</fieldset>
+<fieldset class="filter">
+<legend>보기</legend>
+<input type="hidden" name="hist" value="0">
+<label>
+<input type="checkbox" name="hist" value="1" checked> 변경 내역 표시(A&gt;B·취소선)</label>
+</fieldset>
+<small class="hint">부서·유형·스케줄은 모두 해제하면 전체 표시</small>
+</div>
+</details>
+<script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { const g = document.querySelector(".roster-scroll"); try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => { // 근무표의 '오늘로 이동'보다 뒤에 const g = document.querySelector(".roster-scroll"); if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; } scrollTo(0, s.y); }); }</script>
+</form>
+<h4 class="grp">출근조</h4>
+<article id="dawn" class="dcell">
+<strong>새벽</strong>
+<p>
+<span class="lb">가상일</span>
+</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/dawn/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 근무가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+<option value="MEMS901">가상일</option>
+<option value="+">(없음 — 새로 넣기만)</option>
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="-">(없음 — 빼기만)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<hr>
+<form method="post" action="/cell/2026-11-16/dawn/">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>휴가·출장·교육이면 사유를 붙입니다. 사유가 붙으면 그날 근무로 치지 않습니다(알림·캘린더에서 빠짐).</small>
+</p>
+<label>사유 <select name="member" aria-label="사유를 붙일 사람">
+<option value="2">가상일</option>
+</select>
+</label>
+<select name="reason" aria-label="사유">
+<option value="">없음</option>
+<option>휴가</option>
+<option>출장</option>
+<option>교육</option>
+</select>
+<button class="secondary" name="set_reason" value="1">사유 저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="normal" class="dcell">
+<strong>정상</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/normal/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 근무가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+<option value="+">(없음 — 새로 넣기만)</option>
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (새벽)</option>
+<option value="-">(없음 — 빼기만)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="dinner" class="dcell">
+<strong>석식교대</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/dinner/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 근무가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+<option value="+">(없음 — 새로 넣기만)</option>
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (새벽)</option>
+<option value="-">(없음 — 빼기만)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="night" class="dcell">
+<strong>야간</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/night/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 근무가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+<option value="+">(없음 — 새로 넣기만)</option>
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (새벽)</option>
+<option value="-">(없음 — 빼기만)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<h4 class="grp">장중관제</h4>
+<article id="slot0" class="dcell">
+<strong>08:30~09:30</strong>
+<p>
+<span class="lb">가상일</span>
+</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot0/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+<option value="MEMS901">가상일</option>
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot1" class="dcell">
+<strong>09:30~10:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot1/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot2" class="dcell">
+<strong>10:30~11:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot2/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot3" class="dcell">
+<strong>11:30~12:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot3/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot4" class="dcell">
+<strong>12:30~13:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot4/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot5" class="dcell">
+<strong>13:30~14:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot5/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot6" class="dcell">
+<strong>14:30~15:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot6/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot7" class="dcell">
+<strong>15:30~16:30</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot7/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot8" class="dcell">
+<strong>16:30~17:00</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot8/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<article id="slot9" class="dcell">
+<strong>17:00~18:00</strong>
+<p>-</p>
+<details>
+<summary role="button" class="outline secondary">바꾸기</summary>
+<form method="post" action="/cell/2026-11-16/slot9/" onsubmit="return cellConfirm(this)">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="hidden" name="next" value="/day/2026-11-16/">
+<p>
+<small>From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 장중관제가 없으면 From 대신 들어갑니다.</small>
+</p>
+<label>From <select name="before">
+</select>
+</label>
+<label>To <select name="after" required>
+<option value="" disabled selected>바꿀 사람 선택</option>
+<option value="MD80">가상MD · 정보분배 (근무 없음)</option>
+<option value="MEMS80">가상MEMS0 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS81">가상MEMS1 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS82">가상MEMS2 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS83">가상MEMS3 · 매칭엔진실 (근무 없음)</option>
+<option value="MEMS84">가상MEMS4 · 매칭엔진실 (근무 없음)</option>
+<option value="TMCH80">가상TMCH0 · 매매지원실 (근무 없음)</option>
+<option value="TMCH81">가상TMCH1 · 매매지원실 (근무 없음)</option>
+<option value="TMCH82">가상TMCH2 · 매매지원실 (근무 없음)</option>
+<option value="TMCH83">가상TMCH3 · 매매지원실 (근무 없음)</option>
+<option value="TMCH84">가상TMCH4 · 매매지원실 (근무 없음)</option>
+<option value="UI80">가상UI · UI (근무 없음)</option>
+<option value="MEMS901">가상일 · 매칭엔진실 (08:30~09:30)</option>
+</select>
+</label>
+<button>저장</button>
+</form>
+<script> // 넣기만·빼기만은 드물다: 한 번 더 묻는다 window.cellConfirm = window.cellConfirm || (f => { const b = f.before.value, a = f.after.value; if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; } if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다."); if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다."); return true; }); </script>
+</details>
+</article>
+<style> h4.grp { margin: 1.5rem 0 .5rem; } article.dcell { margin: 0 0 .6rem; padding: .7rem 1rem; } article.dcell p { margin: .2rem 0 .4rem; } article.dcell details { margin: 0; } article.dcell summary[role=button] { width: auto; display: inline-block; padding: .3rem .9rem; font-size: .85rem; } </style>
