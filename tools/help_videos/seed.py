@@ -32,7 +32,7 @@ for i, n in enumerate(NAMES + FREE):
 member = User.objects.create_user("member", password=PW, name="나사용", department=depts["MD"], type="개발자", help_dismissed=True)
 manager = User.objects.create_user("manager", password=PW, name="나담당", department=depts["MEMS"], type="개발자", help_dismissed=True)
 admin = User.objects.create_superuser("admin", password=PW, name="나관리", help_dismissed=True)
-depts["MEMS"].input_group.user_set.add(manager)  # 출근표 입력 담당 = 부서 입력 그룹 멤버
+depts["MEMS"].ensure_input_group().user_set.add(manager)  # 출근표 입력 담당 = 부서 입력 그룹 멤버(첫 담당자라 그룹을 만든다)
 it.admin_group.user_set.add(admin)  # 근무표 관리자 = IT 근무표 관리 그룹 멤버(슈퍼유저라고 자동으로 관리자가 아니다)
 workers = people[:len(NAMES)] + [member, manager]
 

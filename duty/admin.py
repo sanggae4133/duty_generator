@@ -21,7 +21,7 @@ SHIFT_KEY_CHOICES = [(k, label) for k, label in BoardShift._meta.get_field("key"
 
 
 def _input_users(dept):
-    """부서 입력 그룹 멤버. 새 부서·직접 입력 근무표 부서(그룹 없음)는 빈 목록."""
+    """부서 입력 그룹 멤버. 입력 그룹이 없는 부서(새 부서, 담당자를 넣은 적 없는 부서)는 빈 목록."""
     return dept.input_group.user_set.all() if dept.input_group_id else User.objects.none()
 
 
@@ -69,14 +69,13 @@ class DepartmentForm(forms.ModelForm):
 
     def clean(self):
         c = super().clean()
-        board, name = c.get("board"), c.get("name")
-        # Department.save 가 만들거나 바꿀 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
+        name = c.get("name")
+        # 입력 그룹은 첫 담당자를 고를 때 생기고(save_related → ensure_input_group), 부서 이름을 바꾸면 따라 바뀐다(설계 5.3).
+        # 그 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 이름 칸 오류로
         group = f"{name} 출근표 입력"
-        has_group = self.instance.input_group_id or (board and not boards.legacy_admin_entry(board))  # 1단계 임시 기준
-        if c.get("managers") and board and boards.legacy_admin_entry(board):
-            self.add_error("managers", "직접 입력 근무표의 부서는 입력 담당자가 없습니다. 근무표 관리자가 입력합니다.")
-        if (name and has_group and "name" in self.changed_data  # 이름을 바꿀 때만 그룹 이름이 바뀐다
-                and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists()):
+        makes = not self.instance.input_group_id and c.get("managers")
+        renames = self.instance.input_group_id and "name" in self.changed_data
+        if name and (makes or renames) and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists():
             self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
         return c
 
@@ -109,8 +108,11 @@ class DepartmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-        if form.instance.input_group_id:  # 직접 입력 근무표의 부서는 입력 그룹이 없다
-            form.instance.input_group.user_set.set(form.cleaned_data["managers"])
+        dept, picked = form.instance, form.cleaned_data["managers"]
+        if picked:  # 첫 담당자를 고를 때 입력 그룹을 만든다(이름 겹침은 clean 이 먼저 막았다)
+            dept.ensure_input_group()
+        if dept.input_group_id:
+            dept.input_group.user_set.set(picked)
 
 
 class UserAddForm(forms.ModelForm):
@@ -298,7 +300,7 @@ class BoardForm(forms.ModelForm):
                 self.add_error(f, "단계 이름에 줄바꿈을 쓸 수 없습니다.")
             elif v and names.count(v) > 1:
                 self.add_error(f, f"단계 이름이 겹칩니다: {v}")
-        # 버튼 글자 검사(설계 5.4): 저장된 근무표는 단계 칸이 읽기 전용이라 만들 때만. 단계 칸 자체 오류가 없으면 본다
+        # 버튼 글자 검사(설계 5.4). 단계 칸 자체 오류가 없으면 본다
         if all(names) and not set(STEP_FIELDS) & set(self.errors):
             steps = Board(use_draft=c.get("use_draft"), use_close=c.get("use_close"), **dict(zip(STEP_FIELDS, names)))
             gen, slot = steps.step_buttons(False), steps.step_buttons(True)
@@ -320,7 +322,7 @@ class BoardForm(forms.ModelForm):
 
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
-    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 1·2단계에서 만들 때만 정한다.
+    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 언제든 고친다(근무표 통합 3단계).
     지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 그 그룹의 그룹 관리자는 '관리 그룹' 링크(그룹 화면)에서 정한다."""
     form = BoardForm
     list_display = ["name", "code", "step_line", "admin_group"]
@@ -335,11 +337,11 @@ class BoardAdmin(admin.ModelAdmin):
                 ("회차 단계", {"fields": ["use_draft", "use_close", *STEP_FIELDS], "description": (
                     "작성 중·마감을 끄면 그 단계를 건너뜁니다. 이름은 화면에 보이는 단계 이름이고, 버튼 이름은 단계 이름에서 "
                     "나옵니다(예: '취합 중' → [취합 열기]). IT = 둘 다 켬, 작성 중·취합 중·마감·생성됨·배포됨. "
-                    "시장운영실 = 둘 다 끔, 취합 중 '입력 중'·생성됨 '확정'. 저장한 근무표의 단계는 지금은 바꾸지 않습니다.")})]
+                    "시장운영실 = 둘 다 끔, 취합 중 '입력 중'·생성됨 '확정'. 바꾸면 진행 중인 회차의 단계 이름과 버튼이 바로 바뀌고, "
+                    "끈 단계에 남은 회차는 회차 화면의 '다른 상태로 옮기기'로 옮깁니다.")})]
 
     def get_readonly_fields(self, request, obj=None):
-        # 1단계: 저장된 근무표의 단계 칸은 읽기 전용(임시 기준 legacy_admin_entry 와 섞인 상태를 막는다, 설계 5.1). 3단계에서 연다
-        return [] if obj is None else ["code", "use_draft", "use_close", *STEP_FIELDS, "group_link"]
+        return [] if obj is None else ["code", "group_link"]
 
     @admin.display(description="단계")
     def step_line(self, obj):

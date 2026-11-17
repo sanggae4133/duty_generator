@@ -33,12 +33,6 @@ def dept_keys(dept, defs: list[Def]) -> list[str]:
     return [x.key for x in shift_defs(defs) if x.key in mine]
 
 
-def legacy_admin_entry(board: Board) -> bool:
-    """1단계 임시 기준(설계 6.1): 옛 직접 입력 근무표(마감을 안 쓰는 근무표)의 문구·확인창·채우기·빈 평일 경고·입력 그룹을 지금처럼 고른다.
-    ponytail: 2단계에서 화면·서비스 자리를, 3단계에서 Department.save·부서 폼 자리와 이 함수를 지운다."""
-    return not board.use_close
-
-
 def board_of(user) -> Board | None:
     dept = getattr(user, "department", None)  # 익명·부서 없는 계정은 근무표가 없다
     return dept.board if dept else None

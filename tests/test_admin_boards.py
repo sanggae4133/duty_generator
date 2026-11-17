@@ -164,7 +164,7 @@ def test_change_page_locks_code_steps_keys_and_has_no_delete(su_client, ops):
     board, *_ = ops
     body = su_client.get(reverse("admin:duty_board_change", args=[board.pk])).content.decode()
     assert 'name="name"' in body and 'name="code"' not in body and 'name="input_mode"' not in body
-    assert "회차 단계" in body and 'name="use_close"' not in body and 'name="step_collecting"' not in body  # 1단계: 읽기 전용
+    assert "회차 단계" in body and 'name="use_close"' in body and 'name="step_collecting"' in body  # 3단계: 단계 칸을 고친다
     assert reverse("admin:auth_group_change", args=[board.admin_group_id]) in body  # 관리 그룹 링크(그룹 관리자 지정)
     assert 'name="shifts-0-active"' in body and 'name="shifts-0-DELETE"' not in body
     assert '<select name="shifts-0-key"' in body and "disabled" in body.split('name="shifts-0-key"')[1].split(">")[0]
@@ -271,14 +271,16 @@ def test_bad_button_error_field(it_board, data, field, label):
     assert f.errors[field] == [f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{label}]"]
 
 
-def test_saved_board_steps_are_read_only(su_client, ops):
-    """1단계: 저장된 근무표의 단계는 관리 화면에서 바꾸지 않는다(보낸 값은 무시, 설계 5.1). 3단계에서 연다."""
+def test_saved_board_steps_can_change(su_client, ops):
+    """3단계: 저장된 근무표의 단계도 관리 화면에서 고친다(설계 5.1). 버튼 글자 검사도 만들 때와 같다."""
     board, a, b = ops
-    data = change(board, [a, b]) | steps_form(board, use_draft="on", step_collecting="모으는 중")
-    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    url = reverse("admin:duty_board_change", args=[board.pk])
+    r = su_client.post(url, change(board, [a, b]) | steps_form(board, use_draft="on", step_collecting="모으는 중"))
     assert r.status_code == 302, errors(r)
     board.refresh_from_db()
-    assert (board.use_draft, board.step_collecting) == (False, "입력 중")
+    assert (board.use_draft, board.step_collecting) == (True, "모으는 중")
+    r = su_client.post(url, change(board, [a, b]) | steps_form(board, step_generated="됨"))
+    assert r.status_code == 200 and "버튼 이름이 비거나 다른 버튼과 같아집니다: []" in r.content.decode()
 
 
 # ── 그룹 관리자 ──

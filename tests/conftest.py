@@ -47,9 +47,13 @@ def lunch(it_board):
 
 @pytest.fixture
 def depts(it_board):
-    # order = 지금 근무표 부서 필터 순서(views/roster.py DEPT_ORDER: MEMS·TMCH·MD·UI = DEPTS 순서)
-    return {c: Department.objects.create(code=c, name=n, shifts=s, board=it_board, order=i)
-            for i, (c, n, s) in enumerate(DEPTS)}
+    # order = 지금 근무표 부서 필터 순서(views/roster.py DEPT_ORDER: MEMS·TMCH·MD·UI = DEPTS 순서).
+    # 운영 IT 부서처럼 입력 그룹이 있다(근무표 통합 3단계부터 Department.save 는 그룹을 만들지 않는다)
+    out = {c: Department.objects.create(code=c, name=n, shifts=s, board=it_board, order=i)
+           for i, (c, n, s) in enumerate(DEPTS)}
+    for d in out.values():
+        d.ensure_input_group()
+    return out
 
 
 @pytest.fixture
