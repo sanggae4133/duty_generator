@@ -1,0 +1,60 @@
+{% extends "duty/base.html" %}
+{% block title %}근무표 설정 · {{ board.name }}{% endblock %}
+{% block content %}
+<h3>근무표 설정 · {{ board.name }}</h3>
+{% if boards|length > 1 %}<p class="seg" role="group" aria-label="고칠 근무표">{% for b in boards %}<a href="{% url 'board_settings' %}?board={{ b.code }}"{% if b.pk == board.pk %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</p>{% endif %}
+<nav class="jump" aria-label="칸 바로가기"><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a></nav>
+
+<section id="admins" class="cfg">
+  <h4>관리자 <small>회차·생성·배포·메모·통계·이력과 이 설정을 하는 사람</small></h4>
+  {% include "duty/_section_msgs.html" with sec="admins" %}
+  <ul class="members">{% for u, how in admin_rows %}
+    <li><span>{{ u.name }}{% if not u.is_active %} (퇴사){% endif %} <small>· {{ u.department.name|default:"부서 없음" }}</small></span>
+      {% if how == "remove" %}<form method="post" action="{{ here }}#admins" onsubmit="return confirm('{{ u.name|escapejs }}을(를) {{ board.name|escapejs }} 관리자에서 뺄까요?{% if u.pk == user.pk %} 빼면 이 근무표의 회차·설정 화면에 들어올 수 없습니다.{% endif %}')">{% csrf_token %}
+        <input type="hidden" name="do" value="remove_admin"><input type="hidden" name="user" value="{{ u.pk }}">
+        <button class="outline secondary">빼기</button></form>
+      {% elif how == "last" %}<small class="note">마지막 관리자</small>{% else %}<small class="note">빼기는 슈퍼유저에게</small>{% endif %}</li>{% endfor %}</ul>
+  <form method="post" action="{{ here }}#admins" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_admin">
+    <label>넣을 사람 <select name="user" required><option value="">고르세요</option>{% for u in admin_candidates %}<option value="{{ u.pk }}">{{ u.name }}({{ u.department.name|default:"부서 없음" }})</option>{% endfor %}</select></label>
+    <button class="outline">넣기</button>
+  </form>
+</section>
+
+<section id="assignees" class="cfg">
+  <h4>입력 담당자 <small>취합 중인 회차에 자기 부서 출근표를 넣는 사람. 관리자는 담당자가 아니어도 모든 부서의 출근표를 넣을 수 있습니다</small></h4>
+  {% include "duty/_section_msgs.html" with sec="assignees" %}
+  {% for it in depts %}<article class="dept">
+    <header><strong>{{ it.dept.name }}</strong></header>
+    {% if it.members %}<ul class="members">{% for u in it.members %}
+      <li><span>{{ u.name }}{% if not u.is_active %} (퇴사){% endif %}</span>
+        <form method="post" action="{{ here }}#assignees" onsubmit="return confirm('{{ u.name|escapejs }}을(를) {{ it.dept.name|escapejs }} 입력 담당자에서 뺄까요?')">{% csrf_token %}
+          <input type="hidden" name="do" value="remove_assignee"><input type="hidden" name="dept" value="{{ it.dept.pk }}"><input type="hidden" name="user" value="{{ u.pk }}">
+          <button class="outline secondary">빼기</button></form></li>{% endfor %}</ul>
+    {% else %}<p class="none">담당자 없음 — 근무표 관리자만 입력합니다</p>{% endif %}
+    <form method="post" action="{{ here }}#assignees" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_assignee"><input type="hidden" name="dept" value="{{ it.dept.pk }}">
+      <label>넣을 사람 <select name="user" required><option value="">고르세요</option>{% for u in it.candidates %}<option value="{{ u.pk }}">{{ u.name }}({{ u.department.name }})</option>{% endfor %}</select></label>
+      <button class="outline">넣기</button>
+    </form>
+  </article>{% endfor %}
+</section>
+<style>
+  p.seg[role=group] { margin-bottom: 1rem; }
+  nav.jump { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .4rem; margin: 0 0 1.5rem; }
+  nav.jump a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid var(--duty-line); border-radius: .4rem; text-decoration: none; }
+  section.cfg { margin: 0 0 2.5rem; scroll-margin-top: 1rem; }
+  section.cfg > h4 { margin-bottom: .8rem; }
+  section.cfg > h4 small { display: block; margin-top: .2rem; font-weight: 400; color: var(--pico-muted-color); }
+  section.cfg article.dept { max-width: 40rem; }
+  ul.members { padding: 0; margin: 0 0 1rem; max-width: 40rem; }
+  ul.members li { list-style: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem;
+    min-height: 44px; padding: .4rem 0; border-bottom: 1px solid var(--duty-line); }
+  ul.members form, ul.members button { width: auto; margin: 0; }
+  ul.members button { min-height: 44px; padding: .4rem 1rem; }
+  ul.members .note { color: var(--pico-muted-color); }
+  p.none { margin: 0 0 1rem; font-weight: 700; }
+  form.add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; max-width: 40rem; }
+  form.add label { flex: 1 1 14rem; margin: 0; }
+  form.add select { margin: 0; }
+  form.add button { width: auto; margin: 0; min-height: 44px; }
+</style>
+{% endblock %}
