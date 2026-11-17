@@ -47,7 +47,7 @@
     {{ formset.management_form }}
     {% for e in formset.non_form_errors %}<p class="err">{{ e }}</p>{% endfor %}
     <div class="cards">{% for f in formset %}<fieldset class="card">
-      <legend>{% if f.instance.pk %}{{ f.instance.name }}{% else %}새 근무 정의(더할 때만 채웁니다){% endif %}</legend>
+      <legend>{% if f.instance.pk %}{{ f.initial.name }}{% else %}새 근무 정의(더할 때만 채웁니다){% endif %}</legend>
       {% for h in f.hidden_fields %}{{ h }}{% endfor %}
       {% for e in f.non_field_errors %}<p class="err">{{ e }}</p>{% endfor %}
       {% for fld in f.visible_fields %}<div class="fld">
@@ -59,7 +59,7 @@
     </fieldset>{% endfor %}</div>
     <button class="outline">저장</button>
     <h5>부서</h5>
-    {% if unassigned %}<div class="msg warning" role="status">아직 부서에 배정되지 않은 근무조: {{ unassigned|join:", " }}. 아래 부서에서 체크하고 [부서 저장]을 누르세요. 체크하지 않으면 입력 표에 칸이 생기지 않습니다.</div>{% endif %}
+    {% if unassigned %}<div class="msg warning" role="status">아직 부서에 배정되지 않은 근무조: {{ unassigned|join:", " }}. 아래 부서에서 체크하고 [{% if ask %}그래도 저장{% else %}부서 저장{% endif %}]을 누르세요. 체크하지 않으면 입력 표에 칸이 생기지 않습니다.</div>{% endif %}
     <div class="cards">{% for d in dept_forms %}<fieldset class="card">
       <legend>{{ d.instance.name }}</legend>
       <input type="hidden" name="{{ d.prefix }}-shown" value="{{ d.shown_value }}">

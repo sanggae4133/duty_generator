@@ -174,10 +174,13 @@ def test_removing_department_shift_with_rows_asks_again(ops_board, ops_admin, ro
     assert _dept().shifts == "dawn,normal"
 
 
-def test_turning_shift_off_does_not_ask(ops_board, ops_admin, rows):
-    """꺼진 근무조의 출근표는 표 저장 때 남으므로(collect._kept_keys) 끄면서 빼면 묻지 않는다."""
-    save(ops_admin, ops_board, shift_data(ops_board, change={"dinner": {"active": None}},
-                                         depts={"OPS": {"shifts": ["dawn", "normal"]}}))
+def test_turning_shift_off_and_removing_it_asks(ops_board, ops_admin, rows):
+    """끄면서 같은 저장에서 부서에서 빼도 묻는다: 꺼진 동안은 행이 남지만 다시 켜면 다음 표 저장이 그 행을 지운다(설계 6.2)."""
+    data = shift_data(ops_board, change={"dinner": {"active": None}}, depts={"OPS": {"shifts": ["dawn", "normal"]}})
+    with pytest.raises(bs.NeedsConfirm) as e:
+        save(ops_admin, ops_board, data)
+    assert e.value.rows == 1 and _dept().shifts == "dawn,normal,dinner"
+    save(ops_admin, ops_board, data, confirm=1)
     assert _dept().shifts == "dawn,normal"
 
 

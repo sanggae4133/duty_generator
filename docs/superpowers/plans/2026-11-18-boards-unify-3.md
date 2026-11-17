@@ -23,7 +23,7 @@
 9. **`duty/forms.py` 로 옮기는 것**: `SHIFT_KEY_CHOICES`·`BoardShiftForm`·`BoardShiftFormSet`(내용 그대로)·`STEP_FIELDS`, 새 `StepsForm`(관리 화면 `BoardForm.clean` 의 단계 검사를 그대로 옮기고 `BoardForm` 이 물려받는다 — 설계 5.4 "같은 함수"), 새 `DeptShiftsForm`·`ShiftFormSet`(빈 추가 줄 하나, 시각은 `<input type=time>`; 관리 화면 인라인 위젯은 그대로)·`shift_forms(board, data)`. 기존 테스트의 `from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm` 이 그대로 돌도록 admin 이 import 한다.
 10. **"부서마다 켜진 입력 근무조 하나 이상"을 같은 저장의 부서 출근조로**: `BoardShiftFormSet.planned_depts`(`{부서 이름: 키들}`)를 설정 화면 서비스만 넣는다. 없으면 지금처럼 저장된 부서를 읽는다(관리 화면). 설정 화면 문구 꼬리는 "아래 부서에서 켜진 근무조를 하나 이상 체크하세요."(관리 화면은 지금 "부서의 출근조를 먼저 바꾸세요.").
 11. **부서 덩어리 체크박스 = 그린 때의 켜진 근무조**(이름 + 시각, 시작 시각 순). 체크박스로 보이지 않은 부서 키(그린 때 꺼져 있던 근무조)는 저장해도 **그대로 남긴다**(리뷰 반영): 그래야 근무조를 껐다가 다시 켜면 그 부서 입력 표 칸이 돌아오고, 상관없는 저장(이름 고치기)이 꺼진 근무조 키를 지우지 않는다. 보였던 체크박스를 풀면 뺀다(같은 저장에서 끄면서 풀어도). 관리 화면 부서 폼은 지금처럼 켜진 근무조만 저장한다(바꾸지 않음).
-12. **부서에서 근무조를 뺄 때 확인**: 설계대로 배포 전 회차(작성 중·취합 중·마감·생성됨)의 그 부서 사람·그 근무조 출근표 행을 센다. 단 **켜진 근무조만** 센다: 같은 저장에서 끄면서 빼면 꺼진 근무조 행은 표 저장 때 남으므로(`collect._kept_keys`) 묻지 않는다. 글: "운영 부서에서 '늦은'을 빼면 배포 전 회차(이번 회차)의 그 근무조 출근표 1행이 다음 표 저장 때 지워집니다. 그래도 저장하려면 [그래도 저장]을 누르세요."(여러 부서면 문장을 잇는다, `confirm` = 행 수 합).
+12. **부서에서 근무조를 뺄 때 확인**: 설계대로 배포 전 회차(작성 중·취합 중·마감·생성됨)의 그 부서 사람·그 근무조 출근표 행을 센다. 같은 저장에서 끄면서 빼도 센다(리뷰 반영): 꺼진 동안은 행이 남지만(`collect._kept_keys`) 다시 켜면 다음 표 저장 때 지워진다. 그린 때 이미 꺼져 있던 근무조는 체크박스가 없어 그대로 남으므로 묻지 않는다. 글: "운영 부서에서 '늦은'을 빼면 배포 전 회차(이번 회차)의 그 근무조 출근표 1행이 다음 표 저장 때 지워집니다. 그래도 저장하려면 [그래도 저장]을 누르세요."(여러 부서면 문장을 잇는다, `confirm` = 행 수 합).
 13. **관제 정의를 끌 때 경고**는 설계 글의 "생성됨 회차" 자리에 그 근무표 생성됨 단계 이름을 쓴다(시장운영실이면 "확정 회차(…)"). 회차·정의마다 한 줄.
 14. **"아직 부서에 배정되지 않은 근무조" 경고는 그릴 때마다 계산**한다(`_unassigned`, 저장 직후만이 아니라 조건이 남아 있는 동안 늘 보인다). 경고 상자는 근무 정의 카드 아래(부서 덩어리 바로 위)라 저장 뒤 `#shifts` 로 돌아온 화면에서 안 보일 수 있으므로, 그때는 결과 글에도 "아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요."를 붙인다(리뷰 반영, 돌아올 곳은 설계대로 `#shifts`). 버튼: 근무 정의 카드 아래 테두리 [저장] + 부서 덩어리 아래 큰 주 버튼(배정 안 된 근무조가 있으면 [부서 저장], 확인 중이면 [그래도 저장], 아니면 [저장]) — 같은 폼이라 어느 것이든 전체를 저장한다. **행 수 확인 값(`confirm`)은 아래 [그래도 저장] 버튼에만 싣는다**(숨은 칸 없음): 위 [저장]으로 보내면 다시 묻는다(리뷰 반영).
 15. **오류·확인은 다시 그리기, 성공은 redirect**: 근무 정의와 부서·단계 칸이 오류(또는 행 수 확인)면 redirect 하지 않고 보낸 값 그대로 다시 그린다(다른 칸 입력은 건드리지 않는다). 폼 `action` 에 `#shifts`·`#steps` 가 있어 브라우저가 그 칸으로 간다. 관리자·입력 담당자 칸은 늘 redirect(`?board=<code>#admins` 등).
@@ -1179,11 +1179,15 @@ def test_removing_department_shift_with_rows_asks_again(ops_board, ops_admin, ro
     assert _dept().shifts == "dawn,normal"
 
 
-def test_turning_shift_off_does_not_ask(ops_board, ops_admin, rows):
-    """꺼진 근무조의 출근표는 표 저장 때 남으므로(collect._kept_keys) 끄면서 빼면 묻지 않는다."""
-    save(ops_admin, ops_board, shift_data(ops_board, change={"dinner": {"active": None}},
-                                         depts={"OPS": {"shifts": ["dawn", "normal"]}}))
+def test_turning_shift_off_and_removing_it_asks(ops_board, ops_admin, rows):
+    """끄면서 같은 저장에서 부서에서 빼도 묻는다: 꺼진 동안은 행이 남지만 다시 켜면 다음 표 저장이 그 행을 지운다(설계 6.2)."""
+    data = shift_data(ops_board, change={"dinner": {"active": None}}, depts={"OPS": {"shifts": ["dawn", "normal"]}})
+    with pytest.raises(bs.NeedsConfirm) as e:
+        save(ops_admin, ops_board, data)
+    assert e.value.rows == 1 and _dept().shifts == "dawn,normal,dinner"
+    save(ops_admin, ops_board, data, confirm=1)
     assert _dept().shifts == "dawn,normal"
+
 
 
 # ── 생성됨 회차에 배정이 남은 관제 정의를 끄면 경고 ──
@@ -1720,7 +1724,7 @@ index 5f195b8..d2f62eb 100644
 +    """근무 정의(formset = forms.BoardShiftFormSet, instance=board)와 부서 출근조·점심 시각(dept_forms = 그 근무표 부서마다
 +    forms.DeptShiftsForm)을 한 트랜잭션으로 저장한다(설계 6.2). 돌려주는 것 = 저장한 뒤 보일 경고 글들.
 +    - 표 전체 검사의 '부서마다 켜진 입력 근무조 하나 이상'은 이번에 저장할 부서 출근조로 본다(같은 저장에서 근무조를 끄고 옮길 수 있게).
-+    - 부서에서 켜진 근무조를 빼는데 배포 전 회차에 그 부서·근무조 출근표가 있으면 저장하지 않고 NeedsConfirm(confirm = 본 행 수).
++    - 부서에서 근무조를 빼는데(같은 저장에서 끄면서 빼도) 배포 전 회차에 그 부서·근무조 출근표가 있으면 저장하지 않고 NeedsConfirm(confirm = 본 행 수).
 +    - 생성됨 회차에 배정이 남은 장중관제 정의를 끄면 저장하고 경고."""
 +    _require_admin(by, board)
 +    if formset.instance.pk != board.pk or any(f.instance.board_id != board.pk for f in dept_forms):
@@ -1737,10 +1741,11 @@ index 5f195b8..d2f62eb 100644
 +        raise DutyError(INVALID)
 +    rows = [f.cleaned_data for f in formset.forms if f.cleaned_data.get("key")]
 +    labels = {r["key"]: r["name"] for r in rows}
-+    on_after = {r["key"] for r in rows if r["key"] in SHIFT_KEYS and r["active"]}
 +    lost, total = [], 0
-+    for f in dept_forms:  # 꺼진 근무조의 행은 표 저장 때 남으므로(collect._kept_keys) 켜진 근무조를 뺄 때만 묻는다
-+        gone = [k for k in SHIFT_KEYS if k in saved[f.instance.pk] - picked[f.instance.pk] and k in on_after]
++    # 끄면서 빼도 묻는다: 꺼진 동안은 행이 남지만(collect._kept_keys) 다시 켜면 다음 표 저장이 지운다.
++    # 그린 때 이미 꺼져 있던 키는 체크박스가 없어 picked 에 남으므로(hidden) 여기 걸리지 않는다
++    for f in dept_forms:
++        gone = [k for k in SHIFT_KEYS if k in saved[f.instance.pk] - picked[f.instance.pk]]
 +        qs = Commute.objects.filter(period__board=board, period__status__in=BEFORE_PUBLISH, member__department=f.instance,
 +                                    shift__in=gone)
 +        if gone and (n := qs.count()):
@@ -3263,7 +3268,7 @@ edit(A,"| 그룹 관리자(`GroupKeeper`) | 맡은 그룹에 멤버를 넣고 �
 edit(A,"| 슈퍼유저 | Django 관리 화면: 사용자(\"그룹\" 칸으로 근무표 관리자 지정)·부서(점심 시각 포함)·휴장일·근무표와 근무 정의(추가·편집)·그룹(이름, 그룹 관리자 지정)·계정 발급·로그인 잠금 해제·알림 설정.",
 "| 슈퍼유저 | Django 관리 화면: 사용자(\"그룹\" 칸으로 근무표 관리자 지정, 재직 중인 다른 관리자 빼기)·부서(점심 시각 포함)·휴장일·근무표와 근무 정의(추가·편집)·그룹(이름·멤버 보기)·계정 발급·로그인 잠금 해제·알림 설정.")
 edit(A,"- 그룹 관리자는 `Group`에 걸린 표라서(근무표로 가는 FK가 없다) 관리 화면 \"그룹\"의 인라인에서 정한다. 근무표 화면에는 관리 그룹 링크가 있다.\n",
-"""- **[근무표 설정]**(`/settings/?board=<code>`, `views/board_settings.py`, 쓰기는 `services/board_settings.py`): 메뉴는 어느 근무표든 관리자에게 보이고, 그 근무표 관리자가 아니면 404(슈퍼유저라도 관리 그룹 밖이면 못 들어온다). 칸 바로가기(#admins·#assignees·#shifts·#steps), 칸마다 따로 저장하고 그 칸 앵커로 돌아오며 결과 메시지는 `messages` 의 `extra_tags`(칸 id)로 그 칸 제목 아래에 그린다(`base.html` 맨 위에는 칸 태그가 없는 메시지만). 서비스 함수마다 첫 줄 `_require_admin`, 받은 부서·사람·근무 정의가 그 근무표 것인지 다시 본다(범위 밖이면 `PermissionDenied`, 뷰는 404. 근무 정의 formset 은 `instance=board`, 부서 폼은 그 근무표 부서만 만들고 다른 id·부서 칸이 섞인 POST 는 404). 관리자 넣기 후보 = 재직 중인 그 근무표 사람 + 부서 없는 계정. 관리자 빼기는 **나 자신이나 퇴사한 관리자만**(재직 중인 다른 관리자 빼기는 슈퍼유저 — 빼고 나서 그 계정을 다루는 우회를 막는다). **재직 관리자는 근무표마다 한 명 이상**(`boards.left_without_admin`): 앱의 빼기와 관리 화면 사용자 편집(관리 그룹을 빼거나 재직을 끔, 칸 오류)·지우기(`UserAdmin.get_deleted_objects` 가 보호 목록에 까닭을 넣어 한 명 지우기·일괄 지우기 모두 막는다)가 같은 검사를 쓴다. 근무 정의와 부서는 [저장] 하나로 한 트랜잭션(`save_shifts`): "부서마다 켜진 입력 근무조 하나 이상"은 이번에 저장할 부서 출근조로 보고, 부서에서 켜진 근무조를 빼는데 배포 전 회차에 그 출근표가 있으면 저장하지 않고 행 수를 보인 뒤 [그래도 저장](본 행 수를 `confirm` 으로, 그사이 바뀌면 다시 묻는다), 생성됨 회차에 배정이 남은 관제 정의를 끄면 저장하고 경고, 켜진 근무조 중 어느 부서에도 없는 것이 있으면 경고 상자와 [부서 저장]. 단계 칸은 맨 아래 접힌 칸이고 저장된 단계·실제 버튼 글자 미리보기와 저장 확인창이 있다.
+"""- **[근무표 설정]**(`/settings/?board=<code>`, `views/board_settings.py`, 쓰기는 `services/board_settings.py`): 메뉴는 어느 근무표든 관리자에게 보이고, 그 근무표 관리자가 아니면 404(슈퍼유저라도 관리 그룹 밖이면 못 들어온다). 칸 바로가기(#admins·#assignees·#shifts·#steps), 칸마다 따로 저장하고 그 칸 앵커로 돌아오며 결과 메시지는 `messages` 의 `extra_tags`(칸 id)로 그 칸 제목 아래에 그린다(`base.html` 맨 위에는 칸 태그가 없는 메시지만). 서비스 함수마다 첫 줄 `_require_admin`, 받은 부서·사람·근무 정의가 그 근무표 것인지 다시 본다(범위 밖이면 `PermissionDenied`, 뷰는 404. 근무 정의 formset 은 `instance=board`, 부서 폼은 그 근무표 부서만 만들고 다른 id·부서 칸이 섞인 POST 는 404). 관리자 넣기 후보 = 재직 중인 그 근무표 사람 + 부서 없는 계정. 관리자 빼기는 **나 자신이나 퇴사한 관리자만**(재직 중인 다른 관리자 빼기는 슈퍼유저 — 빼고 나서 그 계정을 다루는 우회를 막는다). **재직 관리자는 근무표마다 한 명 이상**(`boards.left_without_admin`): 앱의 빼기와 관리 화면 사용자 편집(관리 그룹을 빼거나 재직을 끔, 칸 오류)·지우기(`UserAdmin.get_deleted_objects` 가 보호 목록에 까닭을 넣어 한 명 지우기·일괄 지우기 모두 막는다)가 같은 검사를 쓴다. 근무 정의와 부서는 [저장] 하나로 한 트랜잭션(`save_shifts`): "부서마다 켜진 입력 근무조 하나 이상"은 이번에 저장할 부서 출근조로 보고, 부서에서 근무조를 빼는데(같은 저장에서 끄면서 빼도) 배포 전 회차에 그 출근표가 있으면 저장하지 않고 행 수를 보인 뒤 [그래도 저장](본 행 수를 `confirm` 으로, 그사이 바뀌면 다시 묻는다), 생성됨 회차에 배정이 남은 관제 정의를 끄면 저장하고 경고, 켜진 근무조 중 어느 부서에도 없는 것이 있으면 경고 상자와 [부서 저장]. 단계 칸은 맨 아래 접힌 칸이고 저장된 단계·실제 버튼 글자 미리보기와 저장 확인창이 있다.
 - 쓰기마다 로그 한 줄 `board <code>: <동작> <대상 아이디·부서 코드·근무표 code> by <아이디>` 와 Django `LogEntry` 한 줄(대상 사람·근무표, `object_repr` 는 아이디·code, `change_message` "근무표 <code>: <동작>")을 남긴다. 실명은 넣지 않는다(`log_actions` 는 `object_repr` 에 실명을 넣어 쓰지 않는다, `board_settings._audit`). 관리 화면에서 그 사람·근무표 편집 페이지의 [기록]으로 본다(첫 화면 "최근 작업"은 로그인한 슈퍼유저 자신의 작업만 보인다).
 """)
 edit(A,"""  - 1단계 임시 기준 `boards.legacy_admin_entry(board)`(= 마감을 안 쓰는 근무표)는 입력 그룹 자동 생성(`Department.save`)과 부서 폼의 입력 담당자 금지에만 남는다. 그래서 관리 화면 단계 칸도 2단계까지 읽기 전용이다(3단계에서 첫 입력 담당자를 넣을 때 그룹을 만들기로 바꾸며 함수를 지우고 단계 편집을 연다).

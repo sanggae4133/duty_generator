@@ -182,6 +182,18 @@ def test_shift_errors_redraw_with_sent_values(ops_client, ops_board):
     assert r.status_code == 200 and 'value="중간"' in body  # 보낸 값 그대로
     assert body.index('<section id="shifts"') < body.index("저장하지 않았습니다. 빨간 글씨로 표시한 칸을 고쳐 주세요.")
     assert "점심 시각은 둘 다 비우거나, 둘 다 넣고 시작을 끝보다 이르게 하세요." in body
+    assert "<legend>가운데</legend>" in body and "<legend>중간</legend>" not in body  # 카드 제목은 저장된 이름
+
+
+def test_unassigned_warning_names_confirm_button_while_asking(ops_client, ops_board):
+    _post_shifts(ops_client, ops_board, extra={"key": "night", "name": "밤", "start": "13:00", "end": "22:00", "active": "on"})
+    m = _ops_member("가상하나", "OPS801")
+    p = Period.objects.create(board=ops_board, name="이번 회차", start_date=date(2026, 11, 16), end_date=date(2026, 11, 16),
+                              status=Period.Status.COLLECTING)
+    Commute.objects.create(period=p, date=p.start_date, member=m, shift="dinner")
+    body = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}}).content.decode()
+    assert 'name="confirm" value="1">그래도 저장</button>' in body
+    assert "아직 부서에 배정되지 않은 근무조: 밤. 아래 부서에서 체크하고 [그래도 저장]을 누르세요." in body
 
 
 def test_shift_removal_confirm_flow(ops_client, ops_board):

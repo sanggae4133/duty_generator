@@ -147,7 +147,8 @@ def save_shifts(by, board, formset, dept_forms, confirm: int | None = None) -> l
     """근무 정의(formset = forms.BoardShiftFormSet, instance=board)와 부서 출근조·점심 시각(dept_forms = 그 근무표 부서마다
     forms.DeptShiftsForm)을 한 트랜잭션으로 저장한다(설계 6.2). 돌려주는 것 = 저장한 뒤 보일 경고 글들.
     - 표 전체 검사의 '부서마다 켜진 입력 근무조 하나 이상'은 이번에 저장할 부서 출근조로 본다(같은 저장에서 근무조를 끄고 옮길 수 있게).
-    - 부서에서 켜진 근무조를 빼는데 배포 전 회차에 그 부서·근무조 출근표가 있으면 저장하지 않고 NeedsConfirm(confirm = 본 행 수).
+    - 부서에서 근무조를 빼는데(같은 저장에서 끄면서 빼도) 배포 전 회차에 그 부서·근무조 출근표가 있으면 저장하지 않고
+      NeedsConfirm(confirm = 본 행 수).
     - 생성됨 회차에 배정이 남은 장중관제 정의를 끄면 저장하고 경고."""
     _require_admin(by, board)
     if formset.instance.pk != board.pk or any(f.instance.board_id != board.pk for f in dept_forms):
@@ -164,10 +165,11 @@ def save_shifts(by, board, formset, dept_forms, confirm: int | None = None) -> l
         raise DutyError(INVALID)
     rows = [f.cleaned_data for f in formset.forms if f.cleaned_data.get("key")]
     labels = {r["key"]: r["name"] for r in rows}
-    on_after = {r["key"] for r in rows if r["key"] in SHIFT_KEYS and r["active"]}
     lost, total = [], 0
-    for f in dept_forms:  # 꺼진 근무조의 행은 표 저장 때 남으므로(collect._kept_keys) 켜진 근무조를 뺄 때만 묻는다
-        gone = [k for k in SHIFT_KEYS if k in saved[f.instance.pk] - picked[f.instance.pk] and k in on_after]
+    # 끄면서 빼도 묻는다: 꺼진 동안은 행이 남지만(collect._kept_keys) 다시 켜면 다음 표 저장이 지운다.
+    # 그린 때 이미 꺼져 있던 키는 체크박스가 없어 picked 에 남으므로(hidden) 여기 걸리지 않는다
+    for f in dept_forms:
+        gone = [k for k in SHIFT_KEYS if k in saved[f.instance.pk] - picked[f.instance.pk]]
         qs = Commute.objects.filter(period__board=board, period__status__in=BEFORE_PUBLISH, member__department=f.instance,
                                     shift__in=gone)
         if gone and (n := qs.count()):
