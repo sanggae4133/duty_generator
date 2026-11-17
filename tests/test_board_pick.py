@@ -7,7 +7,7 @@ from django.utils import timezone
 from duty.alarms.forms import RuleForm
 from duty.alarms.plan import RuleSpec, plan
 from duty.models import AlarmRule, ChangeLog, Commute, Memo, Period, RosterPref, User
-from duty.services import alarm_runner, boards, change_notice
+from duty.services import alarm_runner, alarms, boards, change_notice
 from duty.services.roster import Day
 from duty.shifts import KEYS
 from tests.it_defs import IT_DEFS
@@ -257,6 +257,14 @@ def test_change_log_board_column_and_filter(admin_client_ok, admin_user, two, it
     assert "가상나" in body and "가상다" not in body and '<option value="ops" selected>' in body
 
 
+def test_period_list_board_column_for_two_boards(admin_client_ok, admin_user, two):
+    board, _, _ = two
+    assert "<th>근무표</th>" not in admin_client_ok.get("/periods/").content.decode()  # IT 만 관리
+    admin_user.groups.add(board.admin_group)
+    body = admin_client_ok.get("/periods/").content.decode()
+    assert "<th>근무표</th>" in body and "<td>운영팀</td>" in body and "<td>IT 당번표</td>" in body
+
+
 # ── 알림 규칙 화면 ──
 
 def test_rule_initial_all_uses_owner_board(two):
@@ -293,3 +301,23 @@ def test_week_head_weekday_and_cell_form_without_slots(client, two):
     assert "11/16 (월)" in client.get(WEEK + "&board=ops").content.decode()
     form = client.get(f"/cell/{D}/dawn/?board=ops").content.decode()
     assert "(알림·캘린더에서 빠짐)" in form and "관제" not in form
+
+
+def test_rule_board_for_deptless_admin_is_home(two):
+    """부서 없는 운영팀 관리자의 개인 규칙 근무표는 IT 가 아니라 내 근무표(설계 2절 표)."""
+    board, _, _ = two
+    keeper = User.objects.create_user("opadm", password=None, name="가상관리")
+    keeper.groups.add(board.admin_group)
+    assert alarms.rule_board(keeper, "personal", None) == board
+    assert [c for c, _ in RuleForm(user=keeper).fields["shifts"].choices] == ["dawn", "normal", "dinner"]
+    rule = AlarmRule.objects.create(user=keeper, kind="personal", timing="before_start", offset=120, telegram=True,
+                                    shifts=[], depts=[], types=[])
+    assert RuleForm.initial_from(rule)["board"] == board.pk
+
+
+def test_rule_form_board_select_home_first(two):
+    board, ga, na = two
+    assert [b.code for b in RuleForm(user=na).fields["board"].queryset] == ["ops", "it"]
+    assert [b.code for b in RuleForm(user=ga).fields["board"].queryset] == ["it", "ops"]
+    f = RuleForm.redraw({**FORM, "kind": "report"}, user=na)  # 아직 근무표를 안 골랐으면 목록 첫 줄(내 근무표) 기준
+    assert [c for c, _ in f.fields["shifts"].choices] == ["dawn", "normal", "dinner"]

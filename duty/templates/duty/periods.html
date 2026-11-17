@@ -11,9 +11,9 @@
 </form>
 </details>
 <table>
-  <thead><tr><th>이름</th><th>기간</th><th>상태</th></tr></thead>
+  <thead><tr>{% if boards|length > 1 %}<th>근무표</th>{% endif %}<th>이름</th><th>기간</th><th>상태</th></tr></thead>
   <tbody>{% for p in periods %}
-    <tr><td><a href="{% url 'period_detail' p.pk %}">{{ p.name }}</a></td>
+    <tr>{% if boards|length > 1 %}<td>{{ p.board.name }}</td>{% endif %}<td><a href="{% url 'period_detail' p.pk %}">{{ p.name }}</a></td>
       <td>{{ p.start_date|date:"Y-m-d" }} ~ {{ p.end_date|date:"Y-m-d" }}</td>
       <td><span class="pill st-{{ p.status }}">{{ p.status_label }}</span></td></tr>
   {% endfor %}</tbody>
