@@ -67,7 +67,7 @@ def _member(username: str | None) -> User | None:
 
 
 def _board(request, remember: bool = False) -> Board:
-    """보일 근무표(설계 7): ?board= → (근무표 화면만) RosterPref.board → 내 근무표(boards.home).
+    """보일 근무표(설계 7): ?board= → (근무표 화면만) RosterPref.boards 의 첫 근무표 → 내 근무표(boards.home).
     remember=True(근무표 화면): ?board= 로 고른 근무표를 기억한다(내 근무표를 고르면 비운다).
     /day/·/cell/·/memo/ 는 기억을 읽지 않는다: ?board= 없는 주소(알림 링크, 내 근무표 화면의 링크·POST)는 늘 내 근무표다."""
     user, code = request.user, request.GET.get("board")
@@ -77,12 +77,13 @@ def _board(request, remember: bool = False) -> Board:
         if board is None:
             raise Http404
         if remember:
-            prefs.remember_board(user, board, home)  # DB 쓰기는 services(뷰는 읽기만)
+            prefs.remember_boards(user, [board], home)  # DB 쓰기는 services(뷰는 읽기만)
         return board
     if remember:
-        pref = RosterPref.objects.filter(user=user).select_related("board").first()
-        if pref and pref.board:
-            return pref.board
+        pref = RosterPref.objects.filter(user=user).first()
+        first = boards.in_order(Board.objects.filter(code__in=pref.boards), home)[:1] if pref else []
+        if first:  # Task 2 가 목록 전체를 그린다
+            return first[0]
     return home
 
 

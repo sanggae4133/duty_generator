@@ -247,7 +247,7 @@ class BoardForm(StepsForm):
 
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
-    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 언제든 고친다(근무표 통합 3단계).
+    """근무표(설계 4.2·4.3). code(주소 ?board= 와 기억한 근무표 RosterPref.boards 의 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 언제든 고친다(근무표 통합 3단계).
     지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺀다."""
     form = BoardForm
     list_display = ["name", "code", "step_line", "admin_group"]

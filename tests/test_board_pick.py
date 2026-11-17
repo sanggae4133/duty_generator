@@ -51,10 +51,10 @@ def test_roster_board_order_and_memory(client, two):
     assert "가상다" in client.get(WEEK).content.decode()
     body = client.get(WEEK + "&board=ops").content.decode()
     assert "가상나" in body and "가상다" not in body
-    assert RosterPref.objects.get(user=ga).board == board
+    assert RosterPref.objects.get(user=ga).boards == ["ops"]
     assert "가상나" in client.get(WEEK).content.decode()  # ?board= 가 없으면 기억한 근무표
     assert "가상다" in client.get(WEEK + "&board=it").content.decode()
-    assert RosterPref.objects.get(user=ga).board is None  # 내 근무표를 고르면 기억을 비운다
+    assert RosterPref.objects.get(user=ga).boards == []  # 내 근무표를 고르면 기억을 비운다
     assert client.get("/?board=nope").status_code == 404
 
 
@@ -81,7 +81,7 @@ def test_view_only_other_board(client, two):
     assert f'<a class="to-mine" role="button" href="/?board=it&amp;date={D}">보기 전용 · 내 근무표로</a>' in day
     mine = client.get(WEEK + "&board=it").content.decode()
     assert "보기 전용" not in mine and 'class="cell"' in mine
-    assert RosterPref.objects.get(user=ga).board is None  # 그 링크(?board=내 근무표)는 기억한 근무표를 비운다
+    assert RosterPref.objects.get(user=ga).boards == []  # 그 링크(?board=내 근무표)는 기억한 근무표를 비운다
 
 
 def test_view_only_home_board_has_no_back_link(client, two):
