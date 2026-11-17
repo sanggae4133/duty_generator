@@ -115,6 +115,16 @@ def test_department_checks(ops_board, ops_admin, dept, msg):
     assert BoardShift.objects.get(board=ops_board, key="normal").name == "가운데"  # 근무 정의도 저장하지 않는다
 
 
+def test_invalid_department_hides_admin_only_message(ops_board, ops_admin):
+    """부서 칸이 틀리면 표 검사에 저장된 부서 출근조를 쓰지 않는다: 관리 화면용 '부서의 출근조를 먼저 바꾸세요'가 나오지 않게."""
+    Department.objects.filter(code="OPS").update(shifts="dawn")
+    formset, dept_forms = shift_forms(ops_board, shift_data(ops_board, change={"dawn": {"active": None}},
+                                                            depts={"OPS": {"shifts": ["normal"], "lunch_start": "11:30"}}))
+    with pytest.raises(DutyError, match="저장하지 않았습니다"):
+        bs.save_shifts(ops_admin, ops_board, formset, dept_forms)
+    assert "먼저 바꾸세요" not in str(formset.non_form_errors())
+
+
 # ── 부서에서 근무조를 뺄 때: 배포 전 회차 출근표가 있으면 확인 ──
 
 @pytest.fixture
@@ -185,10 +195,13 @@ def _steps(board, **over):
 def test_save_steps_writes_only_step_fields(ops_board, ops_admin):
     """단계 저장은 단계 칸만 쓴다: 폼을 만든 뒤 바뀐 이름(다른 칸)을 되돌리지 않는다(설계 6.2)."""
     form = _steps(ops_board, step_draft="준비 중")
-    Board.objects.filter(pk=ops_board.pk).update(name="운영팀2")
+    other = Board.objects.get(pk=ops_board.pk)  # 다른 화면에서 이름을 바꿨다(관리 그룹 이름도 함께 바뀐다)
+    other.name = "운영팀2"
+    other.save()
     bs.save_steps(ops_admin, ops_board, form)
     b = Board.objects.get(pk=ops_board.pk)
     assert (b.name, b.step_draft) == ("운영팀2", "준비 중")
+    assert b.admin_group.name == "운영팀2 근무표 관리"  # 낡은 이름으로 관리 그룹 이름을 되돌리지 않는다
 
 
 def test_department_save_keeps_input_group_set_meanwhile(ops_board, ops_admin):

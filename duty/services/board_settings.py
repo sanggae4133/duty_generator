@@ -11,7 +11,7 @@ from django.db.models import Count, Q
 
 from .. import perms
 from ..errors import DutyError
-from ..models import BoardShift, Commute, Department, DutyAssignment, Period, User
+from ..models import Board, BoardShift, Commute, Department, DutyAssignment, Period, User
 from ..shifts import SHIFT_KEYS, is_slot_cell, josa, shift_defs
 from . import boards
 
@@ -130,7 +130,8 @@ def save_steps(by, board, form) -> str:
         raise PermissionDenied("이 근무표의 단계가 아닙니다.")
     if not form.is_valid():
         raise DutyError(INVALID)
-    form.save(commit=False).save(update_fields=form.Meta.fields)  # 단계 칸만 쓴다(그사이 바뀐 다른 칸을 덮지 않게)
+    # 단계 칸만 쓴다: Board.save 를 거치면 폼의 낡은 이름으로 관리 그룹 이름을 되돌릴 수 있다(그사이 바뀐 다른 칸을 덮지 않게)
+    Board.objects.filter(pk=board.pk).update(**{f: form.cleaned_data[f] for f in form.Meta.fields})
     _audit(by, board, board, board.code, "회차 단계 저장")
     return stranded(form.instance)
 
@@ -157,8 +158,8 @@ def save_shifts(by, board, formset, dept_forms, confirm: int | None = None) -> l
     hidden = {f.instance.pk: saved[f.instance.pk] - {k for k, _ in f.fields["shifts"].choices} for f in dept_forms}
     depts_ok = all([f.is_valid() for f in dept_forms])  # 모든 부서의 오류를 한 번에 보이게(목록으로 다 돌린다)
     picked = {f.instance.pk: set(f.cleaned_data["shifts"]) | hidden[f.instance.pk] for f in dept_forms} if depts_ok else {}
-    if depts_ok:
-        formset.planned_depts = {f.instance.name: picked[f.instance.pk] for f in dept_forms}
+    # 부서 칸이 틀리면 부서 검사는 건너뛴다({}): 저장된 출근조로 보면 관리 화면용 안내가 나온다
+    formset.planned_depts = {f.instance.name: picked[f.instance.pk] for f in dept_forms} if depts_ok else {}
     if not (formset.is_valid() and depts_ok):
         raise DutyError(INVALID)
     rows = [f.cleaned_data for f in formset.forms if f.cleaned_data.get("key")]
