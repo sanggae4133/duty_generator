@@ -188,3 +188,84 @@ def test_issue_accounts_escapes_names(su_client, make_member):
     body = su_client.post(reverse("admin:duty_user_changelist"),
                           {"action": "issue_accounts", "_selected_action": [a.pk]}, follow=True).content.decode()
     assert f"<br>가&lt;b&gt;&amp;&lt;/b&gt;({a.username}): " in body and "<b>&</b>" not in body
+
+
+# ── 근무표 통합 4단계: 임시 비밀번호·초기화의 연결·첫 발급·퇴사(설계 5.7) ──
+
+def _links(u):
+    """캘린더 구독·텔레그램·푸시 연결 하나씩(가짜 값)."""
+    from django.utils import timezone
+
+    from duty.models import CalendarFeed, PushAlarmSubscription, TelegramAlarmProfile
+    CalendarFeed.objects.create(user=u, token_hash="h" * 64, issued_at=timezone.now())
+    TelegramAlarmProfile.objects.create(user=u, chat_id="9", verified_at=timezone.now())
+    PushAlarmSubscription.objects.create(user=u, endpoint="https://push.example/1", p256dh="p", auth="a")
+
+
+def _has_links(u) -> tuple[bool, bool, bool]:
+    from duty.models import CalendarFeed, PushAlarmSubscription, TelegramAlarmProfile
+    return (CalendarFeed.objects.filter(user=u).exists(), TelegramAlarmProfile.objects.get(user=u).chat_id != "",
+            PushAlarmSubscription.objects.filter(user=u).exists())
+
+
+def test_temp_password_shape():
+    from duty.accounts import ALPHABET, temp_password
+    assert len(ALPHABET) == len(set(ALPHABET)) == 31 and set(ALPHABET).isdisjoint("0o1li")
+    got = {temp_password() for _ in range(50)}
+    assert len(got) == 50 and all(len(p) == 10 and set(p) <= set(ALPHABET) for p in got)  # 띄어쓰기도 없다
+
+
+def test_issue_account_uses_temp_password(make_member):
+    from duty.accounts import ALPHABET
+    pw = issue_account(make_member("가"))
+    assert len(pw) == 10 and set(pw) <= set(ALPHABET)
+
+
+def test_issue_accounts_action_uses_new_password_shape(su_client, make_member):
+    """관리 화면 액션도 같은 함수라 모양이 같이 바뀐다."""
+    import re
+
+    from duty.accounts import ALPHABET
+    a = make_member("가")
+    body = su_client.post(reverse("admin:duty_user_changelist"),
+                          {"action": "issue_accounts", "_selected_action": [a.pk]}, follow=True).content.decode()
+    pw = re.search(rf"<br>가\({a.username}\): ([^<\s]+)", body)[1]
+    a.refresh_from_db()
+    assert len(pw) == 10 and set(pw) <= set(ALPHABET) and a.check_password(pw)
+
+
+def test_reset_can_keep_links_but_still_logs_out(client, make_member):
+    m = make_member("가")
+    issue_account(m)
+    _links(m)
+    client.force_login(m)
+    issue_account(m, revoke_links=False)  # [근무표 설정]의 초기화('비밀번호를 잊었어요')
+    assert _has_links(m) == (True, True, True)
+    assert client.get("/me/")["Location"].startswith("/login/")  # 비밀번호가 바뀌어 로그인은 끊긴다
+    issue_account(m)  # 관리 화면 액션(기본): 지금처럼 끊는다
+    assert _has_links(m) == (False, False, False)
+
+
+def test_first_issue_needs_no_last_login(make_member):
+    """퇴사 뒤 다시 재직한 사람(쓸 수 있는 비밀번호 없음 + 로그인한 적 있음)은 첫 발급이 아니다: 지운 기본 규칙이 되살아나지 않는다."""
+    from django.utils import timezone
+    m = make_member("가")
+    issue_account(m)
+    AlarmRule.objects.filter(user=m).delete()  # 본인이 지운 기본 규칙
+    m.last_login = timezone.now()
+    m.set_unusable_password()  # 퇴사(deactivate)가 만드는 상태
+    m.save()
+    issue_account(m, revoke_links=False)
+    assert not AlarmRule.objects.filter(user=m).exists()
+
+
+def test_deactivate_cuts_login_and_links(client, make_member):
+    from duty.accounts import deactivate
+    m = make_member("가", user=True)
+    _links(m)
+    client.force_login(m)
+    deactivate(m)
+    m.refresh_from_db()
+    assert not m.is_active and not m.has_usable_password()
+    assert _has_links(m) == (False, False, False)
+    assert client.get("/me/")["Location"].startswith("/login/")
