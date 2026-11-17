@@ -12,11 +12,11 @@ from .. import perms
 from ..csv_io import join_reason
 from ..errors import DutyError
 from ..generator import GenerationError
-from ..models import Board, ChangeLog, Department, Period, User
+from ..models import Board, ChangeLog, Department, DutyAssignment, Period, User
 from ..services import boards, collect, generate, periods, stats
 from ..services import groups as group_service
 from ..services import publish as publishing
-from ..shifts import cell_label, josa, slot_defs
+from ..shifts import LUNCH, by_key, cell_label, day_spans, gen_help, is_slot_cell, josa, slot_defs
 from .common import admin_required, date_param
 
 
@@ -69,33 +69,59 @@ def period_list(request):
     })
 
 
+def _empty_confirm(missing, has_slots) -> str:
+    """빈 평일이 있을 때만 띄우는 생성 확인창(설계 6.1). 날 수 = 어느 부서든 출근표가 빈 평일."""
+    n = len({d for ds in missing.values() for d in ds})
+    tail = "고, 아무 부서도 넣지 않은 날은 장중관제도 만들지 않습니다." if has_slots else "습니다."
+    return f"출근표가 비어 있는 부서가 있는 날이 {n}일 있습니다. 그날 그 부서는 근무자가 없{tail} 계속할까요?"
+
+
+def _leave_what(period, active) -> str:
+    """생성됨에서 나갈 때 지워지는 배정 이름(설계 5.4). 생성됨 회차는 그 회차에 실제로 있는 배정으로(정의를 꺼도 남은 배정이
+    숨지 않게), 그 밖은 켜진 정의로(옮기기 상자 설명)."""
+    if period.status == Period.Status.GENERATED:
+        cells = set(DutyAssignment.objects.filter(period=period).values_list("cell", flat=True))
+        slot, lunch = any(is_slot_cell(c) for c in cells), LUNCH in cells
+    else:
+        slot, lunch = bool(slot_defs(active)), LUNCH in by_key(active)
+    return "·".join(name for name, on in (("장중관제", slot), ("점심당번", lunch)) if on)
+
+
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
     board = period.board
     active = boards.active_defs(board)
     slot_names = [x.name for x in slot_defs(active)]  # generator 의 칸 번호 = 켜진 관제 정의 순서
-    legacy = boards.legacy_admin_entry(board)  # 1단계 임시 기준: 옛 직접 입력의 [표 입력]·빈 평일 경고·확인창(2단계에서 지운다)
     S = Period.Status
     targets = board.move_targets(period.status)
-    # 1단계: 버튼 글자·[재생성]은 main 처럼 임시 기준으로(옛 직접 입력 = [확정], 그 밖 = [장중관제 생성]·[재생성]).
-    # 관제 정의가 켜진 옛 직접 입력 근무표도 지금 화면 그대로다. 2단계에서 관제 정의(데이터) 기준으로 바꾼다
-    buttons = board.step_buttons(not legacy)
-    gen, undo_label = buttons["generate"], targets and board.step_name(targets[0])
+    missing = periods.missing_dates(period)
+    names = dict(Department.objects.filter(board=board).values_list("code", "name"))
+    leave = _leave_what(period, active)
+    on = board.steps()
     return render(request, "duty/period_detail.html", {
-        "period": period, "board": board, "S": S, "legacy": legacy, "generated_label": board.step_name(S.GENERATED),
-        "steps": [(s, board.step_name(s)) for s in board.steps()], "editable": board.editable(),
-        "buttons": buttons, "generate_topic": gen + josa(gen, "은/는"),
+        "period": period, "board": board, "S": S, "generated_label": board.step_name(S.GENERATED),
+        "steps": [(s, board.step_name(s)) for s in on], "editable": board.editable(),
+        # 2단계: 버튼 글자·[재생성]·생성 방식·배정 횟수 표는 켜진 관제 정의(데이터)로 정한다(1단계는 임시 기준)
+        "buttons": board.step_buttons(bool(slot_names)), "gen_help": gen_help(active),
         "generated_ro": josa(board.step_name(S.GENERATED), "으로/로"),
         "movable": [(s, board.step_name(s)) for s in targets],
         "undo_to": targets[0] if len(targets) == 1 else "",
-        "undo_confirm": (f"{gen}{josa(gen, '을/를')} 취소하고 {undo_label}{josa(undo_label, '으로/로')} 돌아갈까요? "
-                         "출근표는 그대로 남습니다.") if len(targets) == 1 else "",
+        "unused_step": period.status not in on,  # 끈 단계에 남은 회차(설계 6.1)
+        # 생성됨에서 나가는 확인창은 하나([… 취소] 버튼과 '다른 상태로 옮기기' 상자, 설계 5.4)
+        "leave_what": leave,
+        "leave_generated_confirm": (f"생성 결과({leave} 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?"
+                                    if leave else "출근표는 그대로 남습니다. 계속할까요?"),
+        "empty_confirm": _empty_confirm(missing, bool(slot_names)) if missing else "",
         "events": [(e, e.from_status and board.step_name(e.from_status), board.step_name(e.to_status))
                    for e in period.events.select_related("by")],
-        "input_depts": Department.objects.filter(board=board).order_by("order", "code") if legacy else [],
-        "empty_days": periods.empty_days(period) if legacy and period.status == S.COLLECTING else [],
+        "input_depts": Department.objects.filter(board=board).order_by("order", "code"),
+        # 빈 평일 경고(설계 6.1): 켠 단계의 취합 중·마감에서 부서마다 빈 날 수와 날짜(이어진 평일은 묶어서).
+        # '버튼은 누를 수 있지만'은 그 상태에서 생성할 수 있을 때만
+        "empty": ([(names[c], len(ds), day_spans(ds)) for c, ds in missing.items()]
+                  if period.status in {S.COLLECTING, S.CLOSED} and period.status in on else []),
+        "can_generate_now": period.status == board.generate_from(),
         "undo": publishing.unpublish_info(period) if period.status == Period.Status.PUBLISHED else None,
-        "progress": collect.progress(period), "missing": periods.missing_dates(period),
+        "progress": [(code, names[code], n, m) for code, (n, m) in collect.progress(period).items()], "missing": missing,
         "counts": counts, "spread": spread, "reached": reached,
         "failures": [{"date": f.date, "slot": slot_names[f.slot], "candidates": f.candidates} for f in failures],
     })
@@ -138,8 +164,8 @@ def period_action(request, pid, action):
     else:
         period.refresh_from_db()
         done = f"'{period.board.step_name(period.status)}' 상태로 바꿨습니다."
-        if action == "generate" and boards.legacy_admin_entry(period.board):
-            done = "확정했습니다. 근무표 화면에는 배포한 뒤에 보입니다. 아래 경고를 확인하고 [배포…]를 누르세요."
+        if action == "generate":
+            done += " 근무표 화면에는 배포한 뒤에 보입니다."
         messages.success(request, done)
         for w in getattr(result, "warnings", ()):  # 생성: 점심당번을 못 채운 날
             messages.warning(request, w)

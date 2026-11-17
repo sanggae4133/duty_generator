@@ -1,12 +1,12 @@
 <h3>ops collecting · 운영</h3>
 <p>
-<a href="/periods/P_ops_collecting/">← 회차 화면으로(확정·배포)</a>
+<a href="/periods/P_ops_collecting/">← 회차 화면으로</a>
 </p>
 <div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
 <form method="post" enctype="multipart/form-data" action="/collect/P_ops_collecting/OPS/upload/" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 운영 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <input type="file" name="file" accept=".csv" required style="max-width:100%">
-<button class="secondary">CSV 올리기 (표 전체 교체)</button>
+<button class="secondary">CSV 올리기(이 표 전체 교체)</button>
 </form>
 <a role="button" class="secondary" style="white-space:nowrap" href="/collect/P_ops_collecting/OPS/export.csv">CSV 내려받기</a>
 </div>

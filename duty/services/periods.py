@@ -85,11 +85,6 @@ def delete(period: Period) -> None:
     period.delete()  # 출근표·장중관제는 함께 지워진다(CASCADE)
 
 
-def empty_days(period: Period) -> list[date]:
-    """그 근무표 부서 중 하나라도 출근표가 없는 평일(건너뛰는 날 제외), 날짜 순. 빈 평일 경고."""
-    return sorted({d for ds in missing_dates(period).values() for d in ds})
-
-
 def missing_dates(period: Period) -> dict[str, list[date]]:
     """그 근무표 부서마다 출근표가 하나도 없는 평일. 건너뛰는 날(근무 없음·휴장일)은 빼고 본다."""
     have: dict[str, set[date]] = defaultdict(set)

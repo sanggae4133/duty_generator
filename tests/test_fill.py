@@ -150,7 +150,8 @@ def test_fill_post_draws_without_saving(ops_admin, ops):
     assert "12칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다." in body  # 4일 × 3칸(11/18 휴장일)
 
 
-def test_no_fill_buttons_on_collect_board_or_closed_period(client, admin_user, it_board, ops):
+def test_fill_buttons_on_every_board_only_while_open(client, admin_user, it_board, ops):
+    """채우기 버튼은 근무표와 상관없이 입력을 받는 동안만(근무표 통합 2단계): IT 취합 중에도 보이고, 확정한 회차에는 없다."""
     p, _ = ops
     p.status = S.GENERATED
     p.save()
@@ -158,7 +159,8 @@ def test_no_fill_buttons_on_collect_board_or_closed_period(client, admin_user, i
     Department.objects.create(code="MEMS", name="매칭엔진실", shifts="dawn,normal,dinner", board=it_board)
     it = Period.objects.create(board=it_board, name="it", start_date=d(11, 16), end_date=d(11, 20), status=S.COLLECTING)
     client.force_login(admin_user)
-    assert 'name="fill"' not in client.get(f"/collect/{it.pk}/MEMS/").content.decode()
+    body = client.get(f"/collect/{it.pk}/MEMS/").content.decode()
+    assert 'value="2w:2026-11-16"' in body and 'value="1w:2026-11-16"' in body
     assert 'name="fill"' not in client.get(f"/collect/{p.pk}/OPS/").content.decode()
 
 
@@ -206,7 +208,7 @@ def test_table_cells_wrap_and_messages_are_plain(ops_admin, ops):
     body = ops_admin.get(f"/collect/{p.pk}/OPS/").content.decode()
     assert '<textarea name="c_2026-11-16_dawn"' in body  # 이름이 많아도 줄바꿈으로 다 보인다
     assert 'placeholder="휴장"' in body  # 11/18 휴장일 칸
-    assert "CSV 올리기 (표 전체 교체)" in body and "부서 전체" not in body
+    assert "CSV 올리기(이 표 전체 교체)" in body and "부서 전체" not in body
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"c_2026-11-16_dawn": "가상가"}, follow=True)
     assert "표를 저장했습니다." in r.content.decode() and "명분" not in r.content.decode()
 

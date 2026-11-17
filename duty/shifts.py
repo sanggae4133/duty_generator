@@ -85,6 +85,29 @@ def josa(word: str, pair: str) -> str:
     return a if jong else b
 
 
+def gen_help(defs: list[Def]) -> dict | None:
+    """회차 화면 [생성 방식] 상자의 숫자·자격 문장(설계 6.1): 켜진 관제 정의에서 만든다. 관제가 없으면 None.
+    가장 많은 칸이 쓰는 자격 근무조는 '나머지 칸', 다른 칸은 시작 시각으로 적는다."""
+    slots = slot_defs(defs)
+    if not slots:
+        return None
+    order = [x.key for x in shift_defs(defs)]
+    names = {x.key: x.name for x in defs}
+
+    def joined(keys):
+        return "·".join(names[k] for k in order if k in keys)
+
+    sets = [frozenset(x.eligible_shifts) for x in slots]
+    common = max(sets, key=sets.count)  # 같은 수면 먼저 나온 것
+    rest = joined(common) + (" 둘 다" if len(common) == 2 else " 모두" if len(common) > 2 else "만")
+    rule = [f"{x.start:%H:%M} 칸은 {joined(s)}" for x, s in zip(slots, sets) if s != common]
+    rule.append(f"{'나머지 칸' if rule else '모든 칸'}은 {rest} 됩니다.")
+    types = "·".join(dict.fromkeys(t for x in slots for t in x.eligible_types))  # 비면 구분 없이 누구나
+    who = types or "사람"
+    return {"count": len(slots), "start": slots[0].start, "end": max(x.end for x in slots), "types": types,
+            "who": who, "whom": who + josa(who, "을/를"), "rule": ", ".join(rule)}
+
+
 def day_spans(days) -> str:
     """날짜들을 이어진 평일끼리 묶어 '11/16~11/20, 11/24' 꼴로(금 → 월도 이어진 것으로). 긴 빈 날 목록을 줄인다."""
     runs: list[list[date]] = []
