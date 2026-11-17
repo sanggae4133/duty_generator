@@ -5,7 +5,7 @@ from django.db.models import Exists, F, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 
 from .. import perms
-from ..models import Board, BoardShift, Period, PeriodEvent
+from ..models import Board, BoardShift, Period, PeriodEvent, User
 from ..shifts import Def, ordered, shift_defs, weekdays
 from . import holidays, memos
 
@@ -31,6 +31,14 @@ def dept_keys(dept, defs: list[Def]) -> list[str]:
     """부서 출근조 가운데 defs 에 있는 근무조 키, 지금 시작 시각 순(저장한 부서 출근조 순서는 정의 시각을 바꾸면 낡는다)."""
     mine = set(dept.shift_keys())
     return [x.key for x in shift_defs(defs) if x.key in mine]
+
+
+def left_without_admin(users) -> list[Board]:
+    """users 를 관리 그룹에서 빼거나 퇴사시키면 재직 중인 관리자가 하나도 남지 않는 근무표(근무표 통합 설계 6.2·7.4).
+    users 가운데 재직 관리자가 있는 근무표만 본다(이미 재직 관리자가 없는 근무표에서 퇴사자를 빼는 일은 막지 않는다)."""
+    ids = [u.pk for u in users]
+    return [b for b in Board.objects.filter(admin_group__user__in=ids, admin_group__user__is_active=True).distinct()
+            if not User.objects.filter(groups=b.admin_group_id, is_active=True).exclude(pk__in=ids).exists()]
 
 
 def board_of(user) -> Board | None:
