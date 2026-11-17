@@ -140,6 +140,16 @@ def _rejoin(request, board):
     return f"{user.name}{josa(user.name, '을/를')} 다시 재직으로 돌렸습니다. 로그인하려면 [계정 발급]을 다시 누르세요."
 
 
+def _issue(request, board):
+    ids = set(request.POST.getlist("users"))  # 같은 사람을 두 번 보내도 한 번만 발급(두 번째 비밀번호가 첫 번째를 덮지 않게)
+    users = list(User.objects.filter(pk__in=[i for i in ids if i.isdigit()]))
+    if len(users) != len(ids):  # 없는 id 가 섞였다
+        raise Http404
+    issued = board_settings.issue(request.user, board, users)
+    # 임시 비밀번호는 이 응답 본문에만: redirect·messages(세션)·로그에 싣지 않는다(설계 7.2)
+    return _render(request, board, issued=sorted(issued, key=lambda x: x[0].name))
+
+
 def _shifts(request, board):
     # 그 근무표 밖의 근무 정의 id·부서 칸을 섞어 보내면 404(설계 6.2 범위 검사. 폼도 그 근무표 것만 만든다)
     ids = {str(pk) for pk in board.shifts.values_list("pk", flat=True)}
@@ -185,7 +195,7 @@ def _steps(request, board):
 
 ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시지)이나 응답(다시 그리기·다른 곳으로)을 돌려준다
     "add_person": ("people", _add_person), "set_person": ("people", _set_person),
-    "leave": ("people", _leave), "rejoin": ("people", _rejoin),
+    "leave": ("people", _leave), "rejoin": ("people", _rejoin), "issue": ("people", _issue),
     "add_admin": ("admins", _add_admin), "remove_admin": ("admins", _remove_admin),
     "add_assignee": ("assignees", _add_assignee), "remove_assignee": ("assignees", _remove_assignee),
     "shifts": ("shifts", _shifts), "steps": ("steps", _steps),
@@ -227,7 +237,7 @@ def _buttons(board, has_slots) -> list[str]:
             + [x for x in (b["undo"], b["regenerate"]) if x] + ["배포…"])
 
 
-def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=None, leave=None):
+def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=None, leave=None, issued=None):
     me = request.user
     admins = sorted(board.admin_group.user_set.select_related("department"), key=lambda u: u.name)
     active_n = sum(u.is_active for u in admins)
@@ -247,7 +257,7 @@ def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=No
         "people": [r for r in rows if r["u"].is_active], "departed": [r for r in rows if not r["u"].is_active],
         "has_types": prefs.has_types(active), "types": [STAFF, DEVELOPER],
         "people_depts": list(board.departments.order_by("order", "code")),
-        "add": add or {"username": board_settings.next_username(board)},
+        "add": add or {"username": board_settings.next_username(board)}, "issued": issued,
         "admin_rows": admin_rows, "admin_candidates": board_settings.admin_candidates(board), "depts": depts,
         "formset": formset, "dept_forms": dept_forms, "ask": ask,
         "unassigned": _unassigned(board),

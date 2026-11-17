@@ -164,3 +164,86 @@ def test_leave_links_generated_duty_to_period_page(ops_client, ops_board, fixed_
     body = ops_client.get(r.url).content.decode()
     assert f'<a href="/collect/{gen.pk}/OPS/">1/5 이른 — 1월 회차(' in body
     assert f'<a href="/periods/{gen.pk}/">1/5 점심당번 — 1월 회차(' in body
+
+
+# ── 계정 발급·초기화·결과 상자 ──
+
+OFF = "if (event.submitter) event.submitter.disabled = true"  # 누르면 바로 꺼진다
+PW = re.compile(r'\((ops\d\d)\) <code class="pw">([^<]+)</code>')
+
+
+def test_issue_controls_per_state(ops_client, ops_board):
+    a = _ops_member("가상하나", "ops01")
+    b = _ops_member("가상두리", "ops02")
+    issue_account(b)
+    c = _in_use("가상세찬", "ops03")
+    body = ops_client.get(OPS).content.decode()
+    pick = 'name="users" value="{}" form="issue-many"'
+    # 일괄 발급 체크는 발급 전만(이미 건넨 임시 비밀번호나 쓰는 중인 비밀번호를 확인창 없이 한꺼번에 바꾸지 않게)
+    assert pick.format(a.pk) in _row(body, a) and pick.format(b.pk) not in _row(body, b) and pick.format(c.pk) not in _row(body, c)
+    assert ">계정 발급</button>" in _row(body, a) and ">계정 발급</button>" not in _row(body, b)
+    assert ">비밀번호 초기화</button>" not in _row(body, a) and ">비밀번호 초기화</button>" in _row(body, c)
+    assert "의 비밀번호를 새로 만들까요? 로그인 중인 기기에서 로그아웃되고 로그인 잠금도 풀립니다. 캘린더·텔레그램·푸시 연결은 그대로입니다." in _row(body, c)
+    assert body.count(OFF) == 4  # 일괄 폼 + a [계정 발급] + b·c [비밀번호 초기화]
+    assert '<button form="issue-many" class="outline">선택한 사람 계정 발급</button>' in body
+
+
+def test_issue_result_box_only_in_response(ops_client, ops_board, caplog):
+    caplog.set_level(logging.INFO)  # 운영 로그 수준, 모든 로거
+    a, b = _ops_member("가상하나", "ops01"), _ops_member("가상두리", "ops02")
+    r = ops_client.post(OPS, {"do": "issue", "users": [a.pk, b.pk]})
+    body = r.content.decode()
+    got = dict(PW.findall(body))
+    assert r.status_code == 200 and set(got) == {"ops01", "ops02"}  # redirect 없이 그 자리에서
+    assert "no-store" in r["Cache-Control"]  # 뒤로 가기로 다시 보이지 않게
+    assert "띄어쓰기 없이 입력합니다. 사람마다 1:1로만 전달하세요." in body and "새로고침하지 마세요" in body
+    assert f'<a href="{OPS}#people" role="button" class="outline">닫기</a>' in body
+    for u in (a, b):
+        u.refresh_from_db()
+        assert u.check_password(got[u.username]) and u.must_change_password
+    assert "첫 로그인 대기" in _row(body, a)
+    traces = (caplog.text + str(dict(ops_client.session.items()))  # 세션(메시지 포함)
+              + str(list(LogEntry.objects.values_list("object_repr", "change_message"))))
+    assert not any(pw in traces for pw in got.values()) and "가상" not in caplog.text
+    assert not PW.search(ops_client.get(OPS).content.decode())  # [닫기]·다음 화면에는 없다
+
+
+def test_issue_needs_pick_and_active(ops_client, ops_board):
+    gone = _ops_member("가상퇴사", "ops05", active=False)
+    assert "계정을 발급할 사람을 고르세요." in ops_client.post(OPS, {"do": "issue"}, follow=True).content.decode()
+    body = ops_client.post(OPS, {"do": "issue", "users": [gone.pk]}, follow=True).content.decode()
+    assert "퇴사한 사람은 먼저 [다시 재직]을 누르세요." in body and not User.objects.get(pk=gone.pk).has_usable_password()
+
+
+def test_people_posts_outside_targets_are_404(ops_client, ops_board, ops_admin, it_board, make_member):
+    """다른 근무표 사람·관리자 계정(어느 근무표든)·나 자신·없는 id·다른 근무표 부서 → 404, DB 변화 없음(설계 11)."""
+    a = _ops_member("가상하나", "ops01")
+    it_person = make_member("가상아이티")
+    other_admin = _ops_member("가상겸직", "ops09")
+    it_board.admin_group.user_set.add(other_admin)
+    for data in ({"do": "issue", "users": [a.pk, it_person.pk]}, {"do": "issue", "users": [other_admin.pk]},
+                 {"do": "issue", "users": [ops_admin.pk]}, {"do": "issue", "users": [a.pk, "99999"]},
+                 {"do": "set_person", "user": it_person.pk, "name": "가상새이름"},
+                 {"do": "set_person", "user": other_admin.pk, "name": "가상새이름"},
+                 {"do": "leave", "user": it_person.pk}, {"do": "leave", "user": other_admin.pk},
+                 {"do": "rejoin", "user": it_person.pk},
+                 {"do": "add_person", "name": "가상새이름", "username": "ops07", "dept": "MEMS"}):
+        assert ops_client.post(OPS, data).status_code == 404, data
+    people = User.objects.filter(pk__in=[a.pk, it_person.pk, other_admin.pk, ops_admin.pk])
+    assert not any(u.has_usable_password() for u in people) and all(u.is_active for u in people)
+    assert not User.objects.filter(name="가상새이름").exists() and not LogEntry.objects.exists()
+
+
+def test_issue_same_person_twice_is_one(ops_client, ops_board):
+    a = _ops_member("가상하나", "ops01")
+    r = ops_client.post(OPS, {"do": "issue", "users": [a.pk, a.pk]})
+    got = PW.findall(r.content.decode())
+    assert r.status_code == 200 and len(got) == 1
+    a.refresh_from_db()
+    assert a.check_password(got[0][1])
+
+
+def test_login_username_not_capitalized(client, db):
+    """새 아이디는 소문자라 휴대폰 키보드가 첫 글자를 대문자로 바꾸지 않게."""
+    body = client.get("/login/").content.decode()
+    assert 'name="username"' in body and 'autocapitalize="none" autocorrect="off" spellcheck="false"' in body
