@@ -72,6 +72,19 @@ def slot_defs(defs: list[Def]) -> list[Def]:
     return ordered([x for x in defs if is_slot_cell(x.key)])
 
 
+def josa(word: str, pair: str) -> str:
+    """word 뒤 조사(pair = "은/는"·"을/를"·"으로/로")를 받침으로 고른다(바꿀 수 있는 이름 뒤 글, 설계 5.4).
+    한글로 끝나지 않으면 '은(는)'·'(으)로' 꼴."""
+    a, b = pair.split("/")
+    c = word[-1:]
+    if not "가" <= c <= "힣":
+        return f"({a[0]}){b}" if a == "으로" else f"{a}({b})"
+    jong = (ord(c) - ord("가")) % 28
+    if a == "으로":
+        return b if jong in (0, 8) else a  # 받침 없음·ㄹ 받침은 '로'
+    return a if jong else b
+
+
 def lunch_defs(defs: list[Def]) -> list[Def]:
     """점심당번 정의(없으면 빈 목록)."""
     return [x for x in defs if x.key == LUNCH]

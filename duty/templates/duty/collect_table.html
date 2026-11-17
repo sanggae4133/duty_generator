@@ -1,12 +1,12 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <h3>{{ period.name }} · {{ dept.name }}</h3>
-{% if direct %}<p><a href="{% url 'period_detail' period.pk %}">← 회차 화면으로(확정·배포)</a></p>{% endif %}
-{% if not is_open %}<p>{% if direct %}입력 중인 회차가 아니라{% else %}취합이 열려 있지 않아{% endif %} 저장할 수 없습니다.</p>{% endif %}
+{% if legacy %}<p><a href="{% url 'period_detail' period.pk %}">← 회차 화면으로(확정·배포)</a></p>{% endif %}
+{% if not is_open %}<p>{% if legacy %}입력 중인 회차가 아니라{% else %}취합이 열려 있지 않아{% endif %} 저장할 수 없습니다.</p>{% endif %}
 <div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
   {% if is_open %}<form method="post" enctype="multipart/form-data" action="{% url 'collect_upload' period.pk dept.code %}" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 {{ dept.name|escapejs }} 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">{% csrf_token %}
     <input type="file" name="file" accept=".csv" required style="max-width:100%">
-    <button class="secondary">CSV 올리기 ({% if direct %}표{% else %}부서{% endif %} 전체 교체)</button>
+    <button class="secondary">CSV 올리기 ({% if legacy %}표{% else %}부서{% endif %} 전체 교체)</button>
   </form>{% endif %}
   <a role="button" class="secondary" style="white-space:nowrap" href="{% url 'collect_export' period.pk dept.code %}">CSV 내려받기</a>
 </div>

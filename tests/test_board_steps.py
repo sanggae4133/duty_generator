@@ -3,11 +3,13 @@ from datetime import date, time
 
 import pytest
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from duty.errors import DutyError
-from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, User
+from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
 from duty.services import boards, collect, periods, publish
 from duty.services.generate import run_generation
+from duty.shifts import josa
 from tests.it_defs import OPS_STEPS
 
 S = Period.Status
@@ -161,3 +163,125 @@ def test_publish_message_follows_legacy_rule(it_board, flags, msg):
     p = Period.objects.create(board=board_with(*flags), name="p", start_date=MON, end_date=FRI, status=C)
     with pytest.raises(DutyError, match=msg):
         publish.publish(p, MON)
+
+
+# ── 화면: 버튼 글자·생성 방식 문장·갈래가 단계 설정에서 나온다 ──
+
+def test_buttons_from_step_names():
+    assert Board(code="x", name="x").step_buttons(True) == {
+        "open": "취합 열기", "close": "취합 마감", "generate": "장중관제 생성", "regenerate": "재생성", "undo": ""}
+    assert Board(code="x", name="x", **OPS_STEPS).step_buttons(False) == {
+        "open": "입력 열기", "close": "입력 마감", "generate": "확정", "regenerate": "", "undo": "확정 취소"}
+    assert Board(code="x", name="x", step_collecting="접수 중", step_closed="종료").step_buttons(False)["close"] == "접수 종료"
+
+
+def test_buttons_use_whole_name_when_it_cannot_be_cut():
+    """취합 중 이름이 ' 중'으로 끝나지 않으면 열기·마감은 이름 전체 꼴, 생성은 끝의 '됨'만 뗀다(설계 5.4)."""
+    b = Board(code="x", name="x", step_collecting="작성", step_generated="완료됨")
+    assert {k: b.step_buttons(False)[k] for k in ("open", "close", "generate")} == {
+        "open": "'작성'(으)로", "close": "'마감'(으)로", "generate": "완료"}
+
+
+def test_josa():
+    assert [josa("확정", "은/는"), josa("배포", "은/는"), josa("개발자", "을/를"), josa("직원", "을/를")] == ["은", "는", "를", "을"]
+    assert [josa("입력 중", "으로/로"), josa("배포", "으로/로"), josa("마감 날", "으로/로"), josa("A", "으로/로")] == [
+        "으로", "로", "로", "(으)로"]
+
+
+@pytest.fixture
+def stp(it_board, admin_user, client):
+    """입력 방식은 부서별 취합 그대로, 작성 중·마감을 끄고 이름만 입력 중·확정으로 바꾼 근무표(관제 없음: 시장운영실 모양)."""
+    b = board_with(False, False, slot=False, step_collecting="입력 중", step_generated="확정")
+    b.admin_group.user_set.add(admin_user)
+    client.force_login(admin_user)
+    return b, client
+
+
+def test_period_page_follows_steps(stp):
+    b, client = stp
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    Commute.objects.create(period=p, date=MON, member=person("STA"), shift="dawn")
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert body.index(">입력 중<") < body.index(">확정<") < body.index(">배포됨<") and ">마감<" not in body
+    assert f'href="/collect/{p.pk}/STA/">표 입력 · 단계STA</a>' in body and ">확정</button>" in body
+    assert "확정할까요? 확정하면 배포할 수 있고, 표를 고치려면 [확정 취소]를 누릅니다." in body
+    assert "⚠ 아직 입력하지 않은 평일: 11/16, 11/17, 11/18, 11/19, 11/20. 확정은 할 수 있지만" in body  # 단계STB 가 다 비었다
+    assert "부서별 입력 현황" not in body and 'name="start_date"' in body and "생성 방식" not in body
+    p.status = G
+    p.save()
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">확정 취소</button>" in body and "다른 상태로 옮기기" not in body and "재생성" not in body
+    assert "확정을 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다." in body
+
+
+def test_period_page_with_draft_off_and_close_on(it_board, admin_user, client):
+    b = board_with(False, True)
+    b.admin_group.user_set.add(admin_user)
+    client.force_login(admin_user)
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=D)  # 끈 단계에 남은 회차
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert "취합 열기" not in body and '<option value="collecting">' in body and '<option value="closed">' in body
+    assert '<option value="draft">' not in body
+    p.status = C
+    p.save()
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">취합 마감</button>" in body and 'name="start_date"' in body and "부서별 입력 현황" in body
+    p.status = X
+    p.save()
+    assert ">장중관제 생성</button>" in client.get(f"/periods/{p.pk}/").content.decode()
+
+
+def test_renamed_steps_rename_buttons(it_board, admin_user, client):
+    b = board_with(True, True, step_collecting="접수 중", step_closed="종료")
+    b.admin_group.user_set.add(admin_user)
+    client.force_login(admin_user)
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=D)
+    assert ">접수 열기</button>" in client.get(f"/periods/{p.pk}/").content.decode()
+    p.status = C
+    p.save()
+    assert ">접수 종료</button>" in client.get(f"/periods/{p.pk}/").content.decode()
+
+
+def test_input_table_and_help_follow_legacy_rule(stp):
+    b, client = stp
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    body = client.get(f"/collect/{p.pk}/STA/").content.decode()
+    assert "지난주와 같게" in body and "CSV 올리기 (표 전체 교체)" in body and f'href="/periods/{p.pk}/"' in body
+    assert "직접 입력 근무표 운영" in client.get("/help/").content.decode()
+
+
+def test_legacy_board_with_slot_defs_looks_like_main(stp):
+    """1단계: 마감을 안 쓰는 근무표는 관제 정의가 켜져 있어도 main 처럼 [확정]·[확정 취소], 생성 방식·재생성·배정 횟수 표 없음
+    (임시 기준으로 고른다. 2단계에서 관제 정의라는 데이터 기준으로 바꾼다)."""
+    b, client = stp
+    BoardShift.objects.create(board=b, key="slot0", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["dawn"], eligible_types=["직원"])
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">확정</button>" in body and "생성 방식" not in body
+    p.status = G
+    p.save()
+    a = person("STA")
+    Commute.objects.create(period=p, date=MON, member=a, shift="dawn")
+    DutyAssignment.objects.create(period=p, date=MON, cell="slot0", member=a)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">확정 취소</button>" in body and "재생성" not in body and "장중관제 배정 횟수" not in body
+
+
+def test_step_names_are_escaped_in_confirm(stp):
+    """확인창(인라인 JS) 안의 단계 이름 글은 escapejs 로 넣는다: 따옴표·역슬래시가 든 이름도 스크립트를 깨지 않는다."""
+    b, client = stp
+    Board.objects.filter(pk=b.pk).update(step_generated="확'정\\됨")
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ("confirm('확\\u0027정\\u005C할까요? 확\\u0027정\\u005C하면 배포할 수 있고, "
+            "표를 고치려면 [확\\u0027정\\u005C 취소]를 누릅니다.')") in body
+    p.status = G
+    p.save()
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert "confirm('확\\u0027정\\u005C을(를) 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.')" in body
+    p.status, p.publish_undo, p.published_at = P, [], timezone.now()
+    p.save()
+    PeriodEvent.objects.create(period=p, from_status=G, to_status=P)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert "confirm('배포를 취소하고 이 회차를 확\\u0027정\\u005C됨으로 되돌릴까요?')" in body

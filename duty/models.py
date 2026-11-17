@@ -109,6 +109,18 @@ class Board(models.Model):
         """기간을 고칠 수 있는 상태: 작성 중, 그리고 작성 중을 안 쓰면 취합 중에서도."""
         return {PeriodStatus.DRAFT} | (set() if self.use_draft else {PeriodStatus.COLLECTING})
 
+    def step_buttons(self, has_slots: bool) -> dict[str, str]:
+        """회차 화면 버튼 글자(설계 5.4): 단계 이름에서 나온다. has_slots = 켜진 장중관제 정의가 있다.
+        취합 중 이름이 ' 중'으로 끝나지 않으면 열기·마감은 "'<이름>'(으)로" 꼴. 생성은 생성됨 이름 끝의 '됨'을 뗀 말(없으면 이름 그대로).
+        undo = 생성됨에서 옮길 곳이 하나뿐일 때의 [… 취소](둘 이상이면 '다른 상태로 옮기기' 상자라 빈 글자)."""
+        c = self.step_collecting
+        stem = c.removesuffix(" 중") if c.endswith(" 중") else ""
+        generate = "장중관제 생성" if has_slots else self.step_generated.removesuffix("됨")
+        return {"open": f"{stem} 열기" if stem else f"'{c}'(으)로",
+                "close": f"{stem} {self.step_closed}" if stem else f"'{self.step_closed}'(으)로",
+                "generate": generate, "regenerate": "재생성" if has_slots else "",
+                "undo": f"{generate} 취소" if len(self.move_targets(PeriodStatus.GENERATED)) == 1 else ""}
+
     def move_targets(self, status: str) -> list[str]:
         """'다른 상태로 옮기기'로 갈 수 있는 상태: 켠 배포 전 단계 중 지금 것 빼고. 배포됨에서는 없다(배포 취소로만)."""
         if status == PeriodStatus.PUBLISHED:
