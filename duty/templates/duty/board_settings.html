@@ -196,6 +196,7 @@
   .btn-name { white-space: nowrap; font-weight: 700; }
   table.people { max-width: 64rem; }
   table.people td, table.people th { vertical-align: top; }
+  table.people th, table.people td:not(.act) { white-space: nowrap; }  /* [고치기]를 펼쳐도 짧은 열은 글자 단위로 꺾이지 않게 */
   table.people td.act form, table.people td.act button { width: auto; margin: 0 0 .4rem; }
   table.people td.act details { margin: 0; }
   table.people td.act summary { min-height: 44px; display: flex; align-items: center; }
@@ -218,7 +219,7 @@
     table.people thead { display: none; }
     table.people, table.people tbody, table.people tr, table.people td { display: block; }
     table.people tr { padding: .6rem 0; border-bottom: 1px solid var(--duty-line); }
-    table.people td { border: 0; padding: .2rem 0; }
+    table.people td { border: 0; padding: .2rem 0; white-space: normal; }
     table.people td.pick, table.people td.who { display: inline-block; vertical-align: middle; margin-right: .5rem; }
     table.people td[data-label]::before { content: attr(data-label) " · "; color: var(--pico-muted-color); }
   }

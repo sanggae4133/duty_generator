@@ -274,3 +274,11 @@ def test_empty_people_colspan_matches_columns(ops_client, ops_board):
 def test_empty_people_colspan_with_types(admin_client_ok, depts):
     body = admin_client_ok.get(URL).content.decode()  # IT: 구분 열 있음, 부서는 있고 사람은 없음
     assert "<th>구분</th>" in body and '<td colspan="7">아직 사람이 없습니다.' in body
+
+
+def test_people_columns_dont_break_when_row_open(ops_client, ops_board):
+    """PC 에서 [고치기]를 펼치면 동작 열이 넓어져 이름·부서가 글자 단위로 꺾이던 것(글씨 아주 크게): 짧은 열은 한 줄, 휴대폰 카드에서는 다시 감김."""
+    body = ops_client.get(OPS).content.decode()
+    assert "table.people th, table.people td:not(.act) { white-space: nowrap; }" in body
+    css = body[body.index("@media (max-width: 40rem)"):]
+    assert "table.people td { border: 0; padding: .2rem 0; white-space: normal; }" in css
