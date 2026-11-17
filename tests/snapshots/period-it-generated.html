@@ -19,8 +19,8 @@
 </ol>
 <p>2026-11-16 ~ 2026-11-20</p>
 <div class="actions">
-<a role="button" href="/periods/N/publish/">배포…</a>
-<form method="post" action="/periods/N/action/generate/" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">
+<a role="button" href="/periods/P_it_generated/publish/">배포…</a>
+<form method="post" action="/periods/P_it_generated/action/generate/" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button class="outline secondary" disabled>재생성</button>
 </form>
@@ -29,7 +29,7 @@
 <p class="note">출근표가 비어 있는 부서가 있어 아직 생성할 수 없습니다(아래 입력 현황).</p>
 <details class="move-box">
 <summary>다른 상태로 옮기기</summary>
-<form method="post" action="/periods/N/move/" class="move" onsubmit="return confirm('장중관제·점심당번 생성 결과가 삭제됩니다. 계속할까요?')">
+<form method="post" action="/periods/P_it_generated/move/" class="move" onsubmit="return confirm('장중관제·점심당번 생성 결과가 삭제됩니다. 계속할까요?')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <select id="move-to" name="to" aria-label="옮길 상태">
 <option value="draft">작성 중</option>
@@ -53,7 +53,7 @@
 </ul>
 <section class="danger">
 <h4>위험 구역</h4>
-<form method="post" action="/periods/N/delete/" onsubmit="return confirm('회차 \'it generated\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
+<form method="post" action="/periods/P_it_generated/delete/" onsubmit="return confirm('회차 \'it generated\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button class="danger-btn">회차 삭제</button>
 <small>시험·실수로 만든 회차를 출근표·생성 결과와 함께 지웁니다. 되돌릴 수 없습니다.</small>

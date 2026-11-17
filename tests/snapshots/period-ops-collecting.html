@@ -22,8 +22,8 @@
 <button class="outline">기간 저장</button>
 </form>
 <div class="actions">
-<a role="button" href="/collect/N/OPS/">표 입력</a>
-<form method="post" action="/periods/N/action/generate/" onsubmit="return confirm('확정할까요? 확정하면 배포할 수 있고, 표를 고치려면 [확정 취소]를 누릅니다.')">
+<a role="button" href="/collect/P_ops_collecting/OPS/">표 입력</a>
+<form method="post" action="/periods/P_ops_collecting/action/generate/" onsubmit="return confirm('확정할까요? 확정하면 배포할 수 있고, 표를 고치려면 [확정 취소]를 누릅니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button class="outline">확정</button>
 </form>
@@ -31,7 +31,7 @@
 <p class="note warn">⚠ 아직 입력하지 않은 평일: 11/19, 11/20. 확정은 할 수 있지만 그날은 근무자가 없습니다.</p>
 <section class="danger">
 <h4>위험 구역</h4>
-<form method="post" action="/periods/N/delete/" onsubmit="return confirm('회차 \'ops collecting\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
+<form method="post" action="/periods/P_ops_collecting/delete/" onsubmit="return confirm('회차 \'ops collecting\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button class="danger-btn">회차 삭제</button>
 <small>시험·실수로 만든 회차를 출근표·생성 결과와 함께 지웁니다. 되돌릴 수 없습니다.</small>

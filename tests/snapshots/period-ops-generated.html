@@ -13,8 +13,8 @@
 </ol>
 <p>2026-11-16 ~ 2026-11-20</p>
 <div class="actions">
-<a role="button" href="/periods/N/publish/">배포…</a>
-<form method="post" action="/periods/N/move/" onsubmit="return confirm('확정을 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.')">
+<a role="button" href="/periods/P_ops_generated/publish/">배포…</a>
+<form method="post" action="/periods/P_ops_generated/move/" onsubmit="return confirm('확정을 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <input type="hidden" name="to" value="collecting">
 <button class="outline secondary">확정 취소</button>
@@ -22,7 +22,7 @@
 </div>
 <section class="danger">
 <h4>위험 구역</h4>
-<form method="post" action="/periods/N/delete/" onsubmit="return confirm('회차 \'ops generated\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
+<form method="post" action="/periods/P_ops_generated/delete/" onsubmit="return confirm('회차 \'ops generated\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button class="danger-btn">회차 삭제</button>
 <small>시험·실수로 만든 회차를 출근표·생성 결과와 함께 지웁니다. 되돌릴 수 없습니다.</small>

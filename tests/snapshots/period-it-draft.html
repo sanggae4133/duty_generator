@@ -28,14 +28,14 @@
 <button class="outline">기간 저장</button>
 </form>
 <div class="actions">
-<form method="post" action="/periods/N/action/open/">
+<form method="post" action="/periods/P_it_draft/action/open/">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button>취합 열기</button>
 </form>
 </div>
 <details class="move-box">
 <summary>다른 상태로 옮기기</summary>
-<form method="post" action="/periods/N/move/" class="move">
+<form method="post" action="/periods/P_it_draft/move/" class="move">
 <input type="hidden" name="csrfmiddlewaretoken">
 <select id="move-to" name="to" aria-label="옮길 상태">
 <option value="collecting">취합 중</option>
@@ -58,7 +58,7 @@
 </ul>
 <section class="danger">
 <h4>위험 구역</h4>
-<form method="post" action="/periods/N/delete/" onsubmit="return confirm('회차 \'it draft\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
+<form method="post" action="/periods/P_it_draft/delete/" onsubmit="return confirm('회차 \'it draft\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <button class="danger-btn">회차 삭제</button>
 <small>시험·실수로 만든 회차를 출근표·생성 결과와 함께 지웁니다. 되돌릴 수 없습니다.</small>

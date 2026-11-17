@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from duty.models import BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
+from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
 from duty.services.generate import run_generation
 
 SNAP = Path(__file__).parent / "snapshots"
@@ -18,14 +18,32 @@ TUE = date(2026, 11, 17)
 AT = datetime(2026, 11, 16, 9, tzinfo=timezone.utc)
 
 
-def _main(body: str) -> str:
+def _main(body: str, tokens: dict) -> str:
     main = body.index("<main")
     body = body[body.index("</header>", main) + len("</header>"):body.index("</main>")]  # 메뉴는 보지 않는다(3단계에서 바뀐다)
     body = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'name="csrfmiddlewaretoken"', body)
-    body = re.sub(r"/(periods|collect)/\d+/", r"/\1/N/", body)  # 회차 번호는 테스트 순서에 따라 다를 수 있다
-    body = re.sub(r'(<option value=")\d+(")', r"\1N\2", body)  # 사용자·근무표 pk 도 DB 순번이라 지운다
+    # pk 는 DB 순번이라 픽스처가 만든 것만 이름표(P_it_draft·B_ops·U_MEMS901)로 바꾼다. 모르는 번호는 그대로 남겨
+    # 다른 대상을 가리키게 된 회귀가 diff 로 보이게 한다.
+    body = re.sub(r"/(periods|collect)/(\d+)/",
+                  lambda m: f"/{m[1]}/{tokens['period'].get(int(m[2]), m[2])}/", body)
+    kinds = {"board": "board", "member": "user"}  # <select name> → 그 option value 가 가리키는 모델
+
+    def options(m):
+        kind = kinds.get(m[1])
+        if kind is None:
+            return m[0]
+        return re.sub(r'(<option value=")(\d+)(")',
+                      lambda o: f"{o[1]}{tokens[kind].get(int(o[2]), o[2])}{o[3]}", m[0])
+    body = re.sub(r'<select name="([^"]+)".*?</select>', options, body, flags=re.S)
+    kept = []  # <textarea>·<pre> 안 글은 공백까지 내용이라 그대로 둔다
+
+    def keep(m):
+        kept.append(m[2])
+        return f"{m[1]}\x00{len(kept) - 1}\x00{m[3]}"
+    body = re.sub(r"(<(?:textarea|pre)\b[^>]*>)(.*?)(</(?:textarea|pre)>)", keep, body, flags=re.S)
     body = re.sub(r"\s+", " ", body)  # 템플릿 줄바꿈·들여쓰기 차이는 보지 않는다
-    return re.sub(r">\s*<", ">\n<", body).strip() + "\n"  # 태그마다 한 줄(리뷰할 diff 를 읽기 쉽게)
+    body = re.sub(r">\s*<", ">\n<", body).strip() + "\n"  # 태그마다 한 줄(리뷰할 diff 를 읽기 쉽게)
+    return re.sub(r"\x00(\d+)\x00", lambda m: kept[int(m[1])], body)
 
 
 @pytest.fixture
@@ -74,11 +92,14 @@ def world(settings, fixed_today, depts, admin_user, ops_board):
     DutyAssignment.objects.create(period=p, date=MON, cell="lunch", member=ops_m)
     out[("ops", "slot-history")] = p
     PeriodEvent.objects.update(at=AT)
-    return out, it_m
+    tokens = {"period": {x.pk: f"P_{tag}_{st}".replace("-", "_") for (tag, st), x in out.items()},
+              "board": {b.pk: f"B_{b.code}" for b in Board.objects.all()},
+              "user": {u.pk: f"U_{u.username}" for u in User.objects.all()}}
+    return out, it_m, tokens
 
 
 def _pages(client, admin_user, world):
-    p, member = world
+    p, member, tokens = world
     client.force_login(admin_user)
     pages = {f"period-{tag}-{st}": f"/periods/{x.pk}/" for (tag, st), x in p.items()}
     pages |= {
@@ -92,19 +113,19 @@ def _pages(client, admin_user, world):
     for name, url in pages.items():
         r = client.get(url)
         assert r.status_code == 200, name
-        got[name] = _main(r.content.decode())
+        got[name] = _main(r.content.decode(), tokens)
     client.force_login(member)  # 근무표 하나 고른 화면: 내 근무표 주간·월간·하루, 남의 근무표(보기 전용). 보기는 주소로 고정
     for name, url in (("roster-mine", "/?view=week"), ("roster-month", "/?view=month"), ("day", "/day/2026-11-16/"),
                       ("roster-other", "/?board=ops&view=week")):
         r = client.get(url)
         assert r.status_code == 200, name
-        got[name] = _main(r.content.decode())
+        got[name] = _main(r.content.decode(), tokens)
     return got
 
 
 def test_pages_match_snapshots(client, admin_user, world):
     got = _pages(client, admin_user, world)
-    if os.environ.get("DUTY_SNAPSHOT_WRITE"):
+    if os.environ.get("DUTY_SNAPSHOT_WRITE") == "1":
         SNAP.mkdir(exist_ok=True)
         for old in SNAP.glob("*.html"):
             old.unlink()

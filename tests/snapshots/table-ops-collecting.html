@@ -1,14 +1,14 @@
 <h3>ops collecting · 운영</h3>
 <p>
-<a href="/periods/N/">← 회차 화면으로(확정·배포)</a>
+<a href="/periods/P_ops_collecting/">← 회차 화면으로(확정·배포)</a>
 </p>
 <div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
-<form method="post" enctype="multipart/form-data" action="/collect/N/OPS/upload/" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 운영 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">
+<form method="post" enctype="multipart/form-data" action="/collect/P_ops_collecting/OPS/upload/" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 운영 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <input type="file" name="file" accept=".csv" required style="max-width:100%">
 <button class="secondary">CSV 올리기 (표 전체 교체)</button>
 </form>
-<a role="button" class="secondary" style="white-space:nowrap" href="/collect/N/OPS/export.csv">CSV 내려받기</a>
+<a role="button" class="secondary" style="white-space:nowrap" href="/collect/P_ops_collecting/OPS/export.csv">CSV 내려받기</a>
 </div>
 <p class="guide">
 <small>칸마다 그 출근조에 들어갈 사람 이름을 쉼표(,)로 구분해 적습니다. 한 사람은 하루에 한 출근조만. 휴가·출장·교육은 이름 뒤에 이름(휴가)처럼 붙입니다(근무로 치지 않음).<br>운영 인원: 가상이</small>
@@ -44,12 +44,10 @@
 <textarea name="c_2026-11-16_dawn" rows="2" >가상이</textarea>
 </td>
 <td>
-<textarea name="c_2026-11-16_normal" rows="2" >
-</textarea>
+<textarea name="c_2026-11-16_normal" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-16_dinner" rows="2" >
-</textarea>
+<textarea name="c_2026-11-16_dinner" rows="2" ></textarea>
 </td>
 </tr>
 <tr>
@@ -59,12 +57,10 @@
 <textarea name="c_2026-11-17_dawn" rows="2" >가상이</textarea>
 </td>
 <td>
-<textarea name="c_2026-11-17_normal" rows="2" >
-</textarea>
+<textarea name="c_2026-11-17_normal" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-17_dinner" rows="2" >
-</textarea>
+<textarea name="c_2026-11-17_dinner" rows="2" ></textarea>
 </td>
 </tr>
 <tr>
@@ -74,44 +70,36 @@
 <textarea name="c_2026-11-18_dawn" rows="2" >가상이</textarea>
 </td>
 <td>
-<textarea name="c_2026-11-18_normal" rows="2" >
-</textarea>
+<textarea name="c_2026-11-18_normal" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-18_dinner" rows="2" >
-</textarea>
+<textarea name="c_2026-11-18_dinner" rows="2" ></textarea>
 </td>
 </tr>
 <tr>
 <td class="nw">2026-11-19</td>
 <td>목</td>
 <td>
-<textarea name="c_2026-11-19_dawn" rows="2" >
-</textarea>
+<textarea name="c_2026-11-19_dawn" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-19_normal" rows="2" >
-</textarea>
+<textarea name="c_2026-11-19_normal" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-19_dinner" rows="2" >
-</textarea>
+<textarea name="c_2026-11-19_dinner" rows="2" ></textarea>
 </td>
 </tr>
 <tr>
 <td class="nw">2026-11-20</td>
 <td>금</td>
 <td>
-<textarea name="c_2026-11-20_dawn" rows="2" >
-</textarea>
+<textarea name="c_2026-11-20_dawn" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-20_normal" rows="2" >
-</textarea>
+<textarea name="c_2026-11-20_normal" rows="2" ></textarea>
 </td>
 <td>
-<textarea name="c_2026-11-20_dinner" rows="2" >
-</textarea>
+<textarea name="c_2026-11-20_dinner" rows="2" ></textarea>
 </td>
 </tr>
 </tbody>
