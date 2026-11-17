@@ -180,10 +180,12 @@ def _base(period: Period, table: CommuteTable, dates: list[date]) -> dict[date, 
     return out
 
 
-def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, how: str) -> CommuteTable:
+def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, how: str,
+              keep_before: date | None = None) -> CommuteTable:
     """[2주 전 기준으로 채우기](how=FILL_2W)·[지난주와 같게](FILL_1W)(설계 6.2): day 가 든 주(회차 기간 ∩ 월~금)의 줄만
     다시 채운 새 표를 돌려준다. 다른 주는 table 그대로. 저장하지 않는다(저장은 [표 저장]과 기존 검증).
-    지금 재직하는 그 부서 사람만 넣고, 건너뛰는 날(휴장일·근무 없음)은 비운다."""
+    지금 재직하는 그 부서 사람만 넣고, 건너뛰는 날(휴장일·근무 없음)은 비운다.
+    keep_before: 이 날 전 줄도 table 그대로(관리자가 아니면 지난 날을 못 고치므로 저장 검증에 막히지 않게)."""
     _same_board(period, dept)
     _require_collecting(period)  # 모든 근무표, 입력을 받는 동안만(설계 6.1)
     if how not in (FILL_2W, FILL_1W):
@@ -194,6 +196,8 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
     week = [d for d in period.dates() if monday <= d <= monday + timedelta(days=4)]
     if not week:
         raise DutyError("회차 기간 밖의 주입니다.")
+    if keep_before:
+        week = [d for d in week if d >= keep_before]
     keys = input_keys(dept)
     names = list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True))
     if how == FILL_2W:

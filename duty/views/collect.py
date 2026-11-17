@@ -95,7 +95,8 @@ def table(request, pid, code):
             except ValueError:
                 raise Http404
             try:
-                filled = collect.fill_week(period, dept, posted, day, how)
+                keep = None if perms.is_board_admin(request.user, period.board) else perms.today()  # 잠긴 지난 줄은 그대로
+                filled = collect.fill_week(period, dept, posted, day, how, keep_before=keep)
             except DutyError as e:
                 messages.error(request, str(e))
                 return _render_table(request, period, dept, posted, [])
