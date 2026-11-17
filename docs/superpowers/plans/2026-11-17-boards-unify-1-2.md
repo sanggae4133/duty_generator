@@ -13,20 +13,20 @@
 ## 판단한 것 (설계가 정하지 않았거나 해석이 필요한 곳, 컨트롤러 검토용)
 
 1. **0023 은 한 PR 안에서 두 번 고친다.** Task 2 가 칸·제약·`RunPython(forward)` 를, Task 5 가 `RemoveConstraint`·`RemoveField`·거꾸로 규칙을 더한다. `input_mode` 칸을 지우는 순간 남은 갈래를 모두 고쳐야 하므로, 갈래를 바꾸는 작업(Task 3 서비스, Task 4 화면)을 칸을 지우기 전에 따로 리뷰받으려는 것이다. 운영에는 PR 이 머지된 뒤의 완성된 파일 하나만 간다.
-2. **스냅샷(설계 11절)**: `tests/test_snapshots.py` 하나가 `tests/snapshots/<이름>.html` 23개와 비교한다 — IT·운영팀 회차 화면 다섯 상태씩(운영팀은 쓰는 상태 + 남은 작성 중·마감), IT 네 부서가 다 찬 하루짜리 회차의 마감(생성 버튼이 눌리는 상태)과 그것을 생성한 생성됨(배정 횟수 표), 입력 표 넷, 회차 목록, [출근표 입력] 목록, 관리자 도움말, 근무표 하나 고른 화면 넷(IT 사람의 주간·월간·하루, 남의 근무표 주간 보기 전용). 배포된 회차에는 관제·점심당번 배정이 있어 근무표 칸이 비지 않는다(5단계가 이 기준과 주간·월간·하루를 비교하므로 첫 커밋에서만 만들 수 있다). `<main>` 안에서 메뉴(`<header>`, 3단계에서 바뀐다)를 빼고 공백을 한 칸으로, CSRF 값·회차 번호를 지우고 태그마다 한 줄로 저장한다. 날짜는 `fixed_today` 로, 보기(주간·월간)는 주소로, 화면 아래 저장소 링크는 `settings.REPO_URL = ""` 로 고정한다(개발자 셸의 `DUTY_REPO_URL` 에 흔들리지 않게). `DUTY_SNAPSHOT_WRITE=1` 실행은 기준을 다시 쓴 뒤 **일부러 실패**한다(변수가 남아 기준이 몰래 바뀌는 일을 막는다).
+2. **스냅샷(설계 11절)**: `tests/test_snapshots.py` 하나가 `tests/snapshots/<이름>.html` 24개와 비교한다 — IT·운영팀 회차 화면 다섯 상태씩(운영팀은 쓰는 상태 + 남은 작성 중·마감), IT 네 부서가 다 찬 하루짜리 회차의 마감(생성 버튼이 눌리는 상태)과 그것을 생성한 생성됨(배정 횟수 표), 관제 정의를 끈 운영팀에 관제·점심당번 배정이 남은 확정 회차(Codex 리뷰: 관제 이력이 있는 직접 입력 근무표도 1단계에 main 그대로인지), 입력 표 넷, 회차 목록, [출근표 입력] 목록, 관리자 도움말, 근무표 하나 고른 화면 넷(IT 사람의 주간·월간·하루, 남의 근무표 주간 보기 전용). 배포된 회차에는 관제·점심당번 배정이 있어 근무표 칸이 비지 않는다(5단계가 이 기준과 주간·월간·하루를 비교하므로 첫 커밋에서만 만들 수 있다). `<main>` 안에서 메뉴(`<header>`, 3단계에서 바뀐다)를 빼고 공백을 한 칸으로, CSRF 값·회차 번호를 지우고 태그마다 한 줄로 저장한다. 날짜는 `fixed_today` 로, 보기(주간·월간)는 주소로, 화면 아래 저장소 링크는 `settings.REPO_URL = ""` 로 고정한다(개발자 셸의 `DUTY_REPO_URL` 에 흔들리지 않게). `DUTY_SNAPSHOT_WRITE=1` 실행은 기준을 다시 쓴 뒤 **일부러 실패**한다(변수가 남아 기준이 몰래 바뀌는 일을 막는다).
 3. **`move` 문구 단언(설계 11절)**은 Task 1 에서 main 코드로 `tests/test_period_lifecycle.py` 에 더한다(배포됨·같은 상태·`MOVABLE` 밖·직접 입력 네 글). Task 2 의 기계적 변경 스크립트가 그 테스트의 직접 입력 근무표도 `OPS_STEPS` 로 바꾼다.
 4. **`move` 의 `move_targets` 밖 글(설계 6.1)**: 대상이 `MOVABLE` 밖이면 "옮길 수 없는 상태입니다.", 그 밖은 근무표와 상관없이 "직접 입력 근무표는 입력 중으로만 옮길 수 있습니다."(설계 글 그대로. 1·2단계에서 이 글이 나올 수 있는 근무표는 사실상 옛 직접 입력뿐이다 — 저장된 근무표 단계 칸이 읽기 전용). 2단계에서 뒤의 글만 "'<켠 배포 전 단계 이름들, ·로 이음>'(으)로만 옮길 수 있습니다."로.
 5. **테스트의 "직접 입력 근무표"는 `tests/it_defs.OPS_STEPS`**(작성 중·마감 끔, 입력 중·확정 이름). Task 2~4 동안은 `input_mode="direct"` 를 함께 담고(코드가 아직 그 칸을 읽는다) Task 5 에서 그 키만 뺀다. 기존 테스트의 `Board.objects.create(..., input_mode=직접 입력)` 은 Task 2 에서 스크립트로 한 번에 `**OPS_STEPS` 로 바꾼다 — **19개 파일, 24줄**(conftest·Task 1 의 `test_period_lifecycle.py` 포함. 관리 화면 POST 의 `input_mode="direct"` 7곳은 Task 5). 파일마다 있는 `ops` 픽스처를 conftest 하나로 합치는 일은 하지 않는다(범위 밖). conftest 에는 설계 11절의 `ops_board` 하나만 더한다.
 6. **1단계 `Department.save` 는 순환 import 를 피해 함수 안에서** `from .services.boards import legacy_admin_entry` 로 부른다(설계 5.3 "조건만 `not legacy_admin_entry(board)`", 임시 기준은 `services/boards.py` 한 함수에만). 3단계에서 이 갈래와 함께 지운다.
-7. **장중관제 정의가 켜진 직접 입력 근무표**: 설계 6.1 대로 [생성 방식] 버튼·상자, 배정 횟수 표, 생성 버튼 글자([장중관제 생성])는 "켜진 장중관제 정의가 있을 때"(데이터)다. main 은 직접 입력 근무표에서 이 셋을 늘 숨기고 [확정]이라 쓰므로, 관리 화면에서 관제 정의를 켠 직접 입력 근무표가 운영에 있으면 1단계에서 보이는 변화가 생긴다(시장운영실은 `add_board` 가 관제를 만들지 않아 해당 없음). 코드로 막지 않고 **업그레이드 전 읽기 전용 확인 ②**(그런 근무표 code 와 관제 수, 비어야 한다)와 대처(그 관제 줄의 "사용"을 끄거나 그 근무표 관리자에게 알림)를 OPERATIONS 1단계 메모에 둔다(Task 6). 생성 방식 문장은 순수 함수 `shifts.gen_help(defs)` 가 만들고 IT 문장은 단위 테스트와 스냅샷이 지킨다.
+7. **관제 이력이 있는 직접 입력 근무표도 1단계는 main 그대로**(Codex 리뷰): 1단계에서 버튼 글자([확정]·[장중관제 생성])·[재생성]·[생성 방식] 버튼과 상자·배정 횟수 표는 켜진 관제 정의가 아니라 **임시 기준**(`legacy_admin_entry`)으로 고른다 — `step_buttons(not legacy)`, 상자·횟수 표는 `not legacy` 일 때만, 상자 글은 main 의 고정 글("10칸(08:30~18:00)에 개발자를"). 그래서 관리 화면에서 관제 정의를 켰거나 관제 배정이 남은 옛 직접 입력 근무표도 1단계 화면이 바이트 단위로 같다(스냅샷 `period-ops-slot-history`, 테스트 `test_legacy_board_with_slot_defs_looks_like_main`). 2단계(Task 8)에서 설계 6.1 의 데이터 기준(켜진 관제 정의, 횟수 표는 `counts` 가 있으면)과 정의에서 만든 생성 방식 글(`shifts.gen_help`, IT 글은 그대로)로 바꾼다. OPERATIONS 1단계 업그레이드 전 확인 ②(직접 입력 근무표마다 켜진 관제 정의 수와 남은 관제 배정 행 수)는 **2단계를 위한 참고**로 남긴다: 0 이 아닌 근무표는 2단계부터 [장중관제 생성]·[재생성]·생성 방식·횟수 표가 보이니 그 전에 정의를 끄거나 관리자에게 알린다.
 8. **버튼 이름(설계 5.4)** 은 `Board.step_buttons(has_slots) -> dict`(`open`·`close`·`generate`·`regenerate`·`undo`). 떼기를 할 수 없는 이름: 취합 중 이름이 " 중"으로 끝나지 않으면 열기·마감은 "'<취합 중 이름>'(으)로"·"'<마감 이름>'(으)로". 생성은 설계의 예("확정" → [확정], "완료됨" → [완료])를 따라 **끝의 "됨"을 떼고, "됨"으로 끝나지 않으면 이름 그대로** 쓴다(설계 본문의 "'<생성됨 이름>'(으)로" 꼴과 예가 어긋나는데, 시장운영실 기본 이름 "확정"이 지금 글자 [확정]·[확정 취소]를 내야 하므로 예를 따랐다. 그래서 취소도 늘 "<생성 버튼> 취소"이고 "'…'(으)로 돌아가기" 꼴은 쓸 일이 없다). 버튼 글자가 비거나 서로(또는 [배포…]·[재생성]과) 겹치는 이름은 `Board.bad_buttons()` 로 찾아 관리 화면 근무표 폼이 칸 오류로 막는다("버튼 이름이 비거나 다른 버튼과 같아집니다: […]", Task 5 — 1·2단계에는 만들 때만 고치므로 만들 때 검사). 미리보기는 [근무표 설정](3단계) 몫이다.
-9. **바꿀 수 있는 이름 뒤 조사**(검토 지적): 순수 함수 `shifts.josa(word, "은/는"|"을/를"|"으로/로")` 가 받침으로 고른다(ㄹ 받침은 '로', 한글로 끝나지 않으면 '은(는)'·'(으)로'). 1단계의 "<생성>은 할 수 있지만", [확정 취소] 확인창 "<생성>을 취소하고 <단계>으로 돌아갈까요?"를 이것으로 만든다(기본 이름이면 지금 글자 그대로). 2단계 새 글은 조사가 필요 없는 꼴로 쓴다("[<생성>] 버튼은 …", "'<이름>' 상태로", "'<이름>'(으)로").
+9. **확인창의 이름 글은 `escapejs`, 이름 뒤 조사는 `josa`**(검토 지적): 인라인 JS `confirm('…')` 안에 넣는 동적 글(1단계 [확정]·[확정 취소] 확인창, 배포 취소 확인창의 생성됨 이름, 2단계 `empty_confirm`·`leave_generated_confirm`)은 모두 `|escapejs` 로 넣는다(기본 이름이면 출력이 같다. 따옴표·역슬래시가 든 이름 테스트 `test_step_names_are_escaped_in_confirm`). 순수 함수 `shifts.josa(word, "은/는"|"을/를"|"으로/로")` 가 받침으로 고른다(ㄹ 받침은 '로', 한글로 끝나지 않으면 '은(는)'·'(으)로'). 1단계의 "<생성>은 할 수 있지만", [확정 취소] 확인창 "<생성>을 취소하고 <단계>으로 돌아갈까요?", 배포 취소 글 "<생성됨 이름>으로"를 이것으로 만든다(기본 이름이면 지금 글자 그대로). 2단계 새 글은 조사가 필요 없는 꼴로 쓴다("[<생성>] 버튼은 …", "'<이름>' 상태로", "'<이름>'(으)로").
 10. **1단계 관제 생성에서 빼는 날** = 그 회차 출근 행이 하나도 없는 날(설계 6.1 `slot_dates`). 부서 하나인 근무표와 IT(1단계는 빈 날이 있으면 막는다)에서는 지금과 같다.
 11. **2단계 빈 평일 글(검토 지적 반영)**: 날짜는 이어진 평일끼리 묶는다(`shifts.day_spans`: "11/16~11/20, 11/24", 금 → 월도 이어진 것으로). 생성 경고(메시지) = "출근표가 비어 있는 날이 있습니다: 운영 1일(11/20), UI 5일(11/16~11/20). 그날 그 부서는 근무자가 없습니다." 회차 화면 ⚠ 줄 = "⚠ 출근표가 비어 있는 날: 운영 2일(11/19~11/20) · UI 5일(11/16~11/20)." — 켠 단계의 취합 중·마감에서만, 그리고 **그 상태에서 생성할 수 있을 때만**(`status == generate_from()`) 뒤에 " [<생성 버튼>] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다."(컨트롤러 결정: IT 취합 중에는 생성할 수 있다고 말하지 않는다). 생성 확인창 = "출근표가 비어 있는 부서가 있는 날이 N일 있습니다. 그날 그 부서는 근무자가 없고, 아무 부서도 넣지 않은 날은 장중관제도 만들지 않습니다. 계속할까요?"(관제가 없으면 "…근무자가 없습니다. 계속할까요?", N = 어느 부서든 빈 평일 수). 여러 부서 근무표에서 "그날은 근무자가 없습니다"처럼 아무도 없는 것으로 읽히지 않게 늘 "그 부서"라 쓴다. 부서는 이름으로, 순서는 입력 현황과 같은 부서 코드 순. 빈 날이 있으면 생성 버튼은 테두리 버튼(설계 14절), 마감 끈 근무표는 첫 [표 입력]이 진한 버튼.
-12. **2단계 생성됨에서 나가는 확인창(설계 5.4 e3e7885)**: 생성됨 회차는 **그 회차의 `DutyAssignment`**(관제 칸·점심당번 유무)로, 그 밖 상태의 옮기기 상자 설명은 켜진 정의로 이름을 만든다(`views.manage._leave_what`). "생성 결과(장중관제·점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?", 하나만 있으면 그것만, 없으면 "출근표는 그대로 남습니다. 계속할까요?". 옮기기 상자의 `<small>` 설명도 같은 이름("생성됨에서 나가면 <이름> 생성 결과만 지웁니다", 없으면 그 문장을 뺀다).
+12. **2단계 생성됨에서 나가는 확인창(설계 5.4 e3e7885)**(없음·관제만·점심당번만·둘 다를 매개변수 테스트로 정확한 글까지 본다): 생성됨 회차는 **그 회차의 `DutyAssignment`**(관제 칸·점심당번 유무)로, 그 밖 상태의 옮기기 상자 설명은 켜진 정의로 이름을 만든다(`views.manage._leave_what`). "생성 결과(장중관제·점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?", 하나만 있으면 그것만, 없으면 "출근표는 그대로 남습니다. 계속할까요?". 옮기기 상자의 `<small>` 설명도 같은 이름("생성됨에서 나가면 <이름> 생성 결과만 지웁니다", 없으면 그 문장을 뺀다).
 13. **2단계 문구 모양**: 기간 = "기간은 '<이름>' 단계에서만 고칠 수 있습니다."(켠 단계 ∩ `editable()` 이라 늘 이름 하나), 생성 = "'<generate_from 이름>'인 회차만 <생성 버튼 말>할 수 있습니다.", 배포 = "'<생성됨 이름>'인 회차만 배포할 수 있습니다.", 채우기 상태 = `_require_input` 과 같은 "<취합 중 이름>인 회차가 아닙니다."(같은 함수 `_require_collecting`), 입력 표 닫힘 = "'<취합 중 이름>'인 회차가 아니라 저장할 수 없습니다.", 생성 성공 = "'<생성됨 이름>' 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다.", 입력 표 회차 링크 = "← 회차 화면으로". 끈 단계 안내 = "이 단계는 지금 쓰지 않습니다. 아래 [다른 상태로 옮기기]를 눌러 옮기세요."(검토 지적: 실제 상자 이름을 쓴다) + 그 상자를 펼쳐 둔다.
 14. **2단계 입력 현황**: 모든 근무표·모든 상태에서 **부서 이름**으로(검토 지적, 코드 대신), 취합 중일 때만 부서마다 [표 입력] **버튼**(컨트롤러 결정: 누를 자리 44px 이상, 테두리 보조 버튼). 기간 줄이기 확인창은 기간을 고칠 수 있는 모든 회차(IT 작성 중 포함).
-15. **관리 화면 단계 칸은 1·2단계 내내 읽기 전용**(설계 e3e7885 5.1·6.1·12: 입력 그룹 기준 `legacy_admin_entry` 가 2단계까지 남아 섞인 상태를 막는다). 이전 판의 "Task 9 에서 편집을 연다"를 지웠다. 그래서 2단계 롤백은 코드만 되돌리면 된다(바뀐 단계 설정이 생길 수 없다).
+15. **관리 화면 단계 칸은 1·2단계 내내 읽기 전용**(설계 e3e7885 5.1·6.1·12: 입력 그룹 기준 `legacy_admin_entry` 가 2단계까지 남아 섞인 상태를 막는다). 그래서 2단계 롤백은 코드만 되돌리면 된다(바뀐 단계 설정이 생길 수 없다).
 16. **2단계 글 도움말**: `help.TEXTS` 의 `"direct"` → `"period"`("회차 운영(단계·출근표·생성·배포)", 대상 "근무표 관리자", `perms.is_admin`). 맨 앞에 내가 관리하는 근무표마다 단계 줄. 채우기 설명은 입력 담당자 글(`STEPS["manager"]`)에 한 줄(영상에는 없는 기능이라는 주석).
 17. **업그레이드 확인 쿼리**: 설계 10.3 의 1단계 쿼리 `COUNT(*)` 는 회차 없는 근무표를 1로 세므로 `COUNT(p.id)`. 1단계 뒤 대조 쿼리와 확인 ②(관제 켠 직접 입력 근무표)를 더하고, 2단계 올리는 때는 설계 10.3 그대로(IT 의 취합 중·마감·생성됨 회차가 없어야 한다). 모두 0022·0023 상태 임시 DB 에서 돌려 봤다. 1단계 롤백 글은 "거꾸로 `migrate` 는 코드를 되돌리기 **전에**, 아니면 `restore` 만"으로 고쳤다(검토 지적: 옛 코드에는 0023 파일이 없다).
 18. **2단계 공지**(검토 지적): 알릴 사람에 시장운영실 근무표 관리자를 더하고([확정]이 빈 날이 없으면 묻지 않음, 입력 현황), 채우기 버튼 글을 실제 조건으로("모든 부서에 [지난주와 같게], 근무조가 셋인 부서는 [2주 전 기준으로 채우기]도"). 설계 10.4 의 공지 글과 다르다 — 설계도 같이 고칠 것을 걱정거리에 적었다.
@@ -104,18 +104,18 @@ kill $(cat $W/server.pid); rm -rf $W; unset DUTY_ENV_FILE DUTY_DEBUG DUTY_DATA_D
 
 | PR | Task | 내용 | 마이그레이션 | 테스트 수(참고) |
 |---|---|---|---|---|
-| 1단계 | 1 | 첫 커밋(main 코드): 화면 스냅샷 기준 23개, `move` 네 문구 단언, conftest `ops_board` | 없음 | 1251 |
+| 1단계 | 1 | 첫 커밋(main 코드): 화면 스냅샷 기준 24개, `move` 네 문구 단언, conftest `ops_board` | 없음 | 1251 |
 | 1단계 | 2 | `Board` 단계 칸·단계 규칙 메서드·`legacy_admin_entry`, 0023(칸·제약·forward), 테스트의 직접 입력 근무표 → `OPS_STEPS` | 0023(1/2) | 1264 |
 | 1단계 | 3 | 서비스가 단계 규칙을 따른다(새 회차·기간·생성·`move` 검사 순서·입력·채우기·배포, 관제 빈 날, `status_label`, `add_board` 값) | 없음 | 1281 |
-| 1단계 | 4 | 화면이 단계 규칙을 따른다(회차 화면 버튼 한 묶음·`step_buttons`(떼기 못 하는 이름)·`josa`·`gen_help`, 입력 표, 입력 목록, 도움말 기준) | 없음 | 1290 |
+| 1단계 | 4 | 화면이 단계 규칙을 따른다(회차 화면 버튼 한 묶음·`step_buttons`(떼기 못 하는 이름)·`josa`·`escapejs`, 장중관제 갈래는 임시 기준으로 main 그대로, 입력 표, 입력 목록, 도움말 기준) | 없음 | 1290 |
 | 1단계 | 5 | `input_mode` 지우기: 0023(제거·거꾸로 규칙), `InputMode`·`DIRECT_STEPS`·`step_label`, 부서 하나 규칙, 입력 그룹·부서 폼 기준을 `legacy_admin_entry` 로, 관리 화면 단계 칸(만들 때만, 버튼 글자 검사 `bad_buttons`), `create_board` | 0023(2/2) | 1303 |
 | 1단계 | 6 | 문서(ARCHITECTURE·OVERVIEW·OPERATIONS 업그레이드·확인 쿼리 ①②·롤백 순서·DEVELOPMENT·PRINCIPLES) | 없음 | 1303 |
 | 2단계 | 7 | 서비스 공통 규칙(빈 평일 경고만·`day_spans`, 채우기 모든 근무표, 단계 이름 문구) | 없음 | 1301 |
-| 2단계 | 8 | 화면 공통 규칙(⚠ 줄·빈 날 확인창·입력 현황 이름·[표 입력] 버튼·실제 배정으로 만든 나가는 확인창·끈 단계 안내·입력 표 글) + 스냅샷 다시 쓰기 | 없음 | 1305 |
-| 2단계 | 9 | 글 도움말 하나("회차 운영")·입력 담당 글에 채우기 + 스냅샷 | 없음 | 1306 |
-| 2단계 | 10 | 문서(ARCHITECTURE·OVERVIEW·OPERATIONS 2단계 올리는 때·공지·PRINCIPLES) | 없음 | 1306 |
+| 2단계 | 8 | 화면 공통 규칙(관제 정의 기준·`gen_help`, ⚠ 줄·빈 날 확인창·입력 현황 이름·[표 입력] 버튼·실제 배정으로 만든 나가는 확인창·끈 단계 안내·입력 표 글, `escapejs`) + 스냅샷 다시 쓰기 | 없음 | 1311 |
+| 2단계 | 9 | 글 도움말 하나("회차 운영")·입력 담당 글에 채우기 + 스냅샷 | 없음 | 1312 |
+| 2단계 | 10 | 문서(ARCHITECTURE·OVERVIEW·OPERATIONS 2단계 올리는 때·공지·PRINCIPLES) | 없음 | 1312 |
 
-> 검증: Task 1~10 의 코드·문서 편집을 이 브랜치(e3e7885, 코드는 main 02c79c5 그대로) 사본(`git archive`)에 그대로 넣어 확인했다. 저장소는 고치지 않았다. 결과: 작업마다 위 표의 수로 `.venv/bin/pytest -W error -q` 전체 통과, 경고 0개, `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'", 새 DB 에서 `migrate` → `migrate duty 0022` → `migrate` 왕복. 각 작업의 "실패 확인" 기대 결과도 사본에서 재현했다. 스냅샷은 `DUTY_REPO_URL` 을 준 셸에서도 같았다. 업그레이드 확인 쿼리(①·②·뒤 대조·2단계 시점)는 임시 DB 에 `sqlite3 -readonly` 로 돌렸다. 문서 편집의 "찾을 글"은 사본에서 모두 한 번씩만 나왔다. 브라우저 확인은 사본에서 하지 않았다(가짜 데이터 셸 스니펫이 도는 것까지만 확인) — 각 작업의 브라우저 단계에서 사람이 본다.
+> 검증: Task 1~10 의 코드·문서 편집을 이 브랜치(e3e7885, 코드는 main 02c79c5 그대로) 사본(`git archive`)에 그대로 넣어 확인했다. 저장소는 고치지 않았다. 결과: 작업마다 위 표의 수로 `.venv/bin/pytest -W error -q` 전체 통과, 경고 0개, `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'", 새 DB 에서 `migrate` → `migrate duty 0022` → `migrate` 왕복. 각 작업의 "실패 확인" 기대 결과도 사본에서 재현했다. 스냅샷은 `DUTY_REPO_URL` 을 준 셸에서도 같았고, 1단계 Task 2~6 내내 기준(관제 이력이 남은 운영팀 회차 포함)을 고치지 않고 통과했다. 업그레이드 확인 쿼리(①·②·뒤 대조·2단계 시점)는 임시 DB 에 `sqlite3 -readonly` 로 돌렸다. 문서 편집의 "찾을 글"은 사본에서 모두 한 번씩만 나왔다. 브라우저 확인은 사본에서 하지 않았다(가짜 데이터 셸 스니펫이 도는 것까지만 확인) — 각 작업의 브라우저 단계에서 사람이 본다.
 
 ---
 
@@ -130,14 +130,14 @@ kill $(cat $W/server.pid); rm -rf $W; unset DUTY_ENV_FILE DUTY_DEBUG DUTY_DATA_D
 **Files:**
 - Modify: `tests/conftest.py` — `from datetime import time` 한 줄, `lunch` 픽스처 앞에 `ops_board`
 - Create: `tests/test_snapshots.py`
-- Create(생성 파일): `tests/snapshots/*.html` 23개 — 테스트가 `DUTY_SNAPSHOT_WRITE=1` 일 때 쓴다(손으로 쓰지 않는다)
+- Create(생성 파일): `tests/snapshots/*.html` 24개 — 테스트가 `DUTY_SNAPSHOT_WRITE=1` 일 때 쓴다(손으로 쓰지 않는다)
 - Modify: `tests/test_period_lifecycle.py` — 맨 끝에 `move` 문구 단언 둘
 
 **Interfaces:**
 - Consumes: conftest `it_board`·`depts`·`admin_user`·`fixed_today`, `Board.InputMode.DIRECT`(Task 2 에서 `OPS_STEPS` 로 바뀐다)
 - Produces:
   - 픽스처 `ops_board(it_board) -> Board`: code `ops`, 이름 "운영팀", 근무조 이른(07:30)·가운데(09:30)·늦은(11:30) + 점심당번, 부서 `OPS`("운영", 출근조 셋), 장중관제 없음
-  - `tests/test_snapshots.py::test_pages_match_snapshots` 와 기준 파일 23개: `period-it|ops-<상태>` 10, `period-it-full-closed`·`period-it-full-generated`(IT 네 부서가 다 찬 하루짜리 회차, 생성 버튼이 눌리는 마감과 배정 횟수 표가 있는 생성됨), `table-it-collecting`·`table-it-closed`·`table-ops-collecting`·`table-ops-generated`, `periods`, `collect-index`, `help-admin`, IT 사람의 `roster-mine`(`/?view=week`)·`roster-month`(`/?view=month`)·`day`(`/day/2026-11-16/`)·`roster-other`(`/?board=ops&view=week`, 보기 전용). 배포된 회차에는 관제·점심당번 배정이 있다
+  - `tests/test_snapshots.py::test_pages_match_snapshots` 와 기준 파일 24개: `period-it|ops-<상태>` 10, `period-it-full-closed`·`period-it-full-generated`(IT 네 부서가 다 찬 하루짜리 회차, 생성 버튼이 눌리는 마감과 배정 횟수 표가 있는 생성됨), `period-ops-slot-history`(관제 정의를 끈 운영팀에 관제·점심당번 배정이 남은 확정 회차 — main 은 [확정 취소]만, 배정 횟수 표 없음), `table-it-collecting`·`table-it-closed`·`table-ops-collecting`·`table-ops-generated`, `periods`, `collect-index`, `help-admin`, IT 사람의 `roster-mine`(`/?view=week`)·`roster-month`(`/?view=month`)·`day`(`/day/2026-11-16/`)·`roster-other`(`/?board=ops&view=week`, 보기 전용). 배포된 회차에는 관제·점심당번 배정이 있다
   - 다시 쓰는 법: `DUTY_SNAPSHOT_WRITE=1 .venv/bin/pytest -q tests/test_snapshots.py` → 기준을 다시 쓰고 **일부러 `1 failed`**("스냅샷을 다시 썼습니다…"). 그다음 변수 없이 다시 돌려 통과를 본다(2단계 Task 8·9 만 쓴다. 지운 기준 파일도 정리한다)
 
 - [ ] **Step 1: 픽스처·스냅샷 테스트·문구 단언을 쓴다**
@@ -167,12 +167,12 @@ def ops_board(it_board):
 보이는 동작을 일부러 바꾸는 PR 만 DUTY_SNAPSHOT_WRITE=1 로 다시 쓰고 바뀐 줄을 PR diff 로 리뷰한다. 이름은 모두 가상."""
 import os
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 
 import pytest
 
-from duty.models import Commute, Department, DutyAssignment, Period, PeriodEvent, User
+from duty.models import BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
 from duty.services.generate import run_generation
 
 SNAP = Path(__file__).parent / "snapshots"
@@ -227,6 +227,15 @@ def world(settings, fixed_today, depts, admin_user, ops_board):
         if status == S.GENERATED:
             run_generation(p, seed=1)
         out[("it-full", status)] = p
+    # 장중관제 이력이 남은 직접 입력 근무표(설계 리뷰): 꺼진 관제 정의와 그 배정이 남은 확정 회차. 1단계는 main 처럼 [확정]만
+    BoardShift.objects.create(board=ops_board, key="slot0", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["dawn"], eligible_types=["직원"], active=False)
+    p = Period.objects.create(board=ops_board, name="ops slot history", start_date=MON, end_date=FRI, status=S.GENERATED)
+    for d in p.dates()[:3]:
+        Commute.objects.create(period=p, date=d, member=ops_m, shift="dawn")
+    DutyAssignment.objects.create(period=p, date=MON, cell="slot0", member=ops_m)
+    DutyAssignment.objects.create(period=p, date=MON, cell="lunch", member=ops_m)
+    out[("ops", "slot-history")] = p
     PeriodEvent.objects.update(at=AT)
     return out, it_m
 
@@ -303,7 +312,7 @@ Expected: `1 failed` — `test_pages_match_snapshots` 의 `AssertionError: asser
 
 Run: `git status --short duty/` → 아무것도 안 나와야 한다. 그다음
 `DUTY_SNAPSHOT_WRITE=1 .venv/bin/pytest -W error -q tests/test_snapshots.py; ls tests/snapshots | wc -l`
-Expected: `1 failed`("스냅샷을 다시 썼습니다. git diff tests/snapshots/ 로 바뀐 줄을 보고, 변수 없이 다시 돌리세요." — 다시 쓴 실행은 늘 실패한다), `23`. `tests/snapshots/period-it-closed.html` 에 `<button disabled>장중관제 생성</button>` 과 `08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다.`, `period-ops-collecting.html` 에 `⚠ 아직 입력하지 않은 평일: 11/19, 11/20.`, `period-it-full-closed.html` 에 `<button >장중관제 생성</button>`(눌리는 버튼)과 배정 횟수 표, `period-it-full-generated.html` 에 "장중관제 배정 횟수 — 편차", `roster-mine`·`roster-month`·`day` 에 "가상일", `roster-other.html` 에 `보기 전용` 과 "가상이"가 있는지 본다(가상 이름만 들어 있다).
+Expected: `1 failed`("스냅샷을 다시 썼습니다. git diff tests/snapshots/ 로 바뀐 줄을 보고, 변수 없이 다시 돌리세요." — 다시 쓴 실행은 늘 실패한다), `24`. `tests/snapshots/period-it-closed.html` 에 `<button disabled>장중관제 생성</button>` 과 `08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다.`, `period-ops-collecting.html` 에 `⚠ 아직 입력하지 않은 평일: 11/19, 11/20.`, `period-it-full-closed.html` 에 `<button >장중관제 생성</button>`(눌리는 버튼)과 배정 횟수 표, `period-it-full-generated.html` 에 "장중관제 배정 횟수 — 편차", `roster-mine`·`roster-month`·`day` 에 "가상일", `period-ops-slot-history.html` 에 `확정 취소` 가 있고 "배정 횟수"·"생성 방식"·"재생성"이 없는지, `roster-other.html` 에 `보기 전용` 과 "가상이"가 있는지 본다(가상 이름만 들어 있다).
 
 - [ ] **Step 4: 통과와 안정성을 확인한다**
 
@@ -980,38 +989,46 @@ EOF
 
 ---
 
-### Task 4: 화면이 단계 규칙을 따른다(회차 화면 한 묶음·버튼 이름·생성 방식 문장)
+### Task 4: 화면이 단계 규칙을 따른다(회차 화면 한 묶음·버튼 이름·조사·이스케이프)
 
-> 범위: 회차 화면·입력 표·[출근표 입력] 목록·도움말 기준. IT·운영팀 화면은 글자 하나 바뀌지 않는다(스냅샷 `tests/test_snapshots.py` 가 그대로 통과). 관리 화면은 Task 5.
+> 범위: 회차 화면·입력 표·[출근표 입력] 목록·도움말 기준. IT·운영팀 화면은 글자 하나 바뀌지 않는다(스냅샷 `tests/test_snapshots.py` 가 그대로 통과 — 관제 이력이 남은 운영팀 회차 `period-ops-slot-history` 포함). 1단계에서 버튼 글자·[재생성]·[생성 방식]·배정 횟수 표는 **임시 기준**(`legacy_admin_entry`)으로 고른다: 마감을 쓰는 근무표 = main 의 부서별 취합 화면, 마감을 안 쓰는 근무표 = main 의 직접 입력 화면(관제 정의·배정이 있어도). 관제 정의라는 데이터 기준과 정의에서 만든 생성 방식 문장은 2단계(Task 8). 관리 화면은 Task 5.
 
 **Files:**
 - Modify: `duty/models.py` — `Board.editable()` 뒤에 `step_buttons`
-- Modify: `duty/shifts.py` — `slot_defs` 뒤에 `josa`·`gen_help`
+- Modify: `duty/shifts.py` — `lunch_defs` 앞에 `josa`
 - Modify: `duty/views/manage.py` — import, `_movable` 지우기, `_render_detail`, `period_action` 성공 문구 기준
-- Modify: `duty/templates/duty/period_detail.html` — 기간 폼 조건, 버튼 묶음, 경고 두 줄, 옮기기 상자 조건, 입력 현황·배정 횟수·생성 방식 조건과 문장
+- Modify: `duty/templates/duty/period_detail.html` — 기간 폼 조건, 버튼 묶음(확인창은 `escapejs`), 경고 두 줄, 옮기기 상자 조건, 배포 취소 글, 입력 현황·배정 횟수·생성 방식 조건(생성 방식 글은 main 그대로)
 - Modify: `duty/views/collect.py` — import, `index` 의 `waiting`, `_render_table` 의 `direct` → `legacy`
 - Modify: `duty/templates/duty/collect_table.html` — `direct` → `legacy`(세 곳)
 - Modify: `duty/help.py` — import, `allowed("direct")` 기준
 - Test: `tests/test_board_steps.py`(화면 절 더하기)
 
 **Interfaces:**
-- Consumes: Task 2 의 단계 메서드, `boards.legacy_admin_entry`, `boards.active_defs`, `shifts.slot_defs`·`shift_defs`
+- Consumes: Task 2 의 단계 메서드, `boards.legacy_admin_entry`, `boards.active_defs`, `shifts.slot_defs`
 - Produces:
-  - `Board.step_buttons(has_slots: bool) -> dict[str, str]`: 키 `open`("<취합 중 이름에서 ' 중' 뗀 말> 열기"), `close`("<같은 말> <마감 이름>"), `generate`(관제가 있으면 "장중관제 생성", 없으면 "<생성됨 이름에서 '됨' 뗀 말>"), `regenerate`(관제가 있으면 "재생성", 없으면 ""), `undo`(생성됨에서 옮길 곳이 하나면 "<generate> 취소", 아니면 "")
-  - `Board.step_buttons` 의 떼기 못 하는 이름: 취합 중 이름이 " 중"으로 끝나지 않으면 `open`·`close` 가 "'<취합 중 이름>'(으)로"·"'<마감 이름>'(으)로", 생성됨 이름이 "됨"으로 끝나지 않으면 `generate` 는 이름 그대로
+  - `Board.step_buttons(has_slots: bool) -> dict[str, str]`: 키 `open`("<취합 중 이름에서 ' 중' 뗀 말> 열기"), `close`("<같은 말> <마감 이름>"), `generate`(`has_slots` 면 "장중관제 생성", 아니면 생성됨 이름 끝의 '됨'을 뗀 말 — '됨'으로 끝나지 않으면 이름 그대로), `regenerate`(`has_slots` 면 "재생성", 아니면 ""), `undo`(생성됨에서 옮길 곳이 하나면 "<generate> 취소", 아니면 ""). 취합 중 이름이 " 중"으로 끝나지 않으면 `open`·`close` 는 "'<취합 중 이름>'(으)로"·"'<마감 이름>'(으)로"
   - `shifts.josa(word: str, pair: str) -> str`: `pair` = "은/는"·"을/를"·"으로/로", 받침으로 고른다(ㄹ 받침 + 으로/로 → "로", 한글로 끝나지 않으면 "은(는)"·"(으)로")
-  - `shifts.gen_help(defs: list[Def]) -> dict | None`: 키 `count`·`start`·`end`(time)·`types`(자격 구분 "·"로 이음, 없으면 "")·`who`(`types` 또는 "사람")·`whom`(`who` + 을/를)·`rule`(자격 문장). 관제 정의가 없으면 `None`
-  - `period_detail.html` 컨텍스트: `board`, `legacy`, `steps=[(상태, 이름)…켠 단계]`, `editable`, `buttons`, `gen_help`, `movable=[(상태, 이름)…move_targets]`, `undo_to`(옮길 곳이 하나일 때), `generate_topic`·`undo_confirm`(조사를 고른 1단계 글), 그 밖 기존 키(`input_depts`·`empty_days` 는 `legacy` 일 때만 채운다)
+  - `period_detail.html` 컨텍스트: `board`, `legacy`, `steps=[(상태, 이름)…켠 단계]`, `editable`, `buttons`(1단계는 `board.step_buttons(not legacy)`), `movable`, `undo_to`, `generate_topic`(예 "확정은")·`undo_confirm`(예 "확정을 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.")·`generated_ro`(생성됨 이름 뒤 "으로/로"), 그 밖 기존 키(`input_depts`·`empty_days` 는 `legacy` 일 때만)
+  - 템플릿 규칙: 인라인 JS `confirm('…')` 안에 넣는 이름에서 나온 글은 모두 `|escapejs`(따옴표·역슬래시가 든 이름도 스크립트를 깨지 않게, 기본 이름이면 출력이 같다)
   - `collect_table.html` 컨텍스트: `direct` 대신 `legacy`
   - `help.allowed(user, "direct")` = 관리하는 근무표 중 `legacy_admin_entry` 인 것이 있다
 
 - [ ] **Step 1: 실패 테스트를 쓴다**
 
-`tests/test_board_steps.py` 의 import 끝 두 줄(`from duty.services.generate import run_generation`, `from tests.it_defs import OPS_STEPS`)을 아래 세 줄로 바꾼다:
+`tests/test_board_steps.py` 의 import 를 아래로 바꾼다(`from django.utils import timezone`·`PeriodEvent`·`josa` 를 더한다):
 ```python
+from datetime import date, time
+
+import pytest
+from django.db import IntegrityError, transaction
+from django.utils import timezone
+
+from duty.errors import DutyError
+from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
+from duty.services import boards, collect, periods, publish
 from duty.services.generate import run_generation
-from duty.shifts import Def, gen_help, josa
-from tests.it_defs import IT_DEFS, OPS_STEPS
+from duty.shifts import josa
+from tests.it_defs import OPS_STEPS
 ```
 파일 맨 끝에:
 ```python
@@ -1038,19 +1055,6 @@ def test_josa():
     assert [josa("확정", "은/는"), josa("배포", "은/는"), josa("개발자", "을/를"), josa("직원", "을/를")] == ["은", "는", "를", "을"]
     assert [josa("입력 중", "으로/로"), josa("배포", "으로/로"), josa("마감 날", "으로/로"), josa("A", "으로/로")] == [
         "으로", "로", "로", "(으)로"]
-
-
-def test_gen_help_for_it_defs_matches_old_text():
-    assert gen_help(IT_DEFS) == {
-        "count": 10, "start": time(8, 30), "end": time(18), "types": "개발자", "who": "개발자", "whom": "개발자를",
-        "rule": "08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다."}
-    assert gen_help([d for d in IT_DEFS if not d.key.startswith("slot")]) is None
-
-
-def test_gen_help_for_other_slots():
-    defs = [Def("dawn", "이른", time(7), time(16)), Def("slot3", "점검", time(10), time(11), ("dawn",), ("직원",))]
-    assert gen_help(defs) == {"count": 1, "start": time(10), "end": time(11), "types": "직원", "who": "직원", "whom": "직원을",
-                              "rule": "모든 칸은 이른만 됩니다."}
 
 
 @pytest.fixture
@@ -1093,9 +1097,7 @@ def test_period_page_with_draft_off_and_close_on(it_board, admin_user, client):
     assert ">취합 마감</button>" in body and 'name="start_date"' in body and "부서별 입력 현황" in body
     p.status = X
     p.save()
-    body = client.get(f"/periods/{p.pk}/").content.decode()  # 생성 방식 문장은 이 근무표의 관제 정의에서
-    assert ">장중관제 생성</button>" in body and "장중관제 1칸(10:00~11:00)에 직원을 한 명씩" in body
-    assert "직원이고 그날 그 칸의 출근조에 있어야 합니다." in body and "모든 칸은 이른만 됩니다." in body
+    assert ">장중관제 생성</button>" in client.get(f"/periods/{p.pk}/").content.decode()
 
 
 def test_renamed_steps_rename_buttons(it_board, admin_user, client):
@@ -1115,14 +1117,51 @@ def test_input_table_and_help_follow_legacy_rule(stp):
     body = client.get(f"/collect/{p.pk}/STA/").content.decode()
     assert "지난주와 같게" in body and "CSV 올리기 (표 전체 교체)" in body and f'href="/periods/{p.pk}/"' in body
     assert "직접 입력 근무표 운영" in client.get("/help/").content.decode()
+
+
+def test_legacy_board_with_slot_defs_looks_like_main(stp):
+    """1단계: 마감을 안 쓰는 근무표는 관제 정의가 켜져 있어도 main 처럼 [확정]·[확정 취소], 생성 방식·재생성·배정 횟수 표 없음
+    (임시 기준으로 고른다. 2단계에서 관제 정의라는 데이터 기준으로 바꾼다)."""
+    b, client = stp
+    BoardShift.objects.create(board=b, key="slot0", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["dawn"], eligible_types=["직원"])
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">확정</button>" in body and "생성 방식" not in body
+    p.status = G
+    p.save()
+    a = person("STA")
+    Commute.objects.create(period=p, date=MON, member=a, shift="dawn")
+    DutyAssignment.objects.create(period=p, date=MON, cell="slot0", member=a)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">확정 취소</button>" in body and "재생성" not in body and "장중관제 배정 횟수" not in body
+
+
+def test_step_names_are_escaped_in_confirm(stp):
+    """확인창(인라인 JS) 안의 단계 이름 글은 escapejs 로 넣는다: 따옴표·역슬래시가 든 이름도 스크립트를 깨지 않는다."""
+    b, client = stp
+    Board.objects.filter(pk=b.pk).update(step_generated="확'정\\됨")
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ("confirm('확\\u0027정\\u005C할까요? 확\\u0027정\\u005C하면 배포할 수 있고, "
+            "표를 고치려면 [확\\u0027정\\u005C 취소]를 누릅니다.')") in body
+    p.status = G
+    p.save()
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert "confirm('확\\u0027정\\u005C을(를) 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.')" in body
+    p.status, p.publish_undo, p.published_at = P, [], timezone.now()
+    p.save()
+    PeriodEvent.objects.create(period=p, from_status=G, to_status=P)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert "confirm('배포를 취소하고 이 회차를 확\\u0027정\\u005C됨으로 되돌릴까요?')" in body
 ```
 
 - [ ] **Step 2: 실패를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_board_steps.py`
-Expected: FAIL — 모음 오류 `ImportError: cannot import name 'gen_help' from 'duty.shifts'`
+Expected: FAIL — 모음 오류 `ImportError: cannot import name 'josa' from 'duty.shifts'`
 
-- [ ] **Step 3: 버튼 이름·조사·생성 방식 문장을 쓴다**
+- [ ] **Step 3: 버튼 이름·조사를 쓴다**
 
 `duty/models.py` 의 `Board.editable()` 바로 뒤(`move_targets` 앞)에:
 ```python
@@ -1141,7 +1180,7 @@ Expected: FAIL — 모음 오류 `ImportError: cannot import name 'gen_help' fro
 
 ```
 
-`duty/shifts.py` 의 `slot_defs` 바로 뒤(`lunch_defs` 앞)에:
+`duty/shifts.py` 의 `lunch_defs` 바로 앞에:
 ```python
 def josa(word: str, pair: str) -> str:
     """word 뒤 조사(pair = "은/는"·"을/를"·"으로/로")를 받침으로 고른다(바꿀 수 있는 이름 뒤 글, 설계 5.4).
@@ -1156,29 +1195,6 @@ def josa(word: str, pair: str) -> str:
     return a if jong else b
 
 
-def gen_help(defs: list[Def]) -> dict | None:
-    """회차 화면 [생성 방식] 상자의 숫자·자격 문장(설계 6.1): 켜진 관제 정의에서 만든다. 관제가 없으면 None.
-    가장 많은 칸이 쓰는 자격 근무조는 '나머지 칸', 다른 칸은 시작 시각으로 적는다."""
-    slots = slot_defs(defs)
-    if not slots:
-        return None
-    order = [x.key for x in shift_defs(defs)]
-    names = {x.key: x.name for x in defs}
-
-    def joined(keys):
-        return "·".join(names[k] for k in order if k in keys)
-
-    sets = [frozenset(x.eligible_shifts) for x in slots]
-    common = max(sets, key=sets.count)  # 같은 수면 먼저 나온 것
-    rest = joined(common) + (" 둘 다" if len(common) == 2 else " 모두" if len(common) > 2 else "만")
-    rule = [f"{x.start:%H:%M} 칸은 {joined(s)}" for x, s in zip(slots, sets) if s != common]
-    rule.append(f"{'나머지 칸' if rule else '모든 칸'}은 {rest} 됩니다.")
-    types = "·".join(dict.fromkeys(t for x in slots for t in x.eligible_types))  # 비면 구분 없이 누구나
-    who = types or "사람"
-    return {"count": len(slots), "start": slots[0].start, "end": max(x.end for x in slots), "types": types,
-            "who": who, "whom": who + josa(who, "을/를"), "rule": ", ".join(rule)}
-
-
 ```
 
 - [ ] **Step 4: 회차 화면 뷰를 고친다**
@@ -1188,23 +1204,9 @@ def gen_help(defs: list[Def]) -> dict | None:
 from ..models import Board, ChangeLog, Department, Period, User
 ```
 ```python
-from ..shifts import cell_label, gen_help, josa, slot_defs
+from ..shifts import cell_label, josa, slot_defs
 ```
-`def _movable(period, direct):` 함수 전체(빈 줄 둘 포함)를 지운다. `_render_detail` 의
-```python
-    slot_names = [x.name for x in slot_defs(boards.active_defs(period.board))]  # generator 의 칸 번호 = 켜진 관제 정의 순서
-    direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력: 입력 중 → 확정 → 배포됨(설계 6.1·7)
-    S = Period.Status
-    return render(request, "duty/period_detail.html", {
-        "period": period, "S": S, "direct": direct, "generated_label": step_label(period.board, S.GENERATED),
-        "steps": DIRECT_STEPS if direct else S.choices,
-        "movable": _movable(period, direct),
-        "events": [(e, e.from_status and step_label(period.board, e.from_status), step_label(period.board, e.to_status))
-                   for e in period.events.select_related("by")],
-        "input_depts": Department.objects.filter(board=period.board).order_by("order", "code") if direct else [],
-        "empty_days": periods.empty_days(period) if direct and period.status == S.COLLECTING else [],
-```
-를
+`def _movable(period, direct):` 함수 전체(빈 줄 둘 포함)를 지운다. `_render_detail` 의 `slot_names = …` 줄부터 `"empty_days": …` 줄까지를 아래로 바꾼다(뒤의 `undo`·`progress`·`missing`·`counts`·`failures` 줄은 그대로):
 ```python
     board = period.board
     active = boards.active_defs(board)
@@ -1212,12 +1214,15 @@ from ..shifts import cell_label, gen_help, josa, slot_defs
     legacy = boards.legacy_admin_entry(board)  # 1단계 임시 기준: 옛 직접 입력의 [표 입력]·빈 평일 경고·확인창(2단계에서 지운다)
     S = Period.Status
     targets = board.move_targets(period.status)
-    buttons = board.step_buttons(bool(slot_names))
+    # 1단계: 버튼 글자·[재생성]은 main 처럼 임시 기준으로(옛 직접 입력 = [확정], 그 밖 = [장중관제 생성]·[재생성]).
+    # 관제 정의가 켜진 옛 직접 입력 근무표도 지금 화면 그대로다. 2단계에서 관제 정의(데이터) 기준으로 바꾼다
+    buttons = board.step_buttons(not legacy)
     gen, undo_label = buttons["generate"], targets and board.step_name(targets[0])
     return render(request, "duty/period_detail.html", {
         "period": period, "board": board, "S": S, "legacy": legacy, "generated_label": board.step_name(S.GENERATED),
         "steps": [(s, board.step_name(s)) for s in board.steps()], "editable": board.editable(),
-        "buttons": buttons, "gen_help": gen_help(active), "generate_topic": gen + josa(gen, "은/는"),
+        "buttons": buttons, "generate_topic": gen + josa(gen, "은/는"),
+        "generated_ro": josa(board.step_name(S.GENERATED), "으로/로"),
         "movable": [(s, board.step_name(s)) for s in targets],
         "undo_to": targets[0] if len(targets) == 1 else "",
         "undo_confirm": (f"{gen}{josa(gen, '을/를')} 취소하고 {undo_label}{josa(undo_label, '으로/로')} 돌아갈까요? "
@@ -1227,7 +1232,7 @@ from ..shifts import cell_label, gen_help, josa, slot_defs
         "input_depts": Department.objects.filter(board=board).order_by("order", "code") if legacy else [],
         "empty_days": periods.empty_days(period) if legacy and period.status == S.COLLECTING else [],
 ```
-로(뒤의 `undo`·`progress`·`missing`·`counts`·`failures` 줄은 그대로). `generate_topic`(예: "확정은")·`undo_confirm`(예: "확정을 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.")은 바꿀 수 있는 이름 뒤 조사를 `josa` 로 고른 글이다(기본 이름이면 지금 글자 그대로). `period_action` 의
+`period_action` 의
 ```python
         done = f"'{step_label(period.board, period.status)}' 상태로 바꿨습니다."
         if action == "generate" and period.board.input_mode == Board.InputMode.DIRECT:
@@ -1241,7 +1246,7 @@ from ..shifts import cell_label, gen_help, josa, slot_defs
 
 - [ ] **Step 5: 회차 화면 템플릿을 고친다**
 
-`duty/templates/duty/period_detail.html` 에서 4번째 줄(`<ol class="lifecycle">…`) 다음 줄 `{% if period.status == S.DRAFT or direct and period.status == S.COLLECTING %}` 부터 `{% if movable %}` 줄까지를 아래로 바꾼다:
+`duty/templates/duty/period_detail.html` 에서 `<ol class="lifecycle">…` 다음 줄 `{% if period.status == S.DRAFT or direct and period.status == S.COLLECTING %}` 부터 `{% if movable %}` 줄까지를 아래로 바꾼다:
 ```django
 {% if period.status in editable %}
 <form method="post" class="search labeled"{% if legacy %} data-start="{{ period.start_date|date:'Y-m-d' }}" data-end="{{ period.end_date|date:'Y-m-d' }}"
@@ -1262,15 +1267,15 @@ from ..shifts import cell_label, gen_help, josa, slot_defs
   <form method="post" action="{% url 'period_action' period.pk 'close' %}">{% csrf_token %}<button>{{ buttons.close }}</button></form>
   {% elif period.status == S.COLLECTING %}
   {% for d in input_depts %}<a role="button"{% if not empty_days or not forloop.first %} class="outline"{% endif %} href="{% url 'collect_table' period.pk d.code %}">표 입력{% if input_depts|length > 1 %} · {{ d.name }}{% endif %}</a>{% endfor %}
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('{{ buttons.generate }}할까요? {{ buttons.generate }}하면 배포할 수 있{% if buttons.undo %}고, 표를 고치려면 [{{ buttons.undo }}]를 누릅니다{% else %}습니다{% endif %}.')">{% csrf_token %}<button{% if empty_days %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('{{ buttons.generate|escapejs }}할까요? {{ buttons.generate|escapejs }}하면 배포할 수 있{% if buttons.undo %}고, 표를 고치려면 [{{ buttons.undo|escapejs }}]를 누릅니다{% else %}습니다{% endif %}.')">{% csrf_token %}<button{% if empty_days %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
   {% elif period.status == S.CLOSED and board.use_close %}
   <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>{{ buttons.generate }}</button></form>
   {% elif period.status == S.GENERATED %}
   <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
   {% if buttons.regenerate %}<form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">{% csrf_token %}<button class="outline secondary" {% if missing and board.use_close %}disabled{% endif %}>{{ buttons.regenerate }}</button></form>{% endif %}
-  {% if buttons.undo %}<form method="post" action="{% url 'period_move' period.pk %}" onsubmit="return confirm('{{ undo_confirm }}')">{% csrf_token %}<input type="hidden" name="to" value="{{ undo_to }}"><button class="outline secondary">{{ buttons.undo }}</button></form>{% endif %}
+  {% if buttons.undo %}<form method="post" action="{% url 'period_move' period.pk %}" onsubmit="return confirm('{{ undo_confirm|escapejs }}')">{% csrf_token %}<input type="hidden" name="to" value="{{ undo_to }}"><button class="outline secondary">{{ buttons.undo }}</button></form>{% endif %}
   {% endif %}
-  {% if gen_help and period.status == board.generate_from or gen_help and period.status == S.GENERATED %}
+  {% if not legacy and period.status == S.CLOSED or not legacy and period.status == S.GENERATED %}
   <button type="button" class="outline secondary" onclick="document.getElementById('gen-help').showModal()">생성 방식</button>
   {% endif %}
 </div>
@@ -1279,22 +1284,11 @@ from ..shifts import cell_label, gen_help, josa, slot_defs
 
 {% if movable and not buttons.undo or movable and period.status != S.GENERATED %}
 ```
-(생성됨에서 [… 취소] 버튼이 보이면 '다른 상태로 옮기기' 상자는 숨긴다. 그 밖 상태의 옮기기는 늘 상자.) 같은 파일 아래쪽에서:
+(생성됨에서 [… 취소] 버튼이 보이면 '다른 상태로 옮기기' 상자는 숨긴다. [생성 방식] 버튼 조건은 main 과 같은 꼴로 `direct` → `legacy`.) 같은 파일 아래쪽에서:
+- 배포 취소 폼의 `confirm('배포를 취소하고 이 회차를 {{ generated_label }}으로 되돌릴까요?')` → `confirm('배포를 취소하고 이 회차를 {{ generated_label|escapejs }}{{ generated_ro }} 되돌릴까요?')`, 그 아래 `<small>` 의 `이 회차는 {{ generated_label }}으로 돌아갑니다` → `이 회차는 {{ generated_label }}{{ generated_ro }} 돌아갑니다`
 - `{% if not direct %}` + `<h4>부서별 입력 현황</h4>` 의 `{% if not direct %}` → `{% if not legacy %}`
-- `{% if counts and not direct %}` → `{% if counts %}`
-- `<dialog id="gen-help">` 바로 위 `{% if not direct %}` → `{% if gen_help %}`
-- 상자 안 세 곳:
-```django
-  <p>취합된 출근조를 보고 날짜마다 장중관제 {{ gen_help.count }}칸({{ gen_help.start|time:"H:i" }}~{{ gen_help.end|time:"H:i" }})에 {{ gen_help.whom }} 한 명씩 배정합니다.</p>
-```
-```django
-    <li><strong>자격</strong> — {% if gen_help.types %}{{ gen_help.types }}이고 {% endif %}그날 그 칸의 출근조에 있어야 합니다.
-      {{ gen_help.rule }}</li>
-```
-```django
-  <p><small>횟수는 기간 중 한 번이라도 자격이 있었던 {{ gen_help.who }}끼리만 비교합니다.
-```
-(각각 지금의 "장중관제 10칸(08:30~18:00)에 개발자를 한 명씩", "개발자이고 … 08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다.", "개발자끼리만" 줄을 바꾼다.)
+- `{% if counts and not direct %}` → `{% if counts and not legacy %}`
+- `<dialog id="gen-help">` 바로 위 `{% if not direct %}` → `{% if not legacy %}`(상자 글은 main 그대로: "장중관제 10칸(08:30~18:00)에 개발자를…" — 관제 정의에서 만드는 글은 2단계)
 
 - [ ] **Step 6: 입력 표·입력 목록·도움말 기준을 고친다**
 
@@ -1325,7 +1319,7 @@ from ..shifts import cell_label, gen_help, josa, slot_defs
 - [ ] **Step 7: 통과와 화면 불변을 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_board_steps.py tests/test_snapshots.py tests/test_views_direct.py tests/test_views_manage.py tests/test_help.py tests/test_fill.py tests/test_views_collect.py`
-Expected: 모두 통과. `tests/test_snapshots.py` 가 고치지 않은 기준 그대로 통과한다(IT [생성 방식] 문장·버튼, 운영팀 [확정]·[확정 취소] 확인창, 입력 표 글자 그대로). `git status --short tests/snapshots/` → 아무것도 안 나온다.
+Expected: 모두 통과. `tests/test_snapshots.py` 가 고치지 않은 기준 그대로 통과한다(IT [생성 방식] 글·버튼, 운영팀 [확정]·[확정 취소] 확인창, 관제 이력이 남은 운영팀 회차, 입력 표 글자 그대로). `git status --short tests/snapshots/` → 아무것도 안 나온다.
 
 - [ ] **Step 8: 전체 테스트**
 
@@ -1344,7 +1338,7 @@ Expected: `1290 passed`, "No changes detected in app 'duty'"
 ```bash
 git add duty/models.py duty/shifts.py duty/views/manage.py duty/views/collect.py duty/help.py duty/templates/duty/period_detail.html duty/templates/duty/collect_table.html tests/test_board_steps.py
 git commit -m "$(cat <<'EOF'
-feat: 회차 화면 버튼을 단계 이름에서 만들고(한 묶음) 생성 방식 문장을 관제 정의에서, 입력 표·도움말 갈래를 임시 기준으로
+feat: 회차 화면 버튼을 단계 이름에서 만들고(한 묶음, 조사·escapejs), 1단계 화면 갈래는 임시 기준으로 main 그대로
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va
@@ -1827,8 +1821,8 @@ EOF
    ```
    바꿀 글:
    ```text
-   - **회차 단계는 근무표 설정이다**(`Board.use_draft`·`use_close`·`step_*`). DB 상태 다섯 개는 그대로이고 작성 중·마감은 끌 수 있으며, 화면 이름(`Period.status_label`, 상태 기록, 단계 띠)은 근무표의 단계 이름이다(끈 단계도 이름이 있어 남은 회차·기록이 이름으로 보인다). IT = 둘 다 켬(작성 중·취합 중·마감·생성됨·배포됨), 시장운영실 = 둘 다 끔(입력 중·확정·배포됨. 마이그레이션 0023 이 옛 `input_mode=direct` 근무표에 넣은 값). 규칙은 쿼리 없는 `Board` 메서드다: 새 회차는 `first_step()`(작성 중을 쓰면 작성 중, 아니면 취합 중, `periods.save_draft`), 기간은 `editable()`(작성 중, 그리고 작성 중을 안 쓰면 취합 중에서도), 생성은 `generate_from()`(마감을 쓰면 마감, 아니면 취합 중) 또는 생성됨에서, "다른 상태로 옮기기"는 `move_targets()`(켠 배포 전 단계끼리, 끈 단계에 남은 회차도 켠 단계로. `periods.move` 는 배포됨 → 같은 상태 → `move_targets` 순으로 검사한다). 회차 화면 버튼 글자는 단계 이름에서 나온다(`step_buttons`: "취합 중" → [취합 열기]·[취합 마감], 켜진 장중관제 정의가 있으면 [장중관제 생성]·[재생성], 없으면 생성됨 이름 끝의 "됨"을 뗀 말("됨"으로 끝나지 않으면 이름 그대로, 예: [확정]), 취합 중 이름이 " 중"으로 끝나지 않으면 열기·마감은 "'<이름>'(으)로" 꼴, 생성됨에서 옮길 곳이 하나뿐이면 상자 대신 [확정 취소] 같은 버튼). 바꿀 수 있는 이름 뒤 조사는 `shifts.josa` 로 고른다. 마감을 안 쓰는 근무표는 취합 중 회차 화면에 부서마다 [표 입력] 버튼과 생성 버튼이 나란히 있다. [생성 방식] 상자는 켜진 장중관제 정의가 있을 때만 보이고 숫자·자격 문장은 관제 정의에서 만든다(`shifts.gen_help`).
-     - **1단계 임시 기준** `boards.legacy_admin_entry(board)`(= 마감을 안 쓰는 근무표): 옛 직접 입력 근무표의 문구·확인창(기간 줄이기·[확정]·[확정 취소])·채우기 버튼·빈 평일 경고(막지 않음, 빈 평일이 있으면 첫 [표 입력]이 진한 버튼)·입력 현황 숨김·글 도움말, 입력 그룹 자동 생성과 부서 폼의 입력 담당자 금지를 지금처럼 고른다. 마감을 쓰는 근무표는 빈 평일이 있으면 생성을 막는다. 2단계에서 화면·서비스 자리를, 3단계에서 입력 그룹 자리와 함수를 지운다.
+   - **회차 단계는 근무표 설정이다**(`Board.use_draft`·`use_close`·`step_*`). DB 상태 다섯 개는 그대로이고 작성 중·마감은 끌 수 있으며, 화면 이름(`Period.status_label`, 상태 기록, 단계 띠)은 근무표의 단계 이름이다(끈 단계도 이름이 있어 남은 회차·기록이 이름으로 보인다). IT = 둘 다 켬(작성 중·취합 중·마감·생성됨·배포됨), 시장운영실 = 둘 다 끔(입력 중·확정·배포됨. 마이그레이션 0023 이 옛 `input_mode=direct` 근무표에 넣은 값). 규칙은 쿼리 없는 `Board` 메서드다: 새 회차는 `first_step()`(작성 중을 쓰면 작성 중, 아니면 취합 중, `periods.save_draft`), 기간은 `editable()`(작성 중, 그리고 작성 중을 안 쓰면 취합 중에서도), 생성은 `generate_from()`(마감을 쓰면 마감, 아니면 취합 중) 또는 생성됨에서, "다른 상태로 옮기기"는 `move_targets()`(켠 배포 전 단계끼리, 끈 단계에 남은 회차도 켠 단계로. `periods.move` 는 배포됨 → 같은 상태 → `move_targets` 순으로 검사한다). 회차 화면 버튼 글자는 단계 이름에서 나온다(`step_buttons`: "취합 중" → [취합 열기]·[취합 마감], 장중관제가 있으면 [장중관제 생성]·[재생성], 없으면 생성됨 이름 끝의 "됨"을 뗀 말("됨"으로 끝나지 않으면 이름 그대로, 예: [확정]), 취합 중 이름이 " 중"으로 끝나지 않으면 열기·마감은 "'<이름>'(으)로" 꼴, 생성됨에서 옮길 곳이 하나뿐이면 상자 대신 [확정 취소] 같은 버튼). 바꿀 수 있는 이름 뒤 조사는 `shifts.josa` 로 고르고, 확인창(인라인 JS) 안의 이름 글은 `escapejs` 로 넣는다. 마감을 안 쓰는 근무표는 취합 중 회차 화면에 부서마다 [표 입력] 버튼과 생성 버튼이 나란히 있다. 1단계에서 "장중관제가 있다"는 임시 기준으로 정한다: 마감을 쓰는 근무표는 [장중관제 생성]·[재생성]·[생성 방식](지금 글 그대로)·배정 횟수 표, 마감을 안 쓰는 근무표는 관제 정의·배정이 남아 있어도 [확정]·[확정 취소]만(main 과 같은 화면).
+     - **1단계 임시 기준** `boards.legacy_admin_entry(board)`(= 마감을 안 쓰는 근무표): 옛 직접 입력 근무표의 문구·확인창(기간 줄이기·[확정]·[확정 취소])·채우기 버튼·빈 평일 경고(막지 않음, 빈 평일이 있으면 첫 [표 입력]이 진한 버튼)·입력 현황 숨김·글 도움말, 입력 그룹 자동 생성과 부서 폼의 입력 담당자 금지를 지금처럼 고른다. 마감을 쓰는 근무표는 빈 평일이 있으면 생성을 막는다. 버튼 글자·[생성 방식]·[재생성]·배정 횟수 표도 이 기준으로 고른다. 2단계에서 화면·서비스 자리를(그때부터 켜진 장중관제 정의라는 데이터 기준), 3단계에서 입력 그룹 자리와 함수를 지운다.
    ```
 
 5. `docs/ARCHITECTURE.md`
@@ -1989,8 +1983,8 @@ EOF
        `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, b.input_mode, p.status, COUNT(p.id) FROM duty_board b LEFT JOIN duty_period p ON p.board_id = b.id GROUP BY 1, 2, 3;"`
      - 업그레이드 뒤 대조(읽기 전용): 근무표·상태·회차 수가 위와 같고, `direct` 였던 근무표는 `0|0|입력 중|확정`, `collect` 였던 근무표는 `1|1|취합 중|생성됨` 이어야 한다.
        `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, b.use_draft, b.use_close, b.step_collecting, b.step_generated, p.status, COUNT(p.id) FROM duty_board b LEFT JOIN duty_period p ON p.board_id = b.id GROUP BY 1, 2, 3, 4, 5, 6;"`
-     - 업그레이드 전 확인 ②(읽기 전용): 장중관제 정의를 켜 둔 직접 입력 근무표. 아무것도 안 나와야 "보이는 변화 없음"이 맞다. 나오면 그 근무표는 업그레이드 뒤 [확정] 대신 [장중관제 생성]·[생성 방식]·배정 횟수 표가 보이니, 업그레이드 전에 관리 화면 근무표에서 그 관제 줄의 "사용"을 끄거나(그 근무표가 관제를 쓰지 않는다면) 그 근무표 관리자에게 미리 알린다.
-       `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, COUNT(s.id) FROM duty_board b JOIN duty_boardshift s ON s.board_id = b.id WHERE b.input_mode = 'direct' AND s.active = 1 AND s.key LIKE 'slot%' GROUP BY 1;"`
+     - 업그레이드 전 확인 ②(읽기 전용, 참고용): 장중관제 정의를 켜 두었거나 관제 배정이 남은 직접 입력 근무표. 1단계에서는 이런 근무표도 지금 화면 그대로다([확정]·[확정 취소]만). 2단계(데이터 기준)부터 그 근무표에 [장중관제 생성]·[재생성]·[생성 방식]·배정 횟수 표가 보이니, 결과를 적어 두고 2단계 전에 그 관제 줄의 "사용"을 끄거나(관제를 쓰지 않는다면) 그 근무표 관리자에게 알린다. 근무표마다 `코드|켜진 관제 정의 수|관제 배정 행 수`, 모두 0 이면 해당 없음.
+       `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, (SELECT COUNT(*) FROM duty_boardshift s WHERE s.board_id = b.id AND s.active = 1 AND s.key LIKE 'slot%'), (SELECT COUNT(*) FROM duty_dutyassignment a JOIN duty_period p ON p.id = a.period_id WHERE p.board_id = b.id AND a.cell LIKE 'slot%') FROM duty_board b WHERE b.input_mode = 'direct';"`
      - 되돌리기는 기본이 위 "롤백"(코드 되돌리기 + 업그레이드 전 백업 `restore`)이다. `migrate` 거꾸로를 쓰려면 **코드를 되돌리기 전에**(새 코드 그대로) `sudo -u duty .venv/bin/python manage.py migrate duty 0022` 를 먼저 하고, 그다음 롤백 순서대로 `git checkout <적어 둔 버전>` 을 한다(이때 `restore` 는 하지 않는다). 옛 코드에는 0023 파일이 없어 코드를 먼저 되돌리면 거꾸로 돌지 않는다. 0023 은 입력 방식으로 나타낼 수 없는 근무표(단계 하나만 끔, 이름을 고침)가 있으면 그 코드를 알려 주며 거꾸로 돌기를 거부한다. 헷갈리면 `restore` 만 쓴다.
    - nginx 를 켜 둔 서버는 이 묶음을 마친 뒤
    ```
@@ -1998,7 +1992,7 @@ EOF
 19. `docs/PRINCIPLES.md` "결정 기록" 표 맨 끝에 한 줄:
 
    ```text
-   | 2026-11-17 | 근무표의 입력 방식 갈래(`input_mode` collect/direct)를 지우고 회차 단계를 근무표 설정 데이터로 둔다(작성 중·마감 단계 사용, 다섯 단계 화면 이름, 규칙은 쿼리 없는 `Board` 메서드, 버튼 이름은 단계 이름에서). 1단계는 임시 기준 하나(`legacy_admin_entry` = 마감을 안 쓰는 근무표)로 보이는 동작을 그대로 두고 main 기준 화면 스냅샷(`tests/snapshots/`)으로 지킨다. 관리 화면의 단계 칸은 1·2단계에서 만들 때만 고친다(입력 그룹 기준이 3단계까지 남아서, 3단계에서 연다). 버튼 글자는 단계 이름에서 만들고 비거나 겹치는 이름은 막는다. "직접 입력 근무표는 부서 하나" 규칙은 없앤다 | 사용자 지적: 부서마다 따로 구현된 느낌이라 다른 부서가 늘면 갈래가 늘어 유지보수가 어렵다. 업그레이드한 날은 아무것도 달라 보이지 않아야 한다(변화를 싫어하는 사용자). 공통 규칙(2단계)과 늦은 입력 그룹(3단계)은 따로 켠다 |
+   | 2026-11-17 | 근무표의 입력 방식 갈래(`input_mode` collect/direct)를 지우고 회차 단계를 근무표 설정 데이터로 둔다(작성 중·마감 단계 사용, 다섯 단계 화면 이름, 규칙은 쿼리 없는 `Board` 메서드, 버튼 이름은 단계 이름에서). 1단계는 임시 기준 하나(`legacy_admin_entry` = 마감을 안 쓰는 근무표)로 보이는 동작을 그대로 두고 main 기준 화면 스냅샷(`tests/snapshots/`)으로 지킨다. 관리 화면의 단계 칸은 1·2단계에서 만들 때만 고친다(입력 그룹 기준이 3단계까지 남아서, 3단계에서 연다). 버튼 글자는 단계 이름에서 만들고 비거나 겹치는 이름은 막는다. 1단계의 버튼 글자·[생성 방식]·[재생성]·배정 횟수 표는 임시 기준으로 고른다(관제 이력이 남은 직접 입력 근무표도 main 과 같은 화면). "직접 입력 근무표는 부서 하나" 규칙은 없앤다 | 사용자 지적: 부서마다 따로 구현된 느낌이라 다른 부서가 늘면 갈래가 늘어 유지보수가 어렵다. 업그레이드한 날은 아무것도 달라 보이지 않아야 한다(변화를 싫어하는 사용자). 공통 규칙(2단계)과 늦은 입력 그룹(3단계)은 따로 켠다 |
    ```
 
 - [ ] **Step 2: 바뀐 곳을 확인한다**
@@ -2015,12 +2009,12 @@ Expected: `1303 passed`(문서만 바꿨다)
 W=$(mktemp -d); export DUTY_ENV_FILE= DUTY_DEBUG=1 DUTY_DATA_DIR=$W/data
 .venv/bin/python manage.py migrate -v0 duty 0022
 sqlite3 -readonly $W/data/db.sqlite3 "SELECT b.code, b.input_mode, p.status, COUNT(p.id) FROM duty_board b LEFT JOIN duty_period p ON p.board_id = b.id GROUP BY 1, 2, 3;"
-sqlite3 -readonly $W/data/db.sqlite3 "SELECT b.code, COUNT(s.id) FROM duty_board b JOIN duty_boardshift s ON s.board_id = b.id WHERE b.input_mode = 'direct' AND s.active = 1 AND s.key LIKE 'slot%' GROUP BY 1;"
+sqlite3 -readonly $W/data/db.sqlite3 "SELECT b.code, (SELECT COUNT(*) FROM duty_boardshift s WHERE s.board_id = b.id AND s.active = 1 AND s.key LIKE 'slot%'), (SELECT COUNT(*) FROM duty_dutyassignment a JOIN duty_period p ON p.id = a.period_id WHERE p.board_id = b.id AND a.cell LIKE 'slot%') FROM duty_board b WHERE b.input_mode = 'direct';"
 .venv/bin/python manage.py migrate -v0
 sqlite3 -readonly $W/data/db.sqlite3 "SELECT b.code, b.use_draft, b.use_close, b.step_collecting, b.step_generated, p.status, COUNT(p.id) FROM duty_board b LEFT JOIN duty_period p ON p.board_id = b.id GROUP BY 1, 2, 3, 4, 5, 6;"
 rm -rf $W; unset DUTY_ENV_FILE DUTY_DEBUG DUTY_DATA_DIR
 ```
-Expected: `it|collect||0`, (확인 ② 는 아무것도 안 나옴), `it|1|1|취합 중|생성됨||0`
+Expected: `it|collect||0`, (확인 ② 는 직접 입력 근무표가 없어 아무것도 안 나옴), `it|1|1|취합 중|생성됨||0`
 
 - [ ] **Step 4: 커밋**
 
@@ -2134,7 +2128,7 @@ def test_fill_works_on_it_board(it_board):
     ((False, True), G, D, "'취합 중·마감'(으)로만 옮길 수 있습니다."),  # 끈 단계로: 켠 단계 이름만
 ```
 로(나머지 두 줄 그대로).
-- import 줄 `from duty.shifts import Def, gen_help, josa` 를 `from duty.shifts import Def, day_spans, gen_help, josa` 로.
+- import 줄 `from duty.shifts import josa` 를 `from duty.shifts import day_spans, josa` 로.
 - `test_slots_skip_only_days_without_any_rows` 의 docstring 을 `"""관제는 출근 행이 하나도 없는 날만 뺀다. 한 부서만 빈 날(목·금)은 다른 부서 사람으로 채운다(경고는 부서별)."""` 로, 경고 단언을
 ```python
     assert out.warnings[0] == "출근표가 비어 있는 날이 있습니다: 단계STB 2일(11/19~11/20). 그날 그 부서는 근무자가 없습니다."
@@ -2275,31 +2269,54 @@ EOF
 
 ---
 
-### Task 8: 화면 공통 규칙(⚠ 줄·빈 날 확인창·입력 현황·나가는 확인창·끈 단계 안내·입력 표 글)
+### Task 8: 화면 공통 규칙(데이터 기준 장중관제·⚠ 줄·빈 날 확인창·입력 현황·나가는 확인창·끈 단계 안내·입력 표 글)
 
-> 범위: 회차 화면·입력 표. 설계 6.1 "단계" 열 2 의 화면 자리(`views/collect.py:66-72`, `views/manage.py:84-93`·`137-139`, `period_detail.html:5-7`·`18-35`·`40-41`·`63-67`, `collect_table.html:4,5,9`)와 5.4 `leave_generated_confirm`(그 회차에 실제로 있는 배정으로). 스냅샷을 다시 쓰고 바뀐 줄을 리뷰한다. 도움말은 Task 9. 관리 화면 단계 칸은 그대로 읽기 전용(3단계).
+> 범위: 회차 화면·입력 표. 설계 6.1 "단계" 열 2 의 화면 자리(`views/collect.py:66-72`, `views/manage.py:84-93`·`137-139`, `period_detail.html:5-7`·`18-35`·`36-38,113-131`·`40-41`·`63-67`·`76`, `collect_table.html:4,5,9`)와 5.4 `leave_generated_confirm`(그 회차에 실제로 있는 배정으로). 1단계의 임시 기준 갈래(버튼 글자·[재생성]·[생성 방식]·배정 횟수 표)를 **켜진 장중관제 정의라는 데이터 기준**으로 바꾸고, 생성 방식 글을 관제 정의에서 만든다(`shifts.gen_help`, IT 글은 그대로). 확인창 글은 모두 `escapejs`. 스냅샷을 다시 쓰고 바뀐 줄을 리뷰한다. 도움말은 Task 9. 관리 화면 단계 칸은 그대로 읽기 전용(3단계).
 
 **Files:**
+- Modify: `duty/shifts.py` — `josa` 뒤에 `gen_help`
 - Modify: `duty/views/manage.py` — import, `_empty_confirm`·`_leave_what`, `_render_detail` 전체, `period_action` 성공 문구
-- Modify: `duty/templates/duty/period_detail.html` — 기간 폼 확인창, 생성 버튼 세 곳, ⚠ 줄·끈 단계 안내, 옮기기 상자(펼침·확인창·설명), 입력 현황, 스타일 두 줄
+- Modify: `duty/templates/duty/period_detail.html` — 기간 폼 확인창, 생성 버튼 세 곳, [생성 방식] 버튼 조건, ⚠ 줄·끈 단계 안내, 옮기기 상자(펼침·확인창·설명), 입력 현황, 배정 횟수 표 조건, 생성 방식 상자(조건·글), 스타일 두 줄
 - Modify: `duty/views/collect.py` — `_render_table` 컨텍스트
 - Modify: `duty/templates/duty/collect_table.html` — 4·5·9번째 줄
 - Modify: `duty/services/periods.py` — 쓰지 않게 된 `empty_days` 지우기
 - Modify(테스트): `tests/test_board_steps.py`, `tests/test_fill.py`, `tests/test_views_direct.py`
-- Modify(생성 파일): `tests/snapshots/*.html`(다시 쓴다, 16개가 바뀐다)
+- Modify(생성 파일): `tests/snapshots/*.html`(다시 쓴다, 17개가 바뀐다)
 
 **Interfaces:**
-- Consumes: Task 7 서비스와 `shifts.day_spans`, `periods.missing_dates`, `Board.step_buttons`·`steps`·`generate_from`, `shifts.is_slot_cell`·`LUNCH`·`by_key`
+- Consumes: Task 7 서비스와 `shifts.day_spans`·`josa`, `periods.missing_dates`, `Board.step_buttons`·`steps`·`generate_from`, `shifts.is_slot_cell`·`LUNCH`·`by_key`·`slot_defs`·`shift_defs`
 - Produces:
+  - `shifts.gen_help(defs: list[Def]) -> dict | None`: 키 `count`·`start`·`end`(time)·`types`(자격 구분 "·"로 이음, 없으면 "")·`who`(`types` 또는 "사람")·`whom`(`who` + 을/를)·`rule`(자격 문장: 가장 많은 칸의 자격 근무조는 "나머지 칸", 다른 칸은 시작 시각으로). 관제 정의가 없으면 `None`. IT 정의에서 지금 글 그대로("10칸(08:30~18:00)에 개발자를", "08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다.")
+  - 화면 갈래(2단계): `buttons = board.step_buttons(bool(켜진 관제 정의))`, `gen_help = gen_help(켜진 정의)`, 배정 횟수 표는 `counts` 가 있으면(관제 배정이 남은 회차도)
   - `views.manage._empty_confirm(missing, has_slots) -> str`: "출근표가 비어 있는 부서가 있는 날이 {N}일 있습니다. 그날 그 부서는 근무자가 없고, 아무 부서도 넣지 않은 날은 장중관제도 만들지 않습니다. 계속할까요?"(관제가 없으면 "…근무자가 없습니다. 계속할까요?"), N = 어느 부서든 빈 평일 수. 템플릿 변수 `empty_confirm`(빈 날이 없으면 "" → 생성 버튼에 확인창 없음)
   - `views.manage._leave_what(period, active) -> str`: 생성됨 회차는 그 회차의 `DutyAssignment`(관제 칸·점심당번 유무), 그 밖은 켜진 정의로 "장중관제·점심당번"·"장중관제"·"점심당번"·"". 템플릿 변수 `leave_what`·`leave_generated_confirm`("생성 결과(<leave_what> 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?", 비면 "출근표는 그대로 남습니다. 계속할까요?")
-  - `period_detail.html` 컨텍스트: `legacy`·`empty_days`·`generate_topic`·`undo_confirm` 이 없어지고 `empty=[(부서 이름, 날 수, day_spans)…]`(켠 단계의 취합 중·마감, 부서 코드 순), `can_generate_now`(지금 상태가 `generate_from()`), `unused_step`, `progress=[(code, 부서 이름, n, m)…]`, `input_depts` 는 늘 채운다
+  - `period_detail.html` 컨텍스트: `legacy`·`empty_days`·`generate_topic`·`undo_confirm` 이 없어지고 `gen_help`, `empty=[(부서 이름, 날 수, day_spans)…]`(켠 단계의 취합 중·마감, 부서 코드 순), `can_generate_now`(지금 상태가 `generate_from()`), `unused_step`, `progress=[(code, 부서 이름, n, m)…]`, `input_depts` 는 늘 채운다. `generated_ro` 는 그대로
   - `collect_table.html` 컨텍스트: `legacy` 대신 `back_link`(그 근무표 관리자)·`collecting`(취합 중 이름), `show_fill = is_open`
   - 생성 성공 문구 "'<생성됨 이름>' 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다."(모든 근무표)
 
 - [ ] **Step 1: 테스트를 새 화면으로 고친다(실패 테스트)**
 
 `tests/test_board_steps.py`:
+- import 끝 두 줄(`from duty.shifts import day_spans, josa`, `from tests.it_defs import OPS_STEPS`)을
+```python
+from duty.shifts import Def, day_spans, gen_help, josa
+from tests.it_defs import IT_DEFS, OPS_STEPS
+```
+로.
+- `test_josa` 바로 앞에 생성 방식 문장 단위 테스트 둘(IT 글은 지금 상자 글과 같아야 한다):
+```python
+def test_gen_help_for_it_defs_matches_old_text():
+    assert gen_help(IT_DEFS) == {
+        "count": 10, "start": time(8, 30), "end": time(18), "types": "개발자", "who": "개발자", "whom": "개발자를",
+        "rule": "08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다."}
+    assert gen_help([d for d in IT_DEFS if not d.key.startswith("slot")]) is None
+
+
+def test_gen_help_for_other_slots():
+    defs = [Def("dawn", "이른", time(7), time(16)), Def("slot3", "점검", time(10), time(11), ("dawn",), ("직원",))]
+    assert gen_help(defs) == {"count": 1, "start": time(10), "end": time(11), "types": "직원", "who": "직원", "whom": "직원을",
+                              "rule": "모든 칸은 이른만 됩니다."}
+```
 - `test_period_page_follows_steps` 를 아래로 바꾼다(빈 날 확인창·⚠ 줄·입력 현황·나가는 확인창):
 ```python
 def test_period_page_follows_steps(stp):
@@ -2321,7 +2338,15 @@ def test_period_page_follows_steps(stp):
     assert ">확정 취소</button>" in body and "다른 상태로 옮기기" not in body and "재생성" not in body
     assert "confirm('출근표는 그대로 남습니다. 계속할까요?')" in body  # 이 회차에는 지울 배정이 없다(설계 5.4)
 ```
-- `test_input_table_and_help_follow_legacy_rule` 를 아래 넷으로 바꾼다(도움말 확인은 Task 9 로):
+- `test_period_page_with_draft_off_and_close_on` 의 끝 세 줄(`p.status = X` … `assert ">장중관제 생성</button>" in client.get(…)`)을 아래로(2단계: 생성 방식 글이 이 근무표의 관제 정의에서 나온다):
+```python
+    p.status = X
+    p.save()
+    body = client.get(f"/periods/{p.pk}/").content.decode()  # 2단계: 생성 방식 문장은 이 근무표의 관제 정의에서
+    assert ">장중관제 생성</button>" in body and "장중관제 1칸(10:00~11:00)에 직원을 한 명씩" in body
+    assert "직원이고 그날 그 칸의 출근조에 있어야 합니다." in body and "모든 칸은 이른만 됩니다." in body
+```
+- `test_input_table_and_help_follow_legacy_rule` 를 아래 다섯으로 바꾼다(도움말 확인은 Task 9 로):
 ```python
 def test_no_generate_confirm_without_empty_days(stp):
     b, client = stp
@@ -2360,6 +2385,25 @@ def test_leave_confirm_names_actual_assignments(it_board, admin_user, client):
     assert "생성됨에서 나가면 장중관제 생성 결과만 지웁니다." in body
 
 
+@pytest.mark.parametrize("cells,text", [
+    ([], "출근표는 그대로 남습니다. 계속할까요?"),
+    (["slot0"], "생성 결과(장중관제 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?"),
+    (["lunch"], "생성 결과(점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?"),
+    (["slot0", "lunch"], "생성 결과(장중관제·점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?"),
+])
+def test_leave_confirm_text_by_assignments(it_board, admin_user, client, cells, text):
+    """생성됨에서 나가는 확인창 글은 그 회차의 배정(없음·관제만·점심당번만·둘 다)으로 정해진다(설계 5.4)."""
+    b = board_with(True, True)
+    b.admin_group.user_set.add(admin_user)
+    client.force_login(admin_user)
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=G)
+    a = person("STA")
+    for cell in cells:
+        DutyAssignment.objects.create(period=p, date=MON, cell=cell, member=a)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert body.count(f"confirm('{text}')") == 1  # 옮길 곳이 셋이라 '다른 상태로 옮기기' 상자 하나
+
+
 def test_input_table_same_for_every_board(stp, depts, make_member, client):
     """입력 표: 채우기·CSV 글·닫힘 글은 모든 근무표가 같고, 회차 화면 링크는 그 근무표 관리자에게만(근무표 통합 2단계)."""
     b, admin = stp
@@ -2378,6 +2422,38 @@ def test_input_table_same_for_every_board(stp, depts, make_member, client):
     assert f'href="/periods/{it.pk}/"' not in body  # 입력 담당자는 회차 화면에 못 들어간다
 ```
 (`stp` 픽스처와 `test_input_table_same_for_every_board` 의 `client` 는 같은 객체다: `admin` 으로 본 뒤 `clerk` 로 다시 로그인한다.)
+- `test_legacy_board_with_slot_defs_looks_like_main` 을 데이터 기준 테스트로 바꾼다:
+```python
+def test_board_without_close_follows_slot_defs(stp):
+    """2단계: 버튼 글자·생성 방식·재생성·배정 횟수 표는 켜진 관제 정의(데이터)로 정한다. 마감을 안 쓰는 근무표도 관제가 있으면
+    [장중관제 생성]·[재생성]·생성 방식·횟수 표가 보인다."""
+    b, client = stp
+    BoardShift.objects.create(board=b, key="slot0", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["dawn"], eligible_types=["직원"])
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=C)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">장중관제 생성</button>" in body and "생성 방식" in body
+    p.status = G
+    p.save()
+    a = person("STA")
+    Commute.objects.create(period=p, date=MON, member=a, shift="dawn")
+    DutyAssignment.objects.create(period=p, date=MON, cell="slot0", member=a)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert ">장중관제 생성 취소</button>" in body and ">재생성</button>" in body and "장중관제 배정 횟수" in body
+```
+- `test_step_names_are_escaped_in_confirm` 을 아래로 바꾼다(2단계의 생성·나가는 확인창에는 이름이 들어가지 않는다. 이름이 남는 배포 취소 확인창을 본다):
+```python
+def test_step_names_are_escaped_in_confirm(stp):
+    """확인창(인라인 JS) 안의 단계 이름 글은 escapejs 로 넣는다: 따옴표·역슬래시가 든 이름도 스크립트를 깨지 않는다.
+    2단계의 생성·나가는 확인창에는 이름이 들어가지 않고, 배포 취소 확인창에 남는다."""
+    b, client = stp
+    Board.objects.filter(pk=b.pk).update(step_generated="확'정\\됨")
+    p = Period.objects.create(board=b, name="p", start_date=MON, end_date=FRI, status=P, publish_undo=[],
+                              published_at=timezone.now())
+    PeriodEvent.objects.create(period=p, from_status=G, to_status=P)
+    body = client.get(f"/periods/{p.pk}/").content.decode()
+    assert "confirm('배포를 취소하고 이 회차를 확\\u0027정\\u005C됨으로 되돌릴까요?')" in body
+```
 - 파일 맨 끝에(IT: 취합 중에는 빈 날만 알리고 생성할 수 있다고 말하지 않는다 — 컨트롤러 결정):
 ```python
 
@@ -2456,18 +2532,45 @@ def test_fill_buttons_on_every_board_only_while_open(client, admin_user, it_boar
 - [ ] **Step 2: 실패를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_board_steps.py tests/test_fill.py tests/test_views_direct.py`
-Expected: `12 failed`(`test_board_steps.py` 6개: `test_period_page_follows_steps`·`test_no_generate_confirm_without_empty_days`·`test_unused_step_notice`·`test_leave_confirm_names_actual_assignments`·`test_input_table_same_for_every_board`·`test_it_empty_days_warn_and_generate_from_closed_only`, `test_fill.py` 2개, `test_views_direct.py` 4개)
+Expected: FAIL — `test_board_steps.py` 는 모음 오류 `ImportError: cannot import name 'gen_help' from 'duty.shifts'`, `test_fill.py` 2개·`test_views_direct.py` 4개 실패
 
-- [ ] **Step 3: 회차 화면 뷰를 고친다**
+- [ ] **Step 3: 생성 방식 문장과 회차 화면 뷰**
+
+`duty/shifts.py` 의 `josa` 바로 뒤에:
+```python
+def gen_help(defs: list[Def]) -> dict | None:
+    """회차 화면 [생성 방식] 상자의 숫자·자격 문장(설계 6.1): 켜진 관제 정의에서 만든다. 관제가 없으면 None.
+    가장 많은 칸이 쓰는 자격 근무조는 '나머지 칸', 다른 칸은 시작 시각으로 적는다."""
+    slots = slot_defs(defs)
+    if not slots:
+        return None
+    order = [x.key for x in shift_defs(defs)]
+    names = {x.key: x.name for x in defs}
+
+    def joined(keys):
+        return "·".join(names[k] for k in order if k in keys)
+
+    sets = [frozenset(x.eligible_shifts) for x in slots]
+    common = max(sets, key=sets.count)  # 같은 수면 먼저 나온 것
+    rest = joined(common) + (" 둘 다" if len(common) == 2 else " 모두" if len(common) > 2 else "만")
+    rule = [f"{x.start:%H:%M} 칸은 {joined(s)}" for x, s in zip(slots, sets) if s != common]
+    rule.append(f"{'나머지 칸' if rule else '모든 칸'}은 {rest} 됩니다.")
+    types = "·".join(dict.fromkeys(t for x in slots for t in x.eligible_types))  # 비면 구분 없이 누구나
+    who = types or "사람"
+    return {"count": len(slots), "start": slots[0].start, "end": max(x.end for x in slots), "types": types,
+            "who": who, "whom": who + josa(who, "을/를"), "rule": ", ".join(rule)}
+
+
+```
 
 `duty/views/manage.py` — import 두 줄:
 ```python
 from ..models import Board, ChangeLog, Department, DutyAssignment, Period, User
 ```
 ```python
-from ..shifts import LUNCH, by_key, cell_label, day_spans, gen_help, is_slot_cell, slot_defs
+from ..shifts import LUNCH, by_key, cell_label, day_spans, gen_help, is_slot_cell, josa, slot_defs
 ```
-(`josa` 는 이 파일에서 더 쓰지 않는다.) `def _render_detail(` 부터 다음 `@admin_required` 앞까지를 아래로 바꾼다(앞에 두 도우미):
+`def _render_detail(` 부터 다음 `@admin_required` 앞까지를 아래로 바꾼다(앞에 두 도우미):
 ```python
 def _empty_confirm(missing, has_slots) -> str:
     """빈 평일이 있을 때만 띄우는 생성 확인창(설계 6.1). 날 수 = 어느 부서든 출근표가 빈 평일."""
@@ -2501,7 +2604,9 @@ def _render_detail(request, period, failures):
     return render(request, "duty/period_detail.html", {
         "period": period, "board": board, "S": S, "generated_label": board.step_name(S.GENERATED),
         "steps": [(s, board.step_name(s)) for s in on], "editable": board.editable(),
+        # 2단계: 버튼 글자·[재생성]·생성 방식·배정 횟수 표는 켜진 관제 정의(데이터)로 정한다(1단계는 임시 기준)
         "buttons": board.step_buttons(bool(slot_names)), "gen_help": gen_help(active),
+        "generated_ro": josa(board.step_name(S.GENERATED), "으로/로"),
         "movable": [(s, board.step_name(s)) for s in targets],
         "undo_to": targets[0] if len(targets) == 1 else "",
         "unused_step": period.status not in on,  # 끈 단계에 남은 회차(설계 6.1)
@@ -2549,22 +2654,27 @@ def _render_detail(request, period, failures):
 - `{% elif period.status == S.COLLECTING %}` 갈래의 두 줄과 그 아래 두 갈래(마감·생성됨)를:
 ```django
   {% for d in input_depts %}<a role="button"{% if not missing or not forloop.first %} class="outline"{% endif %} href="{% url 'collect_table' period.pk d.code %}">표 입력{% if input_depts|length > 1 %} · {{ d.name }}{% endif %}</a>{% endfor %}
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}"{% if empty_confirm %} onsubmit="return confirm('{{ empty_confirm }}')"{% endif %}>{% csrf_token %}<button{% if missing %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}"{% if empty_confirm %} onsubmit="return confirm('{{ empty_confirm|escapejs }}')"{% endif %}>{% csrf_token %}<button{% if missing %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
   {% elif period.status == S.CLOSED and board.use_close %}
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}"{% if empty_confirm %} onsubmit="return confirm('{{ empty_confirm }}')"{% endif %}>{% csrf_token %}<button{% if missing %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}"{% if empty_confirm %} onsubmit="return confirm('{{ empty_confirm|escapejs }}')"{% endif %}>{% csrf_token %}<button{% if missing %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
   {% elif period.status == S.GENERATED %}
   <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
   {% if buttons.regenerate %}<form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">{% csrf_token %}<button class="outline secondary">{{ buttons.regenerate }}</button></form>{% endif %}
-  {% if buttons.undo %}<form method="post" action="{% url 'period_move' period.pk %}" onsubmit="return confirm('{{ leave_generated_confirm }}')">{% csrf_token %}<input type="hidden" name="to" value="{{ undo_to }}"><button class="outline secondary">{{ buttons.undo }}</button></form>{% endif %}
+  {% if buttons.undo %}<form method="post" action="{% url 'period_move' period.pk %}" onsubmit="return confirm('{{ leave_generated_confirm|escapejs }}')">{% csrf_token %}<input type="hidden" name="to" value="{{ undo_to }}"><button class="outline secondary">{{ buttons.undo }}</button></form>{% endif %}
 ```
-로(빈 날이 있으면 생성 버튼은 막지 않고 테두리 버튼 + 날 수 확인창, 마감 끈 근무표는 첫 [표 입력]이 진한 버튼. [재생성] 확인창은 그대로).
+로(빈 날이 있으면 생성 버튼은 막지 않고 테두리 버튼 + 날 수 확인창, 마감 끈 근무표는 첫 [표 입력]이 진한 버튼. 확인창 글은 `escapejs`. [재생성] 확인창은 그대로).
+- [생성 방식] 버튼 조건 `{% if not legacy and period.status == S.CLOSED or not legacy and period.status == S.GENERATED %}` 을
+```django
+  {% if gen_help and period.status == board.generate_from or gen_help and period.status == S.GENERATED %}
+```
+로(켜진 관제 정의가 있을 때, 생성할 수 있는 상태와 생성됨에서).
 - `</div>` 아래 경고 두 줄(`{% if empty_days %}…` 와 `{% if missing and board.use_close …%}<p class="note">출근표가 비어 있는 부서가 있어 아직 생성할 수 없습니다…`)을:
 ```django
 {% if empty %}<p class="note warn">⚠ 출근표가 비어 있는 날: {% for name, n, spans in empty %}{{ name }} {{ n }}일({{ spans }}){% if not forloop.last %} · {% endif %}{% endfor %}.{% if can_generate_now %} [{{ buttons.generate }}] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다.{% endif %}</p>{% endif %}
 {% if unused_step %}<p class="note warn">이 단계는 지금 쓰지 않습니다. 아래 [다른 상태로 옮기기]를 눌러 옮기세요.</p>{% endif %}
 ```
 로.
-- 옮기기 상자: `<details class="move-box"><summary>` → `<details class="move-box"{% if unused_step %} open{% endif %}><summary>다른 상태로 옮기기</summary>`, 폼 확인창 `confirm('장중관제·점심당번 생성 결과가 삭제됩니다. 계속할까요?')` → `confirm('{{ leave_generated_confirm }}')`, 설명 줄을
+- 옮기기 상자: `<details class="move-box"><summary>` → `<details class="move-box"{% if unused_step %} open{% endif %}><summary>다른 상태로 옮기기</summary>`, 폼 확인창 `confirm('장중관제·점심당번 생성 결과가 삭제됩니다. 계속할까요?')` → `confirm('{{ leave_generated_confirm|escapejs }}')`, 설명 줄을
 ```django
   <small>출근표는 그대로 남습니다.{% if leave_what %} 생성됨에서 나가면 {{ leave_what }} 생성 결과만 지웁니다.{% endif %}</small>
 ```
@@ -2577,6 +2687,18 @@ def _render_detail(request, period, failures):
   {% if period.status == S.COLLECTING %}<a role="button" class="outline secondary" href="{% url 'collect_table' period.pk code %}">표 입력</a>{% endif %}</li>{% endfor %}</ul>
 ```
 로.
+- `{% if counts and not legacy %}` → `{% if counts %}`
+- `<dialog id="gen-help">` 바로 위 `{% if not legacy %}` → `{% if gen_help %}`, 상자 안 세 곳(지금 "장중관제 10칸(08:30~18:00)에 개발자를 한 명씩", "개발자이고 … 08:30 칸은 정상, 17:00 칸은 석식교대, 나머지 칸은 정상·석식교대 둘 다 됩니다.", "개발자끼리만" 줄)을:
+```django
+  <p>취합된 출근조를 보고 날짜마다 장중관제 {{ gen_help.count }}칸({{ gen_help.start|time:"H:i" }}~{{ gen_help.end|time:"H:i" }})에 {{ gen_help.whom }} 한 명씩 배정합니다.</p>
+```
+```django
+    <li><strong>자격</strong> — {% if gen_help.types %}{{ gen_help.types }}이고 {% endif %}그날 그 칸의 출근조에 있어야 합니다.
+      {{ gen_help.rule }}</li>
+```
+```django
+  <p><small>횟수는 기간 중 한 번이라도 자격이 있었던 {{ gen_help.who }}끼리만 비교합니다.
+```
 - `<style>` 의 `p.note.warn {` 줄 바로 앞에 두 줄:
 ```css
   ul.progress li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-bottom: .4rem; }
@@ -2607,7 +2729,7 @@ Expected: 아무것도 안 나온다.
 Run: `.venv/bin/pytest -W error -q tests/test_board_steps.py tests/test_fill.py tests/test_views_direct.py tests/test_views_manage.py tests/test_views_collect.py`
 Expected: 모두 통과
 Run: `DUTY_SNAPSHOT_WRITE=1 .venv/bin/pytest -W error -q tests/test_snapshots.py; .venv/bin/pytest -W error -q tests/test_snapshots.py && git status --short tests/snapshots/`
-Expected: 첫 실행 `1 failed`(다시 씀), 둘째 `1 passed`, 바뀐 파일은 회차 화면 12개(`period-*` 전부 — 스타일 두 줄이 늘었다)와 입력 표 4개, 모두 16개. `collect-index`·`day`·`help-admin`·`periods`·`roster-mine`·`roster-month`·`roster-other` 7개는 그대로여야 한다. `git diff tests/snapshots/` 로 파일마다 아래만 바뀌었는지 본다(모든 `period-*` 에는 `<style>` 의 `ul.progress` 두 줄과 입력 현황이 부서 이름으로 바뀐 것이 공통):
+Expected: 첫 실행 `1 failed`(다시 씀), 둘째 `1 passed`, 바뀐 파일은 회차 화면 13개(`period-*` 전부 — 스타일 두 줄이 늘었다)와 입력 표 4개, 모두 17개. `collect-index`·`day`·`help-admin`·`periods`·`roster-mine`·`roster-month`·`roster-other` 7개는 그대로여야 한다. `git diff tests/snapshots/` 로 파일마다 아래만 바뀌었는지 본다(모든 `period-*` 에는 `<style>` 의 `ul.progress` 두 줄과 입력 현황이 부서 이름으로 바뀐 것이 공통. IT 생성 방식 상자 글은 바뀌지 않는다 — `gen_help` 가 같은 글을 만든다):
 - `period-it-closed`: 생성 폼에 `onsubmit="return confirm('출근표가 비어 있는 부서가 있는 날이 5일 있습니다. 그날 그 부서는 근무자가 없고, 아무 부서도 넣지 않은 날은 장중관제도 만들지 않습니다. 계속할까요?')"`, `<button disabled>장중관제 생성` → `<button class="outline">장중관제 생성`, "출근표가 비어 있는 부서가 있어 아직 생성할 수 없습니다(아래 입력 현황)." → "⚠ 출근표가 비어 있는 날: 정보분배 5일(11/16~11/20) · 매칭엔진실 2일(11/19~11/20) · 매매지원실 5일(11/16~11/20) · UI 5일(11/16~11/20). [장중관제 생성] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다.", 옮기기 상자 설명 "생성됨에서 나가면 장중관제 생성 결과만 지웁니다."(테스트 IT 에는 점심당번 정의가 없다)
 - `period-it-collecting`: "아직 생성할 수 없습니다" 줄 → ⚠ 줄(날 수·날짜만, "누를 수 있지만" 없음), 입력 현황 부서마다 `<a role="button" class="outline secondary" href="/collect/N/<코드>/">표 입력</a>`
 - `period-it-draft`: 기간 폼에 `data-start`·`data-end`·줄이기 확인창
@@ -2616,6 +2738,7 @@ Expected: 첫 실행 `1 failed`(다시 씀), 둘째 `1 passed`, 바뀐 파일은
 - `period-ops-collecting`: [확정] 확인창 "확정할까요? …[확정 취소]를 누릅니다." → "출근표가 비어 있는 부서가 있는 날이 2일 있습니다. 그날 그 부서는 근무자가 없습니다. 계속할까요?", "⚠ 아직 입력하지 않은 평일: 11/19, 11/20. 확정은…" → "⚠ 출근표가 비어 있는 날: 운영 2일(11/19~11/20). [확정] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다.", 입력 현황(`운영: 3 / 5일 (비어 있는 날짜 있음) [표 입력]`)
 - `period-ops-draft`·`period-ops-closed`(끈 단계에 남은 회차): "이 단계는 지금 쓰지 않습니다. 아래 [다른 상태로 옮기기]를 눌러 옮기세요." 줄, 펼친 상자(`open`), 입력 현황(⚠ 줄은 없다)
 - `period-ops-generated`: [확정 취소] 확인창 "출근표는 그대로 남습니다. 계속할까요?"(그 회차에 배정이 없다), 입력 현황 / `period-ops-published`·`period-it-published`: 입력 현황·스타일
+- `period-ops-slot-history`(관제 정의는 꺼졌고 관제·점심당번 배정이 남은 확정 회차): [확정 취소] 확인창 "생성 결과(장중관제·점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?", 입력 현황, **배정 횟수 표가 새로 보인다**(데이터 기준: 남은 관제 배정이 있다. 버튼은 켜진 관제 정의가 없어 그대로 [확정 취소]). OPERATIONS 1단계 확인 ②가 이런 근무표를 찾는다
 - `table-it-collecting`: `← 회차 화면으로` 링크, `CSV 올리기(이 표 전체 교체)`, 화면 밖 `표 저장` 버튼과 주마다 `지난주와 같게`(입력 근무조 4개라 2주 전 기준은 없음)
 - `table-it-closed`: `← 회차 화면으로` 링크, "취합이 열려 있지 않아 저장할 수 없습니다." → "'취합 중'인 회차가 아니라 저장할 수 없습니다."
 - `table-ops-collecting`: `← 회차 화면으로(확정·배포)` → `← 회차 화면으로`, `CSV 올리기 (표 전체 교체)` → `CSV 올리기(이 표 전체 교체)`
@@ -2624,7 +2747,7 @@ Expected: 첫 실행 `1 failed`(다시 씀), 둘째 `1 passed`, 바뀐 파일은
 - [ ] **Step 7: 전체 테스트**
 
 Run: `.venv/bin/pytest -W error -q && DUTY_DEBUG=1 DUTY_ENV_FILE= DUTY_DATA_DIR=$(mktemp -d) .venv/bin/python manage.py makemigrations duty --check --dry-run`
-Expected: `1305 passed`, "No changes detected in app 'duty'"
+Expected: `1311 passed`, "No changes detected in app 'duty'"
 
 - [ ] **Step 8: 브라우저로 본다**
 
@@ -2637,9 +2760,9 @@ Expected: `1305 passed`, "No changes detected in app 'duty'"
 - [ ] **Step 9: 커밋**
 
 ```bash
-git add duty/views/manage.py duty/views/collect.py duty/services/periods.py duty/templates/duty/period_detail.html duty/templates/duty/collect_table.html tests/
+git add duty/shifts.py duty/views/manage.py duty/views/collect.py duty/services/periods.py duty/templates/duty/period_detail.html duty/templates/duty/collect_table.html tests/
 git commit -m "$(cat <<'EOF'
-feat: 회차 화면 빈 평일 경고(부서·날 수·이어진 날짜)·빈 날 확인창·입력 현황([표 입력] 버튼)·실제 배정으로 만든 나가는 확인창·끈 단계 안내, 입력 표 채우기·글을 모든 근무표에 같게(근무표 통합 2단계)
+feat: 회차 화면을 관제 정의 기준으로(생성 방식 글은 정의에서), 빈 평일 경고·빈 날 확인창·입력 현황([표 입력] 버튼)·실제 배정으로 만든 나가는 확인창·끈 단계 안내, 입력 표 채우기·글을 모든 근무표에 같게(근무표 통합 2단계)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va
@@ -2761,7 +2884,7 @@ Expected: 첫 실행 `1 failed`(다시 씀), 둘째 `1 passed`, `help-admin.html
 - [ ] **Step 5: 전체 테스트**
 
 Run: `.venv/bin/pytest -W error -q && DUTY_DEBUG=1 DUTY_ENV_FILE= DUTY_DATA_DIR=$(mktemp -d) .venv/bin/python manage.py makemigrations duty --check --dry-run`
-Expected: `1306 passed`, "No changes detected in app 'duty'"
+Expected: `1312 passed`, "No changes detected in app 'duty'"
 
 - [ ] **Step 6: 브라우저로 본다**
 
@@ -2812,11 +2935,11 @@ EOF
 
    찾을 글:
    ```text
-     - **1단계 임시 기준** `boards.legacy_admin_entry(board)`(= 마감을 안 쓰는 근무표): 옛 직접 입력 근무표의 문구·확인창(기간 줄이기·[확정]·[확정 취소])·채우기 버튼·빈 평일 경고(막지 않음, 빈 평일이 있으면 첫 [표 입력]이 진한 버튼)·입력 현황 숨김·글 도움말, 입력 그룹 자동 생성과 부서 폼의 입력 담당자 금지를 지금처럼 고른다. 마감을 쓰는 근무표는 빈 평일이 있으면 생성을 막는다. 2단계에서 화면·서비스 자리를, 3단계에서 입력 그룹 자리와 함수를 지운다.
+     - **1단계 임시 기준** `boards.legacy_admin_entry(board)`(= 마감을 안 쓰는 근무표): 옛 직접 입력 근무표의 문구·확인창(기간 줄이기·[확정]·[확정 취소])·채우기 버튼·빈 평일 경고(막지 않음, 빈 평일이 있으면 첫 [표 입력]이 진한 버튼)·입력 현황 숨김·글 도움말, 입력 그룹 자동 생성과 부서 폼의 입력 담당자 금지를 지금처럼 고른다. 마감을 쓰는 근무표는 빈 평일이 있으면 생성을 막는다. 버튼 글자·[생성 방식]·[재생성]·배정 횟수 표도 이 기준으로 고른다. 2단계에서 화면·서비스 자리를(그때부터 켜진 장중관제 정의라는 데이터 기준), 3단계에서 입력 그룹 자리와 함수를 지운다.
    ```
    바꿀 글:
    ```text
-     - **모든 근무표에 같은 규칙**(근무표 통합 2단계): 빈 평일은 생성을 막지 않고 경고만 한다. 회차 화면 켠 취합 중·마감에 "⚠ 출근표가 비어 있는 날: <부서 이름> n일(11/16~11/20) · …"(이어진 평일은 묶는다, `shifts.day_spans`), 그 상태에서 생성할 수 있을 때만 "[<생성 버튼>] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다."를 붙인다(IT 취합 중에는 붙이지 않는다). 빈 날이 있으면 생성 버튼은 테두리 버튼이고 누르면 "출근표가 비어 있는 부서가 있는 날이 N일 있습니다. …계속할까요?" 확인창(빈 날이 없으면 확인창 없음), 생성 뒤 메시지에 부서별 빈 날. 부서별 입력 현황은 모든 근무표에 부서 이름으로 보이고 취합 중이면 부서마다 [표 입력] 버튼(누를 자리 44px 이상)이 붙는다. [기간 저장]은 기간을 줄일 때만 확인창을 띄운다. 생성됨에서 나가는 확인창은 하나이고 그 회차에 **실제로 있는 배정**으로 만든다(`leave_generated_confirm`: "생성 결과(장중관제·점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?", 하나만 있으면 그것만, 없으면 "출근표는 그대로 남습니다. 계속할까요?"), 옮기기 상자 설명도 같은 말. 끈 단계에 남은 회차는 "이 단계는 지금 쓰지 않습니다. 아래 [다른 상태로 옮기기]를 눌러 옮기세요." 한 줄과 펼쳐진 상자. 오류·안내 글은 그 근무표의 **켠** 단계 이름을 쓴다("기간은 '작성 중' 단계에서만…", "'입력 중'(으)로만 옮길 수…", "'마감'인 회차만 장중관제 생성할 수…", "'확정'인 회차만 배포할 수…", "'생성됨' 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다."). 입력 표의 [← 회차 화면으로] 링크는 그 근무표 관리자에게만.
+     - **모든 근무표에 같은 규칙**(근무표 통합 2단계): 버튼 글자·[재생성]·[생성 방식](숫자·자격 문장은 관제 정의에서 만든다, `shifts.gen_help`)·배정 횟수 표는 켜진 장중관제 정의라는 데이터로 정한다. 빈 평일은 생성을 막지 않고 경고만 한다. 회차 화면 켠 취합 중·마감에 "⚠ 출근표가 비어 있는 날: <부서 이름> n일(11/16~11/20) · …"(이어진 평일은 묶는다, `shifts.day_spans`), 그 상태에서 생성할 수 있을 때만 "[<생성 버튼>] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다."를 붙인다(IT 취합 중에는 붙이지 않는다). 빈 날이 있으면 생성 버튼은 테두리 버튼이고 누르면 "출근표가 비어 있는 부서가 있는 날이 N일 있습니다. …계속할까요?" 확인창(빈 날이 없으면 확인창 없음), 생성 뒤 메시지에 부서별 빈 날. 부서별 입력 현황은 모든 근무표에 부서 이름으로 보이고 취합 중이면 부서마다 [표 입력] 버튼(누를 자리 44px 이상)이 붙는다. [기간 저장]은 기간을 줄일 때만 확인창을 띄운다. 생성됨에서 나가는 확인창은 하나이고 그 회차에 **실제로 있는 배정**으로 만든다(`leave_generated_confirm`: "생성 결과(장중관제·점심당번 배정)가 지워지고 출근표는 그대로 남습니다. 계속할까요?", 하나만 있으면 그것만, 없으면 "출근표는 그대로 남습니다. 계속할까요?"), 옮기기 상자 설명도 같은 말. 확인창 글은 `escapejs` 로 넣는다. 끈 단계에 남은 회차는 "이 단계는 지금 쓰지 않습니다. 아래 [다른 상태로 옮기기]를 눌러 옮기세요." 한 줄과 펼쳐진 상자. 오류·안내 글은 그 근무표의 **켠** 단계 이름을 쓴다("기간은 '작성 중' 단계에서만…", "'입력 중'(으)로만 옮길 수…", "'마감'인 회차만 장중관제 생성할 수…", "'확정'인 회차만 배포할 수…", "'생성됨' 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다."). 입력 표의 [← 회차 화면으로] 링크는 그 근무표 관리자에게만.
      - 1단계 임시 기준 `boards.legacy_admin_entry(board)`(= 마감을 안 쓰는 근무표)는 입력 그룹 자동 생성(`Department.save`)과 부서 폼의 입력 담당자 금지에만 남는다. 그래서 관리 화면 단계 칸도 2단계까지 읽기 전용이다(3단계에서 첫 입력 담당자를 넣을 때 그룹을 만들기로 바꾸며 함수를 지우고 단계 편집을 연다).
    ```
 
@@ -2918,7 +3041,7 @@ EOF
    ```text
    - **근무표 통합 2단계로 올릴 때**: 마이그레이션이 없다(`migrate` 는 "No migrations to apply"). **IT 근무표에 취합 중·마감·생성됨 회차가 하나도 없을 때(작성 중·배포됨만, 보통 배포 직후 ~ 다음 [취합 열기] 전) 올린다**. 아래가 아무것도 안 나오면 올려도 된다.
        `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT p.id, p.status FROM duty_period p JOIN duty_board b ON b.id = p.board_id WHERE b.code = 'it' AND p.status IN ('collecting', 'closed', 'generated');"`
-     - IT 에 보이는 변화: 마감 회차에 출근표가 빈 부서·날이 있어도 [장중관제 생성]이 막히지 않는다(테두리 버튼, 누르면 빈 날 수를 묻는 확인창, 생성 뒤 "출근표가 비어 있는 날이 있습니다: UI 1일(11/13). …" 경고). 회차 화면 빈 날 경고가 부서 이름·날 수로 바뀐다. 모든 부서의 입력 표에 주마다 [지난주와 같게], 입력 근무조가 3개인 부서는 [2주 전 기준으로 채우기]도. 회차 화면 "부서별 입력 현황"이 부서 이름으로 보이고 취합 중이면 부서마다 [표 입력] 버튼, 기간을 줄일 때 확인창. 일부 오류·안내 글이 단계 이름을 쓰는 꼴로(예: "'마감'인 회차만 장중관제 생성할 수 있습니다.", "'생성됨' 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다."). 입력 표 CSV 버튼 글 "CSV 올리기(이 표 전체 교체)", 글 도움말은 "회차 운영" 하나로(모든 근무표 관리자에게). 시장운영실: 회차 화면에 입력 현황이 생기고, 빈 평일 경고 글 모양이 바뀌고, 출근표가 다 차 있으면 [확정]을 누를 때 묻지 않는다. 관리 화면 근무표 단계 칸은 그대로 읽기 전용이다. 알림 문구는 그대로다.
+     - IT 에 보이는 변화: 마감 회차에 출근표가 빈 부서·날이 있어도 [장중관제 생성]이 막히지 않는다(테두리 버튼, 누르면 빈 날 수를 묻는 확인창, 생성 뒤 "출근표가 비어 있는 날이 있습니다: UI 1일(11/13). …" 경고). 회차 화면 빈 날 경고가 부서 이름·날 수로 바뀐다. 모든 부서의 입력 표에 주마다 [지난주와 같게], 입력 근무조가 3개인 부서는 [2주 전 기준으로 채우기]도. 회차 화면 "부서별 입력 현황"이 부서 이름으로 보이고 취합 중이면 부서마다 [표 입력] 버튼, 기간을 줄일 때 확인창. 일부 오류·안내 글이 단계 이름을 쓰는 꼴로(예: "'마감'인 회차만 장중관제 생성할 수 있습니다.", "'생성됨' 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다."). 입력 표 CSV 버튼 글 "CSV 올리기(이 표 전체 교체)", 글 도움말은 "회차 운영" 하나로(모든 근무표 관리자에게). 1단계 전 확인 ②에서 0 이 아니었던 직접 입력 근무표는 [장중관제 생성]·[재생성]·[생성 방식]·배정 횟수 표가 보인다(그 근무표 관리자에게 미리 알린다). 시장운영실: 회차 화면에 입력 현황이 생기고, 빈 평일 경고 글 모양이 바뀌고, 출근표가 다 차 있으면 [확정]을 누를 때 묻지 않는다. 관리 화면 근무표 단계 칸은 그대로 읽기 전용이다. 알림 문구는 그대로다.
      - 되돌리기는 위 "롤백"에서 코드만 되돌리면 된다(마이그레이션이 없고 DB 는 그대로. 단계 칸도 2단계에서 고칠 수 없어 바뀐 설정이 없다).
      - 공지(지금 쓰는 메신저로). 알릴 사람: IT 근무표 관리자·입력 담당자, 시장운영실 근무표 관리자. "회차 화면이 조금 바뀌었습니다. 출근표가 빈 날이 있어도 [장중관제 생성]을 누를 수 있고, 누르기 전에 빈 날을 알려 줍니다. 입력 표에 주마다 [지난주와 같게] 버튼이 생겼고, 근무조가 셋인 부서는 [2주 전 기준으로 채우기]도 있습니다(눌러도 저장은 [표 저장]으로만 됩니다). 시장운영실: 출근표가 다 차 있으면 [확정]을 누를 때 묻지 않고 바로 확정됩니다(고칠 것이 있으면 [확정 취소]). 회차 화면에 부서별 입력 현황이 생겼습니다."
    - nginx 를 켜 둔 서버는 이 묶음을 마친 뒤
@@ -2935,7 +3058,7 @@ EOF
 Run: `git grep -n -E "legacy_admin_entry|1단계 임시 기준" -- docs/ARCHITECTURE.md docs/OVERVIEW.md docs/OPERATIONS.md`
 Expected: `ARCHITECTURE.md` 의 세 곳만 — "Board" 항목(입력 그룹 자동 생성), "근무표와 근무 정의" 항목(부서 폼 입력 담당자 금지), "회차" 절의 "1단계 임시 기준 … 입력 그룹 자동 생성과 부서 폼에만 남는다"(3단계에서 지운다). `STEPS["direct"]` 는 나오지 않는다.
 Run: `.venv/bin/pytest -W error -q`
-Expected: `1306 passed`
+Expected: `1312 passed`
 
 - [ ] **Step 3: 커밋**
 
@@ -2952,22 +3075,28 @@ EOF
 
 - [ ] **Step 4: 2단계 PR**
 
-전체 테스트(`1306 passed`, 경고 0)와 `makemigrations --check` 결과를 확인한 **뒤에** 따로 push·PR. PR 본문: IT 에 보이는 변화 목록과 공지 글(OPERATIONS "근무표 통합 2단계로 올릴 때"와 같은 글), 올리는 때(IT 근무표에 취합 중·마감·생성됨 회차가 없을 때)와 확인 쿼리, `tests/snapshots/` 의 바뀐 파일(Task 8 의 16개 + Task 9 의 `help-admin`)과 그대로인 파일(`periods`·`collect-index`·`roster-mine`·`roster-month`·`day`·`roster-other`), `tests/test_alarm_texts_it.py` 그대로 통과. Codex 최종 리뷰를 받은 뒤 머지한다.
+전체 테스트(`1312 passed`, 경고 0)와 `makemigrations --check` 결과를 확인한 **뒤에** 따로 push·PR. PR 본문: IT 에 보이는 변화 목록과 공지 글(OPERATIONS "근무표 통합 2단계로 올릴 때"와 같은 글), 올리는 때(IT 근무표에 취합 중·마감·생성됨 회차가 없을 때)와 확인 쿼리, `tests/snapshots/` 의 바뀐 파일(Task 8 의 17개 + Task 9 의 `help-admin`)과 그대로인 파일(`periods`·`collect-index`·`roster-mine`·`roster-month`·`day`·`roster-other`), `tests/test_alarm_texts_it.py` 그대로 통과. Codex 최종 리뷰를 받은 뒤 머지한다.
 
 ---
 
-## 자체 점검(설계 대조, d8cf021)
+## 자체 점검(최종 대조표)
 
-- **설계 12절 1단계 행**: 첫 커밋 = 스냅샷 기준과 `move` 문구 단언(Task 1, main 코드). 5.1(Task 2 칸·제약, Task 5 관리 화면 폼 검사·저장 뒤 읽기 전용), 5.2(Task 2 메서드·매개변수 표 테스트 4조합), 5.3 1단계(Task 5: 부서 하나 검사 삭제, 그룹 자동 생성·부서 폼 금지는 `legacy_admin_entry` 로 같은 결과), 5.4(Task 4 `step_buttons`), 6.1 "1"·"1→2"·"1→3" 의 1단계 몫 전부: `models.py:39-41·52·56·63·171·181·235-241·279-280`(Task 2·3·5), `admin.py:75-76·288·307·311·318`(Task 5), `board_setup.py`(Task 3 값, Task 5 이름), `periods.py:21-26·40-41·63-70`(Task 3, 검사 순서 포함), `generate.py:21-24·29-43·149`(Task 3), `collect.py:11,26·184`(Task 3), `publish.py`(Task 3), `views/collect.py`(Task 4), `views/manage.py:15,72-75·84-93·137-139`(Task 4), `period_detail.html` 전 자리(Task 4), `collect_table.html`(Task 4), `periods.html:18`(메서드가 바뀌어 그대로), `help.py`(Task 4 기준). 0023(Task 2·5, 10.2 forward·거꾸로 규칙 그대로). 10.3 확인 쿼리·10.4 1단계 메모(Task 6, 공지 없음).
-- **설계 12절 2단계 행**: 6.1 "2" 자리 전부 — 기간·옮기기·생성·배포 문구(Task 7), 빈 평일 늘 경고(Task 7), 채우기 검사 삭제(Task 7), 빈 날이 있을 때만 생성 확인창(Task 8), `show_fill`·회차 링크(Task 8), `input_depts`·`empty_days` → 취합 중·마감의 ⚠ 줄과 입력 현황(Task 8), 끈 단계 안내 한 줄(Task 8), 생성 성공 문구(Task 8), 기간 줄이기 확인창 늘(Task 8), 입력 현황 늘 + [표 입력] 링크(Task 8), 입력 표 글·링크·CSV(Task 8), 5.4 `leave_generated_confirm` 두 꼴(Task 8), 글 도움말 하나·채우기 설명은 입력 담당자 글(Task 9), 관리 화면 단계 편집 열기(Task 9), `legacy_admin_entry` 의 화면·서비스 자리 지움(Task 7·8·9, 함수는 3단계). 10.3 2단계 확인 쿼리·10.4 2단계 올리는 때·공지(Task 10).
-- **설계 11절 테스트**: 스냅샷(Task 1 기준, 1단계 내내 그대로, 2단계에서 다시 써 diff 로 리뷰), `move` 네 문구 단언(Task 1), IT 불변(`test_alarm_texts_it.py` 그대로 + 생성 방식 문장 스냅샷·단위 테스트), 시장운영실 불변(기존 직접 입력 테스트 문구 그대로, 1단계), 단계 규칙 표 매개변수(셋째 조합 포함, Task 2), 마이그레이션 0023 앞·뒤(Task 2·5), 2단계 새 문구는 기존 테스트를 고쳐서(Task 7·8·9). `it_board`(있음)·`ops_board`(Task 1). 0024·0025·권한·계정·겹쳐 보기 테스트는 3~5단계 몫이라 이 계획에 없다.
-- **이 계획에 없는 것(뒤 단계)**: 늦은 입력 그룹 `ensure_input_group`·`legacy_admin_entry` 함수 삭제·[근무표 설정]·`board_settings.py`·`forms.py`·그룹 정리·0024(3단계), 사람 칸·계정 함수(4단계), 여러 근무표 겹쳐 보기·`RosterPref.boards`·0025·회차 목록 근무표 열·설계 문서 합치기(5단계). 관리 화면 근무표의 "그룹 관리자는 이 링크에서" 글은 3단계에서 고친다.
-- **이름 일관성**: `legacy_admin_entry`(Task 2 만듦 → 3·4·5 사용 → 7·8·9 가 화면·서비스·도움말에서 뺌, `Department.save`·`DepartmentForm` 에 남음), `step_buttons` 키(`open`·`close`·`generate`·`regenerate`·`undo`, Task 4·7·8), `gen_help` 키(`count`·`start`·`end`·`types`·`who`·`whom`·`rule`, Task 4), 템플릿 변수(Task 4: `legacy`·`empty_days`·`undo_to`·`undo_label` → Task 8: `empty`·`empty_confirm`·`unused_step`·`leave_generated_confirm`, `legacy`·`empty_days` 없어짐), `OPS_STEPS`(Task 2 `input_mode` 포함 → Task 5 뺌), `STEP_FIELDS`·`steps_form`(Task 5 → Task 9), `create_board`(Task 5), 스냅샷 이름(`tests/snapshots/<이름>.html`, Task 1·8·9).
-## 자체 점검(설계 e3e7885·계획 리뷰 20건 대조)
-
-- **설계 12절 1단계 행**: 첫 커밋 = 스냅샷 기준 23개와 `move` 문구 단언(Task 1, main 코드). 5.1(Task 2 칸·제약, Task 5 관리 화면 폼 검사·저장 뒤 읽기 전용), 5.2(Task 2 메서드·매개변수 표 테스트 4조합), 5.3 1단계(Task 5: 부서 하나 검사 삭제, 그룹 자동 생성·부서 폼 금지는 `legacy_admin_entry` 로 같은 결과), 5.4(Task 4 `step_buttons`·떼기 못 하는 이름, Task 5 버튼 글자 검사 `bad_buttons`), 6.1 의 1단계 몫 전부(Task 2~5), 0023(Task 2·5, 10.2 forward·거꾸로 규칙 그대로). 10.3 확인 쿼리·10.4 1단계 메모(Task 6: 확인 ①, 관제 켠 직접 입력 근무표 확인 ②, 뒤 대조, 롤백 순서, 공지 없음).
-- **설계 12절 2단계 행**: 6.1 "2" 자리 전부 — 기간·옮기기·생성·배포 문구(Task 7), 빈 평일 늘 경고(Task 7), 채우기 검사 삭제(Task 7), 빈 날이 있을 때만 생성 확인창(Task 8), `show_fill`·회차 링크(Task 8), ⚠ 줄과 입력 현황(Task 8), 끈 단계 안내(Task 8), 생성 성공 문구(Task 8), 기간 줄이기 확인창 늘(Task 8), 입력 표 글·링크·CSV(Task 8), 5.4 `leave_generated_confirm`(그 회차의 실제 배정, Task 8), 글 도움말 하나·채우기 설명은 입력 담당자 글(Task 9), `legacy_admin_entry` 의 화면·서비스 자리 지움(Task 7·8·9). **단계 칸은 아직 읽기 전용**(이 계획에 편집 열기가 없다). 10.3 2단계 시점 쿼리·10.4 공지(Task 10, 시장운영실 관리자 포함).
-- **계획 리뷰 20건**: 관제 켠 직접 입력 근무표 확인(#1·#11 → Task 6 확인 ②, 판단 7), 롤백 순서(#2 → Task 6), "그날 그 부서"(#3), 날짜 묶기·날 수(#4 → `day_spans`), 공지 대상·채우기 조건(#5·#6 → Task 10), 끈 단계 안내 글(#7), 부서 이름(#8), 조사(#9 → `josa`·조사 없는 꼴), 2단계 롤백(#10 → 단계 칸이 읽기 전용이라 코드만), 월간·하루 기준(#12·#15), 단계 칸 열기 취소(#13·#16 → 설계 e3e7885 와 같다), 옮기기 상자 설명(#14), 다 찬 IT 회차·생성됨 기준(#17), 24줄(#18), `REPO_URL`(#19), 다시 쓰기 실패(#20). 컨트롤러 결정: IT 취합 중에는 "누를 수 있지만"을 쓰지 않는다, [표 입력]은 44px 이상 버튼.
-- **설계 11절 테스트**: 스냅샷(Task 1 기준, 1단계 내내 그대로, 2단계에서 다시 써 diff 로 리뷰), `move` 네 문구 단언(Task 1), IT 불변(`test_alarm_texts_it.py` 그대로 + 생성 방식 문장 스냅샷·단위 테스트), 시장운영실 불변(기존 직접 입력 테스트 문구 그대로, 1단계), 단계 규칙 표 매개변수(셋째 조합 포함, Task 2), 마이그레이션 0023 앞·뒤(Task 2·5), 버튼 글자 검사(Task 5), 나가는 확인창의 실제 배정(Task 8). 0024·0025·권한·계정·겹쳐 보기 테스트는 3~5단계 몫.
-- **이 계획에 없는 것(뒤 단계)**: 늦은 입력 그룹 `ensure_input_group`·`legacy_admin_entry` 함수 삭제·관리 화면 단계 편집 열기·[근무표 설정](미리보기 포함)·`board_settings.py`·`forms.py`·그룹 정리·0024(3단계), 사람 칸·계정 함수(4단계), 여러 근무표 겹쳐 보기·`RosterPref.boards`·0025·회차 목록 근무표 열·설계 문서 합치기(5단계).
-- **이름 일관성**: `legacy_admin_entry`(Task 2 만듦 → 3·4·5 사용 → 7·8·9 가 화면·서비스·도움말에서 뺌, `Department.save`·`DepartmentForm` 에 남음), `step_buttons` 키(`open`·`close`·`generate`·`regenerate`·`undo`), `bad_buttons`(Task 5), `josa`(Task 4, Task 7 이후 `views/manage.py` 에서는 쓰지 않음), `day_spans`(Task 7 → 8), `gen_help` 키(`count`·`start`·`end`·`types`·`who`·`whom`·`rule`), 템플릿 변수(Task 4: `legacy`·`empty_days`·`undo_to`·`generate_topic`·`undo_confirm` → Task 8: `empty`·`can_generate_now`·`empty_confirm`·`unused_step`·`leave_what`·`leave_generated_confirm`·`progress` 튜플), `OPS_STEPS`(Task 2 `input_mode` 포함 → Task 5 뺌), `STEP_FIELDS`·`steps_form`(Task 5), `create_board`(Task 5), 스냅샷 이름(`tests/snapshots/<이름>.html` 23개, Task 1·8·9).
+| 확인할 것 | 어디서 |
+|---|---|
+| 설계 12절 1단계: 첫 커밋 스냅샷·`move` 문구 단언 | Task 1(기준 24개, 다시 쓰기는 일부러 실패) |
+| 5.1 단계 칸·제약, 1·2단계 관리 화면 읽기 전용 | Task 2(칸·제약), Task 5(폼·읽기 전용) |
+| 5.2 단계 규칙(4조합 매개변수) | Task 2 |
+| 5.3 1단계(부서 하나 삭제, 입력 그룹·부서 폼은 임시 기준) | Task 5 |
+| 5.4 버튼 이름·떼기 못 하는 이름·버튼 글자 검사 | Task 4(`step_buttons`), Task 5(`bad_buttons`) |
+| 6.1 "1" 자리 전부, 문구 그대로 | Task 2~5(문구는 `legacy_admin_entry` 로 고름) |
+| 1단계 장중관제 갈래(버튼 글자·재생성·생성 방식·횟수 표)는 임시 기준, 생성 방식 글은 main 고정 글 | Task 4(관제 이력 테스트·스냅샷) |
+| 확인창 동적 글 `escapejs`, 이름 뒤 조사 `josa` | Task 4, Task 8 |
+| 0023 forward·거꾸로 규칙·왕복 | Task 2·5 |
+| 10.3 확인 ①·② (②는 2단계 참고용, 관제 정의·관제 배정 수), 뒤 대조, 롤백 순서 | Task 6 |
+| 6.1 "2" 자리: 문구·빈 평일 경고·채우기 | Task 7 |
+| 6.1 "2" 자리: 관제 정의 기준·`gen_help`, ⚠ 줄·빈 날 확인창·입력 현황·끈 단계 안내·입력 표 | Task 8 |
+| 5.4 `leave_generated_confirm`(실제 배정, 없음·관제·점심당번·둘 다 매개변수 테스트) | Task 8 |
+| 글 도움말 하나·입력 담당 글 채우기 | Task 9 |
+| 10.3 2단계 시점 쿼리·10.4 공지(시장운영실 관리자 포함)·롤백 | Task 10 |
+| IT 알림 글자·hash 그대로(`test_alarm_texts_it.py` 수정 없음) | 모든 작업 |
+| 이 계획 밖(3~5단계): 늦은 입력 그룹·함수 삭제·단계 편집 열기·[근무표 설정]·0024, 사람 칸, 겹쳐 보기·0025 | — |
