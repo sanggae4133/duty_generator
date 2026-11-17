@@ -305,7 +305,8 @@ class BoardForm(forms.ModelForm):
             for x in steps.bad_buttons():  # 생성·취소 글자는 생성됨 이름에서, 열기·마감은 취합 중 이름에서 나온다
                 # 관제 있을 때의 고정 글자([장중관제 생성]·[재생성]…)와 겹치면 생성됨 이름을 고쳐도 남는다
                 fixed = x.strip() and x in (slot["generate"], slot["undo"], slot["regenerate"])
-                field = "step_generated" if x in (gen["generate"], gen["undo"]) and not fixed else "step_collecting"
+                field = ("step_generated" if x in (gen["generate"], gen["undo"]) and not fixed
+                         else "step_closed" if x == gen["close"] and not fixed else "step_collecting")  # 마감 글자가 열기와 같으면 마감 이름 칸
                 self.add_error(field, f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{x}]")
         name = c.get("name")
         # Board.save 가 만들거나 바꿀 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로

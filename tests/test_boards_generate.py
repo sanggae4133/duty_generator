@@ -89,6 +89,25 @@ def test_slot_keys_and_types_come_from_definitions(ops):
     assert DutyAssignment.objects.filter(period=p).count() == 5
 
 
+def test_day_with_only_moved_member_gets_no_slot(ops, it_board):
+    # 그날 유일한 출근 행의 사람이 다른 근무표 부서로 옮겼으면 그날은 빈 날(옛 empty_days 와 같이 부서 기준)
+    board, dept = ops
+    BoardShift.objects.create(board=board, key="slot3", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["normal"], eligible_types=["직원"])
+    m, moved = ops_member(dept), ops_member(dept, "운영이동")
+    p = Period.objects.create(board=board, name="운영회차", start_date=NOV9, end_date=NOV13, status=S.COLLECTING)
+    for x in p.dates()[:-1]:
+        Commute.objects.create(period=p, date=x, member=m, shift="normal")
+    Commute.objects.create(period=p, date=NOV13, member=moved, shift="normal")
+    moved.department = Department.objects.create(code="ITX", name="IT부서", shifts="normal", board=it_board)
+    moved.save()
+    run_generation(p, seed=1)
+    p.refresh_from_db()
+    assert p.status == S.GENERATED
+    assert not DutyAssignment.objects.filter(period=p, date=NOV13).exists()
+    assert DutyAssignment.objects.filter(period=p).count() == 4
+
+
 # ── 출근표 취합(6.2) ──
 
 @pytest.fixture

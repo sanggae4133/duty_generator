@@ -260,6 +260,8 @@ def test_step_names_checked(su_client, it_board, names, msg):
     # 관제 있을 때의 [장중관제 생성]과 겹친다: 생성됨 이름을 고쳐도 남으니 취합 중 이름 칸에(설계 5.4)
     ({"use_close": "on", "step_collecting": "장중관제 중", "step_closed": "생성", "step_generated": "장중관제 생성됨"},
      "step_collecting", "장중관제 생성"),
+    # 마감 글자가 열기 글자와 같다: 마감 이름 칸에
+    ({"use_draft": "on", "use_close": "on", "step_closed": "열기"}, "step_closed", "입력 열기"),
     ({"name": "", "step_generated": "됨"}, "step_generated", ""),  # 다른 칸 오류가 있어도 버튼 글자는 본다
     ({"use_draft": "on", "step_generated": "됨"}, "step_generated", ""),  # 옮길 곳이 둘이라 취소 글자가 비어도
 ])

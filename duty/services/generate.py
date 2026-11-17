@@ -37,7 +37,8 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
 
     skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
     dates = [d for d in period.dates() if d not in skip]
-    worked = set(Commute.objects.filter(period=period).values_list("date", flat=True))
+    worked = set(Commute.objects.filter(period=period, member__department__board=period.board)  # 다른 근무표로 옮긴 사람 행은 빼고
+                 .values_list("date", flat=True))
     slot_dates = [d for d in dates if d in worked]  # 출근 행이 하나도 없는 날은 후보가 없으니 관제를 만들지 않는다
     active = boards.active_defs(period.board)
     slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
