@@ -26,6 +26,7 @@ cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 ```
 
 - 설정은 `config.test_settings`(pytest 가 알아서 쓴다). 테스트는 `.env` 를 읽지 않고 임시 `data/` 를 쓴다.
+- `tests/test_snapshots.py` 는 회차·입력 표·근무표·도움말 화면의 본문을 `tests/snapshots/*.html` 기준과 비교한다(메뉴·공백·CSRF·회차 번호는 빼고). 화면을 일부러 바꾼 PR 만 `DUTY_SNAPSHOT_WRITE=1 .venv/bin/pytest -q tests/test_snapshots.py` 로 다시 쓴다(다시 쓴 실행은 일부러 실패한다. 변수 없이 다시 돌려 통과를 본다). `git diff tests/snapshots/` 의 바뀐 줄을 PR 에서 리뷰한다.
 - **테스트를 먼저 쓴다**: 실패하는 것을 확인한 뒤 구현한다. 버그도 재현 테스트부터.
 - 실명을 쓰지 않는다(가상 이름·멤버 코드만). 비밀값처럼 생긴 문자열은 실행 중에 조립한다(`"1234567890:" + "FAKE" + ...`).
 - 텔레그램·웹 푸시는 실제로 부르지 않는다(`duty.alarms.senders` 를 monkeypatch).
