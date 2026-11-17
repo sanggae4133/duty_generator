@@ -244,3 +244,10 @@ def test_bad_step_names_redraw(ops_client, ops_board):
     body = r.content.decode()
     assert r.status_code == 200 and "<details open>" in body and "버튼 이름이 비거나 다른 버튼과 같아집니다: []" in body
     assert "저장된 단계: <strong>입력 중 → 확정 → 배포됨</strong>" in body  # 미리보기는 저장된 값
+
+
+def test_groups_menu_and_page_are_gone(admin_client_ok):
+    """[그룹] 화면은 [근무표 설정]으로 바뀌었다(근무표 통합 3단계)."""
+    assert admin_client_ok.get("/groups/").status_code == 404
+    body = admin_client_ok.get("/").content.decode()
+    assert ">그룹</a>" not in body and 'href="/settings/"' in body

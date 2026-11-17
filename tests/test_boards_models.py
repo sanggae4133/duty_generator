@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
 
 from duty.errors import DutyError
-from duty.models import Board, BoardShift, Department, GroupKeeper
+from duty.models import Board, BoardShift, Department
 from duty.shifts import KEYS
 from tests.it_defs import IT_DEFS2, OPS_STEPS
 
@@ -91,11 +91,6 @@ def test_boardshift_name_unique_per_board(it_board):
     ops = Board.objects.create(code="ops", name="운영팀")
     BoardShift.objects.create(board=ops, key="dawn", name="새벽", start=time(7), end=time(16))  # 다른 근무표와는 겹쳐도 된다
     _bad(lambda: BoardShift.objects.create(board=ops, key="normal", name="새벽", start=time(9), end=time(18)))
-
-
-def test_groupkeeper_unique(admin_user, it_board):
-    GroupKeeper.objects.create(group=it_board.admin_group, user=admin_user)
-    _bad(lambda: GroupKeeper.objects.create(group=it_board.admin_group, user=admin_user))
 
 
 def test_boardshift_key_labels_are_neutral():

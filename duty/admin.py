@@ -14,7 +14,7 @@ from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
 from .forms import SHIFT_KEY_CHOICES, STEP_FIELDS, BoardShiftForm, BoardShiftFormSet, StepsForm
-from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, Holiday, User
+from .models import AlarmSettings, Board, BoardShift, Department, Holiday, User
 from .services import alarm_settings, board_settings, boards
 from .shifts import SHIFT_KEYS, shift_defs
 
@@ -248,7 +248,7 @@ class BoardForm(StepsForm):
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
     """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 언제든 고친다(근무표 통합 3단계).
-    지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 그 그룹의 그룹 관리자는 '관리 그룹' 링크(그룹 화면)에서 정한다."""
+    지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺀다."""
     form = BoardForm
     list_display = ["name", "code", "step_line", "admin_group"]
     inlines = [BoardShiftInline]
@@ -279,17 +279,11 @@ class BoardAdmin(admin.ModelAdmin):
 
     @admin.display(description="관리 그룹")
     def group_link(self, obj):
-        return format_html('<a href="{}">{}</a> — 그룹 관리자는 이 링크에서, 멤버는 사용자 화면의 그룹 칸이나 [그룹] 화면에서 정합니다.',
+        return format_html('<a href="{}">{}</a> — 관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺍니다.',
                            reverse("admin:auth_group_change", args=[obj.admin_group_id]), obj.admin_group.name)
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-
-class GroupKeeperInline(admin.TabularInline):
-    """그룹 관리자(설계 4.5): 이 그룹에 멤버를 넣고 빼는 사람. 슈퍼유저가 여기서 정하고, 그 뒤 멤버는 그 사람이 [그룹] 화면에서."""
-    model = GroupKeeper
-    extra = 0
 
 
 @admin.register(Holiday)
@@ -316,11 +310,11 @@ admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 �
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    """permissions 칸만 숨긴다(Django 권한을 쓰지 않는다). 멤버는 사용자 화면의 '그룹' 칸이나, 그룹 관리자가 [그룹] 화면에서 넣는다."""
+    """이름·멤버 보기만(permissions 칸은 숨긴다: Django 권한을 쓰지 않는다). 멤버는 사용자 화면의 '그룹' 칸이나 앱의 [근무표 설정]에서
+    고친다(관리자·입력 담당자). 근무표 관리 그룹·부서 입력 그룹의 이름은 근무표·부서 이름을 따라가므로 여기서 바꾸지 않는다."""
     fields = ["name"]
     list_display = ["name", "member_names"]
     search_fields = ["name"]
-    inlines = [GroupKeeperInline]
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("user_set")

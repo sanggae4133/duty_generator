@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm
-from duty.models import Board, BoardShift, Department, GroupKeeper, Period, User
+from duty.models import Board, BoardShift, Department, Period, User
 from tests.it_defs import OPS_STEPS
 
 ADD = reverse("admin:duty_board_add")
@@ -292,19 +292,15 @@ def test_change_warns_about_periods_in_turned_off_step(su_client, ops):
     assert "&#x27;작성 중&#x27; 단계에 회차 1개가 남아 있습니다. 회차 화면에서 다른 단계로 옮기세요." in r.content.decode()
 
 
-# ── 그룹 관리자 ──
+# ── 그룹: 이름·멤버 보기만(그룹 관리자 없음, 근무표 통합 3단계) ──
 
-def test_group_page_hides_permissions_and_edits_keepers(su_client, it_board, admin_user, make_member):
+def test_group_page_is_name_only(su_client, it_board, admin_user):
     group = it_board.admin_group
     html = su_client.get(reverse("admin:auth_group_change", args=[group.pk])).content.decode()
     assert 'name="name"' in html and 'name="permissions"' not in html and 'name="members"' not in html
-    keeper = make_member("가상관리", user=True)
-    r = su_client.post(reverse("admin:auth_group_change", args=[group.pk]), {
-        "name": group.name, "keepers-TOTAL_FORMS": "1", "keepers-INITIAL_FORMS": "0",
-        "keepers-0-group": group.pk, "keepers-0-user": keeper.pk,
-    })
-    assert r.status_code == 302, errors(r)
-    assert list(GroupKeeper.objects.values_list("group", "user")) == [(group.pk, keeper.pk)]
+    assert "keepers-TOTAL_FORMS" not in html and "그룹 관리자" not in html
+    html = su_client.get(reverse("admin:duty_board_change", args=[it_board.pk])).content.decode()
+    assert "관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺍니다." in html
 
 
 # ── 새 부서: 근무표의 근무조만 ──

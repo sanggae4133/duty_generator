@@ -184,17 +184,6 @@ class BoardShift(models.Model):
         raise ValidationError("저장한 근무 정의는 지울 수 없습니다. '사용'을 끄세요.")
 
 
-class GroupKeeper(models.Model):
-    """그룹 관리자: 그 그룹에 멤버를 넣고 빼기만 한다."""
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="keepers", verbose_name="그룹")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="kept_groups",
-                             verbose_name="그룹 관리자")
-
-    class Meta:
-        verbose_name = verbose_name_plural = "그룹 관리자"
-        constraints = [models.UniqueConstraint(fields=["group", "user"], name="groupkeeper_once")]
-
-
 class Department(models.Model):
     code = models.CharField("코드", max_length=8, primary_key=True)
     name = models.CharField("이름", max_length=32, unique=True)

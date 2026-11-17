@@ -49,7 +49,6 @@ urlpatterns = [
     path("periods/<int:pid>/publish/", manage_views.period_publish, name="period_publish"),
     path("stats/", manage_views.stats_view, name="stats"),
     path("changes/", manage_views.change_log, name="changes"),
-    path("groups/", manage_views.groups, name="groups"),
     path("settings/", board_settings_views.index, name="board_settings"),
     path("alarms/", alarm_views.index, name="alarms"),
     path("alarms/telegram/", alarm_views.telegram_save, name="alarm_telegram"),
