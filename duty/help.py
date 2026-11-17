@@ -1,6 +1,6 @@
 """권한별 사용법 영상 목록. 영상 파일은 settings.HELP_VIDEO_DIR/<name>.mp4."""
 from . import perms
-from .models import InputMode
+from .services import boards
 
 VIDEOS = [  # (이름, 제목, 누구를 위한)
     ("member", "근무표 보기·바꾸기", "모든 사용자"),
@@ -70,7 +70,7 @@ def allowed(user, name: str) -> bool:
     if name == "manager":
         return perms.is_admin(user) or perms.managed_departments(user).exists()
     if name == "direct":
-        return perms.admin_boards(user).filter(input_mode=InputMode.DIRECT).exists()
+        return any(boards.legacy_admin_entry(b) for b in perms.admin_boards(user))  # 1단계 임시 기준(2단계에서 글 하나로)
     return name == "admin" and perms.is_admin(user)
 
 

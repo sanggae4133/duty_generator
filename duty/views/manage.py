@@ -12,11 +12,11 @@ from .. import perms
 from ..csv_io import join_reason
 from ..errors import DutyError
 from ..generator import GenerationError
-from ..models import DIRECT_STEPS, Board, ChangeLog, Department, InputMode, Period, User, step_label
+from ..models import Board, ChangeLog, Department, Period, User
 from ..services import boards, collect, generate, periods, stats
 from ..services import groups as group_service
 from ..services import publish as publishing
-from ..shifts import cell_label, slot_defs
+from ..shifts import cell_label, josa, slot_defs
 from .common import admin_required, date_param
 
 
@@ -69,28 +69,31 @@ def period_list(request):
     })
 
 
-def _movable(period, direct):
-    S = Period.Status
-    if direct:  # 직접 입력은 [확정 취소] 하나로 되돌린다. 입력 방식이 바뀌어 작성 중·마감에 남은 회차만 입력 중으로
-        return [(S.COLLECTING, step_label(period.board, S.COLLECTING))] if period.status in {S.DRAFT, S.CLOSED} else []
-    if period.status == S.PUBLISHED:
-        return []
-    return [(s, S(s).label) for s in periods.MOVABLE if s != period.status]
-
-
 def _render_detail(request, period, failures):
     counts, spread, reached = stats.period_duty_counts(period)
-    slot_names = [x.name for x in slot_defs(boards.active_defs(period.board))]  # generator 의 칸 번호 = 켜진 관제 정의 순서
-    direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력: 입력 중 → 확정 → 배포됨(설계 6.1·7)
+    board = period.board
+    active = boards.active_defs(board)
+    slot_names = [x.name for x in slot_defs(active)]  # generator 의 칸 번호 = 켜진 관제 정의 순서
+    legacy = boards.legacy_admin_entry(board)  # 1단계 임시 기준: 옛 직접 입력의 [표 입력]·빈 평일 경고·확인창(2단계에서 지운다)
     S = Period.Status
+    targets = board.move_targets(period.status)
+    # 1단계: 버튼 글자·[재생성]은 main 처럼 임시 기준으로(옛 직접 입력 = [확정], 그 밖 = [장중관제 생성]·[재생성]).
+    # 관제 정의가 켜진 옛 직접 입력 근무표도 지금 화면 그대로다. 2단계에서 관제 정의(데이터) 기준으로 바꾼다
+    buttons = board.step_buttons(not legacy)
+    gen, undo_label = buttons["generate"], targets and board.step_name(targets[0])
     return render(request, "duty/period_detail.html", {
-        "period": period, "S": S, "direct": direct, "generated_label": step_label(period.board, S.GENERATED),
-        "steps": DIRECT_STEPS if direct else S.choices,
-        "movable": _movable(period, direct),
-        "events": [(e, e.from_status and step_label(period.board, e.from_status), step_label(period.board, e.to_status))
+        "period": period, "board": board, "S": S, "legacy": legacy, "generated_label": board.step_name(S.GENERATED),
+        "steps": [(s, board.step_name(s)) for s in board.steps()], "editable": board.editable(),
+        "buttons": buttons, "generate_topic": gen + josa(gen, "은/는"),
+        "generated_ro": josa(board.step_name(S.GENERATED), "으로/로"),
+        "movable": [(s, board.step_name(s)) for s in targets],
+        "undo_to": targets[0] if len(targets) == 1 else "",
+        "undo_confirm": (f"{gen}{josa(gen, '을/를')} 취소하고 {undo_label}{josa(undo_label, '으로/로')} 돌아갈까요? "
+                         "출근표는 그대로 남습니다.") if len(targets) == 1 else "",
+        "events": [(e, e.from_status and board.step_name(e.from_status), board.step_name(e.to_status))
                    for e in period.events.select_related("by")],
-        "input_depts": Department.objects.filter(board=period.board).order_by("order", "code") if direct else [],
-        "empty_days": periods.empty_days(period) if direct and period.status == S.COLLECTING else [],
+        "input_depts": Department.objects.filter(board=board).order_by("order", "code") if legacy else [],
+        "empty_days": periods.empty_days(period) if legacy and period.status == S.COLLECTING else [],
         "undo": publishing.unpublish_info(period) if period.status == Period.Status.PUBLISHED else None,
         "progress": collect.progress(period), "missing": periods.missing_dates(period),
         "counts": counts, "spread": spread, "reached": reached,
@@ -134,8 +137,8 @@ def period_action(request, pid, action):
         messages.error(request, str(e))
     else:
         period.refresh_from_db()
-        done = f"'{step_label(period.board, period.status)}' 상태로 바꿨습니다."
-        if action == "generate" and period.board.input_mode == Board.InputMode.DIRECT:
+        done = f"'{period.board.step_name(period.status)}' 상태로 바꿨습니다."
+        if action == "generate" and boards.legacy_admin_entry(period.board):
             done = "확정했습니다. 근무표 화면에는 배포한 뒤에 보입니다. 아래 경고를 확인하고 [배포…]를 누르세요."
         messages.success(request, done)
         for w in getattr(result, "warnings", ()):  # 생성: 점심당번을 못 채운 날

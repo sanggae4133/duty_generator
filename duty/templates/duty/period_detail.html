@@ -2,8 +2,8 @@
 {% block content %}
 <h3>{{ period.name }} <small>({{ period.status_label }})</small></h3>
 <ol class="lifecycle">{% for code, label in steps %}<li><span{% if code == period.status %} class="now"{% endif %}>{{ label }}</span></li>{% endfor %}</ol>
-{% if period.status == S.DRAFT or direct and period.status == S.COLLECTING %}
-<form method="post" class="search labeled"{% if direct %} data-start="{{ period.start_date|date:'Y-m-d' }}" data-end="{{ period.end_date|date:'Y-m-d' }}"
+{% if period.status in editable %}
+<form method="post" class="search labeled"{% if legacy %} data-start="{{ period.start_date|date:'Y-m-d' }}" data-end="{{ period.end_date|date:'Y-m-d' }}"
       onsubmit="return !(this.start_date.value &gt; this.dataset.start || this.end_date.value &lt; this.dataset.end) || confirm('기간을 줄이면 바깥 날짜의 출근표가 지워집니다. 저장할까요?')"{% endif %}>{% csrf_token %}
   <label>이름 <input name="name" value="{{ period.name }}" required></label>
   <label>시작일 <input type="date" name="start_date" value="{{ period.start_date|date:'Y-m-d' }}" required></label>
@@ -14,33 +14,29 @@
 <p>{{ period.start_date|date:"Y-m-d" }} ~ {{ period.end_date|date:"Y-m-d" }}</p>
 {% endif %}
 
-<div class="actions">
-  {% if direct %}
-  {% if period.status == S.COLLECTING %}
-  {% for d in input_depts %}<a role="button"{% if not empty_days or not forloop.first %} class="outline"{% endif %} href="{% url 'collect_table' period.pk d.code %}">표 입력{% if input_depts|length > 1 %} · {{ d.name }}{% endif %}</a>{% endfor %}
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('확정할까요? 확정하면 배포할 수 있고, 표를 고치려면 [확정 취소]를 누릅니다.')">{% csrf_token %}<button{% if empty_days %} class="outline"{% endif %}>확정</button></form>
-  {% elif period.status == S.GENERATED %}
-  <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
-  <form method="post" action="{% url 'period_move' period.pk %}" onsubmit="return confirm('확정을 취소하고 입력 중으로 돌아갈까요? 출근표는 그대로 남습니다.')">{% csrf_token %}<input type="hidden" name="to" value="{{ S.COLLECTING }}"><button class="outline secondary">확정 취소</button></form>
-  {% endif %}
-  {% elif period.status == S.DRAFT %}
-  <form method="post" action="{% url 'period_action' period.pk 'open' %}">{% csrf_token %}<button>취합 열기</button></form>
+<div class="actions">{# 지금 상태에서 다음 단계 버튼(설계 5.4). 버튼 글자는 단계 이름에서 나온다 #}
+  {% if period.status == S.DRAFT and board.use_draft %}
+  <form method="post" action="{% url 'period_action' period.pk 'open' %}">{% csrf_token %}<button>{{ buttons.open }}</button></form>
+  {% elif period.status == S.COLLECTING and board.use_close %}
+  <form method="post" action="{% url 'period_action' period.pk 'close' %}">{% csrf_token %}<button>{{ buttons.close }}</button></form>
   {% elif period.status == S.COLLECTING %}
-  <form method="post" action="{% url 'period_action' period.pk 'close' %}">{% csrf_token %}<button>취합 마감</button></form>
-  {% elif period.status == S.CLOSED %}
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>장중관제 생성</button></form>
+  {% for d in input_depts %}<a role="button"{% if not empty_days or not forloop.first %} class="outline"{% endif %} href="{% url 'collect_table' period.pk d.code %}">표 입력{% if input_depts|length > 1 %} · {{ d.name }}{% endif %}</a>{% endfor %}
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('{{ buttons.generate|escapejs }}할까요? {{ buttons.generate|escapejs }}하면 배포할 수 있{% if buttons.undo %}고, 표를 고치려면 [{{ buttons.undo|escapejs }}]를 누릅니다{% else %}습니다{% endif %}.')">{% csrf_token %}<button{% if empty_days %} class="outline"{% endif %}>{{ buttons.generate }}</button></form>
+  {% elif period.status == S.CLOSED and board.use_close %}
+  <form method="post" action="{% url 'period_action' period.pk 'generate' %}">{% csrf_token %}<button {% if missing %}disabled{% endif %}>{{ buttons.generate }}</button></form>
   {% elif period.status == S.GENERATED %}
   <a role="button" href="{% url 'period_publish' period.pk %}">배포…</a>
-  <form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">{% csrf_token %}<button class="outline secondary" {% if missing %}disabled{% endif %}>재생성</button></form>
+  {% if buttons.regenerate %}<form method="post" action="{% url 'period_action' period.pk 'generate' %}" onsubmit="return confirm('지금 생성 결과를 버리고 다시 생성할까요?')">{% csrf_token %}<button class="outline secondary" {% if missing and board.use_close %}disabled{% endif %}>{{ buttons.regenerate }}</button></form>{% endif %}
+  {% if buttons.undo %}<form method="post" action="{% url 'period_move' period.pk %}" onsubmit="return confirm('{{ undo_confirm|escapejs }}')">{% csrf_token %}<input type="hidden" name="to" value="{{ undo_to }}"><button class="outline secondary">{{ buttons.undo }}</button></form>{% endif %}
   {% endif %}
-  {% if not direct and period.status == S.CLOSED or not direct and period.status == S.GENERATED %}
+  {% if not legacy and period.status == S.CLOSED or not legacy and period.status == S.GENERATED %}
   <button type="button" class="outline secondary" onclick="document.getElementById('gen-help').showModal()">생성 방식</button>
   {% endif %}
 </div>
-{% if empty_days %}<p class="note warn">⚠ 아직 입력하지 않은 평일: {% for d in empty_days %}{{ d|date:"n/j" }}{% if not forloop.last %}, {% endif %}{% endfor %}. 확정은 할 수 있지만 그날은 근무자가 없습니다.</p>{% endif %}
-{% if missing and not direct and period.status != S.DRAFT and period.status != S.PUBLISHED %}<p class="note">출근표가 비어 있는 부서가 있어 아직 생성할 수 없습니다(아래 입력 현황).</p>{% endif %}
+{% if empty_days %}<p class="note warn">⚠ 아직 입력하지 않은 평일: {% for d in empty_days %}{{ d|date:"n/j" }}{% if not forloop.last %}, {% endif %}{% endfor %}. {{ generate_topic }} 할 수 있지만 그날은 근무자가 없습니다.</p>{% endif %}
+{% if missing and board.use_close and period.status != S.DRAFT and period.status != S.PUBLISHED %}<p class="note">출근표가 비어 있는 부서가 있어 아직 생성할 수 없습니다(아래 입력 현황).</p>{% endif %}
 
-{% if movable %}
+{% if movable and not buttons.undo or movable and period.status != S.GENERATED %}
 <details class="move-box"><summary>다른 상태로 옮기기</summary>
 <form method="post" action="{% url 'period_move' period.pk %}" class="move"{% if period.status == S.GENERATED %} onsubmit="return confirm('장중관제·점심당번 생성 결과가 삭제됩니다. 계속할까요?')"{% endif %}>{% csrf_token %}
   <select id="move-to" name="to" aria-label="옮길 상태">{% for code, label in movable %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
@@ -52,15 +48,15 @@
 {% if undo %}
 <article>
   {% if undo.blocker %}<small>배포 취소 불가: {{ undo.blocker }}</small>{% else %}
-  <form method="post" action="{% url 'period_action' period.pk 'unpublish' %}" onsubmit="return confirm('배포를 취소하고 이 회차를 {{ generated_label }}으로 되돌릴까요?')">{% csrf_token %}
+  <form method="post" action="{% url 'period_action' period.pk 'unpublish' %}" onsubmit="return confirm('배포를 취소하고 이 회차를 {{ generated_label|escapejs }}{{ generated_ro }} 되돌릴까요?')">{% csrf_token %}
     <button class="secondary">배포 취소</button>
-    <small>{% if undo.restored_rows %}배포 때 덮어쓴 근무 {{ undo.restored_rows }}칸을 되살리고 {% endif %}이 회차는 {{ generated_label }}으로 돌아갑니다(근무표에서 빠집니다).
+    <small>{% if undo.restored_rows %}배포 때 덮어쓴 근무 {{ undo.restored_rows }}칸을 되살리고 {% endif %}이 회차는 {{ generated_label }}{{ generated_ro }} 돌아갑니다(근무표에서 빠집니다).
       {% if undo.later_changes %}배포 뒤 바뀐 근무 {{ undo.later_changes }}건은 이 회차 데이터에 남지만, 변경 표시(A>B·취소선)는 다시 배포해도 나오지 않습니다.{% endif %}</small>
   </form>{% endif %}
 </article>
 {% endif %}
 
-{% if not direct %}
+{% if not legacy %}
 <h4>부서별 입력 현황</h4>
 <ul>{% for code, p in progress.items %}<li>{{ code }}: {{ p.0 }} / {{ p.1 }}일
   {% if code in missing %}<small>(비어 있는 날짜 있음)</small>{% endif %}</li>{% endfor %}</ul>
@@ -73,7 +69,7 @@
 </article>
 {% endif %}
 
-{% if counts and not direct %}
+{% if counts and not legacy %}
 <h4>장중관제 배정 횟수 — 편차 {{ spread }} {% if reached %}(목표 2 이하 도달){% else %}(목표 2 미도달){% endif %}</h4>
 <table><tbody>{% for name, n in counts %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table>
 {% endif %}
@@ -110,7 +106,7 @@
   p.note { font-size: .9rem; opacity: .8; }
   p.note.warn { opacity: 1; padding: .5rem .8rem; border-left: 4px solid #c77700; background: rgba(199, 119, 0, .1); }
 </style>
-{% if not direct %}
+{% if not legacy %}
 <dialog id="gen-help"><article>
   <h4>장중관제 생성 방식</h4>
   <p>취합된 출근조를 보고 날짜마다 장중관제 10칸(08:30~18:00)에 개발자를 한 명씩 배정합니다.</p>

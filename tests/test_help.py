@@ -3,6 +3,7 @@ import pytest
 from django.urls import reverse
 
 from duty.models import User
+from tests.it_defs import OPS_STEPS
 
 BODY = bytes(range(256)) * 4  # 가짜 영상 1024바이트
 
@@ -193,7 +194,7 @@ def test_steps_cover_phase2_member_features():
 def test_direct_board_admin_text_help(client, people, videos, make_member):
     """직접 입력 근무표 관리자에게만 글 도움말(영상 없음)이 보인다(3단계)."""
     from duty.models import Board
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     client.force_login(people["admin"])  # IT(부서별 취합)만 관리
     assert "직접 입력 근무표 운영" not in client.get("/help/").content.decode()
     assert "<h4>글 도움말</h4>" not in client.get("/help/").content.decode()

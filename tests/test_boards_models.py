@@ -7,7 +7,7 @@ from django.db import IntegrityError, transaction
 
 from duty.models import Board, BoardShift, Department, GroupKeeper
 from duty.shifts import KEYS
-from tests.it_defs import IT_DEFS2
+from tests.it_defs import IT_DEFS2, OPS_STEPS
 
 
 def _bad(fn):
@@ -20,13 +20,13 @@ def test_it_defs_match_keys_order():
 
 
 def test_it_board_fixture_has_14_defs_and_admin_group(it_board):
-    assert it_board.code == "it" and it_board.input_mode == "collect"
+    assert it_board.code == "it" and it_board.steps() == ["draft", "collecting", "closed", "generated", "published"]
     assert sorted(it_board.shifts.values_list("key", flat=True)) == sorted(k for k in KEYS if k != "lunch")
     assert it_board.admin_group_id is not None
 
 
 def test_board_save_creates_admin_group(db):
-    b = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    b = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     assert b.admin_group.name == "운영팀 근무표 관리"
     before = Group.objects.count()
     b.name = "운영팀2"
@@ -41,8 +41,16 @@ def test_department_save_creates_input_group_for_collect_board(it_board):
 
 
 def test_department_without_collect_board_has_no_input_group(db):
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     assert Department.objects.create(code="OPS", name="운영", shifts="normal", board=ops).input_group is None
+
+
+def test_board_without_close_can_have_many_departments(it_board):
+    """'직접 입력 근무표는 부서 하나' 규칙은 없다(근무표 통합 설계 5.3)."""
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
+    for code in ("OPS", "OP2"):
+        Department(code=code, name=f"운영{code}", shifts="normal", board=ops).full_clean()
+        Department.objects.create(code=code, name=f"운영{code}", shifts="normal", board=ops)
 
 
 def test_depts_fixture_on_it_board_with_input_groups(depts, it_board):
@@ -56,7 +64,7 @@ def test_admin_user_in_it_admin_group(admin_user, it_board):
 
 def test_board_constraints(it_board):
     _bad(lambda: Board.objects.create(code="it", name="중복"))
-    _bad(lambda: Board.objects.create(code="x", name="x", input_mode="bogus"))
+    _bad(lambda: Board.objects.create(code="x", name="x", step_closed=""))
 
 
 def test_boardshift_constraints(it_board):
@@ -110,3 +118,16 @@ def test_department_save_without_rename_keeps_input_group_name(it_board):
     d.save()
     d.refresh_from_db()
     assert d.input_group.name == "품질관리 출근표 입력"
+
+
+@pytest.mark.parametrize("names,bad", [
+    ({}, []),
+    (OPS_STEPS, []),
+    ({"step_generated": "배포…됨"}, ["배포…"]),                               # 생성 글자가 [배포…]와 같다
+    ({"step_generated": "재생성됨"}, []),                                     # 관제 없는 화면엔 [재생성]이 없다
+    ({"step_collecting": "장중관제 중", "step_closed": "생성"}, ["장중관제 생성"]),  # 관제 있을 때만 겹친다
+    ({"step_collecting": "장중관제 중", "step_closed": "생성", "use_close": False}, []),  # 마감을 끄면 그 버튼이 없다
+])
+def test_bad_buttons(names, bad):
+    """켠 단계의 버튼 글자 중 비거나 겹치는 것(관제 있을 때·없을 때 둘 다, 설계 5.4)."""
+    assert Board(code="x", name="x", **names).bad_buttons() == bad

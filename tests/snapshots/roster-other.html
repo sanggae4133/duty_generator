@@ -1,0 +1,192 @@
+<div class="cal-nav">
+<h3 class="cal-title">2026-11-16 ~ 11-20</h3>
+<a class="to-mine" role="button" href="/?board=it">보기 전용 · 내 근무표로</a>
+<span class="seg" role="group" aria-label="근무표">
+<a href="?board=it&amp;view=week&amp;date=2026-11-16">IT 당번표</a>
+<a href="?board=ops&amp;view=week&amp;date=2026-11-16" aria-current="page">운영팀</a>
+</span>
+<span class="seg" role="group" aria-label="보기">
+<a href="?board=ops&amp;view=week&amp;date=2026-11-16" aria-current="page">주간</a>
+<a href="?board=ops&amp;view=month&amp;date=2026-11-16">월간</a>
+</span>
+<span class="seg" role="group" aria-label="이동">
+<a href="?board=ops&amp;view=week&amp;date=2026-11-09" aria-label="이전 주">◀</a>
+<a href="?board=ops&amp;view=week&amp;date=2026-11-16#today">오늘</a>
+<a href="?board=ops&amp;view=week&amp;date=2026-11-23" aria-label="다음 주">▶</a>
+</span>
+</div>
+<form method="get" class="search">
+<input type="hidden" name="view" value="week">
+<details class="filters">
+<summary>검색·필터</summary>
+<div class="filters-body">
+<span class="pair">
+<input type="date" name="date" value="2026-11-16" aria-label="이동할 날짜" style="min-width:10rem">
+<button>이동</button>
+</span>
+<span class="names">
+<span class="name">
+<span class="swatch hl1" aria-hidden="true">
+</span>
+<input name="q1" value="" placeholder="강조할 이름" aria-label="강조할 이름 1">
+</span>
+<span class="name">
+<span class="swatch hl2" aria-hidden="true">
+</span>
+<input name="q2" value="" placeholder="강조할 이름" aria-label="강조할 이름 2">
+</span>
+<span class="name">
+<span class="swatch hl3" aria-hidden="true">
+</span>
+<input name="q3" value="" placeholder="강조할 이름" aria-label="강조할 이름 3">
+</span>
+<button>검색</button>
+</span>
+<input type="hidden" name="f" value="1">
+<input type="hidden" name="board" value="ops">
+<fieldset class="filter">
+<legend>보기</legend>
+<input type="hidden" name="hist" value="0">
+<label>
+<input type="checkbox" name="hist" value="1" checked> 변경 내역 표시(A&gt;B·취소선)</label>
+</fieldset>
+<script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { const g = document.querySelector(".roster-scroll"); try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => { // 근무표의 '오늘로 이동'보다 뒤에 const g = document.querySelector(".roster-scroll"); if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; } scrollTo(0, s.y); }); }</script>
+</div>
+</details>
+</form>
+<div class="grid-wrap roster-scroll">
+<table class="roster month stack" id="roster">
+<thead>
+<tr>
+<th>월</th>
+<th>화</th>
+<th>수</th>
+<th>목</th>
+<th>금</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td id="today" class="today-col">
+<a href="/day/2026-11-16/?board=ops">
+<strong>11/16 (월)</strong>
+</a>
+<div class="sec">
+<b class="sh">이른</b>
+<div class="line">
+<span class="lb">가상이</span>
+</div>
+</div>
+<div class="sec">
+<b class="sh">가운데</b>
+</div>
+<div class="sec">
+<b class="sh">늦은</b>
+</div>
+<div class="sec">
+<b class="sh">점심당번</b>
+<div class="line">
+<span class="lb">가상이</span>
+</div>
+</div>
+<div class="sec slot">
+<b class="sh">관제</b>
+</div>
+</td>
+<td>
+<a href="/day/2026-11-17/?board=ops">
+<strong>11/17 (화)</strong>
+</a>
+<div class="sec">
+<b class="sh">이른</b>
+<div class="line">
+<span class="lb">가상이</span>
+</div>
+</div>
+<div class="sec">
+<b class="sh">가운데</b>
+</div>
+<div class="sec">
+<b class="sh">늦은</b>
+</div>
+<div class="sec">
+<b class="sh">점심당번</b>
+</div>
+<div class="sec slot">
+<b class="sh">관제</b>
+</div>
+</td>
+<td>
+<a href="/day/2026-11-18/?board=ops">
+<strong>11/18 (수)</strong>
+</a>
+<div class="sec">
+<b class="sh">이른</b>
+<div class="line">
+<span class="lb">가상이</span>
+</div>
+</div>
+<div class="sec">
+<b class="sh">가운데</b>
+</div>
+<div class="sec">
+<b class="sh">늦은</b>
+</div>
+<div class="sec">
+<b class="sh">점심당번</b>
+</div>
+<div class="sec slot">
+<b class="sh">관제</b>
+</div>
+</td>
+<td>
+<a href="/day/2026-11-19/?board=ops">
+<strong>11/19 (목)</strong>
+</a>
+<div class="sec">
+<b class="sh">이른</b>
+</div>
+<div class="sec">
+<b class="sh">가운데</b>
+</div>
+<div class="sec">
+<b class="sh">늦은</b>
+</div>
+<div class="sec">
+<b class="sh">점심당번</b>
+</div>
+<div class="sec slot">
+<b class="sh">관제</b>
+</div>
+</td>
+<td>
+<a href="/day/2026-11-20/?board=ops">
+<strong>11/20 (금)</strong>
+</a>
+<div class="sec">
+<b class="sh">이른</b>
+</div>
+<div class="sec">
+<b class="sh">가운데</b>
+</div>
+<div class="sec">
+<b class="sh">늦은</b>
+</div>
+<div class="sec">
+<b class="sh">점심당번</b>
+</div>
+<div class="sec slot">
+<b class="sh">관제</b>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="legend">
+<small>
+<span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc">
+<s>이름(휴가)</s>
+</span> = 사유로 그날 근무 아님</small>
+</p>
+<script> const today = document.getElementById("today"); if (today) { today.scrollIntoView({block: "nearest", inline: "center"}); if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink")); } </script>

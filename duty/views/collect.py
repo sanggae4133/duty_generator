@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from .. import perms
 from ..csv_io import CsvInvalid, split_names
 from ..errors import DutyError
-from ..models import Board, Department, Period, User, step_label
+from ..models import Department, Period, User
 from ..services import boards, collect
 from ..shifts import DAY_LABELS
 
@@ -28,7 +28,7 @@ def index(request):
         prog = collect.progress(p)  # 그 회차 근무표의 부서만 있다
         items.append({"period": p, "depts": [(d, prog[d.code]) for d in depts if d.board_id == p.board_id]})
     # 목록이 비었을 때 문구: 근무표의 화면 단계 이름(취합 중 / 입력 중), 겹치는 이름은 한 번만
-    waiting = "·".join(dict.fromkeys(step_label(d.board, Period.Status.COLLECTING) for d in depts))
+    waiting = "·".join(dict.fromkeys(d.board.step_name(Period.Status.COLLECTING) for d in depts))
     return render(request, "duty/collect_index.html", {"items": items, "waiting": waiting})
 
 
@@ -63,13 +63,13 @@ def _render_table(request, period, dept, table, errors, before=None):
                      "week_start": None if monday in weeks else monday})  # 그 주 첫 줄에만: 그 주 월요일(회차가 주 중간에 시작해도)
         weeks.add(monday)
     is_open = period.status == Period.Status.COLLECTING
-    direct = period.board.input_mode == Board.InputMode.DIRECT
+    legacy = boards.legacy_admin_entry(period.board)  # 1단계 임시 기준(2단계에서 지운다)
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
         "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
-        "is_open": is_open, "direct": direct, "ncols": len(keys) + 2,
-        "show_fill": is_open and direct, "can_rotate": collect.can_rotate(dept),  # 채우기 버튼(설계 6.2): 직접 입력의 입력 중 회차만
+        "is_open": is_open, "legacy": legacy, "ncols": len(keys) + 2,
+        "show_fill": is_open and legacy, "can_rotate": collect.can_rotate(dept),  # 채우기 버튼(설계 6.2): 1단계는 마감을 안 쓰는 근무표만
         "filled": before is not None, "changed": sum(c["changed"] for r in rows for c in r["cells"]),
     }, status=400 if errors else 200)
 

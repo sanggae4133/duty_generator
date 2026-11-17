@@ -1,0 +1,36 @@
+<h3>ops closed <small>(마감)</small>
+</h3>
+<ol class="lifecycle">
+<li>
+<span>입력 중</span>
+</li>
+<li>
+<span>확정</span>
+</li>
+<li>
+<span>배포됨</span>
+</li>
+</ol>
+<p>2026-11-16 ~ 2026-11-20</p>
+<div class="actions">
+</div>
+<details class="move-box">
+<summary>다른 상태로 옮기기</summary>
+<form method="post" action="/periods/P_ops_closed/move/" class="move">
+<input type="hidden" name="csrfmiddlewaretoken">
+<select id="move-to" name="to" aria-label="옮길 상태">
+<option value="collecting">입력 중</option>
+</select>
+<button class="outline">옮기기</button>
+<small>출근표는 그대로 남습니다. 생성됨에서 나가면 장중관제·점심당번 생성 결과만 지웁니다.</small>
+</form>
+</details>
+<section class="danger">
+<h4>위험 구역</h4>
+<form method="post" action="/periods/P_ops_closed/delete/" onsubmit="return confirm('회차 \'ops closed\'을(를) 지울까요? 출근표·생성 결과·상태 기록이 모두 지워지고 되돌릴 수 없습니다.')">
+<input type="hidden" name="csrfmiddlewaretoken">
+<button class="danger-btn">회차 삭제</button>
+<small>시험·실수로 만든 회차를 출근표·생성 결과와 함께 지웁니다. 되돌릴 수 없습니다.</small>
+</form>
+</section>
+<style> ol.lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; padding: 0; margin: 0 0 1rem; } ol.lifecycle li { list-style: none; margin: 0; font-size: .85rem; } ol.lifecycle li:not(:last-child)::after { content: "→"; margin-left: .3rem; opacity: .4; } ol.lifecycle span { display: inline-block; padding: .2rem .7rem; border: 1px solid var(--duty-line); border-radius: 1rem; opacity: .6; } ol.lifecycle span.now { opacity: 1; font-weight: bold; border-color: var(--pico-primary); color: var(--pico-primary); } .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; } .actions form, .actions button, .actions [role=button] { width: auto; margin: 0; } article small { display: block; margin-top: .4rem; } td.nw { white-space: nowrap; } form.move { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; } form.move select, form.move button, form.move label { width: auto; margin: 0; } form.move small { flex-basis: 100%; opacity: .7; } details.move-box { margin: 0 0 1rem; } details.move-box summary { font-size: .9rem; } p.note { font-size: .9rem; opacity: .8; } p.note.warn { opacity: 1; padding: .5rem .8rem; border-left: 4px solid #c77700; background: rgba(199, 119, 0, .1); } </style>

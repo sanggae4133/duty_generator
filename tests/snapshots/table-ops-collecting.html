@@ -1,0 +1,113 @@
+<h3>ops collecting · 운영</h3>
+<p>
+<a href="/periods/P_ops_collecting/">← 회차 화면으로(확정·배포)</a>
+</p>
+<div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
+<form method="post" enctype="multipart/form-data" action="/collect/P_ops_collecting/OPS/upload/" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 운영 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">
+<input type="hidden" name="csrfmiddlewaretoken">
+<input type="file" name="file" accept=".csv" required style="max-width:100%">
+<button class="secondary">CSV 올리기 (표 전체 교체)</button>
+</form>
+<a role="button" class="secondary" style="white-space:nowrap" href="/collect/P_ops_collecting/OPS/export.csv">CSV 내려받기</a>
+</div>
+<p class="guide">
+<small>칸마다 그 출근조에 들어갈 사람 이름을 쉼표(,)로 구분해 적습니다. 한 사람은 하루에 한 출근조만. 휴가·출장·교육은 이름 뒤에 이름(휴가)처럼 붙입니다(근무로 치지 않음).<br>운영 인원: 가상이</small>
+</p>
+<form method="post">
+<input type="hidden" name="csrfmiddlewaretoken">
+<button class="enter-save" tabindex="-1" aria-hidden="true">표 저장</button>
+<div class="grid-wrap">
+<table class="roster">
+<thead>
+<tr>
+<th>날짜</th>
+<th>요일</th>
+<th>이른</th>
+<th>가운데</th>
+<th>늦은</th>
+</tr>
+</thead>
+<tbody>
+<tr class="week">
+<td colspan="5">
+<div class="week-head">
+<strong>11/16 주</strong>
+<button name="fill" value="2w:2026-11-16" class="outline">2주 전 기준으로 채우기</button>
+<button name="fill" value="1w:2026-11-16" class="outline">지난주와 같게</button>
+</div>
+</td>
+</tr>
+<tr>
+<td class="nw">2026-11-16</td>
+<td>월</td>
+<td>
+<textarea name="c_2026-11-16_dawn" rows="2" >가상이</textarea>
+</td>
+<td>
+<textarea name="c_2026-11-16_normal" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-16_dinner" rows="2" ></textarea>
+</td>
+</tr>
+<tr>
+<td class="nw">2026-11-17</td>
+<td>화</td>
+<td>
+<textarea name="c_2026-11-17_dawn" rows="2" >가상이</textarea>
+</td>
+<td>
+<textarea name="c_2026-11-17_normal" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-17_dinner" rows="2" ></textarea>
+</td>
+</tr>
+<tr>
+<td class="nw">2026-11-18</td>
+<td>수</td>
+<td>
+<textarea name="c_2026-11-18_dawn" rows="2" >가상이</textarea>
+</td>
+<td>
+<textarea name="c_2026-11-18_normal" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-18_dinner" rows="2" ></textarea>
+</td>
+</tr>
+<tr>
+<td class="nw">2026-11-19</td>
+<td>목</td>
+<td>
+<textarea name="c_2026-11-19_dawn" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-19_normal" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-19_dinner" rows="2" ></textarea>
+</td>
+</tr>
+<tr>
+<td class="nw">2026-11-20</td>
+<td>금</td>
+<td>
+<textarea name="c_2026-11-20_dawn" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-20_normal" rows="2" ></textarea>
+</td>
+<td>
+<textarea name="c_2026-11-20_dinner" rows="2" ></textarea>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="savebar">
+<button>표 저장</button>
+</div>
+</form>
+<script> // 칸은 여러 줄 칸이지만 Enter 는 지금처럼 저장(Shift+Enter·한글 조합 중 Enter 는 그대로) document.querySelector("table.roster").addEventListener("keydown", e => { const b = e.target.form && e.target.form.querySelector("button"); if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.target.tagName === "TEXTAREA" && b) { e.preventDefault(); e.target.form.requestSubmit(b); } }); </script>
+<style> p.guide { margin: 0 0 .6rem; } table.roster td textarea { width: 100%; min-width: 8rem; margin: 0; resize: vertical; field-sizing: content; min-height: 2.6em; } /* 이름이 많으면 줄바꿈해 다 보인다 */ table.roster td textarea:disabled { background: var(--duty-line); } .savebar { position: sticky; bottom: 0; padding: .6rem 0; background: var(--pico-background-color); border-top: 1px solid var(--duty-line); } .savebar button { width: auto; margin: 0; } tr.week td { padding-top: 1rem; } tr.week .week-head { position: sticky; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; max-width: calc(100vw - 48px); } /* 넓은 표가 가로로 밀려도 버튼은 보이는 폭 안에서 줄바꿈 */ tr.week button { width: auto; min-height: 44px; margin: 0; padding: .5rem 1rem; } table.roster td textarea.filled { background: rgba(199, 119, 0, .18); outline: 2px solid #c77700; } .enter-save { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; } </style>

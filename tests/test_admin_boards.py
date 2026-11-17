@@ -6,8 +6,9 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from duty.admin import DepartmentForm
+from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm
 from duty.models import Board, BoardShift, Department, GroupKeeper, User
+from tests.it_defs import OPS_STEPS
 
 ADD = reverse("admin:duty_board_add")
 
@@ -36,6 +37,13 @@ def row(i, key, name, start="", end="", pk="", board="", **more):
     return data
 
 
+def steps_form(board=None, **names):
+    """근무표 폼의 단계 칸(체크박스는 켤 때만 보낸다). board 가 없으면 작성 중·마감을 끈 시장운영실 모양."""
+    b = board or Board(**OPS_STEPS)
+    data = {f: getattr(b, f) for f in STEP_FIELDS} | {f: "on" for f in ("use_draft", "use_close") if getattr(b, f)}
+    return data | names
+
+
 def form(rows, initial=0, **board):
     data = {"shifts-TOTAL_FORMS": str(len(rows)), "shifts-INITIAL_FORMS": str(initial), **board}
     for r in rows:
@@ -51,7 +59,7 @@ def three(board=""):
 @pytest.fixture
 def ops(it_board):
     """가짜 직접 입력 근무표 '운영팀'(근무조 둘)."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     a = BoardShift.objects.create(board=board, key="dawn", name="이른", start=time(7, 30), end=time(16, 30))
     b = BoardShift.objects.create(board=board, key="dinner", name="늦은", start=time(11), end=time(20))
     return board, a, b
@@ -69,7 +77,7 @@ def change(board, shifts, *extra, **fields):
                       "end": f"{s.end:%H:%M}" if s.end else "", "pk": s.pk, "board": board.pk, "active": s.active,
                       **_saved_extras(s), **fields.get(s.key, {})}) for i, s in enumerate(shifts)]
     rows += [{k.replace("shifts-0-", f"shifts-{len(rows) + j}-"): v for k, v in r.items()} for j, r in enumerate(extra)]
-    return form(rows, initial=len(shifts), name=board.name)
+    return form(rows, initial=len(shifts), name=board.name, **steps_form(board))
 
 
 def errors(r):
@@ -79,7 +87,7 @@ def errors(r):
 # ── 근무표 추가 ──
 
 def test_add_board_with_definitions(su_client, it_board):
-    r = su_client.post(ADD, form(three(), code="ops", name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form(three(), code="ops", name="운영팀", **steps_form()))
     assert r.status_code == 302, errors(r)
     board = Board.objects.get(code="ops")
     assert board.admin_group.name == "운영팀 근무표 관리"
@@ -89,25 +97,25 @@ def test_add_board_with_definitions(su_client, it_board):
 
 @pytest.mark.parametrize("code", ["운영", "Ops", "1ops", "ops-team", "a" * 17])
 def test_add_board_code_must_be_short_ascii(su_client, it_board, code):
-    r = su_client.post(ADD, form(three(), code=code, name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form(three(), code=code, name="운영팀", **steps_form()))
     assert r.status_code == 200 and "코드는 영문 소문자로 시작하는 영문 소문자·숫자 16자 이내입니다" in r.content.decode()
     assert not Board.objects.filter(name="운영팀").exists()
 
 
 def test_add_board_needs_a_shift(su_client, it_board):
-    r = su_client.post(ADD, form([row(0, "lunch", "점심당번")], code="ops", name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form([row(0, "lunch", "점심당번")], code="ops", name="운영팀", **steps_form()))
     assert r.status_code == 200 and "켜진 근무조가 하나 이상 있어야 합니다." in r.content.decode()
     assert not Board.objects.filter(code="ops").exists()
 
 
 def test_add_board_group_name_clash(su_client, it_board):
     Group.objects.create(name="운영팀 근무표 관리")
-    r = su_client.post(ADD, form(three(), code="ops", name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form(three(), code="ops", name="운영팀", **steps_form()))
     assert r.status_code == 200 and "같은 이름의 그룹이 이미 있습니다: 운영팀 근무표 관리" in r.content.decode()
 
 
 def test_board_name_must_be_unique(su_client, ops, it_board):
-    r = su_client.post(ADD, form(three(), code="ops2", name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form(three(), code="ops2", name="운영팀", **steps_form()))
     assert r.status_code == 200 and "같은 이름의 근무표가 이미 있습니다: 운영팀" in r.content.decode()
     board, a, b = ops
     data = change(board, [a, b])
@@ -135,7 +143,7 @@ def test_board_name_must_be_unique(su_client, ops, it_board):
     ([row(0, "dawn", "이른", "07:30", "16:30"), row(1, "dawn", "늦은", "11:00", "20:00")], "키가 겹칩니다: 근무조 1"),
 ])
 def test_definition_rules(su_client, it_board, rows, message):
-    r = su_client.post(ADD, form(rows, code="ops", name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form(rows, code="ops", name="운영팀", **steps_form()))
     body = r.content.decode()
     assert r.status_code == 200 and message in body
     assert "Constraint" not in body and "제약" not in body and "name의" not in body and "key의" not in body
@@ -144,7 +152,7 @@ def test_definition_rules(su_client, it_board, rows, message):
 
 def test_slot_with_shift_eligibility_saves(su_client, it_board):
     rows = three() + [row(3, "slot0", "점검", "09:00", "10:00", eligible_shifts="normal", eligible_types="직원")]
-    r = su_client.post(ADD, form(rows, code="ops", name="운영팀", input_mode="direct"))
+    r = su_client.post(ADD, form(rows, code="ops", name="운영팀", **steps_form()))
     assert r.status_code == 302, errors(r)
     s = BoardShift.objects.get(board__code="ops", key="slot0")
     assert (s.eligible_shifts, s.eligible_types) == (["normal"], ["직원"])
@@ -152,10 +160,11 @@ def test_slot_with_shift_eligibility_saves(su_client, it_board):
 
 # ── 근무표 고치기 ──
 
-def test_change_page_locks_code_mode_keys_and_has_no_delete(su_client, ops):
+def test_change_page_locks_code_steps_keys_and_has_no_delete(su_client, ops):
     board, *_ = ops
     body = su_client.get(reverse("admin:duty_board_change", args=[board.pk])).content.decode()
     assert 'name="name"' in body and 'name="code"' not in body and 'name="input_mode"' not in body
+    assert "회차 단계" in body and 'name="use_close"' not in body and 'name="step_collecting"' not in body  # 1단계: 읽기 전용
     assert reverse("admin:auth_group_change", args=[board.admin_group_id]) in body  # 관리 그룹 링크(그룹 관리자 지정)
     assert 'name="shifts-0-active"' in body and 'name="shifts-0-DELETE"' not in body
     assert '<select name="shifts-0-key"' in body and "disabled" in body.split('name="shifts-0-key"')[1].split(">")[0]
@@ -216,16 +225,60 @@ def test_model_refuses_bad_code_on_create(it_board):
         Board(code="운영", name="운영팀").full_clean()
 
 
-def test_direct_board_has_one_department(ops, it_board):
+def test_board_without_close_takes_second_department(ops, it_board):
+    """부서 수 제한은 없다(근무표 통합 설계 5.3)."""
     board, *_ = ops
     Department.objects.create(code="OPS", name="운영", shifts="dawn", board=board)
-    data = {"code": "OPS2", "name": "운영2", "board": board.pk, "order": 1, "shifts": ["dawn"], "managers": []}
-    f = DepartmentForm(data)
-    assert not f.is_valid() and "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다." in str(f.errors["board"])
-    with pytest.raises(ValidationError, match="부서를 하나만"):
-        Department(code="OPS3", name="운영3", shifts="dawn", board=board).full_clean()
-    it = DepartmentForm({**data, "board": it_board.pk, "shifts": ["dawn"]})
-    assert it.is_valid(), it.errors  # 부서별 취합 근무표는 여러 부서
+    f = DepartmentForm({"code": "OPS2", "name": "운영2", "board": board.pk, "order": 1, "shifts": ["dawn"], "managers": []})
+    assert f.is_valid(), f.errors
+
+
+# ── 회차 단계 칸(근무표 통합 설계 5.1) ──
+
+def test_add_board_saves_steps(su_client, it_board):
+    r = su_client.post(ADD, form(three(), code="ops", name="운영팀", **steps_form()))
+    assert r.status_code == 302, errors(r)
+    b = Board.objects.get(code="ops")
+    assert (b.use_draft, b.use_close, b.step_collecting, b.step_generated) == (False, False, "입력 중", "확정")
+    assert "입력 중 → 확정 → 배포됨" in su_client.get(reverse("admin:duty_board_changelist")).content.decode()
+
+
+@pytest.mark.parametrize("names,msg", [
+    ({"step_generated": "입력 중"}, "단계 이름이 겹칩니다: 입력 중"),
+    ({"step_closed": "마\n감"}, "단계 이름에 줄바꿈을 쓸 수 없습니다."),
+    ({"step_draft": ""}, "필수 항목입니다."),
+    ({"step_generated": "됨"}, "버튼 이름이 비거나 다른 버튼과 같아집니다: []"),            # 생성 버튼 글자가 빈다
+    ({"use_close": "on", "step_generated": "입력 마감됨"}, "버튼 이름이 비거나 다른 버튼과 같아집니다: [입력 마감]"),
+])
+def test_step_names_checked(su_client, it_board, names, msg):
+    r = su_client.post(ADD, form(three(), code="ops", name="운영팀", **steps_form(**names)))
+    assert r.status_code == 200 and msg in r.content.decode()
+    assert not Board.objects.filter(code="ops").exists()
+
+
+@pytest.mark.parametrize("data,field,label", [
+    # 관제 있을 때의 [장중관제 생성]과 겹친다: 생성됨 이름을 고쳐도 남으니 취합 중 이름 칸에(설계 5.4)
+    ({"use_close": "on", "step_collecting": "장중관제 중", "step_closed": "생성", "step_generated": "장중관제 생성됨"},
+     "step_collecting", "장중관제 생성"),
+    # 마감 글자가 열기 글자와 같다: 마감 이름 칸에
+    ({"use_draft": "on", "use_close": "on", "step_closed": "열기"}, "step_closed", "입력 열기"),
+    ({"name": "", "step_generated": "됨"}, "step_generated", ""),  # 다른 칸 오류가 있어도 버튼 글자는 본다
+    ({"use_draft": "on", "step_generated": "됨"}, "step_generated", ""),  # 옮길 곳이 둘이라 취소 글자가 비어도
+])
+def test_bad_button_error_field(it_board, data, field, label):
+    f = BoardForm({"code": "ops", "name": "운영팀"} | steps_form() | data)
+    assert not f.is_valid()
+    assert f.errors[field] == [f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{label}]"]
+
+
+def test_saved_board_steps_are_read_only(su_client, ops):
+    """1단계: 저장된 근무표의 단계는 관리 화면에서 바꾸지 않는다(보낸 값은 무시, 설계 5.1). 3단계에서 연다."""
+    board, a, b = ops
+    data = change(board, [a, b]) | steps_form(board, use_draft="on", step_collecting="모으는 중")
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    assert r.status_code == 302, errors(r)
+    board.refresh_from_db()
+    assert (board.use_draft, board.step_collecting) == (False, "입력 중")
 
 
 # ── 그룹 관리자 ──

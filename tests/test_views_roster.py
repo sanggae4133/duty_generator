@@ -5,6 +5,7 @@ import pytest
 
 from duty.models import Commute, DutyAssignment, Period
 from duty.models import Board, BoardShift, Department, User
+from tests.it_defs import OPS_STEPS
 
 D = date(2026, 11, 10)
 
@@ -482,7 +483,7 @@ def _dept_codes(body: str) -> list[str]:
 
 def test_views_use_own_board_departments_and_definitions(client, world, it_board):
     a, _ = world
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=ops, key="dawn", name="이른조", start=time(7), end=time(16))
     ops_dept = Department.objects.create(code="OPS", name="운영부서", shifts="dawn", board=ops)
     Department.objects.filter(code="UI").update(order=-1)
@@ -512,7 +513,7 @@ def test_past_edit_follows_board_admin_group(client, world, fixed_today, it_boar
         a.is_staff = True
         a.save()
     else:  # 다른 근무표의 관리자라고 IT 근무표의 지난 날을 고칠 수는 없다
-        Board.objects.create(code="ops", name="운영팀", input_mode="direct").admin_group.user_set.add(a)
+        Board.objects.create(code="ops", name="운영팀", **OPS_STEPS).admin_group.user_set.add(a)
     client.force_login(a)
     assert ("/cell/2026-11-10/" in client.get("/?date=2026-11-10").content.decode()) == editable
     assert ("바꾸기</summary>" in client.get("/day/2026-11-10/").content.decode()) == editable

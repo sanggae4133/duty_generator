@@ -17,7 +17,7 @@ from duty.services import alarm_runner, alarm_settings, alarms, calendar, change
 from duty.services.generate import run_generation
 from duty.services.roster import Day
 from duty.shifts import DUTY_KEYS, KEYS, LUNCH, SHIFT, SLOT, SLOT_KEYS, SOLO, cells_of, display_order, kind
-from tests.it_defs import IT_DEFS, IT_DEFS2
+from tests.it_defs import IT_DEFS, IT_DEFS2, OPS_STEPS
 from tests.test_alarm_texts_it import REPORT_BODY
 
 S = Period.Status
@@ -42,7 +42,7 @@ def test_keys_kind_and_order():
 
 
 def test_lunch_definition_has_no_times(it_board):
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=ops, key="dawn", name="이른조", start=time(7), end=time(16))
     BoardShift.objects.create(board=ops, key="lunch", name="점심당번")
     _bad(lambda: BoardShift.objects.create(board=ops, key="normal", name="가운데조"))  # 근무조는 시각 필수
@@ -393,7 +393,7 @@ def test_report_rule_needs_timed_cell(lunch, admin_user, it_board):
 
 def test_report_rule_all_on_lunch_only_board_refused(admin_user, it_board):
     """켜진 정의가 점심당번뿐인 근무표에서 '전체'(빈 목록)도 점심당번만이라 막는다."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=board, key="lunch", name="점심당번")
     base = dict(enabled=True, kind="report", timing="days", offset=1, at_minute=18 * 60, telegram=True, push=False,
                 depts=[], types=[], board_id=board.pk)

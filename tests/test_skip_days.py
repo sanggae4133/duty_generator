@@ -7,6 +7,7 @@ from duty.csv_io import CsvInvalid
 from duty.models import Board, Commute, DutyAssignment, Holiday, Memo, Period, User
 from duty.services import boards, collect, periods
 from duty.services.generate import run_generation
+from tests.it_defs import OPS_STEPS
 
 S = Period.Status
 HOL = date(2026, 11, 11)     # 수: 시험용 휴장일(사람이 추가)
@@ -41,7 +42,7 @@ def test_old_period_keeps_holidays_but_never_no_work_days(period):
 
 def test_inactive_holiday_and_other_board_memo_do_not_count(period, it_board):
     Holiday.objects.filter(date=HOL).update(active=False)
-    other = Board.objects.create(code="ops", name="시장운영실", input_mode="direct")
+    other = Board.objects.create(code="ops", name="시장운영실", **OPS_STEPS)
     Memo.objects.create(board=other, scope="day", date=d(13), text="딴 근무표", no_work=True)
     Memo.objects.create(board=it_board, scope="day", date=d(10), text="그냥 메모")
     assert boards.skip_dates(period) == {NOWORK}

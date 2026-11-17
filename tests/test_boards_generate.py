@@ -11,7 +11,7 @@ from duty.services import boards, collect
 from duty.services.generate import run_generation
 from duty.services.stats import member_stats, period_duty_counts
 from duty.shifts import slot_defs
-from tests.it_defs import IT_SLOTS
+from tests.it_defs import IT_SLOTS, OPS_STEPS
 
 S = Period.Status
 NOV9, NOV13 = date(2026, 11, 9), date(2026, 11, 13)
@@ -21,7 +21,7 @@ CSV = 'date,새벽,정상,석식교대,야간\n2026-11-09,가,"나,다",,\n'
 @pytest.fixture
 def ops(it_board):
     """가짜 두 번째 근무표 '운영팀'(관리 그룹은 Board.save 가 만든다)과 그 부서 하나. 장중관제 정의 없음."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=board, key="normal", name="주간", start=time(9), end=time(18))
     return board, Department.objects.create(code="OPS", name="운영", shifts="normal", board=board)
 
@@ -87,6 +87,25 @@ def test_slot_keys_and_types_come_from_definitions(ops):
     run_generation(p, seed=1)
     assert set(DutyAssignment.objects.filter(period=p).values_list("cell", "member")) == {("slot3", m.pk)}
     assert DutyAssignment.objects.filter(period=p).count() == 5
+
+
+def test_day_with_only_moved_member_gets_no_slot(ops, it_board):
+    # 그날 유일한 출근 행의 사람이 다른 근무표 부서로 옮겼으면 그날은 빈 날(옛 empty_days 와 같이 부서 기준)
+    board, dept = ops
+    BoardShift.objects.create(board=board, key="slot3", name="점검", start=time(10), end=time(11),
+                              eligible_shifts=["normal"], eligible_types=["직원"])
+    m, moved = ops_member(dept), ops_member(dept, "운영이동")
+    p = Period.objects.create(board=board, name="운영회차", start_date=NOV9, end_date=NOV13, status=S.COLLECTING)
+    for x in p.dates()[:-1]:
+        Commute.objects.create(period=p, date=x, member=m, shift="normal")
+    Commute.objects.create(period=p, date=NOV13, member=moved, shift="normal")
+    moved.department = Department.objects.create(code="ITX", name="IT부서", shifts="normal", board=it_board)
+    moved.save()
+    run_generation(p, seed=1)
+    p.refresh_from_db()
+    assert p.status == S.GENERATED
+    assert not DutyAssignment.objects.filter(period=p, date=NOV13).exists()
+    assert DutyAssignment.objects.filter(period=p).count() == 4
 
 
 # ── 출근표 취합(6.2) ──

@@ -36,11 +36,6 @@ def validate_member_name(value: str) -> None:
         raise ValidationError("이름이 (휴가)·(출장)·(교육)으로 끝날 수 없습니다.")
 
 
-class InputMode(models.TextChoices):
-    COLLECT = "collect", "부서별 취합"
-    DIRECT = "direct", "관리자 직접 입력"
-
-
 def _renamed(obj) -> bool:
     """저장된 행의 이름이 이번 저장에서 바뀌는가. 그룹 이름은 이름을 바꿀 때만 따라간다(지금 그룹 이름과 달라도 그대로)."""
     old = type(obj).objects.filter(pk=obj.pk).values_list("name", flat=True).first() if obj.pk else None
@@ -49,18 +44,24 @@ def _renamed(obj) -> bool:
 
 class Board(models.Model):
     """근무표 하나(IT 당번표, 시장운영실…). 회차·부서·근무 정의가 여기에 속한다."""
-    InputMode = InputMode
-
     code = models.CharField("코드", max_length=16, unique=True, help_text="짧은 영문. IT = it")
     name = models.CharField("이름", max_length=32)
-    input_mode = models.CharField("입력 방식", max_length=8, choices=InputMode.choices, default=InputMode.COLLECT)
+    # 회차 단계(설계 5.1): 작성 중·마감은 끌 수 있고 다섯 단계 모두 화면 이름을 가진다(끈 단계도: 남은 회차·기록이 이름으로 보인다)
+    use_draft = models.BooleanField("작성 중 단계 사용", default=True)
+    use_close = models.BooleanField("마감 단계 사용", default=True)
+    step_draft = models.CharField("작성 중 이름", max_length=16, default="작성 중")
+    step_collecting = models.CharField("취합 중 이름", max_length=16, default="취합 중")
+    step_closed = models.CharField("마감 이름", max_length=16, default="마감")
+    step_generated = models.CharField("생성됨 이름", max_length=16, default="생성됨")
+    step_published = models.CharField("배포됨 이름", max_length=16, default="배포됨")
     admin_group = models.OneToOneField(Group, on_delete=models.PROTECT, related_name="admin_board",
                                        verbose_name="관리 그룹", editable=False)
 
     class Meta:
         verbose_name = verbose_name_plural = "근무표"
         ordering = ["id"]
-        constraints = [_one_of("input_mode", InputMode.values, "board_input_mode_valid")]
+        constraints = [models.CheckConstraint(name="board_step_names_set", condition=(
+            ~Q(step_draft="") & ~Q(step_collecting="") & ~Q(step_closed="") & ~Q(step_generated="") & ~Q(step_published="")))]
 
     def __str__(self):
         return self.name
@@ -72,6 +73,58 @@ class Board(models.Model):
 
     def admin_group_name(self) -> str:
         return f"{self.name} 근무표 관리"
+
+    # 단계 규칙(설계 5.2). DB 를 읽지 않는다
+    def step_name(self, status: str) -> str:
+        """그 상태의 화면 이름(끈 단계도)."""
+        return getattr(self, f"step_{status}")
+
+    def steps(self) -> list[str]:
+        """켠 단계, 순서대로: (작성 중) → 취합 중 → (마감) → 생성됨 → 배포됨."""
+        S = PeriodStatus
+        return [s for s, on in ((S.DRAFT, self.use_draft), (S.COLLECTING, True), (S.CLOSED, self.use_close),
+                                (S.GENERATED, True), (S.PUBLISHED, True)) if on]
+
+    def first_step(self) -> str:
+        """새 회차의 상태."""
+        return PeriodStatus.DRAFT if self.use_draft else PeriodStatus.COLLECTING
+
+    def generate_from(self) -> str:
+        """생성(확정)을 받는 상태(생성됨에서 다시 생성하는 것은 따로)."""
+        return PeriodStatus.CLOSED if self.use_close else PeriodStatus.COLLECTING
+
+    def editable(self) -> set[str]:
+        """기간을 고칠 수 있는 상태: 작성 중, 그리고 작성 중을 안 쓰면 취합 중에서도."""
+        return {PeriodStatus.DRAFT} | (set() if self.use_draft else {PeriodStatus.COLLECTING})
+
+    def step_buttons(self, has_slots: bool) -> dict[str, str]:
+        """회차 화면 버튼 글자(설계 5.4): 단계 이름에서 나온다. has_slots = 켜진 장중관제 정의가 있다.
+        취합 중 이름이 ' 중'으로 끝나지 않으면 열기·마감은 "'<이름>'(으)로" 꼴. 생성은 생성됨 이름 끝의 '됨'을 뗀 말(없으면 이름 그대로).
+        undo = 생성됨에서 옮길 곳이 하나뿐일 때의 [… 취소](둘 이상이면 '다른 상태로 옮기기' 상자라 빈 글자)."""
+        c = self.step_collecting
+        stem = c.removesuffix(" 중") if c.endswith(" 중") else ""
+        generate = "장중관제 생성" if has_slots else self.step_generated.removesuffix("됨")
+        return {"open": f"{stem} 열기" if stem else f"'{c}'(으)로",
+                "close": f"{stem} {self.step_closed}" if stem else f"'{self.step_closed}'(으)로",
+                "generate": generate, "regenerate": "재생성" if has_slots else "",
+                "undo": f"{generate} 취소" if len(self.move_targets(PeriodStatus.GENERATED)) == 1 else ""}
+
+    def bad_buttons(self) -> list[str]:
+        """켠 단계에서 나오는 버튼 글자 중 비거나 다른 버튼과 같아지는 것(설계 5.4). 관제가 있을 때·없을 때 둘 다 본다."""
+        bad = []
+        for has_slots in (False, True):
+            b = self.step_buttons(has_slots)
+            labels = ([b["generate"], "배포…"] + [b["open"]] * self.use_draft + [b["close"]] * self.use_close
+                      + [x for x in (b["undo"], b["regenerate"]) if x])
+            bad += [x for x in labels if not x.strip() or labels.count(x) > 1]
+        return list(dict.fromkeys(bad))  # 같은 글자는 한 번만(겹친 글자는 labels 에 둘 이상 있다)
+
+    def move_targets(self, status: str) -> list[str]:
+        """'다른 상태로 옮기기'로 갈 수 있는 상태: 켠 배포 전 단계 중 지금 것 빼고. 배포됨에서는 없다(배포 취소로만)."""
+        if status == PeriodStatus.PUBLISHED:
+            return []
+        on = self.steps()
+        return [s for s in MOVABLE if s in on and s != status]
 
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -166,19 +219,14 @@ class Department(models.Model):
     def __str__(self):
         return self.name
 
-    def clean(self):
-        # 직접 입력 근무표는 부서 하나짜리(설계 6.2): 입력 표·채우기·확정 경고가 부서 하나를 전제로 한다
-        if (self.board_id and self.board.input_mode == InputMode.DIRECT
-                and Department.objects.filter(board_id=self.board_id).exclude(pk=self.pk).exists()):
-            raise ValidationError({"board": "직접 입력 근무표에는 부서를 하나만 둘 수 있습니다."})
-
     def input_group_name(self) -> str:
         return f"{self.name} 출근표 입력"
 
     @transaction.atomic
     def save(self, *args, **kwargs):
-        # 부서별 취합 근무표의 부서는 입력 그룹이 있어야 한다(픽스처·관리 화면·서비스 어느 길로 만들어도)
-        if self.input_group_id is None and self.board_id is not None and self.board.input_mode == InputMode.COLLECT:
+        from .services.boards import legacy_admin_entry  # 순환 import 를 피해 여기서(3단계에서 이 갈래와 함께 지운다)
+        # 마감을 쓰는 근무표의 부서는 입력 그룹이 있어야 한다(픽스처·관리 화면·서비스 어느 길로 만들어도, 1단계 임시 기준)
+        if self.input_group_id is None and self.board_id is not None and not legacy_admin_entry(self.board):
             self.input_group = Group.objects.create(name=self.input_group_name())
         elif self.input_group_id and _renamed(self):  # 이름을 바꿀 때만 그룹 이름도
             Group.objects.filter(pk=self.input_group_id).update(name=self.input_group_name())
@@ -231,15 +279,7 @@ class PeriodStatus(models.TextChoices):
     PUBLISHED = "published", "배포됨"
 
 
-# 직접 입력 근무표의 화면 단계(설계 6.1): DB 상태는 그대로 두고 이름만 바꾼다. 새 회차는 만들자마자 취합 중(= 입력 중)
-DIRECT_STEPS = [(PeriodStatus.COLLECTING, "입력 중"), (PeriodStatus.GENERATED, "확정"), (PeriodStatus.PUBLISHED, "배포됨")]
-
-
-def step_label(board, status: str) -> str:
-    """화면에 보일 회차 단계 이름: 직접 입력 근무표는 입력 중·확정·배포됨, 부서별 취합은 상태 이름 그대로."""
-    if board.input_mode == InputMode.DIRECT:
-        return dict(DIRECT_STEPS).get(status, PeriodStatus(status).label)
-    return PeriodStatus(status).label
+MOVABLE = (PeriodStatus.DRAFT, PeriodStatus.COLLECTING, PeriodStatus.CLOSED)  # 생성됨·배포됨은 생성·배포 버튼으로만 간다
 
 
 class Period(models.Model):
@@ -277,7 +317,7 @@ class Period(models.Model):
 
     @property
     def status_label(self) -> str:
-        return step_label(self.board, self.status)
+        return self.board.step_name(self.status)
 
 
 class HolidaySource(models.TextChoices):

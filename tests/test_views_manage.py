@@ -4,6 +4,7 @@ import pytest
 
 from duty.models import Board, ChangeLog, Commute, Period, User
 from duty.models import BoardShift
+from tests.it_defs import OPS_STEPS
 
 
 @pytest.fixture
@@ -244,7 +245,7 @@ def test_admin_menu_follows_group(client, it_board, make_member, staff_only):
 def test_stats_menu_only_for_boards_with_slots(client, it_board, make_member):
     """설계 7절: 통계는 slot* 정의가 있는 근무표의 관리 그룹만. 정의 없는 근무표 관리자는 회차·이력만."""
     m = make_member("가", user=True)
-    Board.objects.create(code="ops", name="운영팀", input_mode="direct").admin_group.user_set.add(m)
+    Board.objects.create(code="ops", name="운영팀", **OPS_STEPS).admin_group.user_set.add(m)
     client.force_login(m)
     body = client.get("/").content.decode()
     assert 'href="/periods/"' in body and 'href="/changes/"' in body and 'href="/stats/"' not in body
