@@ -80,6 +80,7 @@
     form.board-pick { margin: 0; max-width: 100%; }
     form.board-pick details.dropdown { display: block; margin: 0; }
     form.board-pick summary[role=button] { display: flex; align-items: center; justify-content: space-between; gap: .3rem; min-height: 48px; width: auto; min-width: min(20rem, calc(100vw - 2rem)); margin: 0; padding: .4rem 1rem; font-size: 1.05rem; font-weight: 700; white-space: normal; text-align: left; }
+    form.board-pick details.dropdown[open] summary::before { z-index: 3; }  /* 바깥 덮개가 고정 표 머리(z-index 2) 위: 표 머리를 눌러도 닫힌다 */
     form.board-pick details.dropdown summary + ul { min-width: 100%; max-width: 100%; white-space: normal; }
     form.board-pick details.dropdown summary + ul li { padding: .3rem .9rem; }
     form.board-pick details.dropdown summary + ul li:has(> label) { padding: 0; }  /* 줄 전체가 label: 어디를 눌러도 체크가 바뀐다 */

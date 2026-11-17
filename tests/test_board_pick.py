@@ -66,6 +66,14 @@ def test_board_picker_only_with_two_boards(client, depts, request):
     assert 'class="board-pick"' in body and body.index('class="board-pick"') < body.index(">주간</a>")
 
 
+
+def test_open_picker_overlay_above_sticky_table_head(client, two):
+    """드롭다운이 열려 있을 때 고정 표 머리(z-index 2)를 눌러도 닫힌다: Pico 의 바깥 덮개(summary::before, z-index 1)를 그 위로."""
+    client.force_login(two[1])
+    body = client.get(WEEK).content.decode()
+    assert "table.roster thead th { position: sticky; top: 0; z-index: 2;" in body
+    assert "form.board-pick details.dropdown[open] summary::before { z-index: 3; }" in body
+
 # ── 보기 전용·필터 ──
 
 def test_view_only_other_board(client, two):
