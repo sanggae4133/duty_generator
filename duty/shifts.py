@@ -104,7 +104,7 @@ def gen_help(defs: list[Def]) -> dict | None:
     rule.append(f"{'나머지 칸' if rule else '모든 칸'}은 {rest} 됩니다.")
     types = "·".join(dict.fromkeys(t for x in slots for t in x.eligible_types))  # 비면 구분 없이 누구나
     who = types or "사람"
-    return {"count": len(slots), "start": slots[0].start, "end": max(x.end for x in slots), "types": types,
+    return {"count": len(slots), "start": min(x.start for x in slots), "end": max(x.end for x in slots), "types": types,
             "who": who, "whom": who + josa(who, "을/를"), "rule": ", ".join(rule)}
 
 

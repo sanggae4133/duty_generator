@@ -191,6 +191,15 @@ def test_gen_help_for_other_slots():
                               "rule": "모든 칸은 이른만 됩니다."}
 
 
+def test_gen_help_all_three_shifts_no_types_and_earliest_start():
+    """자격 근무조 3개 이상은 ' 모두', 자격 유형이 없으면 '사람', 시작은 키 순 첫 칸이 아니라 가장 이른 칸(Task 8 리뷰)."""
+    sh = ("dawn", "normal", "night")
+    defs = [Def("dawn", "이른", time(7), time(16)), Def("normal", "정상", time(8), time(17)), Def("night", "늦은", time(13), time(22)),
+            Def("slot1", "관제1", time(10), time(11), sh), Def("slot2", "관제2", time(9), time(10), sh)]
+    assert gen_help(defs) == {"count": 2, "start": time(9), "end": time(11), "types": "", "who": "사람", "whom": "사람을",
+                              "rule": "모든 칸은 이른·정상·늦은 모두 됩니다."}
+
+
 def test_josa():
     assert [josa("확정", "은/는"), josa("배포", "은/는"), josa("개발자", "을/를"), josa("직원", "을/를")] == ["은", "는", "를", "을"]
     assert [josa("입력 중", "으로/로"), josa("배포", "으로/로"), josa("마감 날", "으로/로"), josa("A", "으로/로")] == [
