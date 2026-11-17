@@ -41,7 +41,7 @@
 <form method="post" action="{% url 'period_move' period.pk %}" class="move"{% if period.status == S.GENERATED %} onsubmit="return confirm('{{ leave_generated_confirm|escapejs }}')"{% endif %}>{% csrf_token %}
   <select id="move-to" name="to" aria-label="옮길 상태">{% for code, label in movable %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
   <button class="outline">옮기기</button>
-  <small>출근표는 그대로 남습니다.{% if leave_what %} 생성됨에서 나가면 {{ leave_what }} 생성 결과만 지웁니다.{% endif %}</small>
+  <small>출근표는 그대로 남습니다.{% if leave_what %} {{ generated_label }}에서 나가면 {{ leave_what }} 생성 결과만 지웁니다.{% endif %}</small>
 </form>
 </details>
 {% endif %}
