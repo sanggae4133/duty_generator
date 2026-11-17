@@ -88,7 +88,7 @@
     form.board-pick ul small { font-size: .95rem; color: var(--pico-color); }
     @media (max-width: 600px) {
       form.board-pick { flex-basis: 100%; }
-      form.board-pick summary[role=button] { width: 100%; }
+      form.board-pick summary[role=button] { width: 100%; min-width: 0; }  /* 100vw 에 든 스크롤바 폭만큼 넘치지 않게 */
     }
     .hol { margin: .2rem 0; font-weight: 700; color: var(--nxt-red); }  /* 휴장일 이름: 날짜 칸 맨 위·하루 화면 제목 아래 */
     section.danger { margin-top: 2.5rem; padding: 1rem; border: 1px solid var(--nxt-red); border-radius: .4rem; }  /* 지우기는 맨 아래 위험 구역(회차 상세·메모 창) */

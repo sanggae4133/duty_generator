@@ -30,11 +30,12 @@ class RuleForm(forms.Form):
         super().__init__(*args, **kwargs)
         all_boards = list(Board.objects.order_by("id"))
         self.home = boards.home(user) if user else all_boards[0]  # 내 근무표(user 없이 만든 폼은 첫 근무표)
-        all_boards = boards.in_order(all_boards, self.home)  # 내 근무표 맨 위(설계 9.5)
+        all_boards = boards.in_order(all_boards, self.home)  # 내 근무표 맨 위(설계 9.5). 아래 Case/When 과 같은 순서를 지킨다
         # 근무표가 하나면 칸을 숨기고 그 근무표로 고정(1단계 화면 그대로)
         self.fixed_board = all_boards[0] if len(all_boards) == 1 else None
         if self.fixed_board is None:
             self.fields["board"].label_from_instance = lambda b: b.name
+            # boards.in_order 와 같은 순서(내 근무표 먼저, id 순). 한쪽을 바꾸면 다른 쪽도 바꾼다
             self.fields["board"].queryset = Board.objects.order_by(
                 Case(When(pk=self.home.pk, then=Value(0)), default=Value(1)), "id")
         else:

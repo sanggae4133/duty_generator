@@ -52,7 +52,7 @@
 {% if history %}<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc"><s>이름(휴가)</s></span> = 사유로 그날 근무 아님{% if can_click %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>{% endif %}
 <script>
   const today = document.getElementById("today");
-  if (today{% if multi %} && !location.hash.startsWith("#d-"){% endif %}) {{# 겹친 화면: 팝업에서 돌아온 날짜 칸을 그대로 둔다 #}
+  if (today{% if multi %} && !location.hash.startsWith("#d-"){# 겹친 화면: 팝업에서 돌아온 날짜 칸을 그대로 둔다 #}{% endif %}) {
     today.scrollIntoView({block: "nearest", inline: "center"});
     if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
   }

@@ -71,7 +71,8 @@ def edit_boards(user) -> set[int]:
 
 
 def in_order(chosen, home: Board | None) -> list[Board]:
-    """고른 근무표 순서(근무표 통합 설계 9.1): 내 근무표 먼저, 나머지 id 순. 화면·기억·주소가 모두 이 순서."""
+    """고른 근무표 순서(근무표 통합 설계 9.1): 내 근무표 먼저, 나머지 id 순. 화면·기억·주소가 모두 이 순서.
+    alarms/forms.py RuleForm 의 board queryset(Case/When)도 같은 순서다 — 바꾸면 함께 바꾼다."""
     return sorted(chosen, key=lambda b: (home is None or b.pk != home.pk, b.pk))
 
 
