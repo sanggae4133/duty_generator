@@ -200,3 +200,57 @@ def test_popup_board_name_when_two_editable(client, two):
     nb = member("op02", "가상마", na.department)
     r = client.post(f"/cell/{D}/dawn/?board=ops", {"before": na.username, "after": nb.username})
     assert "운영팀 · 변경했습니다." in [str(m) for m in get_messages(r.wsgi_request)]
+
+
+# ── 근무표 고르기(설계 9.1, 계획 2·3번) ──
+
+def _picker(body):
+    return re.search(r'<form method="get" class="board-pick">.*?</form>', body, re.S)[0]
+
+
+def test_picker_dropdown(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    body = client.get(WEEK + "&q1=가상다").content.decode()
+    f = _picker(body)
+    assert "근무표: IT 당번표</summary>" in f
+    assert re.findall(r'name="board" value="(\w+)"( checked)?', f) == [("it", " checked"), ("ops", "")]
+    assert f.index("IT 당번표 (내 근무표)") < f.index("운영팀")
+    assert f.count("<button>보기</button>") == 2 and "하나도 고르지 않으면 내 근무표만 보입니다" in f
+    assert 'name="pick" value="1"' in f and f'name="date" value="{D}"' in f and 'name="q1" value="가상다"' in f
+    assert 'name="q2"' not in f  # 빈 검색 칸은 보내지 않는다
+    for name in ("view", "dept", "type", "shift", "hist"):  # 저장값으로 남는다(계획 2번)
+        assert f'name="{name}"' not in f, name
+    assert 'aria-label="근무표"' not in body  # 옛 근무표 버튼 없음
+    assert body.index('class="board-pick"') < body.index(">주간</a>")  # [주간]·[월간] 앞
+    two_names = _picker(client.get(BOTH).content.decode())
+    assert "근무표: IT 당번표 + 운영팀</summary>" in two_names
+
+
+def test_pick_semantics_and_memory(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    client.get(f"/?pick=1&board=ops&board=it&date={D}")
+    assert RosterPref.objects.get(user=ga).boards == ["it", "ops"]
+    assert "가상나" in client.get(WEEK).content.decode()  # pick 도 board 도 없으면 기억한 목록
+    body = client.get(f"/?pick=1&date={D}").content.decode()  # 하나도 안 고르고 [보기]
+    assert "가상다" in body and "가상나" not in body and RosterPref.objects.get(user=ga).boards == []
+
+
+def test_links_after_pick_have_no_pick_and_dropdown_closed(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    body = client.get(f"/?pick=1&board=it&board=ops&view=week&date={D}").content.decode()
+    assert "?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-09" in body  # ◀ 도 같은 꼴, view·date 를 지킨다
+    assert "pick=" not in body and "pick%3D" not in body  # 다른 링크·팝업 next 에 pick 없음
+    assert '<details class="dropdown" open' not in body  # 보낸 뒤 닫힌 채(계획 3번)
+
+
+def test_picker_keeps_search_and_saved_filter(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터: 가상다(MEMS) 숨김
+    client.get(WEEK + "&board=ops")  # 남의 근무표만(필터 상자 없음)
+    body = client.get(f"/?pick=1&board=it&board=ops&date={D}&q1=가상나").content.decode()
+    assert RosterPref.objects.get(user=ga).depts == ["TMCH"]  # 고르기 폼이 저장된 필터를 지우지 않는다(계획 2번)
+    assert "가상다" not in body and '<span class="hl1">가상나</span>' in body  # 필터·검색 색칠이 남는다

@@ -74,6 +74,22 @@
     table.roster .add { opacity: .35; font-weight: 700; }
     table.roster .none { margin: .5rem 0 0; font-size: .8rem; opacity: .5; }
     a.to-mine { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; width: auto; max-width: 100%; margin: 0; padding: .4rem 1.1rem; font-size: 1.05rem; font-weight: 700; white-space: normal; }  /* 남의 근무표에서 내 근무표로 돌아가는 큰 버튼(48px 이상) */
+    /* 근무표 고르기(근무표 통합 5단계): Pico details.dropdown. 바깥을 누르면 닫힌다(Pico 의 summary::before 덮개, JS 없음).
+       단추·체크 줄·[보기] 모두 48px 이상, 글씨 rem(글씨 크기 설정을 따른다), 이름이 길면 줄바꿈.
+       목록 폭 = 단추 폭(단추를 20rem 이상으로 넓힌다): 단추가 줄 오른쪽 끝에 있어도 목록이 화면 밖으로 넘쳐 가로 스크롤이 생기지 않게 */
+    form.board-pick { margin: 0; max-width: 100%; }
+    form.board-pick details.dropdown { display: block; margin: 0; }
+    form.board-pick summary[role=button] { display: flex; align-items: center; justify-content: space-between; gap: .3rem; min-height: 48px; width: auto; min-width: min(20rem, calc(100vw - 2rem)); margin: 0; padding: .4rem 1rem; font-size: 1.05rem; font-weight: 700; white-space: normal; text-align: left; }
+    form.board-pick details.dropdown summary + ul { min-width: 100%; max-width: 100%; white-space: normal; }
+    form.board-pick details.dropdown summary + ul li { padding: .3rem .9rem; }
+    form.board-pick details.dropdown summary + ul li:has(> label) { padding: 0; }  /* 줄 전체가 label: 어디를 눌러도 체크가 바뀐다 */
+    form.board-pick ul label { display: flex; align-items: center; gap: .6rem; min-height: 48px; margin: 0; padding: .3rem .9rem; font-size: 1.05rem; cursor: pointer; }
+    form.board-pick ul button { width: 100%; min-height: 48px; margin: 0; font-size: 1.05rem; }
+    form.board-pick ul small { font-size: .95rem; color: var(--pico-color); }
+    @media (max-width: 600px) {
+      form.board-pick { flex-basis: 100%; }
+      form.board-pick summary[role=button] { width: 100%; }
+    }
     .hol { margin: .2rem 0; font-weight: 700; color: var(--nxt-red); }  /* 휴장일 이름: 날짜 칸 맨 위·하루 화면 제목 아래 */
     section.danger { margin-top: 2.5rem; padding: 1rem; border: 1px solid var(--nxt-red); border-radius: .4rem; }  /* 지우기는 맨 아래 위험 구역(회차 상세·메모 창) */
     section.danger h4 { margin: 0 0 .6rem; color: var(--nxt-red); font-size: 1rem; }

@@ -1,10 +1,32 @@
 <div class="cal-nav">
 <h3 class="cal-title">2026-11-16 ~ 11-20</h3>
 <a class="to-mine" role="button" href="/?board=it">보기 전용 · 내 근무표로</a>
-<span class="seg" role="group" aria-label="근무표">
-<a href="?board=it&amp;view=week&amp;date=2026-11-16">IT 당번표</a>
-<a href="?board=ops&amp;view=week&amp;date=2026-11-16" aria-current="page">운영팀</a>
-</span>
+<form method="get" class="board-pick">
+<input type="hidden" name="pick" value="1">
+<input type="hidden" name="date" value="2026-11-16">
+<details class="dropdown">
+<summary role="button" class="outline">근무표: 운영팀</summary>
+<ul>
+<li>
+<button>보기</button>
+</li>
+<li>
+<small>하나도 고르지 않으면 내 근무표만 보입니다</small>
+</li>
+<li>
+<label>
+<input type="checkbox" name="board" value="it"> IT 당번표 (내 근무표)</label>
+</li>
+<li>
+<label>
+<input type="checkbox" name="board" value="ops" checked> 운영팀</label>
+</li>
+<li>
+<button>보기</button>
+</li>
+</ul>
+</details>
+</form>
 <span class="seg" role="group" aria-label="보기">
 <a href="?board=ops&amp;view=week&amp;date=2026-11-16" aria-current="page">주간</a>
 <a href="?board=ops&amp;view=month&amp;date=2026-11-16">월간</a>

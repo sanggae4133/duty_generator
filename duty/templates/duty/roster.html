@@ -3,7 +3,18 @@
 <div class="cal-nav">
   <h3 class="cal-title">{{ title }}{% if multi %} <span class="bnames">{{ sel_names }}</span>{% endif %}{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</h3>
   {% if to_mine %}<a class="to-mine" role="button" href="/?board={{ home_code }}">{{ to_mine }}</a>{% endif %}
-  {% if board_links %}<span class="seg" role="group" aria-label="근무표">{% for b in board_links %}<a href="{{ b.href }}"{% if b.current %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</span>{% endif %}
+  {% if pick_boards %}<form method="get" class="board-pick">
+    <input type="hidden" name="pick" value="1"><input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+    {% for n in names %}{% if n %}<input type="hidden" name="q{{ forloop.counter }}" value="{{ n }}">{% endif %}{% endfor %}
+    <details class="dropdown"><summary role="button" class="outline">근무표: {{ sel_names }}</summary>
+      <ul>
+        <li><button>보기</button></li>
+        <li><small>하나도 고르지 않으면 내 근무표만 보입니다</small></li>
+        {% for b in pick_boards %}<li><label><input type="checkbox" name="board" value="{{ b.code }}"{% if b.on %} checked{% endif %}> {{ b.name }}{% if b.home %} (내 근무표){% endif %}</label></li>
+        {% endfor %}<li><button>보기</button></li>
+      </ul>
+    </details>
+  </form>{% endif %}
   <span class="seg" role="group" aria-label="보기">
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>

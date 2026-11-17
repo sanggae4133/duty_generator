@@ -58,14 +58,12 @@ def test_roster_board_order_and_memory(client, two):
     assert client.get("/?board=nope").status_code == 404
 
 
-def test_board_buttons_only_with_two_boards(client, depts, request):
+def test_board_picker_only_with_two_boards(client, depts, request):
     client.force_login(member("it01", "가상가", depts["MEMS"]))
-    assert 'aria-label="근무표"' not in client.get("/").content.decode()  # 근무표가 하나면 그리지 않는다
+    assert 'class="board-pick"' not in client.get("/").content.decode()  # 근무표가 하나면 그리지 않는다
     request.getfixturevalue("ops")
     body = client.get("/").content.decode()
-    assert 'aria-label="근무표"' in body
-    assert body.index('aria-current="page">IT 당번표</a>') < body.index(">운영팀</a>") < body.index(">주간</a>")  # id 순, 주간/월간 앞
-    assert "?board=ops&amp;view=week&amp;date=" in body
+    assert 'class="board-pick"' in body and body.index('class="board-pick"') < body.index(">주간</a>")
 
 
 # ── 보기 전용·필터 ──
@@ -100,10 +98,10 @@ def test_other_board_admin_gets_board_links(client, two):
     assert f'href="/day/{D}/?board=ops#dawn"' in body  # 칸 링크
     assert f'hx-get="/cell/{D}/dawn/?next=' in body and "&amp;board=ops" in body  # htmx 주소
     assert f'href="/memo/day/{D}/?board=ops"' in body
-    assert 'name="board" value="ops"' in body  # 필터 폼
+    assert 'type="hidden" name="board" value="ops"' in body  # 필터 폼(드롭다운 체크박스와 구분)
     assert "?board=ops&amp;view=week&amp;date=2026-11-09" in body  # 날짜 이동
     mine = client.get(WEEK + "&board=it").content.decode()
-    assert f'href="/day/{D}/#dawn"' in mine and 'name="board"' not in mine  # 내 근무표는 ?board= 없이 그대로
+    assert f'href="/day/{D}/#dawn"' in mine and 'type="hidden" name="board"' not in mine  # 내 근무표는 ?board= 없이 그대로
 
 
 def test_other_board_shows_all_and_keeps_my_filters(client, two):

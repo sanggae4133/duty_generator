@@ -311,10 +311,9 @@ def roster(request):
         "view": view, "title": title, "names": names, "date": anchor, "today_link": (link(view, today) or f"?view={view}&date={today.isoformat()}") + "#today",
         "prev": link(view, prev_d), "next": link(view, next_d),
         "week_link": link("week", anchor), "month_link": link("month", anchor),
-        # 근무표 고르기(Task 4 에서 드롭다운으로 바꾼다)
-        "board_links": [{"name": b.name, "current": b in chosen,
-                         "href": "?" + urlencode({"board": b.code, "view": view, "date": anchor.isoformat()})}
-                        for b in all_boards] if len(all_boards) > 1 else [],
+        # 근무표 고르기(설계 9.1): 근무표가 둘 이상일 때만, 내 근무표 먼저 id 순. 체크박스를 바꿔도 보내지 않고 [보기]로
+        "pick_boards": [{"code": b.code, "name": b.name, "home": b == home, "on": b in chosen}
+                        for b in boards.in_order(all_boards, home)] if len(all_boards) > 1 else [],
         "multi": multi, "bq": sq, "sel_codes": [b.code for b in chosen] if sq else [],
         "sel_names": " + ".join(b.name for b in chosen), "page_nq": quote(page_next),
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
