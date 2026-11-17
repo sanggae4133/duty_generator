@@ -1,4 +1,4 @@
-"""[근무표 설정](근무표 통합 설계 7절): 근무표 관리자가 그 근무표의 관리자·입력 담당자·근무 정의와 부서·회차 단계를 고치는
+"""[근무표 설정](근무표 통합 설계 7절): 근무표 관리자가 그 근무표의 사람·관리자·입력 담당자·근무 정의와 부서·회차 단계를 고치는
 한 화면(/settings/?board=<code>). 칸마다 따로 저장하고 저장 뒤 그 칸(#앵커)으로 돌아온다. 결과 메시지는 extra_tags 에 칸 id 를
 넣어 그 칸 제목 바로 아래에 그린다(base.html 맨 위에는 칸 태그가 없는 메시지만). DB 쓰기는 services/board_settings.py."""
 import re
@@ -13,8 +13,8 @@ from .. import perms
 from ..errors import DutyError
 from ..forms import StepsForm, shift_forms
 from ..models import Board, Department, Period, User
-from ..services import board_settings, boards
-from ..shifts import josa, shift_defs, slot_defs
+from ..services import board_settings, boards, prefs
+from ..shifts import DEVELOPER, STAFF, josa, shift_defs, slot_defs
 from .common import admin_required
 
 
@@ -80,6 +80,28 @@ def _remove_assignee(request, board):
     return f"{user.name}{josa(user.name, '을/를')} {dept.name} 입력 담당자에서 뺐습니다."
 
 
+def _add_person(request, board):
+    p, dept = request.POST, _dept(request)
+    try:
+        user = board_settings.add_person(request.user, board, p.get("username", "").strip(), p.get("name", ""), dept,
+                                         p.get("type"))
+    except DutyError as e:  # 보낸 값 그대로 다시 그리고 오류는 폼 바로 위에(설계 7.3)
+        return _render(request, board, add={k: p.get(k, "") for k in ("name", "username", "dept", "type")} | {"error": str(e)})
+    return (f"{user.name}{josa(user.name, '을/를')} 추가했습니다(아이디 {user.username}). "
+            "표에서 [계정 발급]을 눌러 임시 비밀번호를 주세요.")
+
+
+def _set_person(request, board):
+    user, p = _user(request), request.POST
+    try:
+        board_settings.set_person(request.user, board, user, p.get("name", ""), p.get("type"))
+    except DutyError as e:  # 그 줄을 펼친 채 보낸 값과 오류를 그 줄 안에
+        return _render(request, board, edit={"pk": user.pk, "name": p.get("name", ""), "type": p.get("type", ""),
+                                             "error": str(e)})
+    name = p.get("name", "").strip()
+    return f"{name}{josa(name, '을/를')} 저장했습니다."
+
+
 def _shifts(request, board):
     # 그 근무표 밖의 근무 정의 id·부서 칸을 섞어 보내면 404(설계 6.2 범위 검사. 폼도 그 근무표 것만 만든다)
     ids = {str(pk) for pk in board.shifts.values_list("pk", flat=True)}
@@ -124,10 +146,32 @@ def _steps(request, board):
 
 
 ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시지)이나 응답(다시 그리기·다른 곳으로)을 돌려준다
+    "add_person": ("people", _add_person), "set_person": ("people", _set_person),
     "add_admin": ("admins", _add_admin), "remove_admin": ("admins", _remove_admin),
     "add_assignee": ("assignees", _add_assignee), "remove_assignee": ("assignees", _remove_assignee),
     "shifts": ("shifts", _shifts), "steps": ("steps", _steps),
 }
+
+
+def _state(u) -> str:
+    """계정 열(설계 7.2): 쓸 수 있는 비밀번호가 없으면 발급 전, 첫 로그인 비밀번호 변경 전이면 첫 로그인 대기."""
+    if not u.has_usable_password():
+        return "발급 전"
+    return "첫 로그인 대기" if u.must_change_password else "사용 중"
+
+
+def _people(board, edit=None) -> list[dict]:
+    """사람 칸 줄: 그 근무표 부서 사람(퇴사자 포함), 부서 순 → 이름 순. locked = 사람 함수의 대상이 아닌 계정
+    (관리자 계정·슈퍼유저, board_settings.locked_ids): 체크박스·[고치기]·동작 없이 안내 글만.
+    edit = 고치기 오류로 다시 그릴 때 그 줄의 보낸 값과 오류."""
+    locked = board_settings.locked_ids()
+    rows = []
+    for u in (User.objects.filter(department__board=board).select_related("department")
+              .order_by("department__order", "department__code", "name")):
+        e = edit if edit and edit["pk"] == u.pk else {}
+        rows.append({"u": u, "locked": u.pk in locked, "state": _state(u), "name": e.get("name", u.name),
+                     "type": e.get("type", u.type), "error": e.get("error"), "open": bool(e)})
+    return rows
 
 
 def _unassigned(board) -> list[str]:
@@ -143,7 +187,7 @@ def _buttons(board, has_slots) -> list[str]:
             + [x for x in (b["undo"], b["regenerate"]) if x] + ["배포…"])
 
 
-def _render(request, board, shifts=None, steps=None, ask=None):
+def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=None):
     me = request.user
     admins = sorted(board.admin_group.user_set.select_related("department"), key=lambda u: u.name)
     active_n = sum(u.is_active for u in admins)
@@ -157,8 +201,12 @@ def _render(request, board, shifts=None, steps=None, ask=None):
     active = boards.active_defs(board)
     steps = steps or StepsForm(instance=board)
     on = board.steps()
+    rows = _people(board, edit)
     return render(request, "duty/board_settings.html", {
         "board": board, "boards": _mine(request), "here": _here(board),
+        "people": [r for r in rows if r["u"].is_active], "has_types": prefs.has_types(active), "types": [STAFF, DEVELOPER],
+        "people_depts": list(board.departments.order_by("order", "code")),
+        "add": add or {"username": board_settings.next_username(board)},
         "admin_rows": admin_rows, "admin_candidates": board_settings.admin_candidates(board), "depts": depts,
         "formset": formset, "dept_forms": dept_forms, "ask": ask,
         "unassigned": _unassigned(board),
