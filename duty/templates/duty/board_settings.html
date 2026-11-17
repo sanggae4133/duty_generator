@@ -3,7 +3,7 @@
 {% block content %}
 <h3>근무표 설정 · {{ board.name }}</h3>
 {% if boards|length > 1 %}<p class="seg" role="group" aria-label="고칠 근무표">{% for b in boards %}<a href="{% url 'board_settings' %}?board={{ b.code }}"{% if b.pk == board.pk %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</p>{% endif %}
-<nav class="jump" aria-label="칸 바로가기"><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a></nav>
+<nav class="jump" aria-label="칸 바로가기"><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a><a href="#shifts">근무 정의와 부서</a><a href="#steps">회차 단계</a></nav>
 
 <section id="admins" class="cfg">
   <h4>관리자 <small>회차·생성·배포·메모·통계·이력과 이 설정을 하는 사람</small></h4>
@@ -37,6 +37,60 @@
     </form>
   </article>{% endfor %}
 </section>
+<section id="shifts" class="cfg">
+  <h4>근무 정의와 부서 <small>근무조·장중관제·점심당번의 이름과 시각, 부서마다 가능한 출근조와 점심 시각</small></h4>
+  {% include "duty/_section_msgs.html" with sec="shifts" %}
+  <p class="note-box">이름·시각을 운영 중에 바꾸면 발송 창이 열린 알림이 한 번 다시 나가고, 예전에 내려받은 CSV 의 열 이름이 맞지 않습니다.
+    저장한 줄은 지우거나 키를 바꿀 수 없으니 '사용'을 끄고 새 줄을 더합니다. 근무조 1~4 는 이름일 뿐이고 이른·늦은 조는 시작 시각으로 정합니다.
+    <strong>새 근무조를 더하면 저장한 뒤에야 아래 부서에 그 체크박스가 생기므로, 체크하고 한 번 더 저장합니다.</strong></p>
+  <form method="post" action="{{ here }}#shifts" class="shifts">{% csrf_token %}<input type="hidden" name="do" value="shifts">
+    {{ formset.management_form }}
+    {% for e in formset.non_form_errors %}<p class="err">{{ e }}</p>{% endfor %}
+    <div class="cards">{% for f in formset %}<fieldset class="card">
+      <legend>{% if f.instance.pk %}{{ f.instance.name }}{% else %}새 근무 정의(더할 때만 채웁니다){% endif %}</legend>
+      {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+      {% for e in f.non_field_errors %}<p class="err">{{ e }}</p>{% endfor %}
+      {% for fld in f.visible_fields %}<div class="fld">
+        {% if fld.widget_type == "checkbox" %}<label>{{ fld }} {{ fld.label }}</label>
+        {% elif fld.widget_type == "checkboxselectmultiple" %}<span class="lbl">{{ fld.label }}</span>{{ fld }}
+        {% else %}<label for="{{ fld.id_for_label }}">{{ fld.label }}</label>{{ fld }}{% endif %}
+        {% if fld.help_text %}<small>{{ fld.help_text }}</small>{% endif %}
+        {% for e in fld.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>{% endfor %}
+    </fieldset>{% endfor %}</div>
+    <button class="outline">저장</button>
+    <h5>부서</h5>
+    {% if unassigned %}<div class="msg warning" role="status">아직 부서에 배정되지 않은 근무조: {{ unassigned|join:", " }}. 아래 부서에서 체크하고 [부서 저장]을 누르세요. 체크하지 않으면 입력 표에 칸이 생기지 않습니다.</div>{% endif %}
+    <div class="cards">{% for d in dept_forms %}<fieldset class="card">
+      <legend>{{ d.instance.name }}</legend>
+      <input type="hidden" name="{{ d.prefix }}-shown" value="{{ d.shown_value }}">
+      {% for e in d.non_field_errors %}<p class="err">{{ e }}</p>{% endfor %}
+      <div class="fld"><span class="lbl">가능한 출근조</span>{{ d.shifts }}{% for e in d.shifts.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>
+      <div class="pair">
+        <div class="fld"><label for="{{ d.lunch_start.id_for_label }}">점심 시작</label>{{ d.lunch_start }}</div>
+        <div class="fld"><label for="{{ d.lunch_end.id_for_label }}">점심 끝</label>{{ d.lunch_end }}</div>
+      </div>
+      <small>점심 시각은 점심당번 알림·캘린더에 씁니다. 비우면 점심당번이 시각 기준 알림·캘린더에서 빠집니다.</small>
+    </fieldset>{% endfor %}</div>
+    {# 확인 값은 이 버튼에만: 위 [저장]으로는 확인을 건너뛰지 못한다(설계 6.2) #}
+    <button class="wide"{% if ask %} name="confirm" value="{{ ask }}"{% endif %}>{% if ask %}그래도 저장{% elif unassigned %}부서 저장{% else %}저장{% endif %}</button>
+  </form>
+</section>
+
+<section id="steps" class="cfg">
+  <details{% if open_steps %} open{% endif %}><summary><strong>회차 단계 — 근무표를 처음 만들 때 정하는 값</strong></summary>
+  {% include "duty/_section_msgs.html" with sec="steps" %}
+  <p>저장된 단계: <strong>{{ step_line }}</strong><br>버튼: {% for x in buttons %}<span class="btn-name">[{{ x }}]</span> {% endfor %}</p>
+  <form method="post" action="{{ here }}#steps" class="steps" onsubmit="return confirm('진행 중인 회차의 단계 이름과 버튼이 바로 바뀝니다. 계속할까요?')">{% csrf_token %}
+    <input type="hidden" name="do" value="steps">
+    {% for e in steps_form.non_field_errors %}<p class="err">{{ e }}</p>{% endfor %}
+    <label class="check">{{ steps_form.use_draft }} {{ steps_form.use_draft.label }}</label>
+    <label class="check">{{ steps_form.use_close }} {{ steps_form.use_close.label }}</label>
+    {% for fld, off in step_rows %}<div class="fld"><label for="{{ fld.id_for_label }}">{{ fld.label }}{% if off %} <small>(쓰지 않음 · 남은 회차·기록 표시용)</small>{% endif %}</label>{{ fld }}
+      {% for e in fld.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>{% endfor %}
+    <button class="outline">저장</button>
+  </form>
+  </details>
+</section>
 <style>
   p.seg[role=group] { margin-bottom: 1rem; }
   nav.jump { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .4rem; margin: 0 0 1.5rem; }
@@ -56,5 +110,25 @@
   form.add label { flex: 1 1 14rem; margin: 0; }
   form.add select { margin: 0; }
   form.add button { width: auto; margin: 0; min-height: 44px; }
+  p.note-box { max-width: 60rem; font-size: .95rem; }
+  p.err { margin: .2rem 0; color: var(--nxt-red); font-weight: 700; }
+  /* 근무 정의·부서는 카드(fieldset)를 늘어놓는다: 넓은 화면은 한 줄에 여럿, 좁은 화면·아주 크게는 하나(설계 7.2) */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; margin-bottom: 1rem; }
+  fieldset.card { margin: 0; padding: .8rem 1rem; border: 1px solid var(--duty-line); border-radius: .4rem; min-width: 0; }
+  fieldset.card legend { padding: 0 .3rem; font-weight: 700; }
+  fieldset.card .fld { margin-bottom: .6rem; }
+  fieldset.card .fld > label:not(:has(input[type=checkbox])), fieldset.card .lbl { display: block; margin-bottom: .2rem; }
+  fieldset.card input:not([type=checkbox]), fieldset.card select { margin: 0; }
+  fieldset.card small { display: block; color: var(--pico-muted-color); }
+  fieldset.card label:has(input[type=checkbox]) { display: flex; align-items: center; gap: .5rem; min-height: 44px; margin: 0; }  /* 체크 줄도 누를 자리 44px */
+  fieldset.card .pair { display: flex; flex-wrap: wrap; gap: .5rem; }
+  fieldset.card .pair .fld { flex: 1 1 8rem; }
+  form.shifts > button, form.steps button { width: auto; min-height: 48px; padding: .5rem 1.5rem; }
+  form.shifts > h5 { margin: 1.5rem 0 .8rem; }
+  form.shifts > button.wide { display: block; width: 100%; max-width: 30rem; font-size: 1.05rem; }
+  #steps details > summary { min-height: 44px; display: flex; align-items: center; }
+  form.steps { max-width: 30rem; }
+  form.steps label.check { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
+  .btn-name { white-space: nowrap; font-weight: 700; }
 </style>
 {% endblock %}

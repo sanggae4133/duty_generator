@@ -1,8 +1,11 @@
 """[근무표 설정] 화면(근무표 통합 설계 7·8절): 들어가기·칸 바로가기·칸 안 메시지·관리자·입력 담당자. 이름은 모두 가상."""
+from datetime import date
+
 import pytest
 from django.contrib.auth.models import Group
 
-from duty.models import Department, User
+from duty.models import BoardShift, Commute, Department, Period, User
+from tests.test_board_settings_shifts import shift_data
 
 URL = "/settings/"
 
@@ -139,3 +142,105 @@ def test_assignee_group_name_clash_shown_in_section(ops_client):
     r = ops_client.post(URL + "?board=ops", {"do": "add_assignee", "dept": "OPS", "user": a.pk}, follow=True)
     body = r.content.decode()
     assert body.index('<section id="assignees"') < body.index("같은 이름의 그룹이 이미 있습니다: 운영 출근표 입력. 슈퍼유저에게")
+
+
+# ── 근무 정의와 부서 ──
+
+def _post_shifts(client, board, **kw):
+    confirm = kw.pop("confirm", None)
+    data = dict(shift_data(board, **kw).lists()) | {"do": "shifts"} | ({"confirm": confirm} if confirm else {})
+    return client.post(f"{URL}?board={board.code}", data)
+
+
+def test_shifts_section_shows_cards_and_departments(ops_client, ops_board):
+    body = ops_client.get(URL + "?board=ops").content.decode()
+    for name in ("이른", "가운데", "늦은", "점심당번"):
+        assert f"<legend>{name}</legend>" in body
+    assert "<legend>새 근무 정의(더할 때만 채웁니다)</legend>" in body and "<legend>운영</legend>" in body
+    assert "이른 07:30~16:30" in body  # 부서 출근조 체크박스: 이름과 시각
+    assert '<input type="hidden" name="d-OPS-shown" value="dawn,normal,dinner">' in body  # 그린 때 보인 체크박스(저장 때 남길 키)
+    assert "아직 부서에 배정되지 않은 근무조" not in body and ">부서 저장</button>" not in body
+
+
+def test_new_shift_then_check_it_in_department(ops_client, ops_board):
+    r = _post_shifts(ops_client, ops_board, extra={"key": "night", "name": "밤", "start": "13:00", "end": "22:00", "active": "on"})
+    assert r.status_code == 302 and r["Location"] == "/settings/?board=ops#shifts"
+    body = ops_client.get(URL + "?board=ops").content.decode()
+    assert body.index('<section id="shifts"') < body.index(
+        "근무 정의와 부서를 저장했습니다. 아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요.")
+    assert "아직 부서에 배정되지 않은 근무조: 밤. 아래 부서에서 체크하고 [부서 저장]을 누르세요." in body
+    assert '<button class="wide">부서 저장</button>' in body
+    _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal", "dinner", "night"]}})
+    body = ops_client.get(URL + "?board=ops").content.decode()
+    assert "아직 부서에 배정되지 않은 근무조" not in body and Department.objects.get(code="OPS").shifts == "dawn,normal,dinner,night"
+    assert "[부서 저장]을 한 번 더 누르세요" not in body  # 다 배정했으면 결과 글도 짧게
+
+
+def test_shift_errors_redraw_with_sent_values(ops_client, ops_board):
+    r = _post_shifts(ops_client, ops_board, change={"normal": {"name": "중간"}}, depts={"OPS": {"lunch_start": "11:30"}})
+    body = r.content.decode()
+    assert r.status_code == 200 and 'value="중간"' in body  # 보낸 값 그대로
+    assert body.index('<section id="shifts"') < body.index("저장하지 않았습니다. 빨간 글씨로 표시한 칸을 고쳐 주세요.")
+    assert "점심 시각은 둘 다 비우거나, 둘 다 넣고 시작을 끝보다 이르게 하세요." in body
+
+
+def test_shift_removal_confirm_flow(ops_client, ops_board):
+    m = _ops_member("가상하나", "OPS801")
+    p = Period.objects.create(board=ops_board, name="이번 회차", start_date=date(2026, 11, 16), end_date=date(2026, 11, 16),
+                              status=Period.Status.COLLECTING)
+    Commute.objects.create(period=p, date=p.start_date, member=m, shift="dinner")
+    r = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}})
+    body = r.content.decode()
+    assert r.status_code == 200 and "그 근무조 출근표 1행이 다음 표 저장 때 지워집니다" in body
+    assert 'name="confirm" value="1">그래도 저장</button>' in body and 'type="hidden" name="confirm"' not in body
+    r = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}})  # 위 [저장](확인 값 없음)은 다시 묻는다
+    assert r.status_code == 200 and "그 근무조 출근표 1행이 다음 표 저장 때 지워집니다" in r.content.decode()
+    assert Department.objects.get(code="OPS").shifts == "dawn,normal,dinner"
+    r = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}}, confirm="1")
+    assert r.status_code == 302 and Department.objects.get(code="OPS").shifts == "dawn,normal"
+
+
+def test_shift_ids_of_other_board_are_404(ops_client, ops_board, it_board, depts):
+    it_shift = BoardShift.objects.filter(board=it_board).first()
+    data = dict(shift_data(ops_board).lists()) | {"do": "shifts"}
+    assert ops_client.post(URL + "?board=ops", data | {"shifts-0-id": [str(it_shift.pk)]}).status_code == 404
+    assert ops_client.post(URL + "?board=ops", data | {"d-MEMS-shifts": ["dawn"]}).status_code == 404
+    assert BoardShift.objects.get(pk=it_shift.pk).board_id == it_board.pk
+
+
+# ── 회차 단계 ──
+
+def _steps_post(board, **over):
+    data = {f: getattr(board, f) for f in ("step_draft", "step_collecting", "step_closed", "step_generated", "step_published")}
+    data |= {f: "on" for f in ("use_draft", "use_close") if getattr(board, f)}
+    return {k: v for k, v in (data | over | {"do": "steps"}).items() if v is not None}
+
+
+def test_steps_section_preview_and_folded(ops_client, ops_board, admin_user, client):
+    body = ops_client.get(URL + "?board=ops").content.decode()
+    assert '<section id="steps" class="cfg">\n  <details>' in body  # 접혀 있다
+    assert "저장된 단계: <strong>입력 중 → 확정 → 배포됨</strong>" in body
+    assert '<span class="btn-name">[확정]</span> <span class="btn-name">[확정 취소]</span> <span class="btn-name">[배포…]</span>' in body
+    assert "작성 중 이름 <small>(쓰지 않음 · 남은 회차·기록 표시용)</small>" in body
+    assert "return confirm('진행 중인 회차의 단계 이름과 버튼이 바로 바뀝니다. 계속할까요?')" in body
+    client.force_login(admin_user)
+    body = client.get(URL).content.decode()
+    assert "[취합 열기]</span> <span class=\"btn-name\">[취합 마감]</span> <span class=\"btn-name\">[장중관제 생성]</span> " \
+           "<span class=\"btn-name\">[재생성]</span> <span class=\"btn-name\">[배포…]" in body
+
+
+def test_save_steps_from_page(ops_client, ops_board):
+    r = ops_client.post(URL + "?board=ops", _steps_post(ops_board, use_close="on", step_closed="마감"))
+    assert r["Location"] == "/settings/?board=ops#steps"
+    body = ops_client.get(URL + "?board=ops").content.decode()
+    assert "<details open>" in body and body.index('<section id="steps"') < body.index("회차 단계를 저장했습니다.")
+    assert "저장된 단계: <strong>입력 중 → 마감 → 확정 → 배포됨</strong>" in body
+    ops_board.refresh_from_db()
+    assert ops_board.use_close
+
+
+def test_bad_step_names_redraw(ops_client, ops_board):
+    r = ops_client.post(URL + "?board=ops", _steps_post(ops_board, step_generated="됨"))
+    body = r.content.decode()
+    assert r.status_code == 200 and "<details open>" in body and "버튼 이름이 비거나 다른 버튼과 같아집니다: []" in body
+    assert "저장된 단계: <strong>입력 중 → 확정 → 배포됨</strong>" in body  # 미리보기는 저장된 값

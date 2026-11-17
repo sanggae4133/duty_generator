@@ -153,9 +153,9 @@ def save_shifts(by, board, formset, dept_forms, confirm: int | None = None) -> l
     if formset.instance.pk != board.pk or any(f.instance.board_id != board.pk for f in dept_forms):
         raise PermissionDenied("이 근무표의 근무 정의·부서가 아닙니다.")
     # 부서 출근조는 트랜잭션 안에서 다시 읽는다(화면이 그린 뒤 바뀌었을 수 있다, 설계 6.2). 화면에는 그린 때 켜진 근무조만
-    # 체크박스로 나오므로, 나오지 않은 키(꺼진 근무조)는 그대로 둔다: 다시 켜면 그 부서 입력 표 칸이 돌아온다
+    # 체크박스로 나오므로, 나오지 않은 키(꺼진 근무조, 그린 뒤 다른 관리자가 켠 근무조)는 그대로 둔다: 다시 켜면 그 부서 입력 표 칸이 돌아온다
     saved = {code: set(keys.split(",")) - {""} for code, keys in board.departments.values_list("code", "shifts")}
-    hidden = {f.instance.pk: saved[f.instance.pk] - {k for k, _ in f.fields["shifts"].choices} for f in dept_forms}
+    hidden = {f.instance.pk: saved[f.instance.pk] - f.shown() for f in dept_forms}
     depts_ok = all([f.is_valid() for f in dept_forms])  # 모든 부서의 오류를 한 번에 보이게(목록으로 다 돌린다)
     picked = {f.instance.pk: set(f.cleaned_data["shifts"]) | hidden[f.instance.pk] for f in dept_forms} if depts_ok else {}
     # 부서 칸이 틀리면 부서 검사는 건너뛴다({}): 저장된 출근조로 보면 관리 화면용 안내가 나온다

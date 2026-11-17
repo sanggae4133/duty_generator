@@ -93,6 +93,20 @@ def test_turned_off_shift_comes_back_in_department(ops_board, ops_admin):
     assert collect.input_keys(_dept()) == ["dawn", "normal", "dinner"]
 
 
+def test_shift_turned_on_by_other_admin_after_render_is_kept(ops_board, ops_admin):
+    """남길 꺼진 키는 화면이 그린 때 체크박스로 보인 키(d-<코드>-shown)로 정한다: 그린 뒤 다른 관리자가 근무조를 켜도
+    그 체크박스를 못 본 이 저장이 부서에서 그 키를 빼지 않는다. shown 이 없으면 지금 켜진 근무조로 본다."""
+    BoardShift.objects.filter(board=ops_board, key="dinner").update(active=False)  # 그린 때: 늦은 조는 꺼져 체크박스 없음
+    data = shift_data(ops_board, depts={"OPS": {"shifts": ["dawn", "normal"], "shown": "dawn,normal"}})
+    BoardShift.objects.filter(board=ops_board, key="dinner").update(active=True)  # 그사이 다른 관리자가 켰다
+    data.setlist("shifts-2-active", ["on"])  # 이 저장도 켠 채로(정의 칸은 다른 관리자 저장을 덮지 않게)
+    save(ops_admin, ops_board, data)
+    assert _dept().shifts == "dawn,normal,dinner"
+    data.pop("d-OPS-shown")  # 보인 키를 안 보내면(옛 화면) 지금 켜진 근무조가 다 보였던 것으로 본다
+    save(ops_admin, ops_board, data)
+    assert _dept().shifts == "dawn,normal"
+
+
 def test_department_left_without_active_shift_is_refused(ops_board, ops_admin):
     Department.objects.filter(code="OPS").update(shifts="dawn")
     formset, dept_forms = shift_forms(ops_board, shift_data(ops_board, change={"dawn": {"active": None}}))

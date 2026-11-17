@@ -1,6 +1,8 @@
 """[근무표 설정](근무표 통합 설계 7절): 근무표 관리자가 그 근무표의 관리자·입력 담당자·근무 정의와 부서·회차 단계를 고치는
 한 화면(/settings/?board=<code>). 칸마다 따로 저장하고 저장 뒤 그 칸(#앵커)으로 돌아온다. 결과 메시지는 extra_tags 에 칸 id 를
 넣어 그 칸 제목 바로 아래에 그린다(base.html 맨 위에는 칸 태그가 없는 메시지만). DB 쓰기는 services/board_settings.py."""
+import re
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
@@ -9,24 +11,27 @@ from django.urls import reverse
 
 from .. import perms
 from ..errors import DutyError
-from ..models import Department, User
+from ..forms import StepsForm, shift_forms
+from ..models import Board, Department, Period, User
 from ..services import board_settings, boards
-from ..shifts import josa
+from ..shifts import josa, shift_defs, slot_defs
 from .common import admin_required
 
 
-def _board(request):
+def _mine(request) -> list[Board]:
+    return list(perms.admin_boards(request.user).order_by("id"))  # admin_required 를 지났으니 비어 있지 않다
+
+
+def _board(request) -> Board:
     """?board=<code> 의 근무표: 내가 관리하는 근무표만(아니면 404, 회차 화면과 같은 방식). 없으면 내 근무표(관리할 때) → 관리하는 첫 근무표."""
-    mine = list(perms.admin_boards(request.user).order_by("id"))  # admin_required 를 지났으니 비어 있지 않다
-    code = request.GET.get("board")
+    mine, code = _mine(request), request.GET.get("board")
     if code:
         board = next((b for b in mine if b.code == code), None)
         if board is None:
             raise Http404
-    else:
-        home = boards.home(request.user)
-        board = next((b for b in mine if b.pk == getattr(home, "pk", None)), mine[0])
-    return board, mine
+        return board
+    home = boards.home(request.user)
+    return next((b for b in mine if b.pk == getattr(home, "pk", None)), mine[0])
 
 
 def _here(board) -> str:
@@ -75,13 +80,70 @@ def _remove_assignee(request, board):
     return f"{user.name}{josa(user.name, '을/를')} {dept.name} 입력 담당자에서 뺐습니다."
 
 
+def _shifts(request, board):
+    # 그 근무표 밖의 근무 정의 id·부서 칸을 섞어 보내면 404(설계 6.2 범위 검사. 폼도 그 근무표 것만 만든다)
+    ids = {str(pk) for pk in board.shifts.values_list("pk", flat=True)}
+    codes = set(board.departments.values_list("code", flat=True))
+    for k, v in request.POST.items():
+        other_shift = re.fullmatch(r"shifts-\d+-id", k) and v and v not in ids
+        other_dept = k.startswith("d-") and k[2:].rsplit("-", 1)[0] not in codes
+        if other_shift or other_dept:
+            raise Http404
+    formset, dept_forms = shift_forms(board, request.POST)
+    confirm = request.POST.get("confirm", "")
+    try:
+        warnings = board_settings.save_shifts(request.user, board, formset, dept_forms,
+                                              int(confirm) if confirm.isdigit() else None)
+    except board_settings.NeedsConfirm as e:  # 저장하지 않았다: 보낸 값 그대로 다시 그리고 [그래도 저장]
+        messages.warning(request, str(e), extra_tags="shifts")
+        return _render(request, board, shifts=(formset, dept_forms), ask=e.rows)
+    except DutyError as e:  # 칸 오류: 보낸 값 그대로 다시 그린다(다른 칸의 입력은 건드리지 않는다)
+        messages.error(request, str(e), extra_tags="shifts")
+        return _render(request, board, shifts=(formset, dept_forms))
+    done = "근무 정의와 부서를 저장했습니다."
+    if _unassigned(board):  # 경고 상자는 카드 아래에 있어 안 보일 수 있으니 결과 글에도(설계 7.2 두 번 저장)
+        done += " 아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요."
+    messages.success(request, done, extra_tags="shifts")
+    for w in warnings:
+        messages.warning(request, w, extra_tags="shifts")
+    return redirect(f"{_here(board)}#shifts")
+
+
+def _steps(request, board):
+    form = StepsForm(request.POST, instance=Board.objects.get(pk=board.pk))  # 오류로 다시 그릴 때 화면의 board 가 바뀌지 않게 새로 읽는다
+    try:
+        warning = board_settings.save_steps(request.user, board, form)
+    except DutyError as e:
+        messages.error(request, str(e), extra_tags="steps")
+        return _render(request, board, steps=form)
+    if warning:  # 끈 단계에 회차가 남았다: 성공 대신 안내
+        messages.warning(request, warning, extra_tags="steps")
+    else:
+        messages.success(request, "회차 단계를 저장했습니다.", extra_tags="steps")
+    return redirect(f"{_here(board)}#steps")
+
+
 ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시지)이나 응답(다시 그리기·다른 곳으로)을 돌려준다
     "add_admin": ("admins", _add_admin), "remove_admin": ("admins", _remove_admin),
     "add_assignee": ("assignees", _add_assignee), "remove_assignee": ("assignees", _remove_assignee),
+    "shifts": ("shifts", _shifts), "steps": ("steps", _steps),
 }
 
 
-def _render(request, board, mine):
+def _unassigned(board) -> list[str]:
+    """켜진 근무조 가운데 어느 부서에도 없는 것(새로 더한 근무조): 부서에서 체크해야 입력 표에 칸이 생긴다(설계 7.2)."""
+    assigned = {k for d in board.departments.all() for k in d.shift_keys()}
+    return [x.name for x in shift_defs(boards.active_defs(board)) if x.key not in assigned]
+
+
+def _buttons(board, has_slots) -> list[str]:
+    """미리보기: 켠 단계에서 회차 화면에 나오는 버튼 글자(설계 5.4, 회차 화면과 같은 step_buttons), 진행 순서대로."""
+    b = board.step_buttons(has_slots)
+    return ([b["open"]] * board.use_draft + [b["close"]] * board.use_close + [b["generate"]]
+            + [x for x in (b["undo"], b["regenerate"]) if x] + ["배포…"])
+
+
+def _render(request, board, shifts=None, steps=None, ask=None):
     me = request.user
     admins = sorted(board.admin_group.user_set.select_related("department"), key=lambda u: u.name)
     active_n = sum(u.is_active for u in admins)
@@ -91,15 +153,24 @@ def _render(request, board, mine):
     depts = [{"dept": d, "members": sorted(d.input_group.user_set.select_related("department"), key=lambda u: u.name)
               if d.input_group_id else [], "candidates": board_settings.assignee_candidates(board, d)}
              for d in board.departments.select_related("input_group").order_by("order", "code")]
+    formset, dept_forms = shifts or shift_forms(board)
+    active = boards.active_defs(board)
+    steps = steps or StepsForm(instance=board)
+    on = board.steps()
     return render(request, "duty/board_settings.html", {
-        "board": board, "boards": mine, "here": _here(board),
+        "board": board, "boards": _mine(request), "here": _here(board),
         "admin_rows": admin_rows, "admin_candidates": board_settings.admin_candidates(board), "depts": depts,
+        "formset": formset, "dept_forms": dept_forms, "ask": ask,
+        "unassigned": _unassigned(board),
+        "steps_form": steps, "step_rows": [(steps[f"step_{s}"], s not in on) for s in Period.Status.values],
+        "step_line": " → ".join(board.step_name(s) for s in on), "buttons": _buttons(board, bool(slot_defs(active))),
+        "open_steps": steps.is_bound or any(m.extra_tags == "steps" for m in messages.get_messages(request)),
     })
 
 
 @admin_required
 def index(request):
-    board, mine = _board(request)
+    board = _board(request)
     if request.method == "POST":
         if request.POST.get("do") not in ACTIONS:
             raise Http404
@@ -115,4 +186,4 @@ def index(request):
                 return out
             messages.success(request, out, extra_tags=section)
         return redirect(f"{_here(board)}#{section}")
-    return _render(request, board, mine)
+    return _render(request, board)

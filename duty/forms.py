@@ -147,6 +147,15 @@ class DeptShiftsForm(forms.ModelForm):
                                          for x in shift_defs(defs) if x.active]
         self.initial.setdefault("shifts", self.instance.shift_keys())
 
+    def shown(self) -> set[str]:
+        """화면이 그린 때 체크박스로 보인 키(템플릿이 숨은 칸 "<prefix>-shown" 으로 보낸다). 보내지 않았으면 지금 선택지.
+        save_shifts 는 이 밖의 저장된 키를 남긴다: 그린 뒤 다른 관리자가 켠 근무조를 이 저장이 빼지 않게."""
+        raw = self.data.get(self.add_prefix("shown")) if self.is_bound else None
+        return set(raw.split(",")) - {""} if raw is not None else {k for k, _ in self.fields["shifts"].choices}
+
+    def shown_value(self) -> str:
+        return ",".join(k for k, _ in self.fields["shifts"].choices)
+
 
 # [근무표 설정] 근무 정의 칸: 관리 화면 인라인과 같은 폼·검사, 빈 추가 줄 하나, 지우기 없음(prefix "shifts")
 ShiftFormSet = forms.inlineformset_factory(
