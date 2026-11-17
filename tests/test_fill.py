@@ -93,7 +93,7 @@ def test_same_as_last_week_copies_weekday_without_reason(ops):
     assert out == {d(11, 16): {"dawn": ["가상나"], "normal": ["가상다"], "dinner": ["가상가"]}}  # 11/17 은 지난주가 비어 비움, 11/18 은 휴장일
 
 
-def test_fill_errors(ops, it_board):
+def test_fill_errors(ops):
     p, dept = ops
     with pytest.raises(DutyError, match="알 수 없는 채우기"):
         collect.fill_week(p, dept, {}, d(11, 16), "3w")
@@ -104,6 +104,7 @@ def test_fill_errors(ops, it_board):
     with pytest.raises(DutyError, match="근무조가 3개일 때만"):
         collect.fill_week(p, dept, {}, d(11, 16), collect.FILL_2W)
     p.status = S.GENERATED  # 채우기는 입력을 받는 동안만(모든 근무표, 근무표 통합 2단계)
+    p.save()
     with pytest.raises(DutyError, match="입력 중인 회차가 아닙니다"):
         collect.fill_week(p, dept, {}, d(11, 16), collect.FILL_1W)
 
