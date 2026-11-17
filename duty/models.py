@@ -54,13 +54,26 @@ class Board(models.Model):
     code = models.CharField("코드", max_length=16, unique=True, help_text="짧은 영문. IT = it")
     name = models.CharField("이름", max_length=32)
     input_mode = models.CharField("입력 방식", max_length=8, choices=InputMode.choices, default=InputMode.COLLECT)
+    # 회차 단계(설계 5.1): 작성 중·마감은 끌 수 있고 다섯 단계 모두 화면 이름을 가진다(끈 단계도: 남은 회차·기록이 이름으로 보인다)
+    use_draft = models.BooleanField("작성 중 단계 사용", default=True)
+    use_close = models.BooleanField("마감 단계 사용", default=True)
+    step_draft = models.CharField("작성 중 이름", max_length=16, default="작성 중")
+    step_collecting = models.CharField("취합 중 이름", max_length=16, default="취합 중")
+    step_closed = models.CharField("마감 이름", max_length=16, default="마감")
+    step_generated = models.CharField("생성됨 이름", max_length=16, default="생성됨")
+    step_published = models.CharField("배포됨 이름", max_length=16, default="배포됨")
     admin_group = models.OneToOneField(Group, on_delete=models.PROTECT, related_name="admin_board",
                                        verbose_name="관리 그룹", editable=False)
 
     class Meta:
         verbose_name = verbose_name_plural = "근무표"
         ordering = ["id"]
-        constraints = [_one_of("input_mode", InputMode.values, "board_input_mode_valid")]
+        constraints = [
+            _one_of("input_mode", InputMode.values, "board_input_mode_valid"),
+            models.CheckConstraint(name="board_step_names_set", condition=(
+                ~Q(step_draft="") & ~Q(step_collecting="") & ~Q(step_closed="") & ~Q(step_generated="")
+                & ~Q(step_published=""))),
+        ]
 
     def __str__(self):
         return self.name
@@ -72,6 +85,36 @@ class Board(models.Model):
 
     def admin_group_name(self) -> str:
         return f"{self.name} 근무표 관리"
+
+    # 단계 규칙(설계 5.2). DB 를 읽지 않는다
+    def step_name(self, status: str) -> str:
+        """그 상태의 화면 이름(끈 단계도)."""
+        return getattr(self, f"step_{status}")
+
+    def steps(self) -> list[str]:
+        """켠 단계, 순서대로: (작성 중) → 취합 중 → (마감) → 생성됨 → 배포됨."""
+        S = PeriodStatus
+        return [s for s, on in ((S.DRAFT, self.use_draft), (S.COLLECTING, True), (S.CLOSED, self.use_close),
+                                (S.GENERATED, True), (S.PUBLISHED, True)) if on]
+
+    def first_step(self) -> str:
+        """새 회차의 상태."""
+        return PeriodStatus.DRAFT if self.use_draft else PeriodStatus.COLLECTING
+
+    def generate_from(self) -> str:
+        """생성(확정)을 받는 상태(생성됨에서 다시 생성하는 것은 따로)."""
+        return PeriodStatus.CLOSED if self.use_close else PeriodStatus.COLLECTING
+
+    def editable(self) -> set[str]:
+        """기간을 고칠 수 있는 상태: 작성 중, 그리고 작성 중을 안 쓰면 취합 중에서도."""
+        return {PeriodStatus.DRAFT} | (set() if self.use_draft else {PeriodStatus.COLLECTING})
+
+    def move_targets(self, status: str) -> list[str]:
+        """'다른 상태로 옮기기'로 갈 수 있는 상태: 켠 배포 전 단계 중 지금 것 빼고. 배포됨에서는 없다(배포 취소로만)."""
+        if status == PeriodStatus.PUBLISHED:
+            return []
+        on = self.steps()
+        return [s for s in MOVABLE if s in on and s != status]
 
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -229,6 +272,9 @@ class PeriodStatus(models.TextChoices):
     CLOSED = "closed", "마감"
     GENERATED = "generated", "생성됨"
     PUBLISHED = "published", "배포됨"
+
+
+MOVABLE = (PeriodStatus.DRAFT, PeriodStatus.COLLECTING, PeriodStatus.CLOSED)  # 생성됨·배포됨은 생성·배포 버튼으로만 간다
 
 
 # 직접 입력 근무표의 화면 단계(설계 6.1): DB 상태는 그대로 두고 이름만 바꾼다. 새 회차는 만들자마자 취합 중(= 입력 중)

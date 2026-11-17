@@ -4,6 +4,7 @@ from datetime import date, time
 import pytest
 
 from duty.models import Board, BoardShift, Commute, Department, Period, User
+from tests.it_defs import OPS_STEPS
 
 S = Period.Status
 MON, FRI = date(2026, 11, 16), date(2026, 11, 20)
@@ -12,7 +13,7 @@ MON, FRI = date(2026, 11, 16), date(2026, 11, 20)
 @pytest.fixture
 def ops(it_board, admin_user):
     """가짜 직접 입력 근무표 '운영팀'(근무조 셋 + 점심당번, 부서 하나). admin_user 는 IT·운영팀 둘 다 관리한다."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     for key, name, h in (("dawn", "이른", 7), ("normal", "가운데", 9), ("dinner", "늦은", 11)):
         BoardShift.objects.create(board=board, key=key, name=name, start=time(h, 30), end=time(h + 9, 30))
     BoardShift.objects.create(board=board, key="lunch", name="점심당번")

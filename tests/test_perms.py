@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 
 from duty import perms
 from duty.models import Board, Department, User
+from tests.it_defs import OPS_STEPS
 
 
 def test_past_date_is_admin_only(fixed_today, make_member, admin_user, it_board):
@@ -36,7 +37,7 @@ def test_managed_departments(depts, make_member, admin_user):
 @pytest.fixture
 def ops(it_board):
     """두 번째 근무표(가짜 '운영팀', 직접 입력)와 그 부서 하나. 관리 그룹은 Board.save 가 만든다."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     return board, Department.objects.create(code="OPS", name="운영", shifts="normal", board=board)
 
 

@@ -6,6 +6,7 @@ from django.utils import timezone
 from duty.models import AlarmDelivery, AlarmRule, Board, PushAlarmSubscription, TelegramAlarmProfile, User
 from duty.errors import DutyError
 from duty.services import alarms
+from tests.it_defs import OPS_STEPS
 
 BASE = dict(kind="personal", timing="days", offset=1, at_minute=1080, telegram=True, push=False, shifts=["dawn"])
 
@@ -127,7 +128,7 @@ def test_rule_board_by_kind(user, it_board):
 
 
 def test_report_rule_unique_per_board(user, it_board):
-    other = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    other = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     _rule(user, kind="report", board=it_board)
     _rule(user, kind="report", board=other)  # 근무표가 다르면 같은 조건도 된다
     _bad(lambda: _rule(user, kind="report", board=other, telegram=False, push=True))

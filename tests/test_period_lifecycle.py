@@ -8,6 +8,7 @@ from duty.services import boards, periods
 from duty.services.publish import publish, unpublish, unpublish_info
 from duty.services.roster import find_day
 from duty.shifts import weekdays
+from tests.it_defs import OPS_STEPS
 
 S = Period.Status
 
@@ -282,7 +283,7 @@ def test_move_messages(it_board, status, to, msg):
 
 
 def test_move_message_for_board_without_draft_and_close(it_board):
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     p = Period.objects.create(board=ops, name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.GENERATED)
     with pytest.raises(DutyError) as e:
         periods.move(p, S.DRAFT)

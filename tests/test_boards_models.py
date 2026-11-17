@@ -7,7 +7,7 @@ from django.db import IntegrityError, transaction
 
 from duty.models import Board, BoardShift, Department, GroupKeeper
 from duty.shifts import KEYS
-from tests.it_defs import IT_DEFS2
+from tests.it_defs import IT_DEFS2, OPS_STEPS
 
 
 def _bad(fn):
@@ -26,7 +26,7 @@ def test_it_board_fixture_has_14_defs_and_admin_group(it_board):
 
 
 def test_board_save_creates_admin_group(db):
-    b = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    b = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     assert b.admin_group.name == "운영팀 근무표 관리"
     before = Group.objects.count()
     b.name = "운영팀2"
@@ -41,7 +41,7 @@ def test_department_save_creates_input_group_for_collect_board(it_board):
 
 
 def test_department_without_collect_board_has_no_input_group(db):
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     assert Department.objects.create(code="OPS", name="운영", shifts="normal", board=ops).input_group is None
 
 

@@ -7,6 +7,7 @@ from duty.errors import DutyError
 from duty.models import Board, BoardShift, Commute, Department, Holiday, Period, User
 from duty.services import collect
 from duty.shifts import two_week_rotation
+from tests.it_defs import OPS_STEPS
 
 S = Period.Status
 KEYS = ["dawn", "normal", "dinner"]  # 이른·가운데·늦은
@@ -39,7 +40,7 @@ def ops(it_board, fixed_today):
     """가짜 직접 입력 근무표 '운영팀'(근무조 셋, 부서 하나)과 사람들.
     11/2~11/13 배포됨, 11/16~12/4 입력 중(11/18 휴장일). 가상마는 퇴사, 가상라는 새로 왔다."""
     fixed_today(d(11, 1))
-    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     for key, name, h in (("dawn", "이른", 7), ("normal", "가운데", 9), ("dinner", "늦은", 11)):
         BoardShift.objects.create(board=board, key=key, name=name, start=time(h, 30), end=time(h + 9, 30))
     dept = Department.objects.create(code="OPS", name="운영", shifts="dawn,normal,dinner", board=board)

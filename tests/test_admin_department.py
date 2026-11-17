@@ -6,6 +6,7 @@ from django.urls import reverse
 from duty.admin import DepartmentForm
 from duty.models import BoardShift
 from duty.models import Board, Department
+from tests.it_defs import OPS_STEPS
 
 
 @pytest.fixture
@@ -66,7 +67,7 @@ def test_managers_compat_removed(depts):
     with pytest.raises(FieldDoesNotExist):
         Department._meta.get_field("managers")
     assert not hasattr(Department, "managers")
-    direct = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    direct = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     dept = Department.objects.create(code="OPS", name="운영", shifts="normal", board=direct)
     assert dept.input_group_id is None and list(DepartmentForm(instance=dept).initial["managers"]) == []
 
@@ -93,7 +94,7 @@ def test_change_page_uses_filtered_select(su_client, depts):
 
 
 def test_saved_department_board_is_read_only(depts):
-    other = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    other = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     form = DepartmentForm({**_data(depts["UI"], ["normal"]), "board": other.pk}, instance=depts["UI"])
     assert form.fields["board"].disabled and not DepartmentForm().fields["board"].disabled  # 새 부서만 고른다
     assert form.is_valid(), form.errors
@@ -148,7 +149,7 @@ def test_change_page_code_is_readonly(su_client, depts):
 
 def test_direct_board_department_refuses_input_managers(it_board, make_member):
     """직접 입력 근무표의 부서는 입력 그룹이 없다: 입력 담당자를 고르면 조용히 버리지 않고 칸 오류."""
-    ops = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=ops, key="normal", name="가운데", start="09:00", end="18:00")
     m = make_member("가", dept="UI")
     data = {"code": "OPS", "name": "운영", "board": ops.pk, "order": 9, "shifts": ["normal"], "managers": [m.pk]}

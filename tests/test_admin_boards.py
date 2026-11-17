@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from duty.admin import DepartmentForm
 from duty.models import Board, BoardShift, Department, GroupKeeper, User
+from tests.it_defs import OPS_STEPS
 
 ADD = reverse("admin:duty_board_add")
 
@@ -51,7 +52,7 @@ def three(board=""):
 @pytest.fixture
 def ops(it_board):
     """가짜 직접 입력 근무표 '운영팀'(근무조 둘)."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     a = BoardShift.objects.create(board=board, key="dawn", name="이른", start=time(7, 30), end=time(16, 30))
     b = BoardShift.objects.create(board=board, key="dinner", name="늦은", start=time(11), end=time(20))
     return board, a, b

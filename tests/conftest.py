@@ -5,7 +5,7 @@ import pytest
 
 from duty.models import Board, BoardShift, Department, User
 from duty.shifts import LUNCH
-from tests.it_defs import IT_DEFS
+from tests.it_defs import IT_DEFS, OPS_STEPS
 
 DEPTS = [
     ("MEMS", "매칭엔진실", "dawn,normal,dinner,night"),
@@ -31,7 +31,7 @@ def it_board(db):
 @pytest.fixture
 def ops_board(it_board):
     """가짜 '운영팀' 근무표(시장운영실과 같은 모양): 작성 중·마감 없음, 근무조 셋 + 점심당번, 부서 하나, 장중관제 없음."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     for key, name, h in (("dawn", "이른", 7), ("normal", "가운데", 9), ("dinner", "늦은", 11)):
         BoardShift.objects.create(board=board, key=key, name=name, start=time(h, 30), end=time(h + 9, 30), default_alarm=True)
     BoardShift.objects.create(board=board, key=LUNCH, name="점심당번")

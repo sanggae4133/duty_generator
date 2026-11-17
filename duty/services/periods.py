@@ -5,7 +5,7 @@ from django.db import transaction
 
 from .. import perms
 from ..errors import DutyError
-from ..models import ChangeLog, Commute, Department, DutyAssignment, InputMode, Period, PeriodEvent
+from ..models import MOVABLE, ChangeLog, Commute, Department, DutyAssignment, InputMode, Period, PeriodEvent
 from . import boards, holidays
 
 S = Period.Status
@@ -51,9 +51,6 @@ def save_draft(period: Period, by=None) -> Period:
             model.objects.filter(period=period).exclude(date__in=period.dates()).delete()
     holidays.sync(perms.today())  # 저장한 뒤: 이 회차의 해가 범위에 들어야 입력 표가 휴장일을 안다
     return period
-
-
-MOVABLE = (S.DRAFT, S.COLLECTING, S.CLOSED)  # 생성됨·배포됨은 생성·배포 버튼으로만 간다
 
 
 @transaction.atomic

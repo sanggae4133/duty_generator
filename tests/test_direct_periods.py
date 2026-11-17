@@ -7,6 +7,7 @@ from duty.errors import DutyError
 from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
 from duty.services import collect, periods
 from duty.services.generate import run_generation
+from tests.it_defs import OPS_STEPS
 
 S = Period.Status
 MON, FRI = date(2026, 11, 16), date(2026, 11, 20)
@@ -15,7 +16,7 @@ MON, FRI = date(2026, 11, 16), date(2026, 11, 20)
 @pytest.fixture
 def ops(it_board):
     """가짜 직접 입력 근무표 '운영팀': 근무조 셋(이른·가운데·늦은) + 점심당번, 부서 하나."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode=Board.InputMode.DIRECT)
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     for key, name, h in (("dawn", "이른", 7), ("normal", "가운데", 9), ("dinner", "늦은", 11)):
         BoardShift.objects.create(board=board, key=key, name=name, start=time(h, 30), end=time(h + 9, 30))
     BoardShift.objects.create(board=board, key="lunch", name="점심당번")

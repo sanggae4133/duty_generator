@@ -11,7 +11,7 @@ from duty.services import boards, collect
 from duty.services.generate import run_generation
 from duty.services.stats import member_stats, period_duty_counts
 from duty.shifts import slot_defs
-from tests.it_defs import IT_SLOTS
+from tests.it_defs import IT_SLOTS, OPS_STEPS
 
 S = Period.Status
 NOV9, NOV13 = date(2026, 11, 9), date(2026, 11, 13)
@@ -21,7 +21,7 @@ CSV = 'date,새벽,정상,석식교대,야간\n2026-11-09,가,"나,다",,\n'
 @pytest.fixture
 def ops(it_board):
     """가짜 두 번째 근무표 '운영팀'(관리 그룹은 Board.save 가 만든다)과 그 부서 하나. 장중관제 정의 없음."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=board, key="normal", name="주간", start=time(9), end=time(18))
     return board, Department.objects.create(code="OPS", name="운영", shifts="normal", board=board)
 

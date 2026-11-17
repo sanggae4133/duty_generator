@@ -10,6 +10,7 @@ from duty.errors import DutyError
 from duty.models import Board, BoardShift, ChangeLog, Commute, Department, DutyAssignment, Period, PeriodEvent, User
 from duty.services import boards, changes
 from duty.services.roster import find_day, member_schedule, published_days
+from tests.it_defs import OPS_STEPS
 
 S = Period.Status
 
@@ -33,7 +34,7 @@ def published(board, name, start, end, frm=None, when=None, event=True):
 @pytest.fixture
 def ops(it_board):
     """가짜 두 번째 근무표 '운영팀'(관리 그룹은 Board.save 가 만든다): 근무조 normal(주간) + 관제 slot0(점검A)."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=board, key="normal", name="주간", start=time(9), end=time(18))
     BoardShift.objects.create(board=board, key="slot0", name="점검A", start=time(10), end=time(11),
                               eligible_shifts=["normal"], eligible_types=["개발자"])

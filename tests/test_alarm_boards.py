@@ -13,6 +13,7 @@ from duty.errors import DutyError
 from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Board, BoardShift, ChangeLog, Commute, Department,
                          Period, PeriodEvent, TelegramAlarmProfile, User)
 from duty.services import alarm_runner, alarms, calendar, change_notice
+from tests.it_defs import OPS_STEPS
 
 D = date(2026, 11, 16)  # 월
 SUN = date(2026, 11, 15)
@@ -25,7 +26,7 @@ FORM = dict(enabled="on", timing="before_start", hours="2", minutes="0", telegra
 @pytest.fixture
 def ops(it_board):
     """가짜 두 번째 근무표 '운영팀'(관리 그룹은 Board.save 가 만든다): 근무조 셋(모두 기본 알림), 관제 없음."""
-    board = Board.objects.create(code="ops", name="운영팀", input_mode="direct")
+    board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     for key, name, start, end in OPS_DEFS:
         BoardShift.objects.create(board=board, key=key, name=name, start=start, end=end, default_alarm=True)
     dept = Department.objects.create(code="OPS", name="운영팀", shifts="dawn,normal,dinner", board=board, order=0)
