@@ -299,7 +299,7 @@ def future_cells(board, user) -> list[tuple[date, str, Period, str]]:
 
 @transaction.atomic
 def set_active(by, board, user, active: bool, confirm: int | None = None) -> list:
-    """퇴사(accounts.deactivate: 로그인·연결 모두 끊음)·다시 재직(재직만 켬, 로그인하려면 [계정 발급]).
+    """퇴사(accounts.deactivate: 로그인·연결 모두 끊음)·다시 재직(accounts.reactivate: 옛 비밀번호·연결도 끊고 재직만 켬, 로그인하려면 [계정 발급]).
     오늘 이후 칸이 있으면 confirm(화면이 보여 준 칸 수)이 같을 때만 퇴사한다(아니면 NeedsConfirm, 막지는 않는다).
     퇴사면 남은 칸 목록을 돌려준다. 관리자 계정은 _person 이 막으므로 재직 관리자 검사는 여기 없다(boards.left_without_admin 한 곳)."""
     _require_admin(by, board)
@@ -307,7 +307,7 @@ def set_active(by, board, user, active: bool, confirm: int | None = None) -> lis
     if user.is_active == active:
         raise DutyError("이미 재직 중인 사람입니다." if active else "이미 퇴사 처리된 사람입니다.")
     if active:
-        User.objects.filter(pk=user.pk).update(is_active=True)
+        accounts.reactivate(user)
         _audit(by, board, user, user.username, "다시 재직")
         return []
     cells = future_cells(board, user)

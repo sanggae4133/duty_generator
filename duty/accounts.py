@@ -61,12 +61,20 @@ def issue_account(user: User, revoke_links: bool = True) -> str:
 
 @transaction.atomic
 def deactivate(user: User) -> None:
-    """퇴사: 재직 끄기 + 쓸 수 없는 비밀번호(모든 기기 로그인이 끊긴다) + 연결 끊기. 다시 재직은 재직만 켜고,
-    로그인하려면 [계정 발급]을 다시 한다(계정 열이 '발급 전'으로 보인다)."""
+    """퇴사: 재직 끄기 + 쓸 수 없는 비밀번호(모든 기기 로그인이 끊긴다) + 연결 끊기."""
     user.is_active = False
     user.set_unusable_password()
     user.save(update_fields=["is_active", "password"])
     _revoke_links(user)
+
+
+@transaction.atomic
+def reactivate(user: User) -> None:
+    """다시 재직: 퇴사와 같은 정리(관리 화면에서 재직만 끈 사람의 옛 비밀번호·연결도 끊는다) 뒤 재직만 켠다.
+    로그인하려면 [계정 발급]을 다시 한다(계정 열이 '발급 전'으로 보인다)."""
+    deactivate(user)
+    User.objects.filter(pk=user.pk).update(is_active=True)
+    user.is_active = True
 
 
 def on_department_change(user: User, old_department_id) -> None:
