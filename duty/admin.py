@@ -3,6 +3,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib import admin, messages
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count
@@ -136,8 +137,27 @@ class UserAddForm(forms.ModelForm):
         return user
 
 
+def _no_admin_left(board) -> str:
+    return f"{board.name} 근무표에 재직 중인 관리자가 남지 않습니다. 먼저 다른 관리자를 넣으세요."
+
+
+class UserForm(UserChangeForm):
+    """재직 관리자 한 명 이상(근무표 통합 설계 7.4, [근무표 설정]과 같은 검사 boards.left_without_admin):
+    마지막 재직 관리자의 관리 그룹을 빼거나 재직을 끄면 저장하지 않고 칸 오류."""
+
+    def clean(self):
+        c = super().clean()
+        if self.instance.pk and "groups" in c and "is_active" in c:
+            keep = {g.pk for g in c["groups"]} if c["is_active"] else set()
+            for board in boards.left_without_admin([self.instance]):  # 저장 전 DB 상태로 판단한다
+                if board.admin_group_id not in keep:
+                    self.add_error("groups" if c["is_active"] else "is_active", _no_admin_left(board))
+        return c
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
+    form = UserForm
     add_form = UserAddForm
     add_form_template = None  # 기본 안내("아이디와 비밀번호를 먼저…")가 맞지 않아 일반 추가 화면을 쓴다
     add_fieldsets = ((None, {"fields": ("username", "name", "department", "part", "type")}),)
@@ -172,6 +192,12 @@ class UserAdmin(DjangoUserAdmin):
     @admin.display(description="아이디", ordering="username")
     def login_id(self, obj):
         return obj.username
+
+    def get_deleted_objects(self, objs, request):
+        """지우기(한 명·'선택한 사용자 삭제' 일괄)도 재직 관리자 한 명 이상을 지킨다: 남지 않는 근무표가 있으면
+        Django 의 '보호된 객체' 목록에 그 까닭을 넣어 아무것도 지우지 않는다(두 길 모두 이 목록이 비어야 지운다)."""
+        deleted, count, perms_needed, protected = super().get_deleted_objects(objs, request)
+        return deleted, count, perms_needed, [*protected, *map(_no_admin_left, boards.left_without_admin(objs))]
 
     def save_model(self, request, obj, form, change):
         old = User.objects.filter(pk=obj.pk).values_list("department_id", flat=True).first() if change else None
