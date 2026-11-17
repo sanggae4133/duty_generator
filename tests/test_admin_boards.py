@@ -1,5 +1,5 @@
 """관리 화면(슈퍼유저 전용): 근무표·근무 정의 편집과 설계 4.3 검증, 그룹 관리자 지정(3단계). 이름은 모두 가상."""
-from datetime import time
+from datetime import date, time
 
 import pytest
 from django.contrib.auth.models import Group
@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm
-from duty.models import Board, BoardShift, Department, GroupKeeper, User
+from duty.models import Board, BoardShift, Department, GroupKeeper, Period, User
 from tests.it_defs import OPS_STEPS
 
 ADD = reverse("admin:duty_board_add")
@@ -281,6 +281,15 @@ def test_saved_board_steps_can_change(su_client, ops):
     assert (board.use_draft, board.step_collecting) == (True, "모으는 중")
     r = su_client.post(url, change(board, [a, b]) | steps_form(board, step_generated="됨"))
     assert r.status_code == 200 and "버튼 이름이 비거나 다른 버튼과 같아집니다: []" in r.content.decode()
+
+
+def test_change_warns_about_periods_in_turned_off_step(su_client, ops):
+    """끈 단계에 회차가 남아 있으면 저장 뒤 경고(설정 화면과 같은 글, board_settings.stranded)."""
+    board, a, b = ops
+    Period.objects.create(board=board, name="가상", start_date=date(2026, 11, 16), end_date=date(2026, 11, 16),
+                          status=Period.Status.DRAFT)
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), change(board, [a, b]), follow=True)
+    assert "&#x27;작성 중&#x27; 단계에 회차 1개가 남아 있습니다. 회차 화면에서 다른 단계로 옮기세요." in r.content.decode()
 
 
 # ── 그룹 관리자 ──
