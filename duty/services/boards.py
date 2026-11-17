@@ -64,6 +64,12 @@ def board_query(user, board: Board) -> str:
     return link_query(home(user), board)
 
 
+def edit_boards(user) -> set[int]:
+    """내가 바꿀 수 있는 근무표 id(근무표 통합 설계 9.4): 관리하는 근무표 ∪ 내 부서의 근무표. 둘 이상이면 팝업에 근무표 이름."""
+    mine = board_of(user)
+    return set(perms.admin_boards(user).values_list("pk", flat=True)) | ({mine.pk} if mine else set())
+
+
 def in_order(chosen, home: Board | None) -> list[Board]:
     """고른 근무표 순서(근무표 통합 설계 9.1): 내 근무표 먼저, 나머지 id 순. 화면·기억·주소가 모두 이 순서."""
     return sorted(chosen, key=lambda b: (home is None or b.pk != home.pk, b.pk))

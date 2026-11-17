@@ -4,7 +4,7 @@ from urllib.parse import quote, urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from .. import perms
@@ -108,27 +108,16 @@ def _to_mine(chosen, home, view_only: bool) -> str:
 
 
 def _board(request) -> Board:
-    """하루 화면·팝업의 근무표: ?board= → 내 근무표(boards.home). 기억은 읽지 않는다(알림 링크는 늘 내 근무표)."""
-    code = request.GET.get("board")
-    if code:
-        board = Board.objects.filter(code=code).first()
-        if board is None:
-            raise Http404
-        return board
-    return boards.home(request.user)
+    """팝업(/cell/·/memo/)의 근무표: 늘 하나(설계 9.4). ?board= 가 없으면 내 근무표, 둘 이상이면 404, 없는 code 는 404."""
+    codes = [c for c in request.GET.getlist("board") if c]
+    if len(codes) > 1:
+        raise Http404
+    return get_object_or_404(Board, code=codes[0]) if codes else boards.home(request.user)
 
 
-def _board_ctx(request, board) -> dict:
-    """근무표 고르기 공통 값. bq = "?board=<code>" 또는 ""(내 근무표), bqa = 같은 값을 "&" 로 이어 붙일 때.
-    mine = 내 근무표(필터를 쓰고 저장), view_only = 내 근무표도 아니고 그 근무표 관리자도 아님(설계 7)."""
-    bq = boards.board_query(request.user, board)
-    view_only = board != boards.board_of(request.user) and not perms.is_board_admin(request.user, board)
-    return {
-        "bq": bq, "bqa": "&" + bq[1:] if bq else "", "sel_codes": [board.code] if bq else [], "mine": not bq,
-        "view_only": view_only,
-        # 남의 근무표를 보기만 할 때 [보기 전용 · 내 근무표로]: ?board=내 근무표 → 기억한 근무표도 비운다
-        "home_code": boards.home(request.user).code if view_only and bq else "",
-    }
+def _prefix(user, board) -> str:
+    """팝업 제목·성공 글 앞의 '<근무표 이름> · '(설계 9.4): 내가 바꿀 수 있는 근무표가 둘 이상일 때만."""
+    return f"{board.name} · " if len(boards.edit_boards(user)) > 1 else ""
 
 
 def _filters(request, board) -> tuple[list[str], list[str]]:
@@ -344,6 +333,7 @@ def cell(request, d, cell):
     defs = boards.defs(board)
     if cell not in by_key(defs):
         raise Http404
+    prefix = _prefix(request.user, board)
     fallback = reverse("day", args=[d]) + bq
     if request.method == "POST":
         reason_form = bool(request.POST.get("set_reason"))  # 근무조 칸의 사유 선택(같은 창의 두 번째 폼)
@@ -363,13 +353,13 @@ def cell(request, d, cell):
         except DutyError as e:
             messages.error(request, str(e))
         else:
-            messages.success(request, "사유를 저장했습니다." if reason_form else "변경했습니다.")
+            messages.success(request, prefix + ("사유를 저장했습니다." if reason_form else "변경했습니다."))
             for w in result:
                 messages.warning(request, w)
         return redirect(safe_next(request, fallback))
     depts, types = _filters(request, board)
     ctx = _cell_context(defs, find_day(board, d), cell, d, depts, types, _active_members(board, depts, types))
-    ctx.update(next=safe_next(request, fallback), bq=bq)
+    ctx.update(next=safe_next(request, fallback), bq=bq, prefix=prefix)
     return render(request, "duty/_cell_form.html", ctx)
 
 
@@ -380,38 +370,54 @@ def _neighbor(d, step: int):
     return d
 
 
-@login_required
-def day(request, d):
-    board = _board(request)
-    bc = _board_ctx(request, board)
+def _day_part(request, board: Board, d: date, home, multi: bool, page_next: str, history: bool, flt) -> dict:
+    """하루 화면의 근무표 하나(설계 9.4). flt = (부서, 유형, 스케줄): 내 근무표 구역만 받고 나머지는 빈 목록(= 전체)."""
+    depts, types, shifts = flt
     defs = boards.defs(board)
-    pref = prefs.resolve(request.user, request.GET, board, with_view=False, mine=bc["mine"])
-    depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     found = find_day(board, d)
     note = memos.for_range(board, d, d)["day"].get(d)
     no_work = bool(note and note.no_work)  # 근무 없음 날은 칸 대신 메모 글만, 바꾸기 없음
-    editable = perms.can_edit(request.user, board, d) and not no_work
+    admin = perms.is_board_admin(request.user, board)
     members = _active_members(board, depts, types)
     keep, shown = _keeper(depts, types), _shown(shifts)
+    bq = boards.link_query(home, board)
     sections = []
     if found and not no_work:
         for k in filter(shown, [x.key for x in display_order(defs)]):  # 출근조 먼저, 관제는 뒤에 묶어서
             ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
-                next=request.path + bc["bq"],
+                next=page_next + (f"#{board.code}-{k}" if multi else ""),  # 저장 뒤 이 화면 그대로(둘 이상이면 그 칸으로)
                 items=_items(_visible([x for x in found.cells[k].labels if keep(x)], _why(found, k), history), [],
                              reasons=_why(found, k)),
                 removed_items=_items([x for x in found.cells[k].removed if keep(x)], [], True) if history else [],
             )
             sections.append(ctx)
-    qs = "?" + urlencode({**({"board": board.code} if bc["bq"] else {}), "f": 1, "dept": depts, "type": types,
-                          "shift": shifts}, doseq=True)
+    return {"name": board.name, "code": board.code, "defs": defs, "bq": bq, "bqa": "&" + bq[1:] if bq else "",
+            "memo_admin": admin, "view_only": board != boards.board_of(request.user) and not admin,
+            "found": found, "note": note, "editable": perms.can_edit(request.user, board, d) and not no_work,
+            "sections": sections}
+
+
+@login_required
+def day(request, d):
+    chosen, home = _selection(request)  # 기억은 읽지 않는다(?board= 없는 알림 링크는 내 근무표)
+    multi, sq = len(chosen) > 1, boards.selection_query(chosen, home)
+    mine = home in chosen
+    fboard = home if mine else chosen[0]
+    pref = prefs.resolve(request.user, request.GET, fboard, with_view=False, mine=mine)
+    depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
+    page_next = _page_next(request)
+    parts = [_day_part(request, b, d, home, multi, page_next, history,
+                       (depts, types, shifts) if b == home else ([], [], [])) for b in chosen]
+    view_only = all(p["view_only"] for p in parts)
+    qs = "?" + urlencode([("board", b.code) for b in chosen if sq] + [("f", 1)] + [("dept", x) for x in depts]
+                         + [("type", x) for x in types] + [("shift", x) for x in shifts])
     return render(request, "duty/day.html", {
-        "d": d, "weekday": DAY_LABELS[d.weekday()], "found": found, "sections": sections,
-        "holiday": holidays.closed(d, d).get(d, ""), "note": note,
-        "memo_admin": perms.is_board_admin(request.user, board),
-        "editable": editable, "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1),
-        "qs": qs, **_filter_ctx(board, defs, depts, types, shifts, history, bc["mine"]), **bc,
+        "d": d, "weekday": DAY_LABELS[d.weekday()], "parts": parts, "multi": multi,
+        "holiday": holidays.closed(d, d).get(d, ""), "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1), "qs": qs,
+        "bq": sq, "sel_codes": [b.code for b in chosen] if sq else [], "page_nq": quote(page_next),
+        "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
+        **_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine),
     })
 
 
@@ -425,7 +431,7 @@ def memo(request, scope, d):
     board = _board(request)
     if scope not in Memo.Scope.values or not perms.is_board_admin(request.user, board):
         raise Http404
-    bq = boards.board_query(request.user, board)
+    bq, prefix = boards.board_query(request.user, board), _prefix(request.user, board)
     d = memos.normalize(scope, d)
     fallback = (reverse("day", args=[d]) if scope == Memo.Scope.DAY else reverse("roster")) + bq
     if request.method == "POST":
@@ -440,11 +446,11 @@ def memo(request, scope, d):
         except DutyError as e:
             messages.error(request, str(e))
         else:
-            messages.success(request, msg)
+            messages.success(request, prefix + msg)
         return redirect(safe_next(request, fallback))
     return render(request, "duty/_memo_form.html", {
         "scope": scope, "d": d, "memo": memos.for_range(board, d, d)[scope].get(d), "next": safe_next(request, fallback),
-        "title": {"day": f"{d:%Y-%m-%d} 메모", "week": f"{d.month}/{d.day} 주 메모", "month": f"{d.year}년 {d.month}월 메모"}[scope],
+        "title": prefix + {"day": f"{d:%Y-%m-%d} 메모", "week": f"{d.month}/{d.day} 주 메모", "month": f"{d.year}년 {d.month}월 메모"}[scope],
         "affected": memos.affected(board, d) if scope == Memo.Scope.DAY else 0, "bq": bq,
     })
 

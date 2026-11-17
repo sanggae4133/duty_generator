@@ -139,3 +139,64 @@ def test_queries_do_not_grow_with_days(client, two):
     with CaptureQueriesContext(connection) as month_q:
         client.get(month)
     assert len(month_q) == len(week_q)
+
+
+# ── 하루 화면과 팝업(설계 9.4) ──
+
+def test_day_two_boards(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터는 내 구역에만
+    body = client.get(f"/day/{D}/?board=ops&board=it").content.decode()
+    it_at, ops_at = body.index('<h3 class="bname">IT 당번표'), body.index('<h3 class="bname">운영팀')
+    assert it_at < ops_at  # 내 근무표 먼저
+    it_part, ops_part = body[it_at:ops_at], body[ops_at:]
+    assert 'id="ops-dawn"' in ops_part and "가상나" in ops_part and "보기만" in ops_part
+    assert "바꾸기</summary>" not in ops_part  # 바꿀 수 없는 구역
+    assert "가상다" not in it_part  # TMCH 필터
+    assert f'href="/day/2026-11-13/?board=it&amp;board=ops&amp;f=1' in body  # 앞 날짜도 고른 목록 그대로
+    assert '<input type="hidden" name="board" value="it"><input type="hidden" name="board" value="ops">' in body
+
+
+def test_day_cell_next_has_selection_and_anchor(client, two):
+    board, ga, na = two
+    ga.groups.add(board.admin_group)
+    client.force_login(ga)
+    body = client.get(f"/day/{D}/?board=it&board=ops").content.decode()
+    assert f'value="/day/{D}/?board=it&amp;board=ops#ops-dawn"' in body  # 저장 뒤 이 화면의 그 칸으로
+    assert f'action="/cell/{D}/dawn/?board=ops"' in body  # POST 는 그 구역 근무표 하나
+
+
+def test_popup_next_round_trip_and_safe(client, two):
+    """회귀 방지(먼저 실패하는 테스트가 아님): 겹친 화면의 next 가 팝업 POST 뒤 그대로 돌아오고, 밖 주소는 버린다."""
+    _, ga, _ = two
+    nb = member("it03", "가상라", ga.department)
+    client.force_login(ga)
+    back = BOTH + f"&q1=가상다#d-{D}"
+    form = client.get(f"/cell/{D}/dawn/?next={quote(back)}").content.decode()
+    assert f'name="next" value="{escape(back)}"' in form
+    r = client.post(f"/cell/{D}/dawn/", {"before": "it02", "after": nb.username, "next": back})
+    assert r.status_code == 302 and r.url == iri_to_uri(back)  # 고른 근무표·검색·앵커가 그대로(Location 은 한글을 %인코딩)
+    r = client.post(f"/cell/{D}/dawn/", {"before": nb.username, "after": "it02", "next": "https://evil.example/"})
+    assert r.url == f"/day/{D}/"  # 밖 주소는 safe_next 가 버린다
+
+
+def test_popup_is_one_board(client, two, it_board):
+    board, ga, _ = two
+    ga.groups.add(board.admin_group, it_board.admin_group)  # 두 근무표 관리자여도(권한 404 가 아니라 근무표 둘이라 404)
+    client.force_login(ga)
+    assert client.get(f"/cell/{D}/dawn/?board=it&board=ops").status_code == 404
+    assert client.get(f"/memo/day/{D}/?board=it&board=ops").status_code == 404
+    assert client.get(f"/memo/day/{D}/?board=ops").status_code == 200
+
+
+def test_popup_board_name_when_two_editable(client, two):
+    board, ga, na = two
+    client.force_login(ga)
+    assert "IT 당번표 · " not in client.get(f"/cell/{D}/dawn/").content.decode()  # 바꿀 수 있는 근무표가 하나
+    ga.groups.add(board.admin_group)
+    assert "운영팀 · 2026-11-16" in client.get(f"/cell/{D}/dawn/?board=ops").content.decode()
+    assert "운영팀 · 11/16 주 메모" in client.get(f"/memo/week/{D}/?board=ops").content.decode()
+    nb = member("op02", "가상마", na.department)
+    r = client.post(f"/cell/{D}/dawn/?board=ops", {"before": na.username, "after": nb.username})
+    assert "운영팀 · 변경했습니다." in [str(m) for m in get_messages(r.wsgi_request)]
