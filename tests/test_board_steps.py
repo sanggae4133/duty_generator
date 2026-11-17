@@ -200,6 +200,21 @@ def test_gen_help_all_three_shifts_no_types_and_earliest_start():
                               "rule": "모든 칸은 이른·정상·늦은 모두 됩니다."}
 
 
+def test_gen_help_mixed_types_described_generically():
+    """칸마다 자격 유형이 다르거나 한 칸이라도 비어(누구나) 있으면 유형을 합치지 않고 '칸마다 정한 유형'으로 적는다(Codex 리뷰)."""
+    base = [Def("dawn", "이른", time(7), time(16))]
+    differ = base + [Def("slot1", "관제1", time(9), time(10), ("dawn",), ("개발자",)),
+                     Def("slot2", "관제2", time(10), time(11), ("dawn",), ("직원",))]
+    empty = base + [Def("slot1", "관제1", time(9), time(10), ("dawn",), ("개발자",)),
+                    Def("slot2", "관제2", time(10), time(11), ("dawn",))]
+    for defs in (differ, empty):
+        h = gen_help(defs)
+        assert (h["types"], h["who"], h["whom"]) == ("칸마다 정한 유형", "사람", "사람을")
+    same = base + [Def("slot1", "관제1", time(9), time(10), ("dawn",), ("직원", "개발자")),
+                   Def("slot2", "관제2", time(10), time(11), ("dawn",), ("개발자", "직원"))]
+    assert gen_help(same)["types"] == "직원·개발자"
+
+
 def test_josa():
     assert [josa("확정", "은/는"), josa("배포", "은/는"), josa("개발자", "을/를"), josa("직원", "을/를")] == ["은", "는", "를", "을"]
     assert [josa("입력 중", "으로/로"), josa("배포", "으로/로"), josa("마감 날", "으로/로"), josa("A", "으로/로")] == [
