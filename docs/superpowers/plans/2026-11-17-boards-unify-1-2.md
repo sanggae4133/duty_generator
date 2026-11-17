@@ -1983,7 +1983,7 @@ EOF
        `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, b.input_mode, p.status, COUNT(p.id) FROM duty_board b LEFT JOIN duty_period p ON p.board_id = b.id GROUP BY 1, 2, 3;"`
      - 업그레이드 뒤 대조(읽기 전용): 근무표·상태·회차 수가 위와 같고, `direct` 였던 근무표는 `0|0|입력 중|확정`, `collect` 였던 근무표는 `1|1|취합 중|생성됨` 이어야 한다.
        `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, b.use_draft, b.use_close, b.step_collecting, b.step_generated, p.status, COUNT(p.id) FROM duty_board b LEFT JOIN duty_period p ON p.board_id = b.id GROUP BY 1, 2, 3, 4, 5, 6;"`
-     - 업그레이드 전 확인 ②(읽기 전용, 참고용): 장중관제 정의를 켜 두었거나 관제 배정이 남은 직접 입력 근무표. 1단계에서는 이런 근무표도 지금 화면 그대로다([확정]·[확정 취소]만). 2단계(데이터 기준)부터 그 근무표에 [장중관제 생성]·[재생성]·[생성 방식]·배정 횟수 표가 보이니, 결과를 적어 두고 2단계 전에 그 관제 줄의 "사용"을 끄거나(관제를 쓰지 않는다면) 그 근무표 관리자에게 알린다. 근무표마다 `코드|켜진 관제 정의 수|관제 배정 행 수`, 모두 0 이면 해당 없음.
+     - 업그레이드 전 확인 ②(읽기 전용, 참고용): 장중관제 정의를 켜 두었거나 관제 배정이 남은 직접 입력 근무표. 1단계에서는 이런 근무표도 지금 화면 그대로다([확정]·[확정 취소]만). 2단계(데이터 기준)부터 경우에 따라 달라진다 — 켜진 관제 정의 수가 0이 아니면 [장중관제 생성]·[재생성]·[생성 방식]·배정 횟수 표가 생기고, 정의는 0이고 관제 배정 행만 남았으면 버튼은 그대로이고 배정 횟수 표와 [확정 취소] 확인창 글만 바뀐다. 여기서는 결과를 참고로 적어 두기만 하고, 2단계를 올리기 직전에 같은 확인을 다시 돌려(작성 중·마감을 둘 다 끈 근무표 기준) 그때 값으로 공지와 진행을 정한다(아래 "근무표 통합 2단계로 올릴 때"). 근무표마다 `코드|켜진 관제 정의 수|관제 배정 행 수`, 모두 0 이면 해당 없음.
        `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, (SELECT COUNT(*) FROM duty_boardshift s WHERE s.board_id = b.id AND s.active = 1 AND s.key LIKE 'slot%'), (SELECT COUNT(*) FROM duty_dutyassignment a JOIN duty_period p ON p.id = a.period_id WHERE p.board_id = b.id AND a.cell LIKE 'slot%') FROM duty_board b WHERE b.input_mode = 'direct';"`
      - 되돌리기는 기본이 위 "롤백"(코드 되돌리기 + 업그레이드 전 백업 `restore`)이다. `migrate` 거꾸로를 쓰려면 **코드를 되돌리기 전에**(새 코드 그대로) `sudo -u duty .venv/bin/python manage.py migrate duty 0022` 를 먼저 하고, 그다음 롤백 순서대로 `git checkout <적어 둔 버전>` 을 한다(이때 `restore` 는 하지 않는다). 옛 코드에는 0023 파일이 없어 코드를 먼저 되돌리면 거꾸로 돌지 않는다. 0023 은 입력 방식으로 나타낼 수 없는 근무표(단계 하나만 끔, 이름을 고침)가 있으면 그 코드를 알려 주며 거꾸로 돌기를 거부한다. 헷갈리면 `restore` 만 쓴다.
    - nginx 를 켜 둔 서버는 이 묶음을 마친 뒤
@@ -3067,9 +3067,23 @@ Run(올리기 직전 확인 ② 쿼리가 1단계 뒤 스키마에서 도는지,
 W=$(mktemp -d); export DUTY_ENV_FILE= DUTY_DEBUG=1 DUTY_DATA_DIR=$W/data
 .venv/bin/python manage.py migrate -v0
 sqlite3 -readonly $W/data/db.sqlite3 "SELECT b.code, (SELECT COUNT(*) FROM duty_boardshift s WHERE s.board_id = b.id AND s.active = 1 AND s.key LIKE 'slot%'), (SELECT COUNT(*) FROM duty_dutyassignment a JOIN duty_period p ON p.id = a.period_id WHERE p.board_id = b.id AND a.cell LIKE 'slot%') FROM duty_board b WHERE b.use_draft = 0 AND b.use_close = 0;"
+Q="SELECT b.code, (SELECT COUNT(*) FROM duty_boardshift s WHERE s.board_id = b.id AND s.active = 1 AND s.key LIKE 'slot%'), (SELECT COUNT(*) FROM duty_dutyassignment a JOIN duty_period p ON p.id = a.period_id WHERE p.board_id = b.id AND a.cell LIKE 'slot%') FROM duty_board b WHERE b.use_draft = 0 AND b.use_close = 0;"
+.venv/bin/python manage.py shell -c "
+from datetime import date, time
+from duty.models import Board, BoardShift, Department, Period, DutyAssignment, User
+b = Board.objects.create(code='ops', name='가상운영', use_draft=False, use_close=False, step_collecting='입력 중', step_generated='확정')
+BoardShift.objects.create(board=b, key='dawn', name='07:30', start=time(7, 30), end=time(16, 30))
+BoardShift.objects.create(board=b, key='slot0', name='점검', start=time(10), end=time(11), eligible_shifts=['dawn'])
+d = Department.objects.create(code='OPS', name='가상운영', shifts='dawn', board=b)
+u = User.objects.create_user('ops01', password=None, name='가상가', department=d, type='직원')
+p = Period.objects.create(board=b, name='가상', start_date=date(2026, 11, 16), end_date=date(2026, 11, 20), status='generated')
+DutyAssignment.objects.create(period=p, date=date(2026, 11, 16), member=u, cell='slot0')"
+sqlite3 -readonly $W/data/db.sqlite3 "$Q"
+.venv/bin/python manage.py shell -c "from duty.models import BoardShift; BoardShift.objects.filter(key='slot0').update(active=False)"
+sqlite3 -readonly $W/data/db.sqlite3 "$Q"
 rm -rf $W; unset DUTY_ENV_FILE DUTY_DEBUG DUTY_DATA_DIR
 ```
-Expected: 오류 없이 아무것도 안 나온다(새 DB 에는 IT 근무표뿐이다).
+Expected: 첫 쿼리는 오류 없이 아무것도 안 나온다(새 DB 에는 IT 근무표뿐이다). 가짜 근무표를 넣은 뒤 `ops|1|1`, 관제 정의를 끈 뒤 `ops|0|1`(두 서브쿼리와 공지의 두 경우가 맞게 갈린다). 가짜 데이터는 임시 DB 에만 있고 바로 지운다. 모델 칸 이름이 다르면(이 계획 Task 2·5 기준) 그에 맞춘다.
 Run: `.venv/bin/pytest -W error -q`
 Expected: `1312 passed`
 
