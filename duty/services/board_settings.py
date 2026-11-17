@@ -214,9 +214,9 @@ def locked_ids() -> set[int]:
 
 
 def _person(by, board, user) -> User:
-    """트랜잭션 안에서 다시 읽고 대상인지 본다: 그 근무표 부서 사람이고, 나 자신·슈퍼유저·관리자 계정이 아님(아니면 PermissionDenied, 뷰는 404)."""
-    user = User.objects.select_related("department").get(pk=user.pk)
-    if (user.department_id is None or user.department.board_id != board.pk or user.pk == by.pk
+    """트랜잭션 안에서 다시 읽고 대상인지 본다: 그 근무표 부서 사람이고, 나 자신·슈퍼유저·관리자 계정이 아님(없는 사람도, 아니면 PermissionDenied, 뷰는 404)."""
+    user = User.objects.select_related("department").filter(pk=user.pk).first()
+    if (user is None or user.department_id is None or user.department.board_id != board.pk or user.pk == by.pk
             or user.pk in locked_ids()):
         raise PermissionDenied("이 근무표 설정에서 다룰 수 없는 사람입니다.")
     return user
@@ -323,6 +323,7 @@ def issue(by, board, users) -> list[tuple[User, str]]:
     """계정 발급 / 비밀번호 초기화(연결은 남긴다: '비밀번호를 잊었어요' 길). 여러 사람을 한 트랜잭션으로 — 하나라도 대상이
     아니면 아무것도 하지 않는다. 임시 비밀번호를 돌려준다(화면이 응답 본문에만 그린다. 여기서도 로그·기록에 넣지 않는다)."""
     _require_admin(by, board)
+    users = list({u.pk: u for u in users}.values())  # 같은 사람이 두 번 오면 두 번째 발급이 앞 비밀번호를 무효로 만든다
     people = [_person(by, board, u) for u in users]
     if not people:
         raise DutyError("계정을 발급할 사람을 고르세요.")

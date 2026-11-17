@@ -69,6 +69,15 @@ def test_people_targets(it_board, ops_board, ops_dept, make_member):
                      lambda: bs.issue(me, ops_board, [t])):
             with pytest.raises(PermissionDenied):
                 call()
+    gone_admin = _ops_member(ops_dept, "가상옛관리", "ops07", active=False)  # 퇴사한 관리자 계정: 다시 재직도 대상 아님
+    it_board.admin_group.user_set.add(gone_admin)
+    with pytest.raises(PermissionDenied):
+        bs.set_active(me, ops_board, gone_admin, True)
+    assert not User.objects.get(pk=gone_admin.pk).is_active
+    ghost = User(pk=99999)  # 없는(지워진) 사람도 DoesNotExist 가 아니라 PermissionDenied(뷰는 404)
+    for call in (lambda: bs.set_person(me, ops_board, ghost, "가상새이름"), lambda: bs.issue(me, ops_board, [ghost])):
+        with pytest.raises(PermissionDenied):
+            call()
     assert not User.objects.filter(name="가상새이름").exists()
     assert all(u.is_active for u in User.objects.filter(pk__in=[t.pk for t in targets]))
     assert bs.locked_ids() >= {me.pk, other_admin.pk, su.pk} and it_person.pk not in bs.locked_ids()
@@ -167,9 +176,12 @@ def test_leave_asks_with_count_then_cuts(busy, ops_board, ops_admin):
     with pytest.raises(bs.NeedsConfirm):
         bs.set_active(ops_admin, ops_board, busy, False, confirm=2)  # 본 칸 수와 다르면(그사이 바뀜) 다시 묻는다
     assert User.objects.get(pk=busy.pk).is_active
+    from tests.test_auth import _has_links, _links
+    _links(busy)
     assert len(bs.set_active(ops_admin, ops_board, busy, False, confirm=3)) == 3  # 퇴사 뒤 목록을 돌려준다
     busy.refresh_from_db()
     assert not busy.is_active and not busy.has_usable_password()
+    assert _has_links(busy) == (False, False, False)  # 캘린더·텔레그램·푸시 연결이 모두 끊긴다
     with pytest.raises(DutyError, match="이미 퇴사"):
         bs.set_active(ops_admin, ops_board, busy, False, confirm=3)
     assert bs.set_active(ops_admin, ops_board, busy, True) == []
@@ -204,6 +216,8 @@ def test_issue_many_all_or_nothing_and_keeps_links(ops_board, ops_admin, ops_dep
     CalendarFeed.objects.create(user=a, token_hash="h" * 64, issued_at=timezone.now())
     [(_, pw)] = bs.issue(ops_admin, ops_board, [a])  # 초기화: 연결은 남긴다(비밀번호 분실 길)
     assert User.objects.get(pk=a.pk).check_password(pw) and CalendarFeed.objects.filter(user=a).exists()
+    [(_, pw)] = bs.issue(ops_admin, ops_board, [a, a])  # 같은 사람이 두 번 와도 한 번만(앞 비밀번호가 무효가 되지 않게)
+    assert User.objects.get(pk=a.pk).check_password(pw)
 
 
 # ── 기록: 로그 한 줄 + LogEntry 한 줄, 실명·비밀번호 없음 ──
