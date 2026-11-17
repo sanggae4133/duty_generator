@@ -8,7 +8,7 @@ from .. import perms
 from ..csv_io import (CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, join_reason, parse_commute_csv,
                       split_reason)
 from ..errors import DutyError
-from ..models import Board, Commute, Department, Period, User, step_label
+from ..models import Commute, Department, Period, User
 from ..shifts import SHIFT_KEYS, by_key, shift_defs, two_week_rotation, weekdays
 from . import boards, roster
 
@@ -23,7 +23,7 @@ def _require_input(user, period: Period, dept: Department) -> None:
         raise PermissionDenied("이 부서의 출근표를 입력할 권한이 없습니다.")
     _same_board(period, dept)
     if period.status != Period.Status.COLLECTING:
-        raise DutyError(f"{step_label(period.board, Period.Status.COLLECTING)}인 회차가 아닙니다.")  # 취합 중 / 입력 중
+        raise DutyError(f"{period.board.step_name(Period.Status.COLLECTING)}인 회차가 아닙니다.")  # 취합 중 / 입력 중
 
 
 def input_keys(dept: Department) -> list[str]:
@@ -181,7 +181,7 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
     다시 채운 새 표를 돌려준다. 다른 주는 table 그대로. 저장하지 않는다(저장은 [표 저장]과 기존 검증).
     지금 재직하는 그 부서 사람만 넣고, 건너뛰는 날(휴장일·근무 없음)은 비운다."""
     _same_board(period, dept)
-    if period.board.input_mode != Board.InputMode.DIRECT:
+    if not boards.legacy_admin_entry(period.board):  # 1단계 임시 기준, 2단계에서 모든 근무표
         raise DutyError("채우기는 직접 입력 근무표에서만 씁니다.")
     if how not in (FILL_2W, FILL_1W):
         raise DutyError("알 수 없는 채우기입니다.")

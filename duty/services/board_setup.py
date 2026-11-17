@@ -56,7 +56,8 @@ def create_direct_board(code: str, name: str, shifts: list[Span], lunch: Span | 
         if admin is None:
             raise DutyError(f"근무표 관리자로 넣을 아이디가 없습니다: {admin_username}")
 
-    board = Board(code=code, name=name, input_mode=InputMode.DIRECT)
+    board = Board(code=code, name=name, input_mode=InputMode.DIRECT,  # 단계: 입력 중 → 확정 → 배포됨(설계 10.2 와 같은 값)
+                  use_draft=False, use_close=False, step_collecting="입력 중", step_generated="확정")
     try:
         board.full_clean(exclude=["admin_group"])
         board.save()

@@ -323,7 +323,7 @@ class Period(models.Model):
 
     @property
     def status_label(self) -> str:
-        return step_label(self.board, self.status)
+        return self.board.step_name(self.status)
 
 
 class HolidaySource(models.TextChoices):

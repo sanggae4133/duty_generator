@@ -7,7 +7,7 @@ from django.utils import timezone
 from .. import perms
 from ..errors import DutyError
 from ..generator import GenerationOutput, generate_control_duty
-from ..models import Commute, DutyAssignment, InputMode, Period, User
+from ..models import Commute, DutyAssignment, Period, User
 from ..shifts import LUNCH, by_key, shift_defs, slot_defs
 from . import boards, holidays
 from .periods import empty_days, missing_dates, record
@@ -18,15 +18,12 @@ S = Period.Status
 @transaction.atomic  # 검사·입력 읽기·저장을 한 트랜잭션에(IMMEDIATE: 그동안 다른 쓰기는 기다린다)
 def run_generation(period: Period, seed: int | None = None, by=None) -> GenerationOutput:
     period.refresh_from_db()
-    direct = period.board.input_mode == InputMode.DIRECT  # 직접 입력의 [확정](설계 6.1·6.3)
-    if direct and period.status not in {S.COLLECTING, S.GENERATED}:
-        raise DutyError("입력 중인 회차만 확정할 수 있습니다.")
-    if not direct and period.status not in {S.CLOSED, S.GENERATED}:
-        raise DutyError("마감된 회차만 생성할 수 있습니다.")
+    legacy = boards.legacy_admin_entry(period.board)  # 1단계 임시 기준(문구·빈 평일), 2단계에서 지운다
+    if period.status not in {period.board.generate_from(), S.GENERATED}:  # 마감을 쓰면 마감에서, 아니면 취합 중에서
+        raise DutyError("입력 중인 회차만 확정할 수 있습니다." if legacy else "마감된 회차만 생성할 수 있습니다.")
     holidays.sync(perms.today())  # 작업자가 꺼져 있어도 휴장일 표가 비어 있지 않게
     warnings = []
-    empty = []
-    if direct:  # 직접 입력은 빈 평일을 막지 않고 경고로만 알린다
+    if legacy:  # 빈 평일을 막지 않고 경고로만 알린다
         empty = empty_days(period)
         if empty:
             warnings.append(f"입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): {_days(empty)}")
@@ -40,7 +37,8 @@ def run_generation(period: Period, seed: int | None = None, by=None) -> Generati
 
     skip = boards.skip_dates(period)  # 근무 없음 날·휴장일(skip_holidays)은 당번을 만들지 않는다. 남은 출근 행은 그대로 둔다
     dates = [d for d in period.dates() if d not in skip]
-    slot_dates = [d for d in dates if d not in empty]  # 직접 입력의 빈 평일은 후보가 없으니 관제를 만들지 않는다
+    worked = set(Commute.objects.filter(period=period).values_list("date", flat=True))
+    slot_dates = [d for d in dates if d in worked]  # 출근 행이 하나도 없는 날은 후보가 없으니 관제를 만들지 않는다
     active = boards.active_defs(period.board)
     slots = slot_defs(active)  # 인덱스 i ↔ 칸 키 slots[i].key. 꺼진 관제는 생성하지 않는다
     if slots:
