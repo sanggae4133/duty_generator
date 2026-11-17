@@ -1,5 +1,6 @@
-"""직접 입력 근무표를 한 번에 만든다(manage.py add_board). 관리 화면 절차(OPERATIONS '근무표 추가하기' 1~4단계)를
-한 트랜잭션으로: 근무표·근무 정의·부서 하나·사람(사용할 수 없는 비밀번호)·근무표 관리자. 검사는 관리 화면과 같은 모델 검사를 쓴다."""
+"""관리자가 출근표를 직접 넣는 근무표(단계: 입력 중 → 확정 → 배포됨)를 한 번에 만든다(manage.py add_board). 관리 화면 절차
+(OPERATIONS '근무표 추가하기' 1~4단계)를 한 트랜잭션으로: 근무표·근무 정의·부서 하나·사람(사용할 수 없는 비밀번호)·근무표 관리자.
+검사는 관리 화면과 같은 모델 검사를 쓴다."""
 import re
 from datetime import time
 
@@ -8,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from ..errors import DutyError
-from ..models import Board, BoardShift, Department, InputMode, User
+from ..models import Board, BoardShift, Department, User
 from ..shifts import LUNCH, SHIFT_KEYS, STAFF
 
 Span = tuple[time, time]
@@ -36,8 +37,8 @@ def _msg(e: ValidationError) -> str:
 
 
 @transaction.atomic
-def create_direct_board(code: str, name: str, shifts: list[Span], lunch: Span | None,
-                        people: list[tuple[int, str]], admin_username: str | None = None) -> Board:
+def create_board(code: str, name: str, shifts: list[Span], lunch: Span | None,
+                 people: list[tuple[int, str]], admin_username: str | None = None) -> Board:
     if not 1 <= len(shifts) <= len(SHIFT_KEYS):
         raise DutyError(f"근무조는 1~{len(SHIFT_KEYS)}개입니다.")
     if len({s for s, _ in shifts}) != len(shifts):
@@ -56,7 +57,7 @@ def create_direct_board(code: str, name: str, shifts: list[Span], lunch: Span | 
         if admin is None:
             raise DutyError(f"근무표 관리자로 넣을 아이디가 없습니다: {admin_username}")
 
-    board = Board(code=code, name=name, input_mode=InputMode.DIRECT,  # 단계: 입력 중 → 확정 → 배포됨(설계 10.2 와 같은 값)
+    board = Board(code=code, name=name,  # 단계: 입력 중 → 확정 → 배포됨(마이그레이션 0023 이 옛 직접 입력 근무표에 넣은 값과 같다)
                   use_draft=False, use_close=False, step_collecting="입력 중", step_generated="확정")
     try:
         board.full_clean(exclude=["admin_group"])

@@ -45,3 +45,43 @@ def test_input_mode_becomes_steps(old_apps):
     assert sorted(apps.get_model("duty", "Period").objects.filter(board__code="ops").values_list("name", "status")) == sorted(
         (st, st) for st in ("draft", "collecting", "closed", "generated", "published"))  # 회차 상태는 그대로
     assert apps.get_model("duty", "Department").objects.get(pk=dept.pk).input_group_id is None  # 그룹을 만들지 않는다
+
+
+@pytest.fixture
+def new_apps():
+    yield _migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+    _migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+
+def _board(apps, code, **steps):
+    group = apps.get_model("auth", "Group").objects.create(name=f"{code} 근무표 관리")
+    return apps.get_model("duty", "Board").objects.create(code=code, name=code, admin_group=group, **steps)
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_input_mode_column_is_gone(new_apps):
+    assert "input_mode" not in {f.name for f in new_apps.get_model("duty", "Board")._meta.fields}
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_reverse_restores_input_mode_for_default_steps(new_apps):
+    """IT 기본값·직접 입력 기본값 근무표만 있으면 거꾸로 돌아 input_mode 를 되살린다."""
+    _board(new_apps, "ops", **dict(zip(STEPS, OPS)))
+    apps = _migrate(BEFORE)
+    Board = apps.get_model("duty", "Board")
+    assert dict(Board.objects.values_list("code", "input_mode")) == {"it": "collect", "ops": "direct"}
+    assert "use_draft" not in {f.name for f in Board._meta.fields}
+
+
+@pytest.mark.parametrize("steps", [
+    {"use_close": False},                                           # 하나만 끔
+    {"use_draft": False, "use_close": False},                       # 둘 다 껐지만 이름은 IT 그대로
+    {"step_published": "공개됨"},                                    # 이름을 고침
+])
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_reverse_refused_when_steps_cannot_be_input_mode(new_apps, steps):
+    _board(new_apps, "odd", **steps)
+    with pytest.raises(RuntimeError, match="odd.*백업"):
+        _migrate(BEFORE)
+    Board = new_apps.get_model("duty", "Board")
+    assert Board.objects.filter(code="odd").exists()  # 아무것도 바꾸지 않는다

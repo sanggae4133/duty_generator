@@ -20,7 +20,7 @@ def test_it_defs_match_keys_order():
 
 
 def test_it_board_fixture_has_14_defs_and_admin_group(it_board):
-    assert it_board.code == "it" and it_board.input_mode == "collect"
+    assert it_board.code == "it" and it_board.steps() == ["draft", "collecting", "closed", "generated", "published"]
     assert sorted(it_board.shifts.values_list("key", flat=True)) == sorted(k for k in KEYS if k != "lunch")
     assert it_board.admin_group_id is not None
 
@@ -45,6 +45,14 @@ def test_department_without_collect_board_has_no_input_group(db):
     assert Department.objects.create(code="OPS", name="운영", shifts="normal", board=ops).input_group is None
 
 
+def test_board_without_close_can_have_many_departments(it_board):
+    """'직접 입력 근무표는 부서 하나' 규칙은 없다(근무표 통합 설계 5.3)."""
+    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
+    for code in ("OPS", "OP2"):
+        Department(code=code, name=f"운영{code}", shifts="normal", board=ops).full_clean()
+        Department.objects.create(code=code, name=f"운영{code}", shifts="normal", board=ops)
+
+
 def test_depts_fixture_on_it_board_with_input_groups(depts, it_board):
     assert {d.board_id for d in depts.values()} == {it_board.id}
     assert all(d.input_group_id for d in depts.values())
@@ -56,7 +64,7 @@ def test_admin_user_in_it_admin_group(admin_user, it_board):
 
 def test_board_constraints(it_board):
     _bad(lambda: Board.objects.create(code="it", name="중복"))
-    _bad(lambda: Board.objects.create(code="x", name="x", input_mode="bogus"))
+    _bad(lambda: Board.objects.create(code="x", name="x", step_closed=""))
 
 
 def test_boardshift_constraints(it_board):

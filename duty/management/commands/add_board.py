@@ -8,8 +8,8 @@ from duty.services import board_setup
 
 
 class Command(BaseCommand):
-    help = ("직접 입력 근무표(예: 시장운영실)를 한 번에 만든다: 근무표·근무 정의·부서·사람 계정(비밀번호 없이)·근무표 관리자. "
-            "하나라도 문제가 있으면 아무것도 만들지 않는다.")
+    help = ("근무표 관리자가 출근표를 넣는 근무표(예: 시장운영실, 단계 입력 중 → 확정 → 배포됨)를 한 번에 만든다: "
+            "근무표·근무 정의·부서·사람 계정(비밀번호 없이)·근무표 관리자. 하나라도 문제가 있으면 아무것도 만들지 않는다.")
     stealth_options = ("stdin",)  # 테스트가 call_command(stdin=...)로 명단을 넘긴다
 
     def add_arguments(self, parser):
@@ -36,8 +36,8 @@ class Command(BaseCommand):
                     text = Path(o["people"]).read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError) as e:
                 raise DutyError(f"명단 파일을 읽을 수 없습니다(UTF-8 텍스트인지 보세요): {e.__class__.__name__}") from None
-            board = board_setup.create_direct_board(o["code"], o["name"], shifts, lunch,
-                                                    board_setup.read_people(text), o["admin"])
+            board = board_setup.create_board(o["code"], o["name"], shifts, lunch,
+                                             board_setup.read_people(text), o["admin"])
         except DutyError as e:
             raise CommandError(str(e)) from None
 
@@ -48,7 +48,7 @@ class Command(BaseCommand):
         lunch_txt = f"{dept.lunch_start:%H:%M}~{dept.lunch_end:%H:%M}" if dept.lunch_start else "비움"
         admin_txt = f"{o['admin']} 를 '{board.admin_group.name}' 그룹에 넣음" if o["admin"] else "없음(나중에 관리 화면에서)"
         self.stdout.write("\n".join([
-            f"근무표를 만들었습니다: {board.name} (코드 {board.code}, 관리자 직접 입력)",
+            f"근무표를 만들었습니다: {board.name} (코드 {board.code}, 단계 {' → '.join(board.step_name(s) for s in board.steps())})",
             f"근무조: {shift_txt} · 점심당번",
             f"부서: {dept.name} (코드 {dept.code}), 점심 시각: {lunch_txt}",
             f"계정: {len(ids)}명, {ids[0]}~{ids[-1]} (비밀번호 없음)",

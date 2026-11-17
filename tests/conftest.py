@@ -18,7 +18,7 @@ DEPTS = [
 @pytest.fixture
 def it_board(db):
     # 마이그레이션이 만든 IT 근무표가 있으면 그것을, flush 된 DB(transaction=True 테스트 뒤)면 새로 만든다
-    board, _ = Board.objects.get_or_create(code="it", defaults={"name": "IT 당번표", "input_mode": Board.InputMode.COLLECT})
+    board, _ = Board.objects.get_or_create(code="it", defaults={"name": "IT 당번표"})
     for d in IT_DEFS:
         BoardShift.objects.get_or_create(board=board, key=d.key, defaults=dict(
             name=d.name, start=d.start, end=d.end, eligible_shifts=list(d.eligible_shifts),

@@ -72,8 +72,8 @@ class DepartmentForm(forms.ModelForm):
         board, name = c.get("board"), c.get("name")
         # Department.save 가 만들거나 바꿀 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         group = f"{name} 출근표 입력"
-        has_group = self.instance.input_group_id or (board and board.input_mode == board.InputMode.COLLECT)
-        if c.get("managers") and board and board.input_mode == board.InputMode.DIRECT:
+        has_group = self.instance.input_group_id or (board and not boards.legacy_admin_entry(board))  # 1단계 임시 기준
+        if c.get("managers") and board and boards.legacy_admin_entry(board):
             self.add_error("managers", "직접 입력 근무표의 부서는 입력 담당자가 없습니다. 근무표 관리자가 입력합니다.")
         if (name and has_group and "name" in self.changed_data  # 이름을 바꿀 때만 그룹 이름이 바뀐다
                 and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists()):
@@ -282,13 +282,28 @@ class BoardShiftInline(admin.TabularInline):
     can_delete = False
 
 
+STEP_FIELDS = ["step_draft", "step_collecting", "step_closed", "step_generated", "step_published"]
+
+
 class BoardForm(forms.ModelForm):
     class Meta:
         model = Board
-        fields = ["code", "name", "input_mode"]
+        fields = ["code", "name", "use_draft", "use_close", *STEP_FIELDS]
 
     def clean(self):
         c = super().clean()
+        names = [c.get(f) for f in STEP_FIELDS]
+        for f, v in zip(STEP_FIELDS, names):  # 단계 이름(설계 5.1): 줄바꿈 금지, 서로 다름
+            if v and ("\n" in v or "\r" in v):
+                self.add_error(f, "단계 이름에 줄바꿈을 쓸 수 없습니다.")
+            elif v and names.count(v) > 1:
+                self.add_error(f, f"단계 이름이 겹칩니다: {v}")
+        if not self.errors and all(names):  # 버튼 글자 검사(설계 5.4): 저장된 근무표는 단계 칸이 읽기 전용이라 만들 때만
+            steps = Board(use_draft=c.get("use_draft"), use_close=c.get("use_close"), **dict(zip(STEP_FIELDS, names)))
+            gen = steps.step_buttons(False)
+            for x in steps.bad_buttons():  # 생성·취소 글자는 생성됨 이름에서, 열기·마감은 취합 중 이름에서 나온다
+                field = "step_generated" if x in (gen["generate"], gen["undo"]) else "step_collecting"
+                self.add_error(field, f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{x}]")
         name = c.get("name")
         # Board.save 가 만들거나 바꿀 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         if name and Board.objects.exclude(pk=self.instance.pk).filter(name=name).exists():
@@ -301,21 +316,30 @@ class BoardForm(forms.ModelForm):
 
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
-    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)와 입력 방식은 만든 뒤 바꾸지 않는다.
+    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 1·2단계에서 만들 때만 정한다.
     지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 그 그룹의 그룹 관리자는 '관리 그룹' 링크(그룹 화면)에서 정한다."""
     form = BoardForm
-    list_display = ["name", "code", "input_mode", "admin_group"]
+    list_display = ["name", "code", "step_line", "admin_group"]
     inlines = [BoardShiftInline]
 
     def get_fieldsets(self, request, obj=None):
-        fields = ["code", "name", "input_mode"] + ([] if obj is None else ["group_link"])
+        fields = ["code", "name"] + ([] if obj is None else ["group_link"])
         return [(None, {"fields": fields, "description": (
             "근무 정의의 이름·시각을 운영 중에 바꾸면 발송 창이 열린 알림이 한 번 다시 나가고, 예전에 내려받은 CSV 의 "
             "열 이름이 맞지 않습니다. 저장한 정의는 지우거나 키를 바꿀 수 없으니 '사용'을 끄고 새 줄을 더합니다. "
-            "근무조 1~4 는 이름일 뿐이고 이른·늦은 조는 시작 시각으로 정합니다. 직접 입력 근무표에는 부서를 하나만 둡니다.")})]
+            "근무조 1~4 는 이름일 뿐이고 이른·늦은 조는 시작 시각으로 정합니다.")}),
+                ("회차 단계", {"fields": ["use_draft", "use_close", *STEP_FIELDS], "description": (
+                    "작성 중·마감을 끄면 그 단계를 건너뜁니다. 이름은 화면에 보이는 단계 이름이고, 버튼 이름은 단계 이름에서 "
+                    "나옵니다(예: '취합 중' → [취합 열기]). IT = 둘 다 켬, 작성 중·취합 중·마감·생성됨·배포됨. "
+                    "시장운영실 = 둘 다 끔, 취합 중 '입력 중'·생성됨 '확정'. 저장한 근무표의 단계는 지금은 바꾸지 않습니다.")})]
 
     def get_readonly_fields(self, request, obj=None):
-        return [] if obj is None else ["code", "input_mode", "group_link"]
+        # 1단계: 저장된 근무표의 단계 칸은 읽기 전용(임시 기준 legacy_admin_entry 와 섞인 상태를 막는다, 설계 5.1). 3단계에서 연다
+        return [] if obj is None else ["code", "use_draft", "use_close", *STEP_FIELDS, "group_link"]
+
+    @admin.display(description="단계")
+    def step_line(self, obj):
+        return " → ".join(obj.step_name(s) for s in obj.steps())
 
     @admin.display(description="관리 그룹")
     def group_link(self, obj):

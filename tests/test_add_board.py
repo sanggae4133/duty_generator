@@ -41,7 +41,7 @@ def test_happy_path(it_board, people):
               "--people", people(NAMES), "--admin", "boss")
 
     board = Board.objects.get(code="mops")
-    assert board.name == "시장운영실" and board.input_mode == Board.InputMode.DIRECT
+    assert board.name == "시장운영실" and [board.step_name(s) for s in board.steps()] == ["입력 중", "확정", "배포됨"]
     rows = {s.key: s for s in BoardShift.objects.filter(board=board)}
     assert set(rows) == {"dawn", "normal", "dinner", "lunch"}
     assert [(rows[k].name, rows[k].start, rows[k].end, rows[k].default_alarm) for k in ("dawn", "normal", "dinner")] == [
@@ -62,6 +62,7 @@ def test_happy_path(it_board, people):
     assert boss.groups.filter(pk=board.admin_group_id).exists()
 
     assert "mops01~mops03" in out and "3명" in out and "계정 발급 / 비밀번호 초기화" in out
+    assert "(코드 mops, 단계 입력 중 → 확정 → 배포됨)" in out
     assert not any(n in out for n in NAMES)  # 명단의 이름은 요약에 남기지 않는다
 
 

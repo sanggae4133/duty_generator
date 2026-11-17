@@ -33,4 +33,4 @@ IT_DEFS2: list[Def] = [*IT_DEFS, IT_LUNCH]  # 2단계 IT 정의(KEYS 순)
 IT_SLOTS = [(x.name, x.eligible_shifts, x.eligible_types) for x in slot_defs(IT_DEFS)]  # generator 칸 목록(옛 CONTROL_SLOTS 의 값·순서 + 개발자)
 
 # 작성 중·마감을 끈 근무표(시장운영실과 같은 단계: 입력 중 → 확정 → 배포됨). 테스트가 Board(**OPS_STEPS) 로 만든다
-OPS_STEPS = dict(input_mode="direct", use_draft=False, use_close=False, step_collecting="입력 중", step_generated="확정")
+OPS_STEPS = dict(use_draft=False, use_close=False, step_collecting="입력 중", step_generated="확정")
