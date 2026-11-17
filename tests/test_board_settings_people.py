@@ -189,6 +189,24 @@ def test_leave_asks_with_count_then_cuts(busy, ops_board, ops_admin):
     assert busy.is_active and not busy.has_usable_password()  # 다시 재직: 계정은 '발급 전'(다시 발급해야 로그인)
 
 
+def test_rejoin_cuts_old_password_and_links(client, ops_board, ops_admin, ops_dept):
+    """관리 화면에서 재직만 끈 사람(옛 비밀번호·연결이 남음)도 다시 재직하면 '발급 전'이 되고 옛 비밀번호·연결이 끊긴다."""
+    from django.urls import reverse
+
+    from tests.test_auth import _has_links, _links
+    pw = "Unused-" + "Pw-123"
+    m = _ops_member(ops_dept, "가상하나", "ops01", active=False)
+    m.set_password(pw)
+    m.save()
+    _links(m)
+    assert bs.set_active(ops_admin, ops_board, m, True) == []
+    m.refresh_from_db()
+    assert m.is_active and not m.has_usable_password()  # 계정 열 '발급 전'
+    assert _has_links(m) == (False, False, False)
+    client.post(reverse("login"), {"username": "ops01", "password": pw})
+    assert "_auth_user_id" not in client.session  # 옛 비밀번호로 로그인되지 않는다
+
+
 def test_leave_without_future_cells_is_one_step(ops_board, ops_admin, ops_dept):
     m = _ops_member(ops_dept, "가상하나", "ops01")
     assert bs.set_active(ops_admin, ops_board, m, False) == []

@@ -198,6 +198,8 @@ def test_issue_result_box_only_in_response(ops_client, ops_board, caplog):
     assert "no-store" in r["Cache-Control"]  # 뒤로 가기로 다시 보이지 않게
     assert "띄어쓰기 없이 입력합니다. 사람마다 1:1로만 전달하세요." in body and "새로고침하지 마세요" in body
     assert f'<a href="{OPS}#people" role="button" class="outline">닫기</a>' in body
+    assert '<div class="pwbox" role="region" aria-labelledby="pwbox-title">' in body and 'id="pwbox-title"' in body
+    assert 'role="alert"' not in body.split('class="pwbox"')[1].split("</div>")[0]  # 스크린 리더가 비밀번호를 소리 내어 읽지 않게
     for u in (a, b):
         u.refresh_from_db()
         assert u.check_password(got[u.username]) and u.must_change_password
