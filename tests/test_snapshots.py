@@ -23,6 +23,7 @@ def _main(body: str) -> str:
     body = body[body.index("</header>", main) + len("</header>"):body.index("</main>")]  # 메뉴는 보지 않는다(3단계에서 바뀐다)
     body = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'name="csrfmiddlewaretoken"', body)
     body = re.sub(r"/(periods|collect)/\d+/", r"/\1/N/", body)  # 회차 번호는 테스트 순서에 따라 다를 수 있다
+    body = re.sub(r'(<option value=")\d+(")', r"\1N\2", body)  # 사용자·근무표 pk 도 DB 순번이라 지운다
     body = re.sub(r"\s+", " ", body)  # 템플릿 줄바꿈·들여쓰기 차이는 보지 않는다
     return re.sub(r">\s*<", ">\n<", body).strip() + "\n"  # 태그마다 한 줄(리뷰할 diff 를 읽기 쉽게)
 
