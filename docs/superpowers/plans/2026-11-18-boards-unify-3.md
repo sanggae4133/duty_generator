@@ -22,10 +22,10 @@
 8. **관리 화면 사용자 편집 검사는 `UserForm.clean`(Django `UserChangeForm` 상속)**: 저장 전 DB 상태로 판단하고, 재직을 끄면 "재직" 칸, 관리 그룹만 빼면 "그룹" 칸에 오류.
 9. **`duty/forms.py` 로 옮기는 것**: `SHIFT_KEY_CHOICES`·`BoardShiftForm`·`BoardShiftFormSet`(내용 그대로)·`STEP_FIELDS`, 새 `StepsForm`(관리 화면 `BoardForm.clean` 의 단계 검사를 그대로 옮기고 `BoardForm` 이 물려받는다 — 설계 5.4 "같은 함수"), 새 `DeptShiftsForm`·`ShiftFormSet`(빈 추가 줄 하나, 시각은 `<input type=time>`; 관리 화면 인라인 위젯은 그대로)·`shift_forms(board, data)`. 기존 테스트의 `from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm` 이 그대로 돌도록 admin 이 import 한다.
 10. **"부서마다 켜진 입력 근무조 하나 이상"을 같은 저장의 부서 출근조로**: `BoardShiftFormSet.planned_depts`(`{부서 이름: 키들}`)를 설정 화면 서비스만 넣는다. 없으면 지금처럼 저장된 부서를 읽는다(관리 화면). 설정 화면 문구 꼬리는 "아래 부서에서 켜진 근무조를 하나 이상 체크하세요."(관리 화면은 지금 "부서의 출근조를 먼저 바꾸세요.").
-11. **부서 덩어리 체크박스 = 그린 때의 켜진 근무조**(이름 + 시각, 시작 시각 순). 꺼진 근무조 키는 부서 저장 때 빠진다(관리 화면 부서 폼과 같은 결과).
+11. **부서 덩어리 체크박스 = 그린 때의 켜진 근무조**(이름 + 시각, 시작 시각 순). 체크박스로 보이지 않은 부서 키(그린 때 꺼져 있던 근무조)는 저장해도 **그대로 남긴다**(리뷰 반영): 그래야 근무조를 껐다가 다시 켜면 그 부서 입력 표 칸이 돌아오고, 상관없는 저장(이름 고치기)이 꺼진 근무조 키를 지우지 않는다. 보였던 체크박스를 풀면 뺀다(같은 저장에서 끄면서 풀어도). 관리 화면 부서 폼은 지금처럼 켜진 근무조만 저장한다(바꾸지 않음).
 12. **부서에서 근무조를 뺄 때 확인**: 설계대로 배포 전 회차(작성 중·취합 중·마감·생성됨)의 그 부서 사람·그 근무조 출근표 행을 센다. 단 **켜진 근무조만** 센다: 같은 저장에서 끄면서 빼면 꺼진 근무조 행은 표 저장 때 남으므로(`collect._kept_keys`) 묻지 않는다. 글: "운영 부서에서 '늦은'을 빼면 배포 전 회차(이번 회차)의 그 근무조 출근표 1행이 다음 표 저장 때 지워집니다. 그래도 저장하려면 [그래도 저장]을 누르세요."(여러 부서면 문장을 잇는다, `confirm` = 행 수 합).
 13. **관제 정의를 끌 때 경고**는 설계 글의 "생성됨 회차" 자리에 그 근무표 생성됨 단계 이름을 쓴다(시장운영실이면 "확정 회차(…)"). 회차·정의마다 한 줄.
-14. **"아직 부서에 배정되지 않은 근무조" 경고는 그릴 때마다 계산**한다(저장 직후만이 아니라 조건이 남아 있는 동안 늘 보인다). 버튼: 근무 정의 카드 아래 테두리 [저장] + 부서 덩어리 아래 큰 주 버튼(배정 안 된 근무조가 있으면 [부서 저장], 확인 중이면 [그래도 저장], 아니면 [저장]) — 같은 폼이라 어느 것이든 전체를 저장한다.
+14. **"아직 부서에 배정되지 않은 근무조" 경고는 그릴 때마다 계산**한다(`_unassigned`, 저장 직후만이 아니라 조건이 남아 있는 동안 늘 보인다). 경고 상자는 근무 정의 카드 아래(부서 덩어리 바로 위)라 저장 뒤 `#shifts` 로 돌아온 화면에서 안 보일 수 있으므로, 그때는 결과 글에도 "아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요."를 붙인다(리뷰 반영, 돌아올 곳은 설계대로 `#shifts`). 버튼: 근무 정의 카드 아래 테두리 [저장] + 부서 덩어리 아래 큰 주 버튼(배정 안 된 근무조가 있으면 [부서 저장], 확인 중이면 [그래도 저장], 아니면 [저장]) — 같은 폼이라 어느 것이든 전체를 저장한다. **행 수 확인 값(`confirm`)은 아래 [그래도 저장] 버튼에만 싣는다**(숨은 칸 없음): 위 [저장]으로 보내면 다시 묻는다(리뷰 반영).
 15. **오류·확인은 다시 그리기, 성공은 redirect**: 근무 정의와 부서·단계 칸이 오류(또는 행 수 확인)면 redirect 하지 않고 보낸 값 그대로 다시 그린다(다른 칸 입력은 건드리지 않는다). 폼 `action` 에 `#shifts`·`#steps` 가 있어 브라우저가 그 칸으로 간다. 관리자·입력 담당자 칸은 늘 redirect(`?board=<code>#admins` 등).
 16. **칸 안 메시지**: `messages` 의 `extra_tags` = 칸 id, `_section_msgs.html` 이 그 칸 제목 바로 아래에 그리고 `base.html` 은 `extra_tags` 가 없는 메시지만 그린다. 단계 칸은 접힌 `<details>` 라 그 칸 메시지가 있거나 폼 오류로 다시 그릴 때 펼쳐 그린다.
 17. **미리보기는 저장된 단계로**(오류로 다시 그릴 때도): "저장된 단계: 입력 중 → 확정 → 배포됨", "버튼: [확정] [확정 취소] [배포…]" — 회차 화면과 같은 `Board.step_buttons(켜진 관제 정의 유무)` 글자를 진행 순서([열기]·[마감]·생성·[… 취소]·[재생성]·[배포…])로.
@@ -35,6 +35,8 @@
 21. **접근**: 어느 근무표의 관리자도 아니면 403(다른 관리 화면과 같은 `admin_required`), 관리자이지만 그 근무표 관리자가 아니면 404(설계 7.1, 회차 화면과 같은 방식). POST 의 근무 정의 id(`shifts-N-id`)·부서 칸(`d-<코드>-…`)·사람·부서가 그 근무표 것이 아니면 404(서비스도 `PermissionDenied`).
 22. **0024** 는 `makemigrations` 가 만든 `DeleteModel` 에 설계 10.2 의 뜻을 docstring 으로 단다. 업그레이드 확인 ①②는 0023 상태 임시 DB 에 가짜 그룹 관리자 행을 넣어 `sqlite3 -readonly` 로 돌렸다(열 이름 맞음, 실명 열 없음).
 23. 글 도움말 "근무표 설정"(`STEPS["settings"]`)에는 근무표별 단계 줄을 붙이지 않는다(`texts_for` 가 "회차 운영"에만).
+24. **쓰기는 그 칸만**(설계 6.2 "트랜잭션 안에서 다시 읽는다", 리뷰 반영): `save_steps` 는 단계 칸만(`update_fields`), `save_shifts` 는 트랜잭션 안에서 부서 출근조를 다시 읽고 부서는 출근조·점심 칸만(`update_fields`) 쓴다. 그래서 화면을 그린 뒤 생긴 입력 그룹 연결(`ensure_input_group`)이나 이름 변경을 덮지 않는다.
+25. **화면 모양(리뷰 반영)**: 설정 화면의 진한 버튼은 근무 정의와 부서 칸 아래 큰 버튼 하나뿐이고 [넣기]·카드 아래 [저장]·단계 [저장]은 테두리 버튼. 체크 줄(부서 출근조·자격·사용 등)은 누를 자리 44px 이상. 카드 칸 이름·칸 설명은 본문 크기로 줄이지 않고, 흐린 글은 `opacity` 대신 `--pico-muted-color`(다크 모드 대비). 입력 담당자 칸 설명은 "관리자는 담당자가 아니어도 모든 부서의 출근표를 넣을 수 있습니다".
 
 ## Global Constraints
 
@@ -111,13 +113,13 @@ kill $(cat $W/server.pid); rm -rf $W; unset DUTY_ENV_FILE DUTY_DEBUG DUTY_DATA_D
 | 1 | 늦은 입력 그룹(`ensure_input_group`, 저장은 그룹을 만들지 않음), 관리 화면 부서 폼 금지 검사 지움, `legacy_admin_entry` 삭제, 관리 화면 단계 칸 편집 열기 | 없음 | 1326 |
 | 2 | `services/board_settings.py`: 관리자 넣기·빼기, 입력 담당자 넣기·빼기, `_audit`(로그 + `LogEntry`), `boards.left_without_admin` | 없음 | 1341 |
 | 3 | 관리 화면 재직 관리자 한 명 이상(사용자 편집 폼·지우기) | 없음 | 1345 |
-| 4 | `duty/forms.py`(근무 정의 폼 옮김, `StepsForm`·`DeptShiftsForm`·`ShiftFormSet`·`shift_forms`), `save_steps`·`save_shifts`·`stranded`·`NeedsConfirm`, 관리 화면 끈 단계 안내 | 없음 | 1360 |
-| 5 | 설정 화면 1: 주소·메뉴·제목·근무표 링크·칸 바로가기·칸 안 메시지·관리자 칸·입력 담당자 칸 | 없음 | 1370 |
-| 6 | 설정 화면 2: 근무 정의와 부서 칸(카드·부서 덩어리·배정 안 된 근무조 경고·[부서 저장]·[그래도 저장])·회차 단계 칸(접힘·미리보기·확인창) | 없음 | 1378 |
-| 7 | 그룹 정리: `GroupKeeper`·0024·[그룹] 화면·`services/groups.py`·`perms.kept_groups`·`GroupKeeperInline`, 관리 화면 글 | 0024 | 1370 |
-| 8 | 글 도움말 "근무표 설정" + 스냅샷(`help-admin`) + 문서(ARCHITECTURE·OPERATIONS 3단계 확인·롤백·공지·OVERVIEW·DEVELOPMENT·PRINCIPLES) | 없음 | 1371 |
+| 4 | `duty/forms.py`(근무 정의 폼 옮김, `StepsForm`·`DeptShiftsForm`·`ShiftFormSet`·`shift_forms`), `save_steps`·`save_shifts`(단계·부서는 그 칸만 쓰기, 화면에 안 보인 꺼진 근무조 키는 남김)·`stranded`·`NeedsConfirm`, 관리 화면 끈 단계 안내 | 없음 | 1363 |
+| 5 | 설정 화면 1: 주소·메뉴·제목·근무표 링크·칸 바로가기·칸 안 메시지·관리자 칸·입력 담당자 칸 | 없음 | 1373 |
+| 6 | 설정 화면 2: 근무 정의와 부서 칸(카드·부서 덩어리·배정 안 된 근무조 경고·[부서 저장]·[그래도 저장])·회차 단계 칸(접힘·미리보기·확인창) | 없음 | 1381 |
+| 7 | 그룹 정리: `GroupKeeper`·0024·[그룹] 화면·`services/groups.py`·`perms.kept_groups`·`GroupKeeperInline`, 관리 화면 글 | 0024 | 1373 |
+| 8 | 글 도움말 "근무표 설정" + 스냅샷(`help-admin`) + 문서(ARCHITECTURE·OPERATIONS 3단계 확인·롤백·공지·OVERVIEW·DEVELOPMENT·PRINCIPLES) | 없음 | 1374 |
 
-> 검증: Task 1~8 의 코드·문서 편집을 출발점 5f3a561 사본(`git archive`)에 그대로 넣어 확인했다. 저장소는 고치지 않았다. 결과: 작업마다 위 표의 수로 `.venv/bin/pytest -W error -q` 전체 통과, 경고 0개, `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'", 새 DB 에서 `migrate` → `migrate duty 0022` → `migrate` 왕복(0024 포함)과 `migrate duty 0023` → `migrate`. 각 작업의 "실패 확인" 기대 결과도 사본에서 재현했다(앱 코드만 앞 작업 상태로 되돌려 새 테스트를 돌림). 스냅샷은 Task 1~7 내내 기준을 고치지 않고 통과했고 Task 8 에서 `help-admin.html` 만 16줄 늘었다. 문서 편집 스크립트의 "찾을 글"은 모두 한 번씩만 나왔다. 업그레이드 확인 ①②는 0023 상태 임시 DB 에 `sqlite3 -readonly` 로 돌렸다. 브라우저 확인은 사본에서 하지 않았다(가짜 데이터 셸이 돌고 설정 화면이 200 인 것까지만) — 각 작업의 브라우저 단계에서 사람이 본다.
+> 검증: Task 1~8 의 코드·문서 편집을 출발점 5f3a561 사본(`git archive`)에 그대로 넣어 확인했다. 저장소는 고치지 않았다. 결과: 작업마다 위 표의 수로 `.venv/bin/pytest -W error -q` 전체 통과, 경고 0개, `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'", 새 DB 에서 `migrate` → `migrate duty 0022` → `migrate` 왕복(0024 포함)과 `migrate duty 0023` → `migrate`. 각 작업의 "실패 확인" 기대 결과도 사본에서 재현했다(앱 코드만 앞 작업 상태로 되돌려 새 테스트를 돌림). 스냅샷은 Task 1~7 내내 기준을 고치지 않고 통과했고 Task 8 에서 `help-admin.html` 만 16줄 늘었다. 리뷰 반영(f72691f 다국면 리뷰 12건)은 계획 본문을 처음부터 따라 만든 새 사본에서 작업 4~8 을 다시 돌려 확인했다. 문서 편집 스크립트의 "찾을 글"은 모두 한 번씩만 나왔다. 업그레이드 확인 ①②는 0023 상태 임시 DB 에 `sqlite3 -readonly` 로 돌렸다. 브라우저 확인은 사본에서 하지 않았다(가짜 데이터 셸이 돌고 설정 화면이 200 인 것까지만) — 각 작업의 브라우저 단계에서 사람이 본다.
 
 ---
 
@@ -1047,6 +1049,7 @@ from duty.errors import DutyError
 from duty.forms import StepsForm, shift_forms
 from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, User
 from duty.services import board_settings as bs
+from duty.services import collect
 
 S = Period.Status
 MON = date(2026, 11, 16)
@@ -1114,7 +1117,19 @@ def test_turn_off_shift_and_move_department_in_same_save(ops_board, ops_admin):
     Department.objects.filter(code="OPS").update(shifts="dawn")
     data = shift_data(ops_board, change={"dawn": {"active": None}}, depts={"OPS": {"shifts": ["normal"]}})
     save(ops_admin, ops_board, data)
-    assert not BoardShift.objects.get(board=ops_board, key="dawn").active and _dept().shifts == "normal"
+    assert not BoardShift.objects.get(board=ops_board, key="dawn").active
+    assert _dept().shifts == "normal"  # 그린 때 켜져 있어 체크박스로 보였고, 체크를 풀었으니 뺀다
+
+
+def test_turned_off_shift_comes_back_in_department(ops_board, ops_admin):
+    """화면에는 켜진 근무조만 나오지만, 꺼진 근무조의 부서 키는 다른 저장에도 남아 다시 켜면 입력 표 칸이 돌아온다."""
+    save(ops_admin, ops_board, shift_data(ops_board, change={"dinner": {"active": None}}))
+    save(ops_admin, ops_board, shift_data(ops_board, change={"normal": {"name": "중간"}},
+                                         depts={"OPS": {"shifts": ["dawn", "normal"]}}))  # 상관없는 저장(체크박스는 켜진 둘뿐)
+    assert _dept().shifts == "dawn,normal,dinner"
+    # 다시 켠다: 부서 덩어리에는 아직 체크박스가 없어(그린 때 꺼져 있었다) 켜진 둘만 보낸다
+    save(ops_admin, ops_board, shift_data(ops_board, change={"dinner": {"active": "on"}}, depts={"OPS": {"shifts": ["dawn", "normal"]}}))
+    assert collect.input_keys(_dept()) == ["dawn", "normal", "dinner"]
 
 
 def test_department_left_without_active_shift_is_refused(ops_board, ops_admin):
@@ -1204,6 +1219,23 @@ def _steps(board, **over):
     data = {f: getattr(board, f) for f in ("step_draft", "step_collecting", "step_closed", "step_generated", "step_published")}
     data |= {f: "on" for f in ("use_draft", "use_close") if getattr(board, f)}
     return StepsForm({k: v for k, v in (data | over).items() if v is not None}, instance=Board.objects.get(pk=board.pk))
+
+
+def test_save_steps_writes_only_step_fields(ops_board, ops_admin):
+    """단계 저장은 단계 칸만 쓴다: 폼을 만든 뒤 바뀐 이름(다른 칸)을 되돌리지 않는다(설계 6.2)."""
+    form = _steps(ops_board, step_draft="준비 중")
+    Board.objects.filter(pk=ops_board.pk).update(name="운영팀2")
+    bs.save_steps(ops_admin, ops_board, form)
+    b = Board.objects.get(pk=ops_board.pk)
+    assert (b.name, b.step_draft) == ("운영팀2", "준비 중")
+
+
+def test_department_save_keeps_input_group_set_meanwhile(ops_board, ops_admin):
+    """부서 저장은 출근조·점심 칸만 쓴다: 화면을 그린 뒤 생긴 입력 그룹 연결을 지우지 않는다."""
+    formset, dept_forms = shift_forms(ops_board, shift_data(ops_board, depts={"OPS": {"lunch_start": "11:30", "lunch_end": "12:30"}}))
+    group = _dept().ensure_input_group()
+    bs.save_shifts(ops_admin, ops_board, formset, dept_forms)
+    assert _dept().input_group_id == group.pk and _dept().lunch_start == time(11, 30)
 
 
 def test_save_steps(ops_board, ops_admin):
@@ -1616,7 +1648,7 @@ index 99a8c2d..76f6079 100644
 
 ```diff
 diff --git a/duty/services/board_settings.py b/duty/services/board_settings.py
-index 5f195b8..1a63c99 100644
+index 5f195b8..d2f62eb 100644
 --- a/duty/services/board_settings.py
 +++ b/duty/services/board_settings.py
 @@ -7,15 +7,19 @@ from django.contrib.admin.models import CHANGE, LogEntry
@@ -1641,7 +1673,7 @@ index 5f195b8..1a63c99 100644
  NO_ADMIN_LEFT = "재직 중인 관리자가 아무도 남지 않습니다. 회차·배포·설정을 할 사람이 없으니 다른 사람을 먼저 넣으세요."
  
  
-@@ -99,3 +103,87 @@ def remove_assignee(by, board, dept, user) -> None:
+@@ -99,3 +103,92 @@ def remove_assignee(by, board, dept, user) -> None:
          raise PermissionDenied("이 부서의 입력 담당자가 아닙니다.")
      dept.input_group.user_set.remove(user)
      _audit(by, board, user, user.username, f"{dept.code} 입력 담당자 빼기")
@@ -1672,7 +1704,7 @@ index 5f195b8..1a63c99 100644
 +        raise PermissionDenied("이 근무표의 단계가 아닙니다.")
 +    if not form.is_valid():
 +        raise DutyError(INVALID)
-+    form.save()
++    form.save(commit=False).save(update_fields=form.Meta.fields)  # 단계 칸만 쓴다(그사이 바뀐 다른 칸을 덮지 않게)
 +    _audit(by, board, board, board.code, "회차 단계 저장")
 +    return stranded(form.instance)
 +
@@ -1693,9 +1725,14 @@ index 5f195b8..1a63c99 100644
 +    _require_admin(by, board)
 +    if formset.instance.pk != board.pk or any(f.instance.board_id != board.pk for f in dept_forms):
 +        raise PermissionDenied("이 근무표의 근무 정의·부서가 아닙니다.")
++    # 부서 출근조는 트랜잭션 안에서 다시 읽는다(화면이 그린 뒤 바뀌었을 수 있다, 설계 6.2). 화면에는 그린 때 켜진 근무조만
++    # 체크박스로 나오므로, 나오지 않은 키(꺼진 근무조)는 그대로 둔다: 다시 켜면 그 부서 입력 표 칸이 돌아온다
++    saved = {code: set(keys.split(",")) - {""} for code, keys in board.departments.values_list("code", "shifts")}
++    hidden = {f.instance.pk: saved[f.instance.pk] - {k for k, _ in f.fields["shifts"].choices} for f in dept_forms}
 +    depts_ok = all([f.is_valid() for f in dept_forms])  # 모든 부서의 오류를 한 번에 보이게(목록으로 다 돌린다)
++    picked = {f.instance.pk: set(f.cleaned_data["shifts"]) | hidden[f.instance.pk] for f in dept_forms} if depts_ok else {}
 +    if depts_ok:
-+        formset.planned_depts = {f.instance.name: set(f.cleaned_data["shifts"]) for f in dept_forms}
++        formset.planned_depts = {f.instance.name: picked[f.instance.pk] for f in dept_forms}
 +    if not (formset.is_valid() and depts_ok):
 +        raise DutyError(INVALID)
 +    rows = [f.cleaned_data for f in formset.forms if f.cleaned_data.get("key")]
@@ -1703,7 +1740,7 @@ index 5f195b8..1a63c99 100644
 +    on_after = {r["key"] for r in rows if r["key"] in SHIFT_KEYS and r["active"]}
 +    lost, total = [], 0
 +    for f in dept_forms:  # 꺼진 근무조의 행은 표 저장 때 남으므로(collect._kept_keys) 켜진 근무조를 뺄 때만 묻는다
-+        gone = [k for k in SHIFT_KEYS if k in set(f.instance.shift_keys()) - set(f.cleaned_data["shifts"]) and k in on_after]
++        gone = [k for k in SHIFT_KEYS if k in saved[f.instance.pk] - picked[f.instance.pk] and k in on_after]
 +        qs = Commute.objects.filter(period__board=board, period__status__in=BEFORE_PUBLISH, member__department=f.instance,
 +                                    shift__in=gone)
 +        if gone and (n := qs.count()):
@@ -1719,8 +1756,8 @@ index 5f195b8..1a63c99 100644
 +    order = [x.key for x in shift_defs(boards.defs(board))]  # 부서 출근조는 시작 시각 순 쉼표 글자(입력 표 칸 순서)
 +    for f in dept_forms:
 +        dept = f.save(commit=False)
-+        dept.shifts = ",".join(k for k in order if k in f.cleaned_data["shifts"])
-+        dept.save()
++        dept.shifts = ",".join(k for k in order if k in picked[f.instance.pk])
++        dept.save(update_fields=["shifts", "lunch_start", "lunch_end"])  # 이 세 칸만(그사이 생긴 입력 그룹 연결 등을 덮지 않게)
 +    generated = board.step_name(S.GENERATED)
 +    warnings = [f"{generated} 회차({name})에 '{r['name']}' 배정 {n}개가 남아 있습니다. "
 +                "다시 생성하거나 다른 상태로 옮기면 지워지고, 그대로 배포하면 근무표에 나옵니다."
@@ -1733,8 +1770,8 @@ index 5f195b8..1a63c99 100644
 
 - [ ] **Step 6: 통과를 확인한다**
 
-Run: `.venv/bin/pytest -W error -q tests/test_board_settings_shifts.py tests/test_admin_boards.py tests/test_admin_department.py` → PASS(`14` + 관리 화면 테스트)
-Run: `.venv/bin/pytest -W error -q` → `1360 passed`
+Run: `.venv/bin/pytest -W error -q tests/test_board_settings_shifts.py tests/test_admin_boards.py tests/test_admin_department.py` → PASS(`17` + 관리 화면 테스트)
+Run: `.venv/bin/pytest -W error -q` → `1363 passed`
 Run: `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'"
 
 - [ ] **Step 7: 브라우저로 본다**
@@ -1919,7 +1956,7 @@ def test_assignee_group_name_clash_shown_in_section(ops_client):
 - [ ] **Step 2: 실패를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_views_board_settings.py`
-Expected: FAIL — `/settings/` 가 404(`assert 404 == 403` 등, 10 failed)
+Expected: FAIL — `/settings/` 가 404(`assert 404 == 403` 등, 7 failed, 3 passed: 404 를 기대하는 가드 테스트 셋(`test_unknown_action_and_bad_ids_are_404`·`test_cannot_remove_other_active_admin_or_add_outsider`·`test_assignee_other_board_dept_is_404`)은 경로가 아직 없어 미리 통과한다. 성공 길 테스트(`test_add_admin_message_inside_section`·`test_assignees`·`test_remove_self`)가 404 만 내는 구현을 잡는다)
 
 - [ ] **Step 3: 구현한다**
 
@@ -2119,12 +2156,12 @@ def index(request):
       {% elif how == "last" %}<small class="note">마지막 관리자</small>{% else %}<small class="note">빼기는 슈퍼유저에게</small>{% endif %}</li>{% endfor %}</ul>
   <form method="post" action="{{ here }}#admins" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_admin">
     <label>넣을 사람 <select name="user" required><option value="">고르세요</option>{% for u in admin_candidates %}<option value="{{ u.pk }}">{{ u.name }}({{ u.department.name|default:"부서 없음" }})</option>{% endfor %}</select></label>
-    <button>넣기</button>
+    <button class="outline">넣기</button>
   </form>
 </section>
 
 <section id="assignees" class="cfg">
-  <h4>입력 담당자 <small>취합 중인 회차에 자기 부서 출근표를 넣는 사람. 관리자는 담당자가 아니어도 모든 부서를 넣습니다</small></h4>
+  <h4>입력 담당자 <small>취합 중인 회차에 자기 부서 출근표를 넣는 사람. 관리자는 담당자가 아니어도 모든 부서의 출근표를 넣을 수 있습니다</small></h4>
   {% include "duty/_section_msgs.html" with sec="assignees" %}
   {% for it in depts %}<article class="dept">
     <header><strong>{{ it.dept.name }}</strong></header>
@@ -2136,7 +2173,7 @@ def index(request):
     {% else %}<p class="none">담당자 없음 — 근무표 관리자만 입력합니다</p>{% endif %}
     <form method="post" action="{{ here }}#assignees" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_assignee"><input type="hidden" name="dept" value="{{ it.dept.pk }}">
       <label>넣을 사람 <select name="user" required><option value="">고르세요</option>{% for u in it.candidates %}<option value="{{ u.pk }}">{{ u.name }}({{ u.department.name }})</option>{% endfor %}</select></label>
-      <button>넣기</button>
+      <button class="outline">넣기</button>
     </form>
   </article>{% endfor %}
 </section>
@@ -2145,14 +2182,14 @@ def index(request):
   nav.jump a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid var(--duty-line); border-radius: .4rem; text-decoration: none; }
   section.cfg { margin: 0 0 2.5rem; scroll-margin-top: 1rem; }
   section.cfg > h4 { margin-bottom: .8rem; }
-  section.cfg > h4 small { display: block; margin-top: .2rem; font-weight: 400; font-size: .85rem; opacity: .75; }
+  section.cfg > h4 small { display: block; margin-top: .2rem; font-weight: 400; color: var(--pico-muted-color); }
   section.cfg article.dept { max-width: 40rem; }
   ul.members { padding: 0; margin: 0 0 1rem; max-width: 40rem; }
   ul.members li { list-style: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem;
     min-height: 44px; padding: .4rem 0; border-bottom: 1px solid var(--duty-line); }
   ul.members form, ul.members button { width: auto; margin: 0; }
   ul.members button { min-height: 44px; padding: .4rem 1rem; }
-  ul.members .note { opacity: .75; }
+  ul.members .note { color: var(--pico-muted-color); }
   p.none { margin: 0 0 1rem; font-weight: 700; }
   form.add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; max-width: 40rem; }
   form.add label { flex: 1 1 14rem; margin: 0; }
@@ -2165,7 +2202,7 @@ def index(request):
 - [ ] **Step 4: 통과를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_views_board_settings.py` → `10 passed`
-Run: `.venv/bin/pytest -W error -q` → `1370 passed`(스냅샷 그대로: 메뉴는 `<header>` 안)
+Run: `.venv/bin/pytest -W error -q` → `1373 passed`(스냅샷 그대로: 메뉴는 `<header>` 안)
 
 - [ ] **Step 5: 브라우저로 본다**(`admin`)
 
@@ -2200,7 +2237,7 @@ Claude-Session: https://claude.ai/code/session_0176vw5QvA1tvXbXPDiNL1Va"
 
 ```diff
 diff --git a/tests/test_views_board_settings.py b/tests/test_views_board_settings.py
-index aa0984a..20f35a1 100644
+index aa0984a..a4f00a7 100644
 --- a/tests/test_views_board_settings.py
 +++ b/tests/test_views_board_settings.py
 @@ -1,8 +1,11 @@
@@ -2216,7 +2253,7 @@ index aa0984a..20f35a1 100644
  
  URL = "/settings/"
  
-@@ -139,3 +142,99 @@ def test_assignee_group_name_clash_shown_in_section(ops_client):
+@@ -139,3 +142,104 @@ def test_assignee_group_name_clash_shown_in_section(ops_client):
      r = ops_client.post(URL + "?board=ops", {"do": "add_assignee", "dept": "OPS", "user": a.pk}, follow=True)
      body = r.content.decode()
      assert body.index('<section id="assignees"') < body.index("같은 이름의 그룹이 이미 있습니다: 운영 출근표 입력. 슈퍼유저에게")
@@ -2243,12 +2280,14 @@ index aa0984a..20f35a1 100644
 +    r = _post_shifts(ops_client, ops_board, extra={"key": "night", "name": "밤", "start": "13:00", "end": "22:00", "active": "on"})
 +    assert r.status_code == 302 and r["Location"] == "/settings/?board=ops#shifts"
 +    body = ops_client.get(URL + "?board=ops").content.decode()
-+    assert body.index('<section id="shifts"') < body.index("근무 정의와 부서를 저장했습니다.")
++    assert body.index('<section id="shifts"') < body.index(
++        "근무 정의와 부서를 저장했습니다. 아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요.")
 +    assert "아직 부서에 배정되지 않은 근무조: 밤. 아래 부서에서 체크하고 [부서 저장]을 누르세요." in body
 +    assert '<button class="wide">부서 저장</button>' in body
 +    _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal", "dinner", "night"]}})
 +    body = ops_client.get(URL + "?board=ops").content.decode()
 +    assert "아직 부서에 배정되지 않은 근무조" not in body and Department.objects.get(code="OPS").shifts == "dawn,normal,dinner,night"
++    assert "[부서 저장]을 한 번 더 누르세요" not in body  # 다 배정했으면 결과 글도 짧게
 +
 +
 +def test_shift_errors_redraw_with_sent_values(ops_client, ops_board):
@@ -2267,7 +2306,10 @@ index aa0984a..20f35a1 100644
 +    r = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}})
 +    body = r.content.decode()
 +    assert r.status_code == 200 and "그 근무조 출근표 1행이 다음 표 저장 때 지워집니다" in body
-+    assert '<input type="hidden" name="confirm" value="1">' in body and ">그래도 저장</button>" in body
++    assert 'name="confirm" value="1">그래도 저장</button>' in body and 'type="hidden" name="confirm"' not in body
++    r = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}})  # 위 [저장](확인 값 없음)은 다시 묻는다
++    assert r.status_code == 200 and "그 근무조 출근표 1행이 다음 표 저장 때 지워집니다" in r.content.decode()
++    assert Department.objects.get(code="OPS").shifts == "dawn,normal,dinner"
 +    r = _post_shifts(ops_client, ops_board, depts={"OPS": {"shifts": ["dawn", "normal"]}}, confirm="1")
 +    assert r.status_code == 302 and Department.objects.get(code="OPS").shifts == "dawn,normal"
 +
@@ -2428,7 +2470,10 @@ def _shifts(request, board):
     except DutyError as e:  # 칸 오류: 보낸 값 그대로 다시 그린다(다른 칸의 입력은 건드리지 않는다)
         messages.error(request, str(e), extra_tags="shifts")
         return _render(request, board, shifts=(formset, dept_forms))
-    messages.success(request, "근무 정의와 부서를 저장했습니다.", extra_tags="shifts")
+    done = "근무 정의와 부서를 저장했습니다."
+    if _unassigned(board):  # 경고 상자는 카드 아래에 있어 안 보일 수 있으니 결과 글에도(설계 7.2 두 번 저장)
+        done += " 아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요."
+    messages.success(request, done, extra_tags="shifts")
     for w in warnings:
         messages.warning(request, w, extra_tags="shifts")
     return redirect(f"{_here(board)}#shifts")
@@ -2455,6 +2500,12 @@ ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시�
 }
 
 
+def _unassigned(board) -> list[str]:
+    """켜진 근무조 가운데 어느 부서에도 없는 것(새로 더한 근무조): 부서에서 체크해야 입력 표에 칸이 생긴다(설계 7.2)."""
+    assigned = {k for d in board.departments.all() for k in d.shift_keys()}
+    return [x.name for x in shift_defs(boards.active_defs(board)) if x.key not in assigned]
+
+
 def _buttons(board, has_slots) -> list[str]:
     """미리보기: 켠 단계에서 회차 화면에 나오는 버튼 글자(설계 5.4, 회차 화면과 같은 step_buttons), 진행 순서대로."""
     b = board.step_buttons(has_slots)
@@ -2474,15 +2525,13 @@ def _render(request, board, shifts=None, steps=None, ask=None):
              for d in board.departments.select_related("input_group").order_by("order", "code")]
     formset, dept_forms = shifts or shift_forms(board)
     active = boards.active_defs(board)
-    assigned = {k for d in board.departments.all() for k in d.shift_keys()}
     steps = steps or StepsForm(instance=board)
     on = board.steps()
     return render(request, "duty/board_settings.html", {
         "board": board, "boards": _mine(request), "here": _here(board),
         "admin_rows": admin_rows, "admin_candidates": board_settings.admin_candidates(board), "depts": depts,
         "formset": formset, "dept_forms": dept_forms, "ask": ask,
-        # 켜진 근무조 가운데 어느 부서에도 없는 것(새로 더한 근무조): 부서에서 체크해야 입력 표에 칸이 생긴다(설계 7.2)
-        "unassigned": [x.name for x in shift_defs(active) if x.key not in assigned],
+        "unassigned": _unassigned(board),
         "steps_form": steps, "step_rows": [(steps[f"step_{s}"], s not in on) for s in Period.Status.values],
         "step_line": " → ".join(board.step_name(s) for s in on), "buttons": _buttons(board, bool(slot_defs(active))),
         "open_steps": steps.is_bound or any(m.extra_tags == "steps" for m in messages.get_messages(request)),
@@ -2531,12 +2580,12 @@ def index(request):
       {% elif how == "last" %}<small class="note">마지막 관리자</small>{% else %}<small class="note">빼기는 슈퍼유저에게</small>{% endif %}</li>{% endfor %}</ul>
   <form method="post" action="{{ here }}#admins" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_admin">
     <label>넣을 사람 <select name="user" required><option value="">고르세요</option>{% for u in admin_candidates %}<option value="{{ u.pk }}">{{ u.name }}({{ u.department.name|default:"부서 없음" }})</option>{% endfor %}</select></label>
-    <button>넣기</button>
+    <button class="outline">넣기</button>
   </form>
 </section>
 
 <section id="assignees" class="cfg">
-  <h4>입력 담당자 <small>취합 중인 회차에 자기 부서 출근표를 넣는 사람. 관리자는 담당자가 아니어도 모든 부서를 넣습니다</small></h4>
+  <h4>입력 담당자 <small>취합 중인 회차에 자기 부서 출근표를 넣는 사람. 관리자는 담당자가 아니어도 모든 부서의 출근표를 넣을 수 있습니다</small></h4>
   {% include "duty/_section_msgs.html" with sec="assignees" %}
   {% for it in depts %}<article class="dept">
     <header><strong>{{ it.dept.name }}</strong></header>
@@ -2548,7 +2597,7 @@ def index(request):
     {% else %}<p class="none">담당자 없음 — 근무표 관리자만 입력합니다</p>{% endif %}
     <form method="post" action="{{ here }}#assignees" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_assignee"><input type="hidden" name="dept" value="{{ it.dept.pk }}">
       <label>넣을 사람 <select name="user" required><option value="">고르세요</option>{% for u in it.candidates %}<option value="{{ u.pk }}">{{ u.name }}({{ u.department.name }})</option>{% endfor %}</select></label>
-      <button>넣기</button>
+      <button class="outline">넣기</button>
     </form>
   </article>{% endfor %}
 </section>
@@ -2559,7 +2608,6 @@ def index(request):
     저장한 줄은 지우거나 키를 바꿀 수 없으니 '사용'을 끄고 새 줄을 더합니다. 근무조 1~4 는 이름일 뿐이고 이른·늦은 조는 시작 시각으로 정합니다.
     <strong>새 근무조를 더하면 저장한 뒤에야 아래 부서에 그 체크박스가 생기므로, 체크하고 한 번 더 저장합니다.</strong></p>
   <form method="post" action="{{ here }}#shifts" class="shifts">{% csrf_token %}<input type="hidden" name="do" value="shifts">
-    {% if ask %}<input type="hidden" name="confirm" value="{{ ask }}">{% endif %}
     {{ formset.management_form }}
     {% for e in formset.non_form_errors %}<p class="err">{{ e }}</p>{% endfor %}
     <div class="cards">{% for f in formset %}<fieldset class="card">
@@ -2586,7 +2634,8 @@ def index(request):
       </div>
       <small>점심 시각은 점심당번 알림·캘린더에 씁니다. 비우면 점심당번이 시각 기준 알림·캘린더에서 빠집니다.</small>
     </fieldset>{% endfor %}</div>
-    <button class="wide">{% if ask %}그래도 저장{% elif unassigned %}부서 저장{% else %}저장{% endif %}</button>
+    {# 확인 값은 이 버튼에만: 위 [저장]으로는 확인을 건너뛰지 못한다(설계 6.2) #}
+    <button class="wide"{% if ask %} name="confirm" value="{{ ask }}"{% endif %}>{% if ask %}그래도 저장{% elif unassigned %}부서 저장{% else %}저장{% endif %}</button>
   </form>
 </section>
 
@@ -2601,7 +2650,7 @@ def index(request):
     <label class="check">{{ steps_form.use_close }} {{ steps_form.use_close.label }}</label>
     {% for fld, off in step_rows %}<div class="fld"><label for="{{ fld.id_for_label }}">{{ fld.label }}{% if off %} <small>(쓰지 않음 · 남은 회차·기록 표시용)</small>{% endif %}</label>{{ fld }}
       {% for e in fld.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>{% endfor %}
-    <button>저장</button>
+    <button class="outline">저장</button>
   </form>
   </details>
 </section>
@@ -2610,14 +2659,14 @@ def index(request):
   nav.jump a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid var(--duty-line); border-radius: .4rem; text-decoration: none; }
   section.cfg { margin: 0 0 2.5rem; scroll-margin-top: 1rem; }
   section.cfg > h4 { margin-bottom: .8rem; }
-  section.cfg > h4 small { display: block; margin-top: .2rem; font-weight: 400; font-size: .85rem; opacity: .75; }
+  section.cfg > h4 small { display: block; margin-top: .2rem; font-weight: 400; color: var(--pico-muted-color); }
   section.cfg article.dept { max-width: 40rem; }
   ul.members { padding: 0; margin: 0 0 1rem; max-width: 40rem; }
   ul.members li { list-style: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem;
     min-height: 44px; padding: .4rem 0; border-bottom: 1px solid var(--duty-line); }
   ul.members form, ul.members button { width: auto; margin: 0; }
   ul.members button { min-height: 44px; padding: .4rem 1rem; }
-  ul.members .note { opacity: .75; }
+  ul.members .note { color: var(--pico-muted-color); }
   p.none { margin: 0 0 1rem; font-weight: 700; }
   form.add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; max-width: 40rem; }
   form.add label { flex: 1 1 14rem; margin: 0; }
@@ -2630,9 +2679,10 @@ def index(request):
   fieldset.card { margin: 0; padding: .8rem 1rem; border: 1px solid var(--duty-line); border-radius: .4rem; min-width: 0; }
   fieldset.card legend { padding: 0 .3rem; font-weight: 700; }
   fieldset.card .fld { margin-bottom: .6rem; }
-  fieldset.card .fld > label:not(:has(input[type=checkbox])), fieldset.card .lbl { display: block; font-size: .85rem; margin-bottom: .2rem; }
+  fieldset.card .fld > label:not(:has(input[type=checkbox])), fieldset.card .lbl { display: block; margin-bottom: .2rem; }
   fieldset.card input:not([type=checkbox]), fieldset.card select { margin: 0; }
-  fieldset.card small { display: block; opacity: .75; }
+  fieldset.card small { display: block; color: var(--pico-muted-color); }
+  fieldset.card label:has(input[type=checkbox]) { display: flex; align-items: center; gap: .5rem; min-height: 44px; margin: 0; }  /* 체크 줄도 누를 자리 44px */
   fieldset.card .pair { display: flex; flex-wrap: wrap; gap: .5rem; }
   fieldset.card .pair .fld { flex: 1 1 8rem; }
   form.shifts > button, form.steps button { width: auto; min-height: 48px; padding: .5rem 1.5rem; }
@@ -2648,14 +2698,15 @@ def index(request):
 - [ ] **Step 5: 통과를 확인한다**
 
 Run: `.venv/bin/pytest -W error -q tests/test_views_board_settings.py` → `18 passed`
-Run: `.venv/bin/pytest -W error -q` → `1378 passed`
+Run: `.venv/bin/pytest -W error -q` → `1381 passed`
 
 - [ ] **Step 6: 브라우저로 본다**(`admin`)
 
 `/settings/?board=ops`:
 - 바로가기 넷. [근무 정의와 부서]: 1400px 에서 카드가 한 줄에 셋 이상(이른·가운데·늦은·점심당번·새 근무 정의), 390px·아주 크게에서 한 줄에 하나, 가로 넘침 없음. 저장한 줄의 "키"는 잠겨 있다. 경고 글이 칸 위에 있다.
-- 새 근무 정의 카드: 키 "근무조 4", 이름 "밤", 시작 13:00, 끝 22:00 → 카드 아래 [저장] → `#shifts` 로 돌아와 "✓ 근무 정의와 부서를 저장했습니다." 와 "⚠ 아직 부서에 배정되지 않은 근무조: 밤. …", 부서 아래 큰 [부서 저장]. 운영 덩어리에 "밤 13:00~22:00" 을 체크하고 [부서 저장] → 경고와 [부서 저장]이 사라지고 [저장].
-- 운영 덩어리에서 "늦은" 을 끄고 [저장] → (지난 2주가 배포됨이고 이번 2주에 행이 없으면) 바로 저장된다. 이번 2주(입력 중)에 늦은 조 행을 [표 입력]으로 하나 넣은 뒤 다시 하면 "운영 부서에서 '늦은'을 빼면 배포 전 회차(이번 2주)의 그 근무조 출근표 1행이 …" 와 [그래도 저장](보낸 값 그대로). 누르면 저장.
+- 새 근무 정의 카드: 키 "근무조 4", 이름 "밤", 시작 13:00, 끝 22:00 → 카드 아래 [저장] → `#shifts` 로 돌아와 "✓ 근무 정의와 부서를 저장했습니다. 아래 부서에서 새 근무조를 체크하고 [부서 저장]을 한 번 더 누르세요." 와 "⚠ 아직 부서에 배정되지 않은 근무조: 밤. …", 부서 아래 큰 [부서 저장]. 운영 덩어리에 "밤 13:00~22:00" 을 체크하고 [부서 저장] → 경고와 [부서 저장]이 사라지고 [저장].
+- 운영 덩어리에서 "늦은" 을 끄고 [저장] → (지난 2주가 배포됨이고 이번 2주에 행이 없으면) 바로 저장된다. 이번 2주(입력 중)에 늦은 조 행을 [표 입력]으로 하나 넣은 뒤 다시 하면 "운영 부서에서 '늦은'을 빼면 배포 전 회차(이번 2주)의 그 근무조 출근표 1행이 …" 와 [그래도 저장](보낸 값 그대로). 누르면 저장(위 테두리 [저장]을 누르면 다시 묻는다).
+- 390px·아주 크게에서 부서 출근조·자격 체크 줄이 한 줄씩 44px 이상이다. 진한 버튼은 맨 아래 큰 버튼 하나다.
 - 점심 시작만 넣고 [저장] → "저장하지 않았습니다. 빨간 글씨로 표시한 칸을 고쳐 주세요." 와 덩어리 안 빨간 글.
 - [회차 단계]: 접혀 있다("회차 단계 — 근무표를 처음 만들 때 정하는 값"). 펼치면 "저장된 단계: 입력 중 → 확정 → 배포됨", "버튼: [확정] [확정 취소] [배포…]", 끈 단계 이름 옆 "(쓰지 않음 · 남은 회차·기록 표시용)". [저장] → 확인창 "진행 중인 회차의 단계 이름과 버튼이 바로 바뀝니다. 계속할까요?" → 취소하면 그대로. 생성됨 이름을 "됨" 으로 [저장]·확인 → 펼친 채 "버튼 이름이 비거나 다른 버튼과 같아집니다: []".
 - `/settings/`(IT): 카드 15+1, 부서 넷, 버튼 미리보기 "[취합 열기] [취합 마감] [장중관제 생성] [재생성] [배포…]".
@@ -2794,10 +2845,10 @@ index 90a8955..4d20c4e 100644
      labels = dict(BoardShift._meta.get_field("key").choices)
      assert labels["dawn"] == "근무조 1" and labels["night"] == "근무조 4"
 diff --git a/tests/test_views_board_settings.py b/tests/test_views_board_settings.py
-index 20f35a1..05e094a 100644
+index a4f00a7..99c4f19 100644
 --- a/tests/test_views_board_settings.py
 +++ b/tests/test_views_board_settings.py
-@@ -238,3 +238,10 @@ def test_bad_step_names_redraw(ops_client, ops_board):
+@@ -243,3 +243,10 @@ def test_bad_step_names_redraw(ops_client, ops_board):
      body = r.content.decode()
      assert r.status_code == 200 and "<details open>" in body and "버튼 이름이 비거나 다른 버튼과 같아집니다: []" in body
      assert "저장된 단계: <strong>입력 중 → 확정 → 배포됨</strong>" in body  # 미리보기는 저장된 값
@@ -3057,7 +3108,7 @@ class Migration(migrations.Migration):
 - [ ] **Step 6: 통과를 확인한다**
 
 Run: `git grep -n -E "GroupKeeper|kept_groups|group_service|/groups/|groups\.html" -- duty tests tools ':!duty/migrations'` → 아무것도 안 나온다.
-Run: `.venv/bin/pytest -W error -q` → `1370 passed`(지운 `test_groups.py` 9개·`test_groupkeeper_unique`, 더한 마이그레이션 테스트·메뉴 테스트)
+Run: `.venv/bin/pytest -W error -q` → `1373 passed`(지운 `test_groups.py` 9개·`test_groupkeeper_unique`, 더한 마이그레이션 테스트·메뉴 테스트)
 Run: `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'"
 Run(마이그레이션 왕복, 새 임시 DB):
 ```bash
@@ -3252,12 +3303,12 @@ edit(O,"| 코드·회차 단계, 부서의 근무표·코드 | — | 저장 뒤 
 edit(O,"| 관리자 교체 | 사용자 \"그룹\" 칸 또는 메뉴 [그룹] | 그날부터 새 관리자가 회차·메모·지난 날짜 수정을 한다 |",
 "| 관리자 교체 | [근무표 설정] → 관리자(넣기, 나 자신·퇴사자 빼기) 또는 사용자 \"그룹\" 칸(재직 중인 다른 관리자 빼기) | 그날부터 새 관리자가 회차·메모·지난 날짜 수정·설정을 한다. 재직 관리자가 하나도 남지 않게는 어디서도 뺄 수 없다(새 관리자를 먼저 넣는다) |")
 edit(O,"- nginx 를 켜 둔 서버는 이 묶음을 마친 뒤",
-"""- **근무표 통합 3단계로 올릴 때 (한 번, 되돌리기는 업그레이드 전 백업 복원으로만)**: `migrate` 가 0024 를 적용한다(그룹 관리자 표 삭제). 메뉴 [그룹]이 사라지고 근무표 관리자에게 [근무표 설정]이 생긴다(관리자·입력 담당자·근무 정의와 부서 출근조·점심 시각·회차 단계). 관리 화면 "근무표"의 단계 칸이 저장된 근무표에서도 고쳐진다. 관리 화면 사용자 편집·지우기가 근무표마다 마지막 재직 관리자를 빼지 못하게 막는다. 새 입력 그룹은 첫 입력 담당자를 넣을 때만 생긴다(기존 그룹은 그대로). IT 회차 화면·알림은 그대로다.
+"""- **근무표 통합 3단계로 올릴 때 (한 번, 되돌리기는 업그레이드 전 백업 복원으로만)**: 2단계를 아직 안 올렸다면(한 번에 함께 올리면) 위 2단계 확인(IT 에 취합 중·마감·생성됨 회차 없음)과 공지를 먼저 지킨다. `migrate` 가 0024 를 적용한다(그룹 관리자 표 삭제). 메뉴 [그룹]이 사라지고 근무표 관리자에게 [근무표 설정]이 생긴다(관리자·입력 담당자·근무 정의와 부서 출근조·점심 시각·회차 단계). 관리 화면 "근무표"의 단계 칸이 저장된 근무표에서도 고쳐진다. 관리 화면 사용자 편집·지우기가 근무표마다 마지막 재직 관리자를 빼지 못하게 막는다. 새 입력 그룹은 첫 입력 담당자를 넣을 때만 생긴다(기존 그룹은 그대로). IT 회차 화면·알림은 그대로다.
   - 업그레이드 전 확인 ①(읽기 전용, **올리기 전에 해결**): 근무표별 재직 관리자 수. 0 인 근무표가 있으면 올리기 전에 관리 화면 사용자 편집의 "그룹" 칸으로 그 근무표 관리 그룹에 재직자를 넣는다(3단계부터는 재직 관리자 0명인 근무표를 앱에서 아무도 고칠 수 없다. 관리 화면은 빼는 쪽만 막으므로 넣기는 된다). `코드|재직 관리자 수`, 모든 줄이 1 이상이어야 한다.
     `sudo -u duty sqlite3 -readonly data/db.sqlite3 "SELECT b.code, (SELECT COUNT(*) FROM duty_user_groups ug JOIN duty_user u ON u.id = ug.user_id WHERE ug.group_id = b.admin_group_id AND u.is_active = 1) AS active_admins FROM duty_board b ORDER BY 1;"`
   - 업그레이드 전 확인 ②(내보내 둘 것, 참고용): 그룹 관리자 **전부**(슈퍼유저, 근무표·부서에 걸리지 않은 그룹 포함)를 `아이디,그룹 이름` CSV 로 서버 파일에 남긴다(아이디·그룹 이름만이라 실명은 없다. `data/` 안이라 백업·권한 규칙을 따른다). 0024 를 거꾸로 돌려도 빈 표만 돌아오고, 이 파일은 복원 도구가 아니라 "누가 그룹 관리자였는지" 사람이 보는 기록이다. 그중 근무표 관리자가 아닌 사람이 계속 멤버를 고쳐야 하면, 업그레이드 뒤 그 근무표 관리자가 [근무표 설정]에서 관리자로 넣을지 정한다(자동으로 넣지 않는다: 관리자는 회차·배포까지 할 수 있어 권한이 넓어진다).
     `sudo -u duty sqlite3 -readonly -csv data/db.sqlite3 "SELECT u.username, g.name FROM duty_groupkeeper k JOIN auth_group g ON g.id = k.group_id JOIN duty_user u ON u.id = k.user_id ORDER BY 2, 1;" | sudo -u duty tee data/groupkeepers-before-phase3.csv`
-  - 되돌리기는 위 "롤백"(코드 되돌리기 + 업그레이드 전 백업 `restore`)만 지원한다(그룹 관리자도 그대로 돌아온다). `migrate` 거꾸로(`migrate duty 0023`)는 빈 그룹 관리자 표를 만들 뿐이라 쓰지 않는다. 업그레이드 뒤 [근무표 설정]에서 단계·근무 정의를 고쳤으면 백업 복원으로 그 변경도 사라진다.
+  - 되돌리기는 위 "롤백"(코드 되돌리기 + 업그레이드 전 백업 `restore`)만 지원한다(그룹 관리자도 그대로 돌아온다). `migrate` 거꾸로(`migrate duty 0023`)는 빈 그룹 관리자 표를 만들 뿐이라 쓰지 않는다. 복원하면 업그레이드 뒤의 모든 변경(출근표·근무 변경·배포·메모·알림 연결·[근무표 설정] 변경)이 사라진다. 문제가 보이면 되도록 그날 되돌린다.
   - [근무표 설정]에서 누가 무엇을 바꿨는지: 관리 화면에서 그 사람·근무표 편집 페이지 오른쪽 위 [기록](관리 화면 첫 화면의 "최근 작업"은 로그인한 슈퍼유저 자신의 작업만 보여 거기서는 안 보인다). 웹 로그에도 `board <코드>: <동작> <대상> by <아이디>` 줄로 남는다(14일).
   - 공지(지금 쓰는 메신저로). 알릴 사람: 근무표 관리자 전원, 그룹 관리자였던 사람(확인 ② 목록). "[그룹] 메뉴가 [근무표 설정]으로 바뀌었습니다. 근무표 관리자는 여기서 관리자·입력 담당자·근무 정의·부서 출근조와 점심 시각을 직접 고칩니다. 그룹 관리자였지만 근무표 관리자가 아닌 분은 이제 그 근무표 관리자에게 부탁하세요."
 - nginx 를 켜 둔 서버는 이 묶음을 마친 뒤""")
@@ -3287,7 +3338,7 @@ Run: `git grep -n -E "\[그룹\]|그룹 관리자|GroupKeeper|legacy_admin_entry
 
 - [ ] **Step 6: 전체를 확인한다**
 
-Run: `.venv/bin/pytest -W error -q` → `1371 passed`
+Run: `.venv/bin/pytest -W error -q` → `1374 passed`
 Run: `makemigrations duty --check --dry-run` → "No changes detected in app 'duty'"
 Run(업그레이드 확인 ①②의 열 이름, 임시 DB — 실제 운영 DB 가 아니다):
 ```bash
