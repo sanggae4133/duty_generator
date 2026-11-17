@@ -255,6 +255,7 @@ def _render(request, board, shifts=None, steps=None, ask=None, add=None, edit=No
     return render(request, "duty/board_settings.html", {
         "board": board, "boards": _mine(request), "here": _here(board),
         "people": [r for r in rows if r["u"].is_active], "departed": [r for r in rows if not r["u"].is_active],
+        "can_issue": any(r["u"].is_active and not r["locked"] and r["state"] == "발급 전" for r in rows),
         "has_types": prefs.has_types(active), "types": [STAFF, DEVELOPER],
         "people_depts": list(board.departments.order_by("order", "code")),
         "add": add or {"username": board_settings.next_username(board)}, "issued": issued,

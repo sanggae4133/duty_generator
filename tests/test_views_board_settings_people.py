@@ -247,3 +247,30 @@ def test_login_username_not_capitalized(client, db):
     """새 아이디는 소문자라 휴대폰 키보드가 첫 글자를 대문자로 바꾸지 않게."""
     body = client.get("/login/").content.decode()
     assert 'name="username"' in body and 'autocapitalize="none" autocorrect="off" spellcheck="false"' in body
+
+
+# ── 사람 칸 다듬기: 발급 전이 없으면 일괄 버튼 없음, 발급 전 줄 요약, 다시 재직도 꺼짐, 빈 표 칸 수 ──
+
+def test_bulk_issue_only_when_someone_unissued(ops_client, ops_board):
+    c = _in_use("가상세찬", "ops03")
+    body = ops_client.get(OPS).content.decode()
+    assert "선택한 사람 계정 발급" not in body and "<summary>고치기 · 비밀번호 · 퇴사</summary>" in _row(body, c)
+    a = _ops_member("가상하나", "ops01")
+    body = ops_client.get(OPS).content.decode()
+    assert "선택한 사람 계정 발급" in body and "<summary>고치기 · 퇴사</summary>" in _row(body, a)
+
+
+def test_rejoin_button_turns_off(ops_client, ops_board):
+    _ops_member("가상하나", "ops01", active=False)
+    body = ops_client.get(OPS).content.decode()
+    departed = body[body.index('<details id="departed"'):]
+    assert f'<form method="post" action="/settings/?board=ops#people" onsubmit="{OFF}">' in departed
+
+
+def test_empty_people_colspan_matches_columns(ops_client, ops_board):
+    assert '<td colspan="6">아직 사람이 없습니다.' in ops_client.get(OPS).content.decode()  # 구분 열 없음
+
+
+def test_empty_people_colspan_with_types(admin_client_ok, depts):
+    body = admin_client_ok.get(URL).content.decode()  # IT: 구분 열 있음, 부서는 있고 사람은 없음
+    assert "<th>구분</th>" in body and '<td colspan="7">아직 사람이 없습니다.' in body
