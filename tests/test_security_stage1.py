@@ -132,3 +132,24 @@ def test_admin_site_needs_staff_too(client, db):
     client.force_login(su)
     r = client.get(reverse("admin:duty_user_changelist"))
     assert r.status_code == 302 and "login" in r.url
+
+
+def test_prod_static_files_are_hashed_compressed_and_cached_long(tmp_path):
+    """Funnel 은 새 연결·전송이 느리다(2026-11-19 측정): 운영에서는 정적 파일 이름에 해시를 붙여 브라우저가 한 번 받으면
+    다시 묻지 않게(whitenoise 가 해시 붙은 파일에 1년 이상 immutable) 하고, 미리 압축(.gz)해 둔다."""
+    root = tmp_path / "static"
+    code = (
+        "import config.settings as s; s.STATIC_ROOT = r'%s'\n"
+        "import django; django.setup()\n"
+        "from django.core.management import call_command; call_command('collectstatic', '--noinput', verbosity=0)\n"
+        "from django.contrib.staticfiles.storage import staticfiles_storage as st\n"
+        "u = st.url('vendor/pico.min.css'); print(type(st._wrapped).__name__, u)\n" % root)
+    env = {**os.environ, "DUTY_ENV_FILE": "", "DUTY_DEBUG": "0", "DUTY_SECRET_KEY": "x" * 50,
+           "DUTY_DATA_DIR": str(tmp_path), "DJANGO_SETTINGS_MODULE": "config.settings"}
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True,
+                         cwd=os.path.dirname(os.path.dirname(__file__)))
+    backend, url = out.stdout.strip().splitlines()[-1].split()
+    assert backend == "CompressedManifestStaticFilesStorage"
+    assert url.startswith("/static/vendor/pico.") and url != "/static/vendor/pico.min.css"  # 해시가 붙는다
+    name = url.removeprefix("/static/")
+    assert (root / name).exists() and (root / (name + ".gz")).exists()

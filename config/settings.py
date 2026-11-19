@@ -138,6 +138,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+if not DEBUG:
+    # 운영: 정적 파일 이름에 해시를 붙여(whitenoise 가 그 파일에 1년 이상 immutable 캐시) 브라우저가 한 번 받으면 다시 묻지 않고,
+    # 미리 압축(.gz)해 둔다. Funnel 은 새 연결·전송이 느려서(2026-11-19 측정 TLS 약 5초, 초당 20~40KB) 요청 수와 크기를 줄인다.
+    # 업그레이드 때 collectstatic 이 해시 목록(staticfiles.json)을 만든다 — 빠뜨리면 화면이 500 이다(업그레이드 절차에 있다)
+    STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+                "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "duty.User"
 
