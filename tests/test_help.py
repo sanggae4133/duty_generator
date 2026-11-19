@@ -220,12 +220,13 @@ def test_manager_text_explains_fill(client, people, videos):
 def test_settings_text_help_for_board_admins(client, people, videos):
     """[근무표 설정] 글 도움말(근무표 통합 3단계): 관리자에게만, 단계 줄 없이."""
     client.force_login(people["manager"])
-    assert "근무표 설정(관리자·입력 담당자·근무 정의·단계)" not in client.get("/help/").content.decode()
+    assert "근무표 설정(사람·관리자·입력 담당자·근무 정의·단계)" not in client.get("/help/").content.decode()
     client.force_login(people["admin"])
     body = client.get("/help/").content.decode()
-    i = body.index("근무표 설정(관리자·입력 담당자·근무 정의·단계)")
+    i = body.index("근무표 설정(사람·관리자·입력 담당자·근무 정의·단계)")
     assert body.index("회차 운영(단계·출근표·생성·배포)") < i
     part = body[i:]
-    for word in ("[근무표 설정]", "나 자신과 퇴사한 관리자", "[부서 저장]", "[그래도 저장]", "회차 단계", "슈퍼유저"):
+    for word in ("[근무표 설정]", "나 자신과 퇴사한 관리자", "[부서 저장]", "[그래도 저장]", "회차 단계", "슈퍼유저",
+                 "[계정 발급]", "1:1로만", "띄어쓰기 없이", "[비밀번호 초기화]", "[다시 재직]", "관리자 계정"):
         assert word in part, word
     assert "IT 당번표: 작성 중" not in part  # 단계 줄은 '회차 운영' 글에만

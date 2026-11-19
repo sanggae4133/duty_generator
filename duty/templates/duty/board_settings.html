@@ -3,7 +3,71 @@
 {% block content %}
 <h3>근무표 설정 · {{ board.name }}</h3>
 {% if boards|length > 1 %}<p class="seg" role="group" aria-label="고칠 근무표">{% for b in boards %}<a href="{% url 'board_settings' %}?board={{ b.code }}"{% if b.pk == board.pk %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</p>{% endif %}
-<nav class="jump" aria-label="칸 바로가기"><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a><a href="#shifts">근무 정의와 부서</a><a href="#steps">회차 단계</a></nav>
+<nav class="jump" aria-label="칸 바로가기"><a href="#people">사람</a><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a><a href="#shifts">근무 정의와 부서</a><a href="#steps">회차 단계</a></nav>
+
+<section id="people" class="cfg">
+  <h4>사람 <small>이 근무표 부서 사람과 로그인 계정. 줄마다 [고치기]를 펼쳐 이름·구분을 고치고, 비밀번호 초기화·퇴사도 그 안에서 합니다</small></h4>
+  {% include "duty/_section_msgs.html" with sec="people" %}
+  {% if issued %}<div class="pwbox" role="region" aria-labelledby="pwbox-title">{# alert 가 아니다: 스크린 리더가 비밀번호를 소리 내어 읽지 않게 #}
+    <p id="pwbox-title"><strong>띄어쓰기 없이 입력합니다. 사람마다 1:1로만 전달하세요. 이 상자를 닫거나 다른 버튼을 누르면 다시 볼 수 없습니다.
+      새로고침하지 마세요(새 비밀번호가 다시 만들어지고 앞 비밀번호는 쓸 수 없게 됩니다). 적은 뒤에 다음 사람을 발급하세요(여럿이면 체크해서 한 번에).</strong></p>
+    <ul>{% for u, pw in issued %}<li>{{ u.name }}({{ u.username }}) <code class="pw">{{ pw }}</code></li>{% endfor %}</ul>
+    <a href="{{ here }}#people" role="button" class="outline">닫기</a>
+  </div>{% endif %}
+  {# 체크박스는 표 안(줄마다 다른 폼이 있어 겹칠 수 없다)에서 form 속성으로 이 빈 폼에 묶는다 #}
+  <form id="issue-many" method="post" action="{{ here }}#people" onsubmit="if (event.submitter) event.submitter.disabled = true">{% csrf_token %}<input type="hidden" name="do" value="issue"></form>
+  <table class="people">
+    <thead><tr><th>발급</th><th>이름</th><th>아이디</th><th>부서</th>{% if has_types %}<th>구분</th>{% endif %}<th>계정</th><th>동작</th></tr></thead>
+    <tbody>{% for r in people %}<tr id="p-{{ r.u.pk }}">
+      <td class="pick">{% if not r.locked and r.state == "발급 전" %}<label><input type="checkbox" name="users" value="{{ r.u.pk }}" form="issue-many" aria-label="{{ r.u.name }} 계정 발급 선택"></label>{% endif %}</td>
+      <td class="who"><strong>{{ r.u.name }}</strong></td>
+      <td class="who">{{ r.u.username }}</td>
+      <td data-label="부서">{{ r.u.department.name }}</td>
+      {% if has_types %}<td data-label="구분">{{ r.u.type }}</td>{% endif %}
+      <td data-label="계정">{{ r.state }}</td>
+      <td class="act">{% if r.u.pk == user.pk %}<small class="note">내 비밀번호는 메뉴 [비밀번호]에서</small>{% elif r.locked %}<small class="note">관리자 계정은 슈퍼유저에게</small>{% else %}
+        {% if r.state == "발급 전" %}<form method="post" action="{{ here }}#people" onsubmit="if (event.submitter) event.submitter.disabled = true">{% csrf_token %}
+          <input type="hidden" name="do" value="issue"><input type="hidden" name="users" value="{{ r.u.pk }}"><button class="outline">계정 발급</button></form>{% endif %}
+        <details{% if r.open %} open{% endif %}><summary>{% if r.state == "발급 전" %}고치기 · 퇴사{% else %}고치기 · 비밀번호 · 퇴사{% endif %}</summary>
+          {% if r.error %}<p class="err">{{ r.error }}</p>{% endif %}
+          <form method="post" action="{{ here }}#p-{{ r.u.pk }}" class="add labeled">{% csrf_token %}
+            <input type="hidden" name="do" value="set_person"><input type="hidden" name="user" value="{{ r.u.pk }}">
+            <label>이름 <input name="name" value="{{ r.name }}" required maxlength="32"></label>
+            {% if has_types %}<label>구분 <select name="type" required>{% for t in types %}<option{% if t == r.type %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>{% endif %}
+            <button class="outline">저장</button>
+          </form>
+          <section class="danger">
+            {% if r.state != "발급 전" %}<form method="post" action="{{ here }}#people" onsubmit="if (!confirm('{{ r.u.name|escapejs }}({{ r.u.username|escapejs }})의 비밀번호를 새로 만들까요? 로그인 중인 기기에서 로그아웃되고 로그인 잠금도 풀립니다. 캘린더·텔레그램·푸시 연결은 그대로입니다.')) return false; if (event.submitter) event.submitter.disabled = true">{% csrf_token %}
+              <input type="hidden" name="do" value="issue"><input type="hidden" name="users" value="{{ r.u.pk }}"><button class="danger-btn">비밀번호 초기화</button></form>{% endif %}
+            {% if r.leave %}<div class="msg warning" role="alert"><ul>{% for url, text in r.leave.cells %}<li>{{ text }}</li>{% endfor %}</ul>{{ r.leave.msg }}</div>{% endif %}
+            <form method="post" action="{{ here }}#p-{{ r.u.pk }}"{% if not r.leave %} onsubmit="return confirm('{{ r.u.name|escapejs }}({{ r.u.username|escapejs }})을(를) 퇴사 처리할까요? 로그인할 수 없고 캘린더·텔레그램·푸시 연결이 모두 끊깁니다.')"{% endif %}>{% csrf_token %}
+              <input type="hidden" name="do" value="leave"><input type="hidden" name="user" value="{{ r.u.pk }}">
+              {% if r.leave %}<button class="danger-btn" name="confirm" value="{{ r.leave.n }}">그래도 퇴사 처리</button>{% else %}<button class="danger-btn">퇴사</button>{% endif %}
+            </form>
+          </section>
+        </details>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="{% if has_types %}7{% else %}6{% endif %}">아직 사람이 없습니다. 아래 '사람 추가'에서 넣습니다.</td></tr>{% endfor %}</tbody>
+  </table>
+  {% if can_issue %}<p class="bulk"><button form="issue-many" class="outline">선택한 사람 계정 발급</button> <small class="note">발급 전인 사람을 체크해 한 번에 받습니다. 이미 발급한 사람은 [고치기 · 비밀번호 · 퇴사]의 [비밀번호 초기화]로</small></p>{% endif %}
+  {% if departed %}<details id="departed" class="departed"><summary>퇴사한 사람 {{ departed|length }}명</summary>
+    <ul class="members">{% for r in departed %}<li><span>{{ r.u.name }} <small>· {{ r.u.username }} · {{ r.u.department.name }}</small></span>
+      {% if r.locked %}<small class="note">관리자 계정은 슈퍼유저에게</small>
+      {% else %}<form method="post" action="{{ here }}#people" onsubmit="if (event.submitter) event.submitter.disabled = true">{% csrf_token %}<input type="hidden" name="do" value="rejoin"><input type="hidden" name="user" value="{{ r.u.pk }}">
+        <button class="outline secondary">다시 재직</button></form>{% endif %}</li>{% endfor %}</ul>
+  </details>{% endif %}
+  <h5 id="add-person">사람 추가</h5>
+  {% if add.error %}<p class="err">{{ add.error }}</p>{% endif %}
+  <form method="post" action="{{ here }}#add-person" class="add labeled">{% csrf_token %}<input type="hidden" name="do" value="add_person">
+    <label>이름 <input name="name" value="{{ add.name|default:'' }}" required maxlength="32"></label>
+    <label>아이디 <input name="username" value="{{ add.username }}" required maxlength="30" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" aria-describedby="uid-help"></label>
+    {% if people_depts|length == 1 %}<input type="hidden" name="dept" value="{{ people_depts.0.pk }}">
+    {% else %}<label>부서 <select name="dept" required><option value="">고르세요</option>{% for d in people_depts %}<option value="{{ d.pk }}"{% if d.pk == add.dept %} selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></label>{% endif %}
+    {% if has_types %}<label>구분 <select name="type" required><option value="">고르세요</option>{% for t in types %}<option{% if t == add.type %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>{% endif %}
+    <button class="outline">사람 추가</button>
+  </form>
+  <p class="note" id="uid-help">아이디에는 실명을 쓰지 않습니다(영문 소문자·숫자·_). 다음 번호를 미리 넣어 두었고 고칠 수 있습니다.<br>
+    부서·근무표를 옮기는 인사이동은 슈퍼유저에게 부탁하세요.</p>
+</section>
 
 <section id="admins" class="cfg">
   <h4>관리자 <small>회차·생성·배포·메모·통계·이력과 이 설정을 하는 사람</small></h4>
@@ -130,5 +194,34 @@
   form.steps { max-width: 30rem; }
   form.steps label.check { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
   .btn-name { white-space: nowrap; font-weight: 700; }
+  table.people { max-width: 64rem; }
+  table.people td, table.people th { vertical-align: top; }
+  table.people th, table.people td:not(.act) { white-space: nowrap; }  /* [고치기]를 펼쳐도 짧은 열은 글자 단위로 꺾이지 않게 */
+  table.people td.act form, table.people td.act button { width: auto; margin: 0 0 .4rem; }
+  table.people td.act details { margin: 0; }
+  table.people td.act summary { min-height: 44px; display: flex; align-items: center; }
+  table.people button { min-height: 44px; padding: .4rem 1rem; }
+  table.people .note, p.note { color: var(--pico-muted-color); }
+  table.people section.danger { margin-top: .8rem; padding: .6rem; }
+  table.people .msg ul { margin: 0 0 .4rem; }
+  details.departed { max-width: 40rem; margin: 1rem 0 0; }
+  details.departed > summary { min-height: 44px; display: flex; align-items: center; }
+  table.people td.pick label { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin: 0; }
+  p.bulk button { width: auto; min-height: 44px; margin: 0 .5rem .4rem 0; }
+  .pwbox { max-width: 40rem; padding: 1rem; margin: 0 0 1.2rem; border: 3px solid var(--nxt-red); border-radius: .4rem; }
+  .pwbox ul { padding-left: 1.2rem; }
+  .pwbox li { margin: .6rem 0; font-size: 1.1rem; }
+  code.pw { display: inline-block; white-space: nowrap; font-size: 1.6rem; letter-spacing: .12em; padding: .2rem .5rem; font-variant-ligatures: none; }  /* 받아 적기 쉬운 고정폭 큰 글씨, 한 줄 */
+  .pwbox a[role=button] { min-height: 44px; }
+  h5#add-person { margin: 1.5rem 0 .6rem; scroll-margin-top: 1rem; }
+  /* 휴대폰: 줄을 카드처럼(체크·이름·아이디 한 줄, 나머지는 칸 이름을 앞에 붙여 한 줄씩, 설계 7.2) */
+  @media (max-width: 40rem) {
+    table.people thead { display: none; }
+    table.people, table.people tbody, table.people tr, table.people td { display: block; }
+    table.people tr { padding: .6rem 0; border-bottom: 1px solid var(--duty-line); }
+    table.people td { border: 0; padding: .2rem 0; white-space: normal; }
+    table.people td.pick, table.people td.who { display: inline-block; vertical-align: middle; margin-right: .5rem; }
+    table.people td[data-label]::before { content: attr(data-label) " · "; color: var(--pico-muted-color); }
+  }
 </style>
 {% endblock %}
