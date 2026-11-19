@@ -527,3 +527,15 @@ def test_member_without_department_cannot_edit(client, world, admin_user):
     assert "바꾸기</summary>" not in client.get("/day/2026-11-10/").content.decode()
     client.force_login(admin_user)
     assert "바꾸기</summary>" in client.get("/day/2026-11-10/").content.decode()
+
+
+def test_slot_popup_offers_keep_other_and_post_takes_both(client, world, make_member):
+    a, b = world  # 가=slot0
+    p = Period.objects.get()
+    DutyAssignment.objects.create(period=p, date=D, cell="slot1", member=b)
+    client.force_login(a)
+    popup = client.get(f"/cell/{D}/slot0/").content.decode()
+    assert 'name="keep_other"' in popup
+    assert 'name="keep_other"' not in client.get(f"/cell/{D}/normal/").content.decode()  # 근무조 칸에는 없다
+    client.post(f"/cell/{D}/slot0/", {"before": a.username, "after": b.username, "keep_other": "1"})
+    assert set(DutyAssignment.objects.filter(member=b).values_list("cell", flat=True)) == {"slot0", "slot1"}

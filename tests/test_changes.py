@@ -271,3 +271,29 @@ def test_owner_with_many_published_periods(make_member, it_board):
         changes._owner(it, ps[-1][1])
     sql = q.captured_queries[0]["sql"].upper()
     assert "EXISTS" in sql and "DISTINCT" not in sql
+
+
+def test_exchange_slot_keep_other_takes_both(world):
+    """관제 칸 From 이 휴가라 다른 관제 칸 사람이 두 칸을 다 맡는 경우: 맞바꾸지 않고 이 칸에도 넣는다."""
+    p, m = world  # 가=slot0, 라=slot1
+    r = changes.exchange(m["가"], boards.it_board(), D, "slot0", m["가"], m["라"], keep_other=True)
+    cells = lambda n: set(DutyAssignment.objects.filter(period=p, date=D, member=m[n]).values_list("cell", flat=True))
+    assert cells("라") == {"slot0", "slot1"} and cells("가") == set()
+    assert any("다른 관제 칸" in w for w in r)
+    log = ChangeLog.objects.get()  # 맞교환 기록 둘이 아니라 교체 기록 하나
+    assert (log.cell, log.before, log.after) == ("slot0", m["가"], m["라"])
+
+
+def test_exchange_slot_keep_other_works_with_two_other_slots(world):
+    p, m = world
+    DutyAssignment.objects.create(period=p, date=D, cell="slot2", member=m["라"])  # 라: slot1, slot2
+    changes.exchange(m["가"], boards.it_board(), D, "slot0", m["가"], m["라"], keep_other=True)
+    assert DutyAssignment.objects.filter(period=p, date=D, member=m["라"]).count() == 3
+
+
+def test_exchange_keep_other_ignored_for_shift_cells(world):
+    """근무조는 한 사람 하루 하나라 '둘 다 맡기'가 없다: 늘 맞교환."""
+    p, m = world  # 가=normal, 나=night
+    changes.exchange(m["가"], boards.it_board(), D, "normal", m["가"], m["나"], keep_other=True)
+    assert Commute.objects.get(period=p, date=D, member=m["가"]).shift == "night"
+    assert Commute.objects.get(period=p, date=D, member=m["나"]).shift == "normal"

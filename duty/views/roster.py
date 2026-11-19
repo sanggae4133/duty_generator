@@ -348,7 +348,8 @@ def cell(request, d, cell):
                 before, after = request.POST.get("before"), request.POST.get("after")
                 result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
                                           _member(None if after == "-" else after),
-                                          carry_lunch=request.POST.get("carry_lunch") == "1")
+                                          carry_lunch=request.POST.get("carry_lunch") == "1",
+                                          keep_other=request.POST.get("keep_other") == "1")
         except DutyError as e:
             messages.error(request, str(e))
         else:
