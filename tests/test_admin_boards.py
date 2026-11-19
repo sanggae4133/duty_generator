@@ -1,5 +1,5 @@
-"""관리 화면(슈퍼유저 전용): 근무표·근무 정의 편집과 설계 4.3 검증, 그룹 관리자 지정(3단계). 이름은 모두 가상."""
-from datetime import time
+"""관리 화면(슈퍼유저 전용): 근무표·근무 정의 편집과 설계 4.3 검증, 그룹은 이름만 보기. 이름은 모두 가상."""
+from datetime import date, time
 
 import pytest
 from django.contrib.auth.models import Group
@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from duty.admin import STEP_FIELDS, BoardForm, DepartmentForm
-from duty.models import Board, BoardShift, Department, GroupKeeper, User
+from duty.models import Board, BoardShift, Department, Period, User
 from tests.it_defs import OPS_STEPS
 
 ADD = reverse("admin:duty_board_add")
@@ -164,7 +164,7 @@ def test_change_page_locks_code_steps_keys_and_has_no_delete(su_client, ops):
     board, *_ = ops
     body = su_client.get(reverse("admin:duty_board_change", args=[board.pk])).content.decode()
     assert 'name="name"' in body and 'name="code"' not in body and 'name="input_mode"' not in body
-    assert "회차 단계" in body and 'name="use_close"' not in body and 'name="step_collecting"' not in body  # 1단계: 읽기 전용
+    assert "회차 단계" in body and 'name="use_close"' in body and 'name="step_collecting"' in body  # 3단계: 단계 칸을 고친다
     assert reverse("admin:auth_group_change", args=[board.admin_group_id]) in body  # 관리 그룹 링크(그룹 관리자 지정)
     assert 'name="shifts-0-active"' in body and 'name="shifts-0-DELETE"' not in body
     assert '<select name="shifts-0-key"' in body and "disabled" in body.split('name="shifts-0-key"')[1].split(">")[0]
@@ -271,29 +271,36 @@ def test_bad_button_error_field(it_board, data, field, label):
     assert f.errors[field] == [f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{label}]"]
 
 
-def test_saved_board_steps_are_read_only(su_client, ops):
-    """1단계: 저장된 근무표의 단계는 관리 화면에서 바꾸지 않는다(보낸 값은 무시, 설계 5.1). 3단계에서 연다."""
+def test_saved_board_steps_can_change(su_client, ops):
+    """3단계: 저장된 근무표의 단계도 관리 화면에서 고친다(설계 5.1). 버튼 글자 검사도 만들 때와 같다."""
     board, a, b = ops
-    data = change(board, [a, b]) | steps_form(board, use_draft="on", step_collecting="모으는 중")
-    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), data)
+    url = reverse("admin:duty_board_change", args=[board.pk])
+    r = su_client.post(url, change(board, [a, b]) | steps_form(board, use_draft="on", step_collecting="모으는 중"))
     assert r.status_code == 302, errors(r)
     board.refresh_from_db()
-    assert (board.use_draft, board.step_collecting) == (False, "입력 중")
+    assert (board.use_draft, board.step_collecting) == (True, "모으는 중")
+    r = su_client.post(url, change(board, [a, b]) | steps_form(board, step_generated="됨"))
+    assert r.status_code == 200 and "버튼 이름이 비거나 다른 버튼과 같아집니다: []" in r.content.decode()
 
 
-# ── 그룹 관리자 ──
+def test_change_warns_about_periods_in_turned_off_step(su_client, ops):
+    """끈 단계에 회차가 남아 있으면 저장 뒤 경고(설정 화면과 같은 글, board_settings.stranded)."""
+    board, a, b = ops
+    Period.objects.create(board=board, name="가상", start_date=date(2026, 11, 16), end_date=date(2026, 11, 16),
+                          status=Period.Status.DRAFT)
+    r = su_client.post(reverse("admin:duty_board_change", args=[board.pk]), change(board, [a, b]), follow=True)
+    assert "&#x27;작성 중&#x27; 단계에 회차 1개가 남아 있습니다. 회차 화면에서 다른 단계로 옮기세요." in r.content.decode()
 
-def test_group_page_hides_permissions_and_edits_keepers(su_client, it_board, admin_user, make_member):
+
+# ── 그룹: 이름·멤버 보기만(그룹 관리자 없음, 근무표 통합 3단계) ──
+
+def test_group_page_is_name_only(su_client, it_board, admin_user):
     group = it_board.admin_group
     html = su_client.get(reverse("admin:auth_group_change", args=[group.pk])).content.decode()
     assert 'name="name"' in html and 'name="permissions"' not in html and 'name="members"' not in html
-    keeper = make_member("가상관리", user=True)
-    r = su_client.post(reverse("admin:auth_group_change", args=[group.pk]), {
-        "name": group.name, "keepers-TOTAL_FORMS": "1", "keepers-INITIAL_FORMS": "0",
-        "keepers-0-group": group.pk, "keepers-0-user": keeper.pk,
-    })
-    assert r.status_code == 302, errors(r)
-    assert list(GroupKeeper.objects.values_list("group", "user")) == [(group.pk, keeper.pk)]
+    assert "keepers-TOTAL_FORMS" not in html and "그룹 관리자" not in html
+    html = su_client.get(reverse("admin:duty_board_change", args=[it_board.pk])).content.decode()
+    assert "관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺍니다." in html
 
 
 # ── 새 부서: 근무표의 근무조만 ──

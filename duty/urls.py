@@ -5,6 +5,7 @@ from django.urls import path, register_converter
 
 from .views import alarms as alarm_views
 from .views import auth as auth_views_local
+from .views import board_settings as board_settings_views
 from .views import calendar as calendar_views
 from .views import collect as collect_views
 from .views import help as help_views
@@ -48,7 +49,7 @@ urlpatterns = [
     path("periods/<int:pid>/publish/", manage_views.period_publish, name="period_publish"),
     path("stats/", manage_views.stats_view, name="stats"),
     path("changes/", manage_views.change_log, name="changes"),
-    path("groups/", manage_views.groups, name="groups"),
+    path("settings/", board_settings_views.index, name="board_settings"),
     path("alarms/", alarm_views.index, name="alarms"),
     path("alarms/telegram/", alarm_views.telegram_save, name="alarm_telegram"),
     path("alarms/telegram/link/", alarm_views.telegram_link, name="alarm_telegram_link"),

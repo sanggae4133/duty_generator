@@ -101,13 +101,15 @@ def test_saved_department_board_is_read_only(depts):
     assert form.save().board_id == depts["UI"].board_id  # 보낸 근무표는 무시된다(옮기기는 별도 기능)
 
 
-def test_new_department_input_group_name_clash(it_board):
-    """Department.save 가 만들 입력 그룹 이름이 이미 있으면 500 대신 칸 오류."""
+def test_new_department_input_group_name_clash(it_board, make_member):
+    """첫 담당자를 골라 만들 입력 그룹 이름이 이미 있으면 500 대신 칸 오류. 담당자가 없으면 그룹을 만들지 않아 통과."""
     Group.objects.create(name="품질 출근표 입력")
-    data = {"code": "QA", "name": "품질", "board": it_board.pk, "order": 9, "shifts": ["normal"], "managers": []}
+    data = {"code": "QA", "name": "품질", "board": it_board.pk, "order": 9, "shifts": ["normal"],
+            "managers": [make_member("가").pk]}
     form = DepartmentForm(data)
     assert not form.is_valid()
     assert "같은 이름의 그룹이 이미 있습니다: 품질 출근표 입력" in str(form.errors.get("name", ""))
+    assert DepartmentForm({**data, "managers": []}).is_valid()
 
 
 def test_rename_department_renames_input_group(su_client, depts):
@@ -147,13 +149,16 @@ def test_change_page_code_is_readonly(su_client, depts):
     assert Department.objects.count() == n and not Department.objects.filter(code="ZZ").exists()
 
 
-def test_direct_board_department_refuses_input_managers(it_board, make_member):
-    """직접 입력 근무표의 부서는 입력 그룹이 없다: 입력 담당자를 고르면 조용히 버리지 않고 칸 오류."""
+def test_first_manager_creates_input_group(su_client, it_board, make_member):
+    """마감을 끈 근무표의 부서도 담당자를 처음 고를 때 입력 그룹이 생긴다(근무표 통합 설계 5.3)."""
     ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
     BoardShift.objects.create(board=ops, key="normal", name="가운데", start="09:00", end="18:00")
     m = make_member("가", dept="UI")
-    data = {"code": "OPS", "name": "운영", "board": ops.pk, "order": 9, "shifts": ["normal"], "managers": [m.pk]}
-    form = DepartmentForm(data)
-    assert not form.is_valid()
-    assert "직접 입력 근무표의 부서는 입력 담당자가 없습니다" in str(form.errors.get("managers", ""))
-    assert DepartmentForm({**data, "managers": []}).is_valid()
+    data = {"code": "OPS", "name": "운영", "board": ops.pk, "order": 9, "shifts": ["normal"], "managers": []}
+    r = su_client.post(reverse("admin:duty_department_add"), data)
+    assert r.status_code == 302, r.content.decode()[:2000]
+    assert Department.objects.get(code="OPS").input_group_id is None  # 담당자 없이 만들면 그룹도 없다
+    r = su_client.post(reverse("admin:duty_department_change", args=["OPS"]), {**data, "managers": [m.pk]})
+    assert r.status_code == 302, r.content.decode()[:2000]
+    dept = Department.objects.get(code="OPS")
+    assert dept.input_group.name == "운영 출근표 입력" and list(dept.input_group.user_set.all()) == [m]

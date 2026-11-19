@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from duty.errors import DutyError
 from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, PeriodEvent, User
-from duty.services import boards, collect, periods, publish
+from duty.services import collect, periods, publish
 from duty.services.generate import run_generation
 from duty.shifts import Def, day_spans, gen_help, josa
 from tests.it_defs import IT_DEFS, OPS_STEPS
@@ -44,10 +44,6 @@ def test_default_names_are_status_labels():
 def test_ops_names_keep_turned_off_steps():
     b = Board(code="x", name="x", **OPS_STEPS)
     assert [b.step_name(s) for s in S.values] == ["작성 중", "입력 중", "마감", "확정", "배포됨"]
-
-
-def test_legacy_rule_is_close_off():
-    assert boards.legacy_admin_entry(Board(use_close=False)) and not boards.legacy_admin_entry(Board())
 
 
 @pytest.mark.parametrize("field", ["step_draft", "step_collecting", "step_closed", "step_generated", "step_published"])

@@ -6,7 +6,6 @@
 
 from datetime import date
 
-from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.utils import timezone
@@ -37,13 +36,6 @@ def is_admin(user) -> bool:
 def stats_boards(user):
     """통계를 볼 수 있는 근무표: 내가 관리하고 장중관제(slot*) 정의가 있는 근무표(설계 7절)."""
     return admin_boards(user).filter(shifts__key__startswith="slot").distinct()
-
-
-def kept_groups(user):
-    """내가 그룹 관리자(GroupKeeper)인 그룹들: [그룹] 화면에서 멤버를 넣고 뺀다(설계 7절)."""
-    if not user.is_authenticated:
-        return Group.objects.none()
-    return Group.objects.filter(keepers__user=user)
 
 
 def managed_departments(user):

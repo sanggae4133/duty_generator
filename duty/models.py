@@ -9,6 +9,7 @@ from django.db.models import F, Func, Q, Value
 from django.db.models.lookups import Exact
 
 from .csv_io import split_reason
+from .errors import DutyError
 from .shifts import (
     DEVELOPER, DUTY_KEYS, KEYS, LUNCH, REASONS, SHIFT_KEYS, STAFF, is_slot_cell, slot_index, weekdays,
 )
@@ -183,17 +184,6 @@ class BoardShift(models.Model):
         raise ValidationError("저장한 근무 정의는 지울 수 없습니다. '사용'을 끄세요.")
 
 
-class GroupKeeper(models.Model):
-    """그룹 관리자: 그 그룹에 멤버를 넣고 빼기만 한다."""
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="keepers", verbose_name="그룹")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="kept_groups",
-                             verbose_name="그룹 관리자")
-
-    class Meta:
-        verbose_name = verbose_name_plural = "그룹 관리자"
-        constraints = [models.UniqueConstraint(fields=["group", "user"], name="groupkeeper_once")]
-
-
 class Department(models.Model):
     code = models.CharField("코드", max_length=8, primary_key=True)
     name = models.CharField("이름", max_length=32, unique=True)
@@ -224,14 +214,23 @@ class Department(models.Model):
 
     @transaction.atomic
     def save(self, *args, **kwargs):
-        from .services.boards import legacy_admin_entry  # 순환 import 를 피해 여기서(3단계에서 이 갈래와 함께 지운다)
-        # 마감을 쓰는 근무표의 부서는 입력 그룹이 있어야 한다(픽스처·관리 화면·서비스 어느 길로 만들어도, 1단계 임시 기준)
-        if self.input_group_id is None and self.board_id is not None and not legacy_admin_entry(self.board):
-            self.input_group = Group.objects.create(name=self.input_group_name())
-        elif self.input_group_id and _renamed(self):  # 이름을 바꿀 때만 그룹 이름도
+        # 입력 그룹은 만들지 않는다: 첫 입력 담당자를 넣을 때 ensure_input_group 이 만든다(근무표 통합 설계 5.3)
+        if self.input_group_id and _renamed(self):  # 이름을 바꿀 때만 그룹 이름도
             Group.objects.filter(pk=self.input_group_id).update(name=self.input_group_name())
             self.input_group.name = self.input_group_name()
         super().save(*args, **kwargs)
+
+    @transaction.atomic
+    def ensure_input_group(self) -> Group:
+        """입력 그룹 "<부서> 출근표 입력"(없으면 만든다). 그룹이 없는 부서와 빈 그룹인 부서는 똑같이 '관리자만 입력'이라
+        첫 입력 담당자를 넣을 때만 부른다(board_settings.add_assignee, 관리 화면 부서 폼). 같은 이름의 그룹이 있으면 DutyError."""
+        if self.input_group_id is None:
+            name = self.input_group_name()
+            if Group.objects.filter(name=name).exists():
+                raise DutyError(f"같은 이름의 그룹이 이미 있습니다: {name}. 슈퍼유저에게 그 그룹 이름을 바꿔 달라고 하세요.")
+            self.input_group = Group.objects.create(name=name)
+            Department.objects.filter(pk=self.pk).update(input_group=self.input_group)  # 다른 칸은 건드리지 않는다
+        return self.input_group
 
     def shift_keys(self) -> list[str]:
         return [s for s in self.shifts.split(",") if s]

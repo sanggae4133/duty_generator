@@ -1,8 +1,9 @@
 from django import forms
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count
@@ -12,16 +13,14 @@ from django.utils.html import format_html, format_html_join
 from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
-from .models import AlarmSettings, Board, BoardShift, Department, GroupKeeper, Holiday, User
-from .services import alarm_settings, boards
-from .shifts import DEVELOPER, LUNCH, SHIFT_KEYS, STAFF, is_slot_cell, shift_defs
-
-# 근무조 키 선택지(관리 화면 표시 이름 "근무조 1"~"근무조 4", 설계 4.1)
-SHIFT_KEY_CHOICES = [(k, label) for k, label in BoardShift._meta.get_field("key").choices if k in SHIFT_KEYS]
+from .forms import SHIFT_KEY_CHOICES, STEP_FIELDS, BoardShiftForm, BoardShiftFormSet, StepsForm
+from .models import AlarmSettings, Board, BoardShift, Department, Holiday, User
+from .services import alarm_settings, board_settings, boards
+from .shifts import SHIFT_KEYS, shift_defs
 
 
 def _input_users(dept):
-    """부서 입력 그룹 멤버. 새 부서·직접 입력 근무표 부서(그룹 없음)는 빈 목록."""
+    """부서 입력 그룹 멤버. 입력 그룹이 없는 부서(새 부서, 담당자를 넣은 적 없는 부서)는 빈 목록."""
     return dept.input_group.user_set.all() if dept.input_group_id else User.objects.none()
 
 
@@ -69,14 +68,13 @@ class DepartmentForm(forms.ModelForm):
 
     def clean(self):
         c = super().clean()
-        board, name = c.get("board"), c.get("name")
-        # Department.save 가 만들거나 바꿀 입력 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
+        name = c.get("name")
+        # 입력 그룹은 첫 담당자를 고를 때 생기고(save_related → ensure_input_group), 부서 이름을 바꾸면 따라 바뀐다(설계 5.3).
+        # 그 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 이름 칸 오류로
         group = f"{name} 출근표 입력"
-        has_group = self.instance.input_group_id or (board and not boards.legacy_admin_entry(board))  # 1단계 임시 기준
-        if c.get("managers") and board and boards.legacy_admin_entry(board):
-            self.add_error("managers", "직접 입력 근무표의 부서는 입력 담당자가 없습니다. 근무표 관리자가 입력합니다.")
-        if (name and has_group and "name" in self.changed_data  # 이름을 바꿀 때만 그룹 이름이 바뀐다
-                and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists()):
+        makes = not self.instance.input_group_id and c.get("managers")
+        renames = self.instance.input_group_id and "name" in self.changed_data
+        if name and (makes or renames) and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists():
             self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
         return c
 
@@ -109,8 +107,11 @@ class DepartmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-        if form.instance.input_group_id:  # 직접 입력 근무표의 부서는 입력 그룹이 없다
-            form.instance.input_group.user_set.set(form.cleaned_data["managers"])
+        dept, picked = form.instance, form.cleaned_data["managers"]
+        if picked:  # 첫 담당자를 고를 때 입력 그룹을 만든다(이름 겹침은 clean 이 먼저 막았다)
+            dept.ensure_input_group()
+        if dept.input_group_id:
+            dept.input_group.user_set.set(picked)
 
 
 class UserAddForm(forms.ModelForm):
@@ -134,8 +135,27 @@ class UserAddForm(forms.ModelForm):
         return user
 
 
+def _no_admin_left(board) -> str:
+    return f"{board.name} 근무표에 재직 중인 관리자가 남지 않습니다. 먼저 다른 관리자를 넣으세요."
+
+
+class UserForm(UserChangeForm):
+    """재직 관리자 한 명 이상(근무표 통합 설계 7.4, [근무표 설정]과 같은 검사 boards.left_without_admin):
+    마지막 재직 관리자의 관리 그룹을 빼거나 재직을 끄면 저장하지 않고 칸 오류."""
+
+    def clean(self):
+        c = super().clean()
+        if self.instance.pk and "groups" in c and "is_active" in c:
+            keep = {g.pk for g in c["groups"]} if c["is_active"] else set()
+            for board in boards.left_without_admin([self.instance]):  # 저장 전 DB 상태로 판단한다
+                if board.admin_group_id not in keep:
+                    self.add_error("groups" if c["is_active"] else "is_active", _no_admin_left(board))
+        return c
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
+    form = UserForm
     add_form = UserAddForm
     add_form_template = None  # 기본 안내("아이디와 비밀번호를 먼저…")가 맞지 않아 일반 추가 화면을 쓴다
     add_fieldsets = ((None, {"fields": ("username", "name", "department", "part", "type")}),)
@@ -171,6 +191,12 @@ class UserAdmin(DjangoUserAdmin):
     def login_id(self, obj):
         return obj.username
 
+    def get_deleted_objects(self, objs, request):
+        """지우기(한 명·'선택한 사용자 삭제' 일괄)도 재직 관리자 한 명 이상을 지킨다: 남지 않는 근무표가 있으면
+        Django 의 '보호된 객체' 목록에 그 까닭을 넣어 아무것도 지우지 않는다(두 길 모두 이 목록이 비어야 지운다)."""
+        deleted, count, perms_needed, protected = super().get_deleted_objects(objs, request)
+        return deleted, count, perms_needed, [*protected, *map(_no_admin_left, boards.left_without_admin(objs))]
+
     def save_model(self, request, obj, form, change):
         old = User.objects.filter(pk=obj.pk).values_list("department_id", flat=True).first() if change else None
         super().save_model(request, obj, form, change)
@@ -194,85 +220,6 @@ class UserAdmin(DjangoUserAdmin):
                 format_html_join("", "<br>{}", ((x,) for x in lines))), messages.WARNING)
 
 
-class BoardShiftForm(forms.ModelForm):
-    """근무 정의 한 줄의 검증(설계 4.3). 저장한 줄은 키 칸을 잠근다(BoardShift.clean 이 한 번 더 막는다).
-    시각 오류는 start 칸에 붙인다: 그 칸이 오류면 DB 제약(boardshift_times_valid) 검사를 건너뛰어 영어 제약 문구가 함께 뜨지 않는다."""
-    eligible_shifts = forms.MultipleChoiceField(label="자격 근무조", required=False, choices=SHIFT_KEY_CHOICES,
-                                                widget=forms.CheckboxSelectMultiple,
-                                                help_text="장중관제 칸만. 켜진 관제는 하나 이상 고릅니다")
-    eligible_types = forms.MultipleChoiceField(label="자격 구분", required=False, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)],
-                                               widget=forms.CheckboxSelectMultiple, help_text="장중관제 칸만. 비우면 전원")
-
-    class Meta:
-        model = BoardShift
-        fields = ["key", "name", "start", "end", "eligible_shifts", "eligible_types", "default_alarm", "active"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance.pk:  # 저장한 정의의 키는 바꾸지 않는다(보낸 값은 무시된다)
-            self.fields["key"].disabled = True
-
-    def clean_name(self):
-        v = self.cleaned_data["name"].strip()
-        if v in ("date", "day") or any(c in v for c in "(\r\n"):  # CSV 열 이름이 된다
-            raise forms.ValidationError("이름은 date·day 가 아니어야 하고 ( 와 줄바꿈을 쓸 수 없습니다(CSV 열 이름이 됩니다).")
-        return v
-
-    def clean_eligible_shifts(self):
-        return [k for k in SHIFT_KEYS if k in self.cleaned_data["eligible_shifts"]]
-
-    def clean(self):
-        c = super().clean()
-        key, start, end = c.get("key"), c.get("start"), c.get("end")
-        if not key:
-            return c
-        if key == LUNCH:
-            if start or end:
-                self.add_error("start", "점심당번은 시각을 비웁니다(점심 시각은 부서마다 정합니다).")
-        elif not (start and end and start < end):
-            self.add_error("start", "시작·끝 시각을 넣고 시작을 끝보다 이르게 하세요(당일 근무만).")
-        if not is_slot_cell(key) and (c.get("eligible_shifts") or c.get("eligible_types")):
-            self.add_error("eligible_shifts", "자격 근무조·자격 구분은 장중관제 칸에만 씁니다.")
-        if is_slot_cell(key) and c.get("active") and not c.get("eligible_shifts"):  # 자격자가 없으면 생성이 그 칸을 못 채운다
-            self.add_error("eligible_shifts", "장중관제 칸은 자격 근무조를 하나 이상 골라야 합니다.")
-        if key not in SHIFT_KEYS and c.get("default_alarm"):
-            self.add_error("default_alarm", "기본 알림 대상은 근무조에만 씁니다.")
-        return c
-
-
-class BoardShiftFormSet(forms.BaseInlineFormSet):
-    """근무표 전체의 검증(설계 4.3). Django 기본 겹침 검사(영어 칸 이름이 섞인 문구)는 부르지 않고 한국어로 직접 본다:
-    이름·키 겹침, 켜진 근무조 하나 이상, 켜진 근무조끼리 시작 시각이 다름(가장 이른 조·이른/가운데/늦은 조가 하나로 정해지게),
-    관제 자격 근무조는 이 근무표의 근무조(켜진 관제는 켜진 근무조만), 끄고 나서도 부서마다 켜진 입력 근무조가 하나 이상."""
-
-    def clean(self):
-        if any(self.errors):
-            return
-        rows = [f.cleaned_data for f in self.forms if f.cleaned_data.get("key")]  # 비워 둔 추가 줄은 빠진다
-        for field, label in (("name", "근무 정의 이름이 겹칩니다"), ("key", "키가 겹칩니다")):
-            values = [r[field] for r in rows]
-            dup = sorted({v for v in values if values.count(v) > 1})
-            if dup:
-                names = dict(BoardShift._meta.get_field("key").choices) if field == "key" else {}
-                raise ValidationError(f"{label}: {', '.join(names.get(v, v) for v in dup)}")
-        on = [r for r in rows if r["key"] in SHIFT_KEYS and r["active"]]
-        if not on:
-            raise ValidationError("켜진 근무조가 하나 이상 있어야 합니다.")
-        if len({r["start"] for r in on}) != len(on):
-            raise ValidationError("켜진 근무조끼리 시작 시각이 달라야 합니다(가장 이른 조를 하나로 정할 수 있게).")
-        keys, on_keys = {r["key"] for r in rows if r["key"] in SHIFT_KEYS}, {r["key"] for r in on}
-        for r in rows:
-            picked = set(r.get("eligible_shifts") or ())
-            if picked - keys:
-                raise ValidationError(f"{r['name']}: 자격 근무조는 이 근무표의 근무조여야 합니다.")
-            if r["active"] and picked - on_keys:
-                raise ValidationError(f"{r['name']}: 켜진 관제의 자격 근무조는 켜진 근무조여야 합니다.")
-        if self.instance.pk:
-            for dept in self.instance.departments.all():
-                if not set(dept.shift_keys()) & on_keys:
-                    raise ValidationError(f"{dept.name} 부서에 켜진 근무조가 하나도 남지 않습니다. 부서의 출근조를 먼저 바꾸세요.")
-
-
 class BoardShiftInline(admin.TabularInline):
     """저장한 줄은 지우지 않는다(끄기만). 아직 저장하지 않은 추가 줄은 화면에서 뺄 수 있다."""
     model = BoardShift
@@ -282,32 +229,12 @@ class BoardShiftInline(admin.TabularInline):
     can_delete = False
 
 
-STEP_FIELDS = ["step_draft", "step_collecting", "step_closed", "step_generated", "step_published"]
-
-
-class BoardForm(forms.ModelForm):
-    class Meta:
-        model = Board
-        fields = ["code", "name", "use_draft", "use_close", *STEP_FIELDS]
+class BoardForm(StepsForm):
+    class Meta(StepsForm.Meta):
+        fields = ["code", "name", *StepsForm.Meta.fields]
 
     def clean(self):
-        c = super().clean()
-        names = [c.get(f) for f in STEP_FIELDS]
-        for f, v in zip(STEP_FIELDS, names):  # 단계 이름(설계 5.1): 줄바꿈 금지, 서로 다름
-            if v and ("\n" in v or "\r" in v):
-                self.add_error(f, "단계 이름에 줄바꿈을 쓸 수 없습니다.")
-            elif v and names.count(v) > 1:
-                self.add_error(f, f"단계 이름이 겹칩니다: {v}")
-        # 버튼 글자 검사(설계 5.4): 저장된 근무표는 단계 칸이 읽기 전용이라 만들 때만. 단계 칸 자체 오류가 없으면 본다
-        if all(names) and not set(STEP_FIELDS) & set(self.errors):
-            steps = Board(use_draft=c.get("use_draft"), use_close=c.get("use_close"), **dict(zip(STEP_FIELDS, names)))
-            gen, slot = steps.step_buttons(False), steps.step_buttons(True)
-            for x in steps.bad_buttons():  # 생성·취소 글자는 생성됨 이름에서, 열기·마감은 취합 중 이름에서 나온다
-                # 관제 있을 때의 고정 글자([장중관제 생성]·[재생성]…)와 겹치면 생성됨 이름을 고쳐도 남는다
-                fixed = x.strip() and x in (slot["generate"], slot["undo"], slot["regenerate"])
-                field = ("step_generated" if x in (gen["generate"], gen["undo"]) and not fixed
-                         else "step_closed" if x == gen["close"] and not fixed else "step_collecting")  # 마감 글자가 열기와 같으면 마감 이름 칸
-                self.add_error(field, f"버튼 이름이 비거나 다른 버튼과 같아집니다: [{x}]")
+        c = super().clean()  # 단계 칸 검사(StepsForm)
         name = c.get("name")
         # Board.save 가 만들거나 바꿀 관리 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 칸 오류로
         if name and Board.objects.exclude(pk=self.instance.pk).filter(name=name).exists():
@@ -320,8 +247,8 @@ class BoardForm(forms.ModelForm):
 
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
-    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 1·2단계에서 만들 때만 정한다.
-    지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 그 그룹의 그룹 관리자는 '관리 그룹' 링크(그룹 화면)에서 정한다."""
+    """근무표(설계 4.2·4.3). code(boards.it_board() 가 IT 근무표를 찾는 열쇠)는 만든 뒤 바꾸지 않는다. 단계 칸은 언제든 고친다(근무표 통합 3단계).
+    지우기는 막는다. 관리 그룹은 Board.save 가 만들고, 관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺀다."""
     form = BoardForm
     list_display = ["name", "code", "step_line", "admin_group"]
     inlines = [BoardShiftInline]
@@ -335,11 +262,16 @@ class BoardAdmin(admin.ModelAdmin):
                 ("회차 단계", {"fields": ["use_draft", "use_close", *STEP_FIELDS], "description": (
                     "작성 중·마감을 끄면 그 단계를 건너뜁니다. 이름은 화면에 보이는 단계 이름이고, 버튼 이름은 단계 이름에서 "
                     "나옵니다(예: '취합 중' → [취합 열기]). IT = 둘 다 켬, 작성 중·취합 중·마감·생성됨·배포됨. "
-                    "시장운영실 = 둘 다 끔, 취합 중 '입력 중'·생성됨 '확정'. 저장한 근무표의 단계는 지금은 바꾸지 않습니다.")})]
+                    "시장운영실 = 둘 다 끔, 취합 중 '입력 중'·생성됨 '확정'. 바꾸면 진행 중인 회차의 단계 이름과 버튼이 바로 바뀌고, "
+                    "끈 단계에 남은 회차는 회차 화면의 '다른 상태로 옮기기'로 옮깁니다.")})]
 
     def get_readonly_fields(self, request, obj=None):
-        # 1단계: 저장된 근무표의 단계 칸은 읽기 전용(임시 기준 legacy_admin_entry 와 섞인 상태를 막는다, 설계 5.1). 3단계에서 연다
-        return [] if obj is None else ["code", "use_draft", "use_close", *STEP_FIELDS, "group_link"]
+        return [] if obj is None else ["code", "group_link"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change and (w := board_settings.stranded(obj)):  # 단계를 꺼서 그 단계에 회차가 남았다(설계 5.1)
+            self.message_user(request, w, messages.WARNING)
 
     @admin.display(description="단계")
     def step_line(self, obj):
@@ -347,17 +279,11 @@ class BoardAdmin(admin.ModelAdmin):
 
     @admin.display(description="관리 그룹")
     def group_link(self, obj):
-        return format_html('<a href="{}">{}</a> — 그룹 관리자는 이 링크에서, 멤버는 사용자 화면의 그룹 칸이나 [그룹] 화면에서 정합니다.',
+        return format_html('<a href="{}">{}</a> — 관리자·입력 담당자는 앱의 [근무표 설정]에서 넣고 뺍니다.',
                            reverse("admin:auth_group_change", args=[obj.admin_group_id]), obj.admin_group.name)
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-
-class GroupKeeperInline(admin.TabularInline):
-    """그룹 관리자(설계 4.5): 이 그룹에 멤버를 넣고 빼는 사람. 슈퍼유저가 여기서 정하고, 그 뒤 멤버는 그 사람이 [그룹] 화면에서."""
-    model = GroupKeeper
-    extra = 0
 
 
 @admin.register(Holiday)
@@ -384,11 +310,11 @@ admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 �
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    """permissions 칸만 숨긴다(Django 권한을 쓰지 않는다). 멤버는 사용자 화면의 '그룹' 칸이나, 그룹 관리자가 [그룹] 화면에서 넣는다."""
+    """이름·멤버 보기만(permissions 칸은 숨긴다: Django 권한을 쓰지 않는다). 멤버는 사용자 화면의 '그룹' 칸이나 앱의 [근무표 설정]에서
+    고친다(관리자·입력 담당자). 근무표 관리 그룹·부서 입력 그룹의 이름은 근무표·부서 이름을 따라가므로 여기서 바꾸지 않는다."""
     fields = ["name"]
     list_display = ["name", "member_names"]
     search_fields = ["name"]
-    inlines = [GroupKeeperInline]
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("user_set")

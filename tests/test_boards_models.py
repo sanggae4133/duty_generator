@@ -5,7 +5,8 @@ import pytest
 from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
 
-from duty.models import Board, BoardShift, Department, GroupKeeper
+from duty.errors import DutyError
+from duty.models import Board, BoardShift, Department
 from duty.shifts import KEYS
 from tests.it_defs import IT_DEFS2, OPS_STEPS
 
@@ -35,14 +36,24 @@ def test_board_save_creates_admin_group(db):
     assert Group.objects.count() == before and b.admin_group.name == "운영팀2 근무표 관리"
 
 
-def test_department_save_creates_input_group_for_collect_board(it_board):
+def test_department_save_makes_no_input_group(it_board):
+    """입력 그룹은 첫 입력 담당자를 넣을 때 만든다(근무표 통합 설계 5.3). 마감을 쓰는 근무표도 같다."""
+    assert Department.objects.create(code="QA", name="품질", shifts="normal", board=it_board).input_group is None
+
+
+def test_ensure_input_group_makes_it_once(it_board):
     d = Department.objects.create(code="QA", name="품질", shifts="normal", board=it_board)
-    assert d.input_group.name == "품질 출근표 입력"
+    g = d.ensure_input_group()
+    assert g.name == "품질 출근표 입력" and Department.objects.get(pk="QA").input_group_id == g.pk
+    assert d.ensure_input_group() == g and Group.objects.filter(name="품질 출근표 입력").count() == 1
 
 
-def test_department_without_collect_board_has_no_input_group(db):
-    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
-    assert Department.objects.create(code="OPS", name="운영", shifts="normal", board=ops).input_group is None
+def test_ensure_input_group_name_clash(it_board):
+    Group.objects.create(name="품질 출근표 입력")
+    d = Department.objects.create(code="QA", name="품질", shifts="normal", board=it_board)
+    with pytest.raises(DutyError, match="같은 이름의 그룹이 이미 있습니다: 품질 출근표 입력. 슈퍼유저에게 그 그룹 이름을"):
+        d.ensure_input_group()
+    assert Department.objects.get(pk="QA").input_group_id is None
 
 
 def test_board_without_close_can_have_many_departments(it_board):
@@ -82,11 +93,6 @@ def test_boardshift_name_unique_per_board(it_board):
     _bad(lambda: BoardShift.objects.create(board=ops, key="normal", name="새벽", start=time(9), end=time(18)))
 
 
-def test_groupkeeper_unique(admin_user, it_board):
-    GroupKeeper.objects.create(group=it_board.admin_group, user=admin_user)
-    _bad(lambda: GroupKeeper.objects.create(group=it_board.admin_group, user=admin_user))
-
-
 def test_boardshift_key_labels_are_neutral():
     labels = dict(BoardShift._meta.get_field("key").choices)
     assert labels["dawn"] == "근무조 1" and labels["night"] == "근무조 4"
@@ -108,6 +114,7 @@ def test_board_save_without_rename_keeps_admin_group_name(it_board):
 
 def test_department_save_without_rename_keeps_input_group_name(it_board):
     d = Department.objects.create(code="QA", name="품질", shifts="normal", board=it_board)
+    d.ensure_input_group()
     Group.objects.filter(pk=d.input_group_id).update(name="옛 품질 그룹")
     d = Department.objects.get(pk="QA")
     d.order = 5

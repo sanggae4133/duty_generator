@@ -181,7 +181,7 @@
     </div>
     {% if menu %}<nav class="menu" aria-label="메뉴"><ul>{% for m in menu %}<li><a href="{{ m.url }}"{% if m.active %} aria-current="page"{% endif %}>{{ m.label }}</a></li>{% endfor %}</ul></nav>{% endif %}
   </header>
-  {% for m in messages %}<div class="msg {{ m.tags }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endfor %}
+  {% for m in messages %}{% if not m.extra_tags %}<div class="msg {{ m.tags }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endif %}{% endfor %}{# 칸 태그가 있는 메시지는 그 칸 안에서(근무표 설정) #}
   {% block content %}{% endblock %}
   {% if repo_url %}<footer class="site-foot"><a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub 저장소</a></footer>{% endif %}
 </main>

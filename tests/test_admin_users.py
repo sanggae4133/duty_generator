@@ -89,3 +89,50 @@ def test_change_page_hides_user_permissions(su_client, make_member):
     m = make_member("가")
     body = su_client.get(reverse("admin:duty_user_change", args=[m.pk])).content.decode()
     assert 'name="groups"' in body and 'name="user_permissions"' not in body
+
+
+# ── 재직 관리자 한 명 이상(근무표 통합 설계 7.4) ──
+
+def _user_data(u, **over):
+    """사용자 편집 폼에 지금 값을 그대로 보낸다(체크박스는 켤 때만)."""
+    data = {"username": u.username, "name": u.name, "department": u.department_id or "", "part": u.part, "type": u.type,
+            "groups": [g.pk for g in u.groups.all()], "date_joined_0": f"{u.date_joined:%Y-%m-%d}",
+            "date_joined_1": f"{u.date_joined:%H:%M:%S}"}
+    data |= {f: "on" for f in ("is_active", "is_staff", "is_superuser", "help_dismissed", "notify_changes",
+                               "must_change_password") if getattr(u, f)}
+    return {k: v for k, v in (data | over).items() if v is not None}
+
+
+@pytest.fixture
+def ops_only_admin(ops_board):
+    u = User.objects.create_user("opsadm", password=None, name="가상운영")
+    ops_board.admin_group.user_set.add(u)
+    return u
+
+
+@pytest.mark.parametrize("change", [{"groups": []}, {"is_active": None}])
+def test_last_active_admin_kept_in_user_form(su_client, ops_only_admin, change):
+    url = reverse("admin:duty_user_change", args=[ops_only_admin.pk])
+    r = su_client.post(url, _user_data(ops_only_admin, **change))
+    assert r.status_code == 200 and "운영팀 근무표에 재직 중인 관리자가 남지 않습니다. 먼저 다른 관리자를 넣으세요." in r.content.decode()
+    ops_only_admin.refresh_from_db()
+    assert ops_only_admin.is_active and ops_only_admin.groups.exists()
+
+
+def test_user_form_allows_when_another_admin_stays(su_client, ops_board, ops_only_admin, make_member):
+    ops_board.admin_group.user_set.add(make_member("가상둘째", user=True))
+    r = su_client.post(reverse("admin:duty_user_change", args=[ops_only_admin.pk]), _user_data(ops_only_admin, groups=[]))
+    assert r.status_code == 302, r.content.decode()[:3000]
+    assert not ops_only_admin.groups.exists()
+
+
+def test_delete_refused_for_last_active_admin(su_client, ops_only_admin, make_member):
+    r = su_client.post(reverse("admin:duty_user_delete", args=[ops_only_admin.pk]), {"post": "yes"})
+    assert r.status_code == 200 and "운영팀 근무표에 재직 중인 관리자가 남지 않습니다" in r.content.decode()
+    r = su_client.post(reverse("admin:duty_user_changelist"),
+                       {"action": "delete_selected", "_selected_action": [ops_only_admin.pk], "post": "yes"})
+    assert r.status_code == 200 and "운영팀 근무표에 재직 중인 관리자가 남지 않습니다" in r.content.decode()
+    assert User.objects.filter(pk=ops_only_admin.pk).exists()
+    other = make_member("가상기록없음")  # 관리자가 아니면 그대로 지운다
+    r = su_client.post(reverse("admin:duty_user_delete", args=[other.pk]), {"post": "yes"})
+    assert r.status_code == 302 and not User.objects.filter(pk=other.pk).exists()

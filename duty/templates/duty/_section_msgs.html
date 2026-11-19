@@ -1,0 +1,1 @@
+{% for m in messages %}{% if m.extra_tags == sec %}<div class="msg {{ m.level_tag }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endif %}{% endfor %}
