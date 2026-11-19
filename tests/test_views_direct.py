@@ -52,8 +52,9 @@ def test_input_page_shows_direct_steps_and_buttons(admin_client_ok, ops):
     assert f'href="/collect/{p.pk}/OPS/">표 입력</a>' in body
     assert f'action="/periods/{p.pk}/action/generate/"' in body and ">확정</button>" in body
     assert 'name="start_date"' in body  # 입력 중에도 기간을 고친다
-    assert "⚠ 아직 입력하지 않은 평일: 11/19, 11/20." in body
-    assert "부서별 입력 현황" not in body and "생성 방식" not in body and "다른 상태로 옮기기" not in body
+    assert "⚠ 출근표가 비어 있는 날: 운영 2일(11/19~11/20). [확정] 버튼은 누를 수 있지만 그날 그 부서는 근무자가 없습니다." in body
+    assert "부서별 입력 현황" in body and "운영: 3 / 5일" in body  # 입력 현황은 모든 근무표, 부서 이름으로(근무표 통합 2단계)
+    assert "생성 방식" not in body and "다른 상태로 옮기기" not in body
 
 
 def test_confirmed_page_shows_publish_and_cancel(admin_client_ok, ops):
@@ -72,7 +73,7 @@ def test_confirm_shows_empty_day_warning(admin_client_ok, ops):
     fill(p, ops_member(dept, "가상가"), p.dates()[:4])
     r = admin_client_ok.post(f"/periods/{p.pk}/action/generate/", follow=True)
     body = r.content.decode()
-    assert "입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): 11/20" in body
+    assert "출근표가 비어 있는 날이 있습니다: 운영 1일(11/20). 그날 그 부서는 근무자가 없습니다." in body
     assert "<small>(확정)</small>" in body
     assert "확정 → 확정" not in body and "입력 중 → 확정" in body  # 상태 기록도 화면 이름으로
 
@@ -89,7 +90,7 @@ def test_input_table_links_back_and_names_closed_state(admin_client_ok, ops):
     board, dept = ops
     p = Period.objects.create(board=board, name="p", start_date=MON, end_date=FRI, status=S.GENERATED)
     body = admin_client_ok.get(f"/collect/{p.pk}/OPS/").content.decode()
-    assert f'href="/periods/{p.pk}/"' in body and "입력 중인 회차가 아니라 저장할 수 없습니다" in body
+    assert f'href="/periods/{p.pk}/"' in body and "'입력 중'인 회차가 아니라 저장할 수 없습니다" in body
 
 
 def test_collect_period_page_unchanged(admin_client_ok, it_board):
@@ -113,7 +114,7 @@ def test_publish_error_names_confirm(ops):
     from duty.errors import DutyError
     from duty.services.publish import publish
     p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
-    with pytest.raises(DutyError, match="확정한 회차만 배포할 수 있습니다"):
+    with pytest.raises(DutyError, match="'확정'인 회차만 배포할 수 있습니다"):
         publish(p, MON)
 
 
@@ -145,14 +146,14 @@ SHRINK = "기간을 줄이면 바깥 날짜의 출근표가 지워집니다. 저
 
 
 def test_period_save_confirms_only_when_shrinking(admin_client_ok, ops, it_board):
-    """입력 중 기간 저장: 지금 기간(data-start/end)보다 좁힐 때만 확인 창(바깥 날짜 행이 지워진다)."""
+    """기간 저장: 지금 기간(data-start/end)보다 좁힐 때만 확인 창(바깥 날짜 행이 지워진다). 모든 근무표(근무표 통합 2단계)."""
     p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
     body = admin_client_ok.get(f"/periods/{p.pk}/").content.decode()
     assert 'data-start="2026-11-16" data-end="2026-11-20"' in body
     assert ("this.start_date.value &gt; this.dataset.start || this.end_date.value &lt; this.dataset.end" in body
             and SHRINK in body)
     draft = Period.objects.create(board=it_board, name="d", start_date=MON, end_date=FRI, status=S.DRAFT)
-    assert SHRINK not in admin_client_ok.get(f"/periods/{draft.pk}/").content.decode()  # 작성 중에는 지울 행이 없다
+    assert SHRINK in admin_client_ok.get(f"/periods/{draft.pk}/").content.decode()  # 되돌아온 작성 중 회차는 행이 있을 수 있다
 
 
 def test_confirm_message_says_what_happened(admin_client_ok, ops):
@@ -160,4 +161,4 @@ def test_confirm_message_says_what_happened(admin_client_ok, ops):
     p = Period.objects.create(board=board, name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
     fill(p, ops_member(dept, "가상가"), p.dates())
     body = admin_client_ok.post(f"/periods/{p.pk}/action/generate/", follow=True).content.decode()
-    assert "확정했습니다. 근무표 화면에는 배포한 뒤에 보입니다. 아래 경고를 확인하고 [배포…]를 누르세요." in body and "완료했습니다" not in body
+    assert "&#x27;확정&#x27; 상태로 바꿨습니다. 근무표 화면에는 배포한 뒤에 보입니다." in body and "완료했습니다" not in body

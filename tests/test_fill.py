@@ -1,7 +1,9 @@
 """입력 표의 [2주 전 기준으로 채우기]·[지난주와 같게](설계 6.2). 이름은 모두 가상."""
+import re
 from datetime import date, time
 
 import pytest
+from django.contrib.auth.models import Group
 
 from duty.errors import DutyError
 from duty.models import Board, BoardShift, Commute, Department, Holiday, Period, User
@@ -93,7 +95,7 @@ def test_same_as_last_week_copies_weekday_without_reason(ops):
     assert out == {d(11, 16): {"dawn": ["가상나"], "normal": ["가상다"], "dinner": ["가상가"]}}  # 11/17 은 지난주가 비어 비움, 11/18 은 휴장일
 
 
-def test_fill_errors(ops, it_board):
+def test_fill_errors(ops):
     p, dept = ops
     with pytest.raises(DutyError, match="알 수 없는 채우기"):
         collect.fill_week(p, dept, {}, d(11, 16), "3w")
@@ -103,10 +105,17 @@ def test_fill_errors(ops, it_board):
     dept.save()
     with pytest.raises(DutyError, match="근무조가 3개일 때만"):
         collect.fill_week(p, dept, {}, d(11, 16), collect.FILL_2W)
+    p.status = S.GENERATED  # 채우기는 입력을 받는 동안만(모든 근무표, 근무표 통합 2단계)
+    p.save()
+    with pytest.raises(DutyError, match="입력 중인 회차가 아닙니다"):
+        collect.fill_week(p, dept, {}, d(11, 16), collect.FILL_1W)
+
+
+def test_fill_works_on_it_board(it_board):
+    """IT(마감을 쓰는 근무표)도 취합 중이면 채운다(근무표 통합 2단계)."""
     it = Period.objects.create(board=it_board, name="it", start_date=d(11, 16), end_date=d(11, 20), status=S.COLLECTING)
     mems = Department.objects.create(code="MEMS", name="매칭엔진실", shifts="dawn,normal,dinner", board=it_board)
-    with pytest.raises(DutyError, match="직접 입력 근무표에서만"):
-        collect.fill_week(it, mems, {}, d(11, 16), collect.FILL_1W)
+    assert collect.fill_week(it, mems, {}, d(11, 16), collect.FILL_1W) == {}
 
 
 # ── 화면 ──
@@ -144,7 +153,8 @@ def test_fill_post_draws_without_saving(ops_admin, ops):
     assert "12칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다." in body  # 4일 × 3칸(11/18 휴장일)
 
 
-def test_no_fill_buttons_on_collect_board_or_closed_period(client, admin_user, it_board, ops):
+def test_fill_buttons_on_every_board_only_while_open(client, admin_user, it_board, ops):
+    """채우기 버튼은 근무표와 상관없이 입력을 받는 동안만(근무표 통합 2단계): IT 취합 중에도 보이고, 확정한 회차에는 없다."""
     p, _ = ops
     p.status = S.GENERATED
     p.save()
@@ -152,7 +162,8 @@ def test_no_fill_buttons_on_collect_board_or_closed_period(client, admin_user, i
     Department.objects.create(code="MEMS", name="매칭엔진실", shifts="dawn,normal,dinner", board=it_board)
     it = Period.objects.create(board=it_board, name="it", start_date=d(11, 16), end_date=d(11, 20), status=S.COLLECTING)
     client.force_login(admin_user)
-    assert 'name="fill"' not in client.get(f"/collect/{it.pk}/MEMS/").content.decode()
+    body = client.get(f"/collect/{it.pk}/MEMS/").content.decode()
+    assert 'value="2w:2026-11-16"' in body and 'value="1w:2026-11-16"' in body
     assert 'name="fill"' not in client.get(f"/collect/{p.pk}/OPS/").content.decode()
 
 
@@ -200,7 +211,7 @@ def test_table_cells_wrap_and_messages_are_plain(ops_admin, ops):
     body = ops_admin.get(f"/collect/{p.pk}/OPS/").content.decode()
     assert '<textarea name="c_2026-11-16_dawn"' in body  # 이름이 많아도 줄바꿈으로 다 보인다
     assert 'placeholder="휴장"' in body  # 11/18 휴장일 칸
-    assert "CSV 올리기 (표 전체 교체)" in body and "부서 전체" not in body
+    assert "CSV 올리기(이 표 전체 교체)" in body and "부서 전체" not in body
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"c_2026-11-16_dawn": "가상가"}, follow=True)
     assert "표를 저장했습니다." in r.content.decode() and "명분" not in r.content.decode()
 
@@ -213,3 +224,25 @@ def test_table_escapes_posted_values(ops_admin, ops):
         body = ops_admin.post(f"/collect/{p.pk}/OPS/", data).content.decode()
         assert "&lt;/textarea&gt;&lt;script&gt;x&lt;/script&gt;</textarea>" in body and "<script>x</script>" not in body
     assert Commute.objects.filter(period=p).count() == 0
+
+
+@pytest.mark.parametrize("how", ["2w", "1w"])
+def test_non_admin_fill_keeps_past_days_then_saves(client, ops, fixed_today, how):
+    """관리자가 아닌 입력 담당은 지난 날을 못 고친다: 채우기도 오늘 전 줄은 보낸 값 그대로 두고, 바로 [표 저장]이 된다."""
+    p, dept = ops
+    ga = User.objects.get(name="가상가")
+    Commute.objects.create(period=p, date=d(11, 16), member=ga, shift="normal")
+    g = Group.objects.create(name="가상 입력")  # 지금은 마감을 쓰는 근무표(IT)만 입력 그룹이 생긴다: 여기선 손으로 붙인다
+    Department.objects.filter(pk=dept.pk).update(input_group=g)
+    g.user_set.add(ga)
+    fixed_today(d(11, 17))  # 화요일: 11/16 은 지난 날(잠김)
+    client.force_login(ga)
+    body = client.post(f"/collect/{p.pk}/OPS/", {"fill": f"{how}:2026-11-16", "c_2026-11-16_normal": "가상가"}).content.decode()
+    assert 'name="c_2026-11-16_normal" rows="2" readonly>가상가</textarea>' in body  # 그대로, 색칠 없음
+    assert 'name="c_2026-11-16_dawn" rows="2" readonly></textarea>' in body
+    if how == "2w":
+        assert 'name="c_2026-11-17_dawn" rows="2" class="filled" >가상나</textarea>' in body
+    post = {m[0]: m[1] for m in re.findall(r'<textarea name="(c_[^"]+)"[^>]*>([^<]*)</textarea>', body)}
+    r = client.post(f"/collect/{p.pk}/OPS/", post, follow=True)
+    assert "표를 저장했습니다." in r.content.decode()
+    assert Commute.objects.get(period=p, date=d(11, 16)).member == ga

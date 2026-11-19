@@ -1,9 +1,12 @@
 <h3>it collecting · 매칭엔진실</h3>
+<p>
+<a href="/periods/P_it_collecting/">← 회차 화면으로</a>
+</p>
 <div class="search" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem">
 <form method="post" enctype="multipart/form-data" action="/collect/P_it_collecting/MEMS/upload/" class="search" style="margin:0" onsubmit="return confirm('CSV 내용으로 매칭엔진실 출근표 전체를 바꿀까요? 지금 표에 있는 내용은 지워집니다.')">
 <input type="hidden" name="csrfmiddlewaretoken">
 <input type="file" name="file" accept=".csv" required style="max-width:100%">
-<button class="secondary">CSV 올리기 (부서 전체 교체)</button>
+<button class="secondary">CSV 올리기(이 표 전체 교체)</button>
 </form>
 <a role="button" class="secondary" style="white-space:nowrap" href="/collect/P_it_collecting/MEMS/export.csv">CSV 내려받기</a>
 </div>
@@ -12,6 +15,7 @@
 </p>
 <form method="post">
 <input type="hidden" name="csrfmiddlewaretoken">
+<button class="enter-save" tabindex="-1" aria-hidden="true">표 저장</button>
 <div class="grid-wrap">
 <table class="roster">
 <thead>
@@ -25,6 +29,14 @@
 </tr>
 </thead>
 <tbody>
+<tr class="week">
+<td colspan="6">
+<div class="week-head">
+<strong>11/16 주</strong>
+<button name="fill" value="1w:2026-11-16" class="outline">지난주와 같게</button>
+</div>
+</td>
+</tr>
 <tr>
 <td class="nw">2026-11-16</td>
 <td>월</td>

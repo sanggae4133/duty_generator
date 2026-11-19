@@ -287,4 +287,4 @@ def test_move_message_for_board_without_draft_and_close(it_board):
     p = Period.objects.create(board=ops, name="p", start_date=d(11, 9), end_date=d(11, 13), status=S.GENERATED)
     with pytest.raises(DutyError) as e:
         periods.move(p, S.DRAFT)
-    assert str(e.value) == "직접 입력 근무표는 입력 중으로만 옮길 수 있습니다."
+    assert str(e.value) == "'입력 중'(으)로만 옮길 수 있습니다."  # 근무표 통합 2단계: 켠 단계 이름으로

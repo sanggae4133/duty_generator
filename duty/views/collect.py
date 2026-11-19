@@ -63,13 +63,13 @@ def _render_table(request, period, dept, table, errors, before=None):
                      "week_start": None if monday in weeks else monday})  # 그 주 첫 줄에만: 그 주 월요일(회차가 주 중간에 시작해도)
         weeks.add(monday)
     is_open = period.status == Period.Status.COLLECTING
-    legacy = boards.legacy_admin_entry(period.board)  # 1단계 임시 기준(2단계에서 지운다)
     return render(request, "duty/collect_table.html", {
         "period": period, "dept": dept, "rows": rows, "errors": errors,
         "shift_labels": list(collect.shift_names(dept).values()),
         "names": list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True)),
-        "is_open": is_open, "legacy": legacy, "ncols": len(keys) + 2,
-        "show_fill": is_open and legacy, "can_rotate": collect.can_rotate(dept),  # 채우기 버튼(설계 6.2): 1단계는 마감을 안 쓰는 근무표만
+        "is_open": is_open, "back_link": admin, "ncols": len(keys) + 2,  # 회차 화면 링크는 그 근무표 관리자에게만
+        "collecting": period.board.step_name(Period.Status.COLLECTING),
+        "show_fill": is_open, "can_rotate": collect.can_rotate(dept),  # 채우기 버튼(설계 6.1): 모든 근무표, 입력을 받는 동안
         "filled": before is not None, "changed": sum(c["changed"] for r in rows for c in r["cells"]),
     }, status=400 if errors else 200)
 
@@ -95,7 +95,8 @@ def table(request, pid, code):
             except ValueError:
                 raise Http404
             try:
-                filled = collect.fill_week(period, dept, posted, day, how)
+                keep = None if perms.is_board_admin(request.user, period.board) else perms.today()  # 잠긴 지난 줄은 그대로
+                filled = collect.fill_week(period, dept, posted, day, how, keep_before=keep)
             except DutyError as e:
                 messages.error(request, str(e))
                 return _render_table(request, period, dept, posted, [])

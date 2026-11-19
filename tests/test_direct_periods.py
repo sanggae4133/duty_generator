@@ -60,13 +60,13 @@ def test_direct_dates_locked_after_confirm(ops):
     p = new_period(ops[0])
     Period.objects.filter(pk=p.pk).update(status=S.GENERATED)
     p.end_date = date(2026, 11, 18)
-    with pytest.raises(DutyError, match="기간은 입력 중에만 수정할 수 있습니다"):
+    with pytest.raises(DutyError, match="기간은 '입력 중' 단계에서만 고칠 수 있습니다"):
         periods.save_draft(p)
 
 
 def test_collect_dates_still_draft_only(it_board):
     p = Period.objects.create(board=it_board, name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
-    with pytest.raises(DutyError, match="작성 중"):
+    with pytest.raises(DutyError, match="기간은 '작성 중' 단계에서만 고칠 수 있습니다"):
         periods.save_draft(p)
 
 
@@ -80,7 +80,7 @@ def test_confirm_fills_lunch_and_warns_empty_days(ops, admin_user):
     out = run_generation(p, by=admin_user)
     p.refresh_from_db()
     assert p.status == S.GENERATED and p.status_label == "확정"
-    assert out.warnings[0] == "입력하지 않은 평일이 있습니다(그날은 근무자가 없습니다): 11/20"
+    assert out.warnings[0] == "출근표가 비어 있는 날이 있습니다: 운영 1일(11/20). 그날 그 부서는 근무자가 없습니다."
     assert set(DutyAssignment.objects.filter(period=p).values_list("cell", "member")) == {("lunch", a.pk)}
     assert PeriodEvent.objects.filter(period=p).last().to_status == S.GENERATED
 
@@ -97,13 +97,13 @@ def test_confirm_without_empty_days_has_no_warning(ops):
 @pytest.mark.parametrize("status", [S.DRAFT, S.CLOSED, S.PUBLISHED])
 def test_confirm_only_from_input_or_confirmed(ops, status):
     p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=status)
-    with pytest.raises(DutyError, match="입력 중인 회차만 확정할 수 있습니다"):
+    with pytest.raises(DutyError, match="'입력 중'인 회차만 확정할 수 있습니다"):
         run_generation(p)
 
 
 def test_collect_generation_still_needs_closed(it_board):
     p = Period.objects.create(board=it_board, name="p", start_date=MON, end_date=FRI, status=S.COLLECTING)
-    with pytest.raises(DutyError, match="마감된 회차만 생성할 수 있습니다"):
+    with pytest.raises(DutyError, match="'마감'인 회차만 장중관제 생성할 수 있습니다"):
         run_generation(p)
 
 
@@ -123,7 +123,7 @@ def test_cancel_confirm_goes_back_to_input(ops, admin_user):
 @pytest.mark.parametrize("to", [S.DRAFT, S.CLOSED])
 def test_direct_moves_only_to_input(ops, to):
     p = Period.objects.create(board=ops[0], name="p", start_date=MON, end_date=FRI, status=S.GENERATED)
-    with pytest.raises(DutyError, match="입력 중으로만"):
+    with pytest.raises(DutyError, match=r"'입력 중'\(으\)로만 옮길 수 있습니다"):
         periods.move(p, to)
 
 
@@ -163,7 +163,7 @@ def test_confirm_with_slot_def_and_empty_weekday(ops):
         Commute.objects.create(period=p, date=x, member=a, shift="dawn")
     out = run_generation(p, seed=1)
     p.refresh_from_db()
-    assert p.status == S.GENERATED and out.warnings[0].endswith("11/20")
+    assert p.status == S.GENERATED and "운영 1일(11/20)" in out.warnings[0]
     assert sorted(DutyAssignment.objects.filter(period=p, cell="slot3").values_list("date", flat=True)) == p.dates()[:4]
 
 

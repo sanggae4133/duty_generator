@@ -40,17 +40,30 @@ def test_regenerate_replaces(closed_period):
     assert DutyAssignment.objects.filter(period=closed_period).count() == 50
 
 
-def test_missing_department_dates_block_generation(closed_period):
+def test_missing_department_dates_only_warn(closed_period):
+    """빈 평일은 IT 도 막지 않고 경고만(근무표 통합 2단계). 다른 부서 사람이 있는 날은 관제도 채운다."""
     Commute.objects.filter(period=closed_period, member__department="UI", date=date(2026, 11, 13)).delete()
-    with pytest.raises(DutyError) as e:
-        run_generation(closed_period)
-    assert "UI" in str(e.value)
+    out = run_generation(closed_period, seed=5)
+    assert out.warnings[0] == "출근표가 비어 있는 날이 있습니다: UI 1일(11/13). 그날 그 부서는 근무자가 없습니다."
+    assert DutyAssignment.objects.filter(period=closed_period, date=date(2026, 11, 13)).count() == 10
+
+
+def test_partial_and_all_empty_days(closed_period):
+    """11/9 는 MD·UI 만 비고(관제 10칸 그대로), 11/12~11/13 은 모든 부서가 비어 관제가 없다. 경고는 부서 코드 순(MD·MEMS·TMCH·UI), 날은 이어서 묶는다."""
+    Commute.objects.filter(period=closed_period, member__department__in=["MD", "UI"], date=date(2026, 11, 9)).delete()
+    Commute.objects.filter(period=closed_period, date__in=[date(2026, 11, 12), date(2026, 11, 13)]).delete()
+    out = run_generation(closed_period, seed=5)
+    assert out.warnings[0] == ("출근표가 비어 있는 날이 있습니다: 정보분배 3일(11/9, 11/12~11/13), 매칭엔진실 2일(11/12~11/13), "
+                               "매매지원실 2일(11/12~11/13), UI 3일(11/9, 11/12~11/13). 그날 그 부서는 근무자가 없습니다.")
+    count = {d: DutyAssignment.objects.filter(period=closed_period, date=d).count() for d in closed_period.dates()}
+    assert count == {date(2026, 11, 9): 10, date(2026, 11, 10): 10, date(2026, 11, 11): 10,
+                     date(2026, 11, 12): 0, date(2026, 11, 13): 0}
 
 
 def test_wrong_status(closed_period):
     closed_period.status = S.COLLECTING
     closed_period.save()
-    with pytest.raises(DutyError):
+    with pytest.raises(DutyError, match="'마감'인 회차만 장중관제 생성할 수 있습니다"):
         run_generation(closed_period)
 
 

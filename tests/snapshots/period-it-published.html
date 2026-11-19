@@ -28,12 +28,12 @@
 </form>
 </article>
 <h4>부서별 입력 현황</h4>
-<ul>
-<li>MD: 0 / 5일 <small>(비어 있는 날짜 있음)</small>
+<ul class="progress">
+<li>정보분배: 0 / 5일 <small>(비어 있는 날짜 있음)</small>
 </li>
-<li>MEMS: 3 / 5일 <small>(비어 있는 날짜 있음)</small>
+<li>매칭엔진실: 3 / 5일 <small>(비어 있는 날짜 있음)</small>
 </li>
-<li>TMCH: 0 / 5일 <small>(비어 있는 날짜 있음)</small>
+<li>매매지원실: 0 / 5일 <small>(비어 있는 날짜 있음)</small>
 </li>
 <li>UI: 0 / 5일 <small>(비어 있는 날짜 있음)</small>
 </li>
@@ -69,7 +69,7 @@
 </tbody>
 </table>
 </div>
-<style> ol.lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; padding: 0; margin: 0 0 1rem; } ol.lifecycle li { list-style: none; margin: 0; font-size: .85rem; } ol.lifecycle li:not(:last-child)::after { content: "→"; margin-left: .3rem; opacity: .4; } ol.lifecycle span { display: inline-block; padding: .2rem .7rem; border: 1px solid var(--duty-line); border-radius: 1rem; opacity: .6; } ol.lifecycle span.now { opacity: 1; font-weight: bold; border-color: var(--pico-primary); color: var(--pico-primary); } .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; } .actions form, .actions button, .actions [role=button] { width: auto; margin: 0; } article small { display: block; margin-top: .4rem; } td.nw { white-space: nowrap; } form.move { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; } form.move select, form.move button, form.move label { width: auto; margin: 0; } form.move small { flex-basis: 100%; opacity: .7; } details.move-box { margin: 0 0 1rem; } details.move-box summary { font-size: .9rem; } p.note { font-size: .9rem; opacity: .8; } p.note.warn { opacity: 1; padding: .5rem .8rem; border-left: 4px solid #c77700; background: rgba(199, 119, 0, .1); } </style>
+<style> ol.lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; padding: 0; margin: 0 0 1rem; } ol.lifecycle li { list-style: none; margin: 0; font-size: .85rem; } ol.lifecycle li:not(:last-child)::after { content: "→"; margin-left: .3rem; opacity: .4; } ol.lifecycle span { display: inline-block; padding: .2rem .7rem; border: 1px solid var(--duty-line); border-radius: 1rem; opacity: .6; } ol.lifecycle span.now { opacity: 1; font-weight: bold; border-color: var(--pico-primary); color: var(--pico-primary); } .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; } .actions form, .actions button, .actions [role=button] { width: auto; margin: 0; } article small { display: block; margin-top: .4rem; } td.nw { white-space: nowrap; } form.move { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; } form.move select, form.move button, form.move label { width: auto; margin: 0; } form.move small { flex-basis: 100%; opacity: .7; } details.move-box { margin: 0 0 1rem; } details.move-box summary { font-size: .9rem; } p.note { font-size: .9rem; opacity: .8; } ul.progress li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-bottom: .4rem; } ul.progress a[role=button] { width: auto; margin: 0; min-height: 44px; padding: .45rem 1rem; } /* 누를 자리 44px 이상 */ p.note.warn { opacity: 1; padding: .5rem .8rem; border-left: 4px solid #c77700; background: rgba(199, 119, 0, .1); } </style>
 <dialog id="gen-help">
 <article>
 <h4>장중관제 생성 방식</h4>

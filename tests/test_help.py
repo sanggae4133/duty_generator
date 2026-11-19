@@ -191,19 +191,27 @@ def test_steps_cover_phase2_member_features():
         assert word in text, word
 
 
-def test_direct_board_admin_text_help(client, people, videos, make_member):
-    """직접 입력 근무표 관리자에게만 글 도움말(영상 없음)이 보인다(3단계)."""
+def test_period_text_help_for_every_board_admin(client, people, videos):
+    """근무표 관리자 모두에게 글 도움말 하나(근무표 통합 2단계). 단계 줄은 내가 관리하는 근무표마다 그 근무표의 단계 이름으로."""
     from duty.models import Board
-    ops = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
-    client.force_login(people["admin"])  # IT(부서별 취합)만 관리
-    assert "직접 입력 근무표 운영" not in client.get("/help/").content.decode()
+    client.force_login(people["member"])
     assert "<h4>글 도움말</h4>" not in client.get("/help/").content.decode()
-    ops.admin_group.user_set.add(people["admin"])
+    client.force_login(people["admin"])
     body = client.get("/help/").content.decode()
-    # 영상이 없는 글 도움말은 '사용법 영상' 아래가 아니라 제 머리말 아래에
-    assert body.index("<h4>사용법 영상</h4>") < body.index("<h4>글 도움말</h4>") < body.index("직접 입력 근무표 운영(")
-    assert "직접 입력 근무표 운영(입력 중·확정·배포)" in body and "· 직접 입력 근무표 관리자" in body
-    for word in ("[2주 전 기준으로 채우기]", "[지난주와 같게]", "[표 저장]", "[확정]", "[확정 취소]", "[배포…]"):
+    assert body.index("<h4>사용법 영상</h4>") < body.index("<h4>글 도움말</h4>") < body.index("회차 운영(단계·출근표·생성·배포)")
+    assert "<li>IT 당번표: 작성 중 → 취합 중 → 마감 → 생성됨 → 배포됨</li>" in body and "운영팀" not in body
+    Board.objects.create(code="ops", name="운영팀", **OPS_STEPS).admin_group.user_set.add(people["admin"])
+    body = client.get("/help/").content.decode()
+    assert body.index("<li>IT 당번표: 작성 중") < body.index("<li>운영팀: 입력 중 → 확정 → 배포됨</li>")
+    for word in ("[2주 전 기준으로 채우기]", "[지난주와 같게]", "[표 저장]", "[확정 취소]", "[배포…]", "[생성 방식]"):
         assert word in body, word
-    assert body.count("글로 보기") == 3  # 영상 글은 그대로, 직접 입력 글은 영상이 없다
-    assert client.get("/help/video/direct.mp4").status_code == 404
+    assert "직접 입력" not in body
+    assert body.count("글로 보기") == 3  # 영상 글은 그대로, 글 도움말은 영상이 없다
+    assert client.get("/help/video/period.mp4").status_code == 404
+
+
+def test_manager_text_explains_fill(client, people, videos):
+    """채우기 버튼은 입력 담당자에게도 보이므로(2단계) 출근표 입력 글에 설명이 있다."""
+    client.force_login(people["manager"])
+    body = client.get("/help/").content.decode()
+    assert "[지난주와 같게]" in body and "[2주 전 기준으로 채우기]" in body and "<h4>글 도움말</h4>" not in body
