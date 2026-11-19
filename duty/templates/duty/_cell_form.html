@@ -15,6 +15,7 @@
       {% endfor %}{% if not slot %}<option value="-">(없음 — 빼기만)</option>{% endif %}
     </select>
   </label>
+  {% if slot %}<label><input type="checkbox" name="keep_other" value="1"> 맞바꾸지 않고 To 가 이 칸도 맡기(To 의 다른 관제 칸은 그대로, From 만 빠짐)</label>{% endif %}
   {% if carry %}<label><input type="checkbox" name="carry_lunch" value="1" checked> 점심당번도 같이 넘기기</label>{% endif %}
   <button>저장</button>
 </form>

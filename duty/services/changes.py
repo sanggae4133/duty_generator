@@ -163,12 +163,14 @@ def set_reason(user, board, d: date, member: User, reason: str) -> list[str]:
 
 @transaction.atomic
 def exchange(user, board, d: date, cell: str, before: User | None, after: User | None,
-             carry_lunch: bool = True) -> list[str]:
+             carry_lunch: bool = True, keep_other: bool = False) -> list[str]:
     """근무 변경 창의 저장. 둘 다 있으면 기본은 맞교환: To 가 그날 같은 묶음 다른 칸에 있으면 서로 바꾸고,
     없으면 From 대신 들어간다. 한쪽만 있으면 넣기·빼기(change_cell). 점심당번은 묶음이 혼자라 늘 교체.
-    carry_lunch: 근무조 칸에서 From 이 점심당번이면 To 에게 넘긴다."""
+    carry_lunch: 근무조 칸에서 From 이 점심당번이면 To 에게 넘긴다.
+    keep_other: 관제 칸에서 To 의 다른 관제 칸은 그대로 두고 이 칸에도 넣는다(맞바꾸지 않음, From 휴가 등).
+    근무조는 한 사람 하루 하나라 무시한다."""
     perms.assert_can_edit(user, board, d)
-    if before is None or after is None:
+    if before is None or after is None or (keep_other and is_slot_cell(cell)):
         return change_cell(user, board, d, cell, before, after, carry_lunch)
     _check_cell(boards.defs(board), cell)
     period = _owner(board, d)
