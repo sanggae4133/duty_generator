@@ -166,12 +166,14 @@ AUTHENTICATION_BACKENDS = [
 ]
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
-AXES_LOCKOUT_PARAMETERS = ["username"]  # Funnel 뒤에서는 모든 요청 IP가 127.0.0.1 이라 IP 잠금은 전원 차단이 된다
+# 아이디 + 접속 IP 로 잠근다: 남이 아이디만 알아도 그 계정을 잠그던 것을 막는다(틀린 곳만 잠김).
+# IP 는 Funnel·nginx 가 넘겨 준 실제 접속 IP(duty/client_ip.py). IP 하나만으로는 잠그지 않는다(사무실처럼 한 IP 를 여럿이 쓰면 전원 차단)
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_CLIENT_IP_CALLABLE = "duty.client_ip.client_ip"
 AXES_RESET_ON_SUCCESS = True
 # 잠긴 동안의 시도로 잠금을 다시 15분 늘리거나 기록을 쌓지 않는다(피해자가 스스로 잠금을 늘리지 않게, DB 행 비대 방지)
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 AXES_LOCKOUT_TEMPLATE = "duty/locked.html"
-SILENCED_SYSTEM_CHECKS = ["axes.W006"]  # 잠금은 의도적으로 username 만 기준(IP 는 Funnel 뒤에서 전원 동일)
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 임시 비밀번호가 쿠키에 실리지 않게
 # duty.* INFO 로그(예: "alarms tick:")를 stderr(→ journald)로. 웹·run_worker 는 시작할 때 data/logs/<web|worker>.log 도 붙인다
 # (duty.logging.log_to_file). 기본 설정은 WARNING 이상만 찍는다.

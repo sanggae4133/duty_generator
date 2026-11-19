@@ -141,3 +141,4 @@
 | 2026-11-18 | 근무표 통합 설계 문서(`docs/superpowers/specs/2026-11-17-boards-unify-design.md`)를 ARCHITECTURE·OVERVIEW·OPERATIONS·DEVELOPMENT·PRINCIPLES 에 합치고 지웠다(`git show 8ec03ad:docs/superpowers/specs/2026-11-17-boards-unify-design.md` 로 본다). 코드 주석의 "근무표 통합 설계 x.y" 는 그 파일의 절 번호 | 문서는 지금 코드를 설명하고, 지난 설계·토론은 git 기록에 둔다 |
 | 2026-11-19 | 관제 칸 근무 변경 창에 "맞바꾸지 않고 To 가 이 칸도 맡기" 체크(기본 끔) | 맞교환이 기본이 된 뒤(2026-11-12) To 가 다른 관제 칸에 있으면 늘 맞바뀌어, From 휴가로 한 사람이 두 칸을 맡는 경우를 화면에서 할 수 없었다(서비스는 이미 됐다) |
 | 2026-11-19 | 운영 정적 파일을 해시 이름 + 미리 압축(whitenoise CompressedManifestStaticFilesStorage)으로 | Funnel 이 새 연결 TLS 약 5초·초당 20~40KB 로 느려졌다(Tailscale 이슈 #22018·#22486, 서버 쪽에서 고칠 수 없음). 화면마다 CSS·JS 를 다시 묻지 않게 해 체감을 줄인다. 근본 해결(Cloudflare Tunnel 등)은 보류 |
+| 2026-11-19 | 로그인 잠금을 아이디만에서 아이디 + 접속 IP 로(Funnel·nginx 가 넘기는 실제 IP, 127.0.0.1 에서 온 것만 믿음) | 아이디만 알면 남이 그 계정을 15분씩 계속 잠글 수 있었다. 서버 확인으로 Funnel 이 가짜 X-Forwarded-For 를 실제 IP 로 덮어쓰는 것을 봤다. IP 단독 잠금은 사무실 공유 IP 전원 차단이라 쓰지 않는다 |

@@ -269,3 +269,31 @@ def test_deactivate_cuts_login_and_links(client, make_member):
     assert not m.is_active and not m.has_usable_password()
     assert _has_links(m) == (False, False, False)
     assert client.get("/me/")["Location"].startswith("/login/")
+
+
+# ---- 3단계: Funnel·nginx 가 넘겨 주는 실제 접속 IP 로 잠금(아이디 + IP) ----
+# tailscaled 는 X-Forwarded-For 를 실제 IP 하나로 덮어쓰고, nginx 는 그 값을 하나로 넘긴다(127.0.0.1 에서 온 요청만 믿는다)
+
+def _fail(client, ip, n=5):
+    for _ in range(n):
+        client.post(reverse("login"), {"username": "u1", "password": "wrong"}, REMOTE_ADDR="127.0.0.1",
+                    HTTP_X_FORWARDED_FOR=ip)
+
+
+def test_lockout_is_per_ip_so_others_cannot_lock_my_account(client, db):
+    User.objects.create_user("u1", password="Correct-Horse-9", name="유1")
+    _fail(client, "203.0.113.7")  # 문서용 IP(실제 주소 아님)
+    r = client.post(reverse("login"), {"username": "u1", "password": "Correct-Horse-9"}, REMOTE_ADDR="127.0.0.1",
+                    HTTP_X_FORWARDED_FOR="198.51.100.9")
+    assert r.status_code == 302  # 다른 곳에서는 그대로 로그인된다
+    r = client.post(reverse("login"), {"username": "u1", "password": "Correct-Horse-9"}, REMOTE_ADDR="127.0.0.1",
+                    HTTP_X_FORWARDED_FOR="203.0.113.7")
+    assert r.status_code == 429  # 틀린 곳은 잠긴다
+
+
+def test_client_ip_trusts_forwarded_only_from_local_proxy(rf):
+    from duty.client_ip import client_ip
+    assert client_ip(rf.get("/", REMOTE_ADDR="127.0.0.1", HTTP_X_FORWARDED_FOR="203.0.113.7")) == "203.0.113.7"
+    assert client_ip(rf.get("/", REMOTE_ADDR="127.0.0.1", HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.7")) == "203.0.113.7"
+    assert client_ip(rf.get("/", REMOTE_ADDR="198.51.100.9", HTTP_X_FORWARDED_FOR="203.0.113.7")) == "198.51.100.9"
+    assert client_ip(rf.get("/", REMOTE_ADDR="127.0.0.1")) == "127.0.0.1"
