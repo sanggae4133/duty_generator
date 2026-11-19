@@ -115,6 +115,9 @@ def test_deploy_is_two_units_and_nginx():
     nginx = (ROOT / "deploy" / "duty-nginx.conf").read_text(encoding="utf-8")
     assert "access_log off;" in nginx  # 캘린더 토큰이 접근 로그에 남지 않게
     assert "listen 127.0.0.1:8008;" in nginx and "proxy_pass http://127.0.0.1:8090;" in nginx
+    # 실제 접속 IP: tailscaled(127.0.0.1)가 준 X-Forwarded-For 만 믿고, 웹에는 그 IP 하나만 넘긴다(덧붙이지 않는다)
+    assert "set_real_ip_from 127.0.0.1;" in nginx and "real_ip_header X-Forwarded-For;" in nginx
+    assert "proxy_set_header X-Forwarded-For $remote_addr;" in nginx and "$proxy_add_x_forwarded_for" not in nginx
     texts = [p.read_text(encoding="utf-8") for p in (ROOT / "deploy").iterdir()]
     texts.append((ROOT / ".env.example").read_text(encoding="utf-8"))
     for t in texts:
