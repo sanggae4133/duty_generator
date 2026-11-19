@@ -16,7 +16,7 @@
 | `docs/ARCHITECTURE.md` | 구조와 도메인 규칙. 코드를 고치기 전에 읽는다. | 올림 |
 | `.env.example` → `.env` | 설정값. 견본을 `.env` 로 복사해 채운다. 개발 PC 와 서버의 차이는 이 파일의 값뿐이다. | `.env` 는 안 올림 |
 | `data/` | 실행 중 생기는 파일 전부: `db.sqlite3`(DB), `backups/`(백업), `logs/`(로그), 잠금 파일. `.env` 의 `DUTY_DATA_DIR` 로 옮길 수 있다. | 안 올림 |
-| `.venv/`, `staticfiles/` | 파이썬 가상환경, 모은 정적 파일(`collectstatic`). | 안 올림 |
+| `.venv/`, `staticfiles/` | 파이썬 가상환경, 모은 정적 파일(`collectstatic`). 운영(DEBUG 꺼짐)은 이름에 해시를 붙인 파일과 `.gz`·해시 목록 `staticfiles.json` 을 만든다 — **업그레이드 때 `collectstatic` 을 빠뜨리면 화면이 500** 이다. | 안 올림 |
 
 ## 개발 PC 와 운영 서버의 차이
 
@@ -451,7 +451,7 @@ sudo systemctl stop duty-web duty-worker
 sudo -u duty .venv/bin/python manage.py backup   # data/backups/db-YYYYMMDD-HHMMSS.sqlite3 (경로가 출력된다, 적어 둔다)
 sudo git pull --ff-only                      # 특정 버전이면: sudo git fetch && sudo git checkout <버전>
 sudo .venv/bin/pip install -r requirements.lock
-sudo .venv/bin/python manage.py collectstatic --noinput
+sudo .venv/bin/python manage.py collectstatic --noinput   # 빠뜨리면 화면 500(정적 파일 해시 목록)
 sudo -u duty .venv/bin/python manage.py migrate   # 무언가 적용됐으면(DB 구조 변경) 롤백 때 DB 복원이 필요하다
 sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload   # 유닛이 바뀌었을 때만 필요(해도 무해)
 sudo systemctl start duty-web duty-worker
