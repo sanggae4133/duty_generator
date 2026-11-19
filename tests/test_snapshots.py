@@ -116,7 +116,10 @@ def _pages(client, admin_user, world):
         got[name] = _main(r.content.decode(), tokens)
     client.force_login(member)  # 근무표 하나 고른 화면: 내 근무표 주간·월간·하루, 남의 근무표(보기 전용). 보기는 주소로 고정
     for name, url in (("roster-mine", "/?view=week"), ("roster-month", "/?view=month"), ("day", "/day/2026-11-16/"),
-                      ("roster-other", "/?board=ops&view=week")):
+                      ("roster-other", "/?board=ops&view=week"),
+                      # 겹친 화면(5단계): 두 근무표를 주소로 고른 주간·월간·하루. 운영팀 구역은 보기만
+                      ("roster-both", "/?board=it&board=ops&view=week"), ("roster-both-month", "/?board=it&board=ops&view=month"),
+                      ("day-both", "/day/2026-11-16/?board=it&board=ops")):
         r = client.get(url)
         assert r.status_code == 200, name
         got[name] = _main(r.content.decode(), tokens)

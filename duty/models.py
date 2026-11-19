@@ -461,7 +461,9 @@ class RosterPref(models.Model):
     shifts = models.JSONField(default=list)
     view = models.CharField(max_length=5, choices=[("week", "주간"), ("month", "월간")], default="week")
     history = models.BooleanField(default=True)  # 변경 내역(A>B·+B·취소선) 표시. 끄면 지금 근무하는 사람만
-    board = models.ForeignKey(Board, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")  # 마지막으로 본 근무표
+    # 고른 근무표 code 목록(내 근무표 먼저, 나머지 id 순, 근무표 통합 5단계). [] = 내 근무표만.
+    # code 는 만든 뒤 바뀌지 않고 근무표는 지우지 않아 FK 대신 code. 읽을 때 없는 code 는 버린다
+    boards = models.JSONField(default=list)
 
     class Meta:
         constraints = [_one_of("view", ("week", "month"), "rosterpref_view_valid")]

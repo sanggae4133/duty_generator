@@ -55,10 +55,10 @@ def resolve(user, get, board, with_view: bool = True, mine: bool = True) -> dict
     return {"depts": d, "types": t, "shifts": s, **new}
 
 
-def remember_board(user, board, home) -> None:
-    """근무표 화면에서 ?board= 로 고른 근무표를 기억한다(설계 7). 내 근무표(home)를 고르면 비운다(None).
-    기억이 이미 같으면 쓰지 않는다(없던 사용자가 내 근무표를 골라도 행을 만들지 않는다)."""
-    keep = None if home is not None and board.pk == home.pk else board
+def remember_boards(user, chosen, home) -> None:
+    """근무표 화면에서 고른 목록을 기억한다(설계 5.5). chosen 은 boards.in_order 순서. [내 근무표] 하나면 비운다([]).
+    기억이 이미 같으면 쓰지 않는다(없던 사용자가 내 근무표만 봐도 행을 만들지 않는다)."""
+    keep = [] if home is not None and [b.pk for b in chosen] == [home.pk] else [b.code for b in chosen]
     pref = RosterPref.objects.filter(user=user).first()
-    if (pref.board_id if pref else None) != (keep.pk if keep else None):
-        RosterPref.objects.update_or_create(user=user, defaults={"board": keep})
+    if (pref.boards if pref else []) != keep:
+        RosterPref.objects.update_or_create(user=user, defaults={"boards": keep})

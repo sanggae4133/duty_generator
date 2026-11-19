@@ -24,9 +24,9 @@ DEFAULT_RULES = [
 
 
 def rule_board(user, kind, board_id) -> Board:
-    """규칙 값을 검사할 근무표. 보고서 = 규칙의 근무표, 개인 = 주인 부서의 근무표(부서 없는 계정은 IT)."""
+    """규칙 값을 검사할 근무표. 보고서 = 규칙의 근무표, 개인 = 주인의 내 근무표(boards.home: 부서 없는 관리자는 관리하는 근무표)."""
     if kind != "report":
-        return boards.board_of(user) or boards.it_board()
+        return boards.home(user)
     board = Board.objects.filter(pk=board_id).first() if board_id else None
     if board is None:
         raise DutyError("근무표를 고르세요.")

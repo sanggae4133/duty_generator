@@ -2,28 +2,35 @@
 {% block content %}
 <nav aria-label="날짜 이동">
   <ul><li><a href="{% url 'day' prev %}{{ qs }}">◀</a></li></ul>
-  <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong>{% if view_only and not home_code %} <small>보기 전용</small>{% endif %}</li></ul>
+  <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong>{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</li></ul>
   <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
 </nav>
-{% if home_code %}<p><a class="to-mine" role="button" href="/?board={{ home_code }}&amp;date={{ d|date:'Y-m-d' }}">보기 전용 · 내 근무표로</a></p>{% endif %}
+{% if to_mine %}<p><a class="to-mine" role="button" href="/?board={{ home_code }}&amp;date={{ d|date:'Y-m-d' }}">{{ to_mine }}</a></p>{% endif %}
 {% if holiday %}<p class="hol">{{ holiday }}</p>{% endif %}
-{% if note and not note.no_work %}<p class="memo">{{ note.text|linebreaksbr }}</p>{% endif %}
-{% if memo_admin %}<p><a class="memo-btn" href="{% url 'memo' 'day' d %}{{ bq }}" hx-get="{% url 'memo' 'day' d %}?next={{ request.get_full_path|urlencode }}{{ bqa }}" hx-target="#dlg-body">[메모]</a></p>{% endif %}
+{% if not multi %}{% with p=parts.0 %}
+{% if p.note and not p.note.no_work %}<p class="memo">{{ p.note.text|linebreaksbr }}</p>{% endif %}
+{% if p.memo_admin %}<p><a class="memo-btn" href="{% url 'memo' 'day' d %}{{ p.bq }}" hx-get="{% url 'memo' 'day' d %}?next={{ page_nq }}{{ p.bqa }}" hx-target="#dlg-body">[메모]</a></p>{% endif %}
+{% endwith %}{% endif %}
 <form method="get" class="search">
   {% include "duty/_filters.html" %}
 </form>
-{% if note.no_work %}<p class="nowork">{{ note.text|default:"근무 없음"|linebreaksbr }}</p>{% elif not found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
-{% for s in sections %}
+{% for p in parts %}
+{% if multi %}<section class="bsec"><h3 class="bname">{{ p.name }}{% if p.view_only %} <small>보기만</small>{% endif %}{% if p.memo_admin %} <a class="memo-btn" href="{% url 'memo' 'day' d %}{{ p.bq }}" hx-get="{% url 'memo' 'day' d %}?next={{ page_nq }}{{ p.bqa }}" hx-target="#dlg-body" aria-label="{{ p.name }} 메모">[메모]</a>{% endif %}</h3>
+{% if p.note and not p.note.no_work %}<p class="memo">{{ p.note.text|linebreaksbr }}</p>{% endif %}{% endif %}
+{% if p.note.no_work %}<p class="{% if multi %}nowork-line{% else %}nowork{% endif %}">{{ p.note.text|default:"근무 없음"|linebreaksbr }}</p>{% elif not p.found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
+{% for s in p.sections %}
 {% ifchanged s.slot s.lunch %}<h4 class="grp">{% if s.slot %}장중관제{% elif s.lunch %}당번{% else %}출근조{% endif %}</h4>{% endifchanged %}
-<article id="{{ s.cell }}" class="dcell">
+<article id="{% if multi %}{{ p.code }}-{% endif %}{{ s.cell }}" class="dcell">
   <strong>{{ s.label }}</strong>
   <p>{% with line=s.items %}{% include "duty/_labels.html" %}{% endwith %}{% if not s.items %}-{% endif %}{% if s.removed_items %} {% with line=s.removed_items %}{% include "duty/_labels.html" %}{% endwith %}{% endif %}</p>
-  {% if editable %}
+  {% if p.editable %}
   <details><summary role="button" class="outline secondary">바꾸기</summary>
-    {% include "duty/_cell_form.html" with cell=s.cell label=s.label slot=s.slot lunch=s.lunch carry=s.carry current_members=s.current_members reason_choices=s.reason_choices to_options=s.to_options next=s.next inline=True %}
+    {% include "duty/_cell_form.html" with cell=s.cell label=s.label slot=s.slot lunch=s.lunch carry=s.carry current_members=s.current_members reason_choices=s.reason_choices to_options=s.to_options next=s.next bq=p.bq inline=True %}
   </details>
   {% endif %}
 </article>
+{% endfor %}
+{% if multi %}</section>{% endif %}
 {% endfor %}
 
 <style>

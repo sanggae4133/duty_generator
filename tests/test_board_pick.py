@@ -7,7 +7,7 @@ from django.utils import timezone
 from duty.alarms.forms import RuleForm
 from duty.alarms.plan import RuleSpec, plan
 from duty.models import AlarmRule, ChangeLog, Commute, Memo, Period, RosterPref, User
-from duty.services import alarm_runner, boards, change_notice
+from duty.services import alarm_runner, alarms, boards, change_notice
 from duty.services.roster import Day
 from duty.shifts import KEYS
 from tests.it_defs import IT_DEFS
@@ -51,22 +51,28 @@ def test_roster_board_order_and_memory(client, two):
     assert "가상다" in client.get(WEEK).content.decode()
     body = client.get(WEEK + "&board=ops").content.decode()
     assert "가상나" in body and "가상다" not in body
-    assert RosterPref.objects.get(user=ga).board == board
+    assert RosterPref.objects.get(user=ga).boards == ["ops"]
     assert "가상나" in client.get(WEEK).content.decode()  # ?board= 가 없으면 기억한 근무표
     assert "가상다" in client.get(WEEK + "&board=it").content.decode()
-    assert RosterPref.objects.get(user=ga).board is None  # 내 근무표를 고르면 기억을 비운다
+    assert RosterPref.objects.get(user=ga).boards == []  # 내 근무표를 고르면 기억을 비운다
     assert client.get("/?board=nope").status_code == 404
 
 
-def test_board_buttons_only_with_two_boards(client, depts, request):
+def test_board_picker_only_with_two_boards(client, depts, request):
     client.force_login(member("it01", "가상가", depts["MEMS"]))
-    assert 'aria-label="근무표"' not in client.get("/").content.decode()  # 근무표가 하나면 그리지 않는다
+    assert 'class="board-pick"' not in client.get("/").content.decode()  # 근무표가 하나면 그리지 않는다
     request.getfixturevalue("ops")
     body = client.get("/").content.decode()
-    assert 'aria-label="근무표"' in body
-    assert body.index('aria-current="page">IT 당번표</a>') < body.index(">운영팀</a>") < body.index(">주간</a>")  # id 순, 주간/월간 앞
-    assert "?board=ops&amp;view=week&amp;date=" in body
+    assert 'class="board-pick"' in body and body.index('class="board-pick"') < body.index(">주간</a>")
 
+
+
+def test_open_picker_overlay_above_sticky_table_head(client, two):
+    """드롭다운이 열려 있을 때 고정 표 머리(z-index 2)를 눌러도 닫힌다: Pico 의 바깥 덮개(summary::before, z-index 1)를 그 위로."""
+    client.force_login(two[1])
+    body = client.get(WEEK).content.decode()
+    assert "table.roster thead th { position: sticky; top: 0; z-index: 2;" in body
+    assert "form.board-pick details.dropdown[open] summary::before { z-index: 3; }" in body
 
 # ── 보기 전용·필터 ──
 
@@ -81,7 +87,7 @@ def test_view_only_other_board(client, two):
     assert f'<a class="to-mine" role="button" href="/?board=it&amp;date={D}">보기 전용 · 내 근무표로</a>' in day
     mine = client.get(WEEK + "&board=it").content.decode()
     assert "보기 전용" not in mine and 'class="cell"' in mine
-    assert RosterPref.objects.get(user=ga).board is None  # 그 링크(?board=내 근무표)는 기억한 근무표를 비운다
+    assert RosterPref.objects.get(user=ga).boards == []  # 그 링크(?board=내 근무표)는 기억한 근무표를 비운다
 
 
 def test_view_only_home_board_has_no_back_link(client, two):
@@ -100,10 +106,10 @@ def test_other_board_admin_gets_board_links(client, two):
     assert f'href="/day/{D}/?board=ops#dawn"' in body  # 칸 링크
     assert f'hx-get="/cell/{D}/dawn/?next=' in body and "&amp;board=ops" in body  # htmx 주소
     assert f'href="/memo/day/{D}/?board=ops"' in body
-    assert 'name="board" value="ops"' in body  # 필터 폼
+    assert 'type="hidden" name="board" value="ops"' in body  # 필터 폼(드롭다운 체크박스와 구분)
     assert "?board=ops&amp;view=week&amp;date=2026-11-09" in body  # 날짜 이동
     mine = client.get(WEEK + "&board=it").content.decode()
-    assert f'href="/day/{D}/#dawn"' in mine and 'name="board"' not in mine  # 내 근무표는 ?board= 없이 그대로
+    assert f'href="/day/{D}/#dawn"' in mine and 'type="hidden" name="board"' not in mine  # 내 근무표는 ?board= 없이 그대로
 
 
 def test_other_board_shows_all_and_keeps_my_filters(client, two):
@@ -259,6 +265,14 @@ def test_change_log_board_column_and_filter(admin_client_ok, admin_user, two, it
     assert "가상나" in body and "가상다" not in body and '<option value="ops" selected>' in body
 
 
+def test_period_list_board_column_for_two_boards(admin_client_ok, admin_user, two):
+    board, _, _ = two
+    assert "<th>근무표</th>" not in admin_client_ok.get("/periods/").content.decode()  # IT 만 관리
+    admin_user.groups.add(board.admin_group)
+    body = admin_client_ok.get("/periods/").content.decode()
+    assert "<th>근무표</th>" in body and "<td>운영팀</td>" in body and "<td>IT 당번표</td>" in body
+
+
 # ── 알림 규칙 화면 ──
 
 def test_rule_initial_all_uses_owner_board(two):
@@ -295,3 +309,23 @@ def test_week_head_weekday_and_cell_form_without_slots(client, two):
     assert "11/16 (월)" in client.get(WEEK + "&board=ops").content.decode()
     form = client.get(f"/cell/{D}/dawn/?board=ops").content.decode()
     assert "(알림·캘린더에서 빠짐)" in form and "관제" not in form
+
+
+def test_rule_board_for_deptless_admin_is_home(two):
+    """부서 없는 운영팀 관리자의 개인 규칙 근무표는 IT 가 아니라 내 근무표(설계 2절 표)."""
+    board, _, _ = two
+    keeper = User.objects.create_user("opadm", password=None, name="가상관리")
+    keeper.groups.add(board.admin_group)
+    assert alarms.rule_board(keeper, "personal", None) == board
+    assert [c for c, _ in RuleForm(user=keeper).fields["shifts"].choices] == ["dawn", "normal", "dinner"]
+    rule = AlarmRule.objects.create(user=keeper, kind="personal", timing="before_start", offset=120, telegram=True,
+                                    shifts=[], depts=[], types=[])
+    assert RuleForm.initial_from(rule)["board"] == board.pk
+
+
+def test_rule_form_board_select_home_first(two):
+    board, ga, na = two
+    assert [b.code for b in RuleForm(user=na).fields["board"].queryset] == ["ops", "it"]
+    assert [b.code for b in RuleForm(user=ga).fields["board"].queryset] == ["it", "ops"]
+    f = RuleForm.redraw({**FORM, "kind": "report"}, user=na)  # 아직 근무표를 안 골랐으면 목록 첫 줄(내 근무표) 기준
+    assert [c for c, _ in f.fields["shifts"].choices] == ["dawn", "normal", "dinner"]

@@ -1,9 +1,20 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <div class="cal-nav">
-  <h3 class="cal-title">{{ title }}{% if view_only and not home_code %} <small>보기 전용</small>{% endif %}</h3>
-  {% if home_code %}<a class="to-mine" role="button" href="/?board={{ home_code }}">보기 전용 · 내 근무표로</a>{% endif %}
-  {% if board_links %}<span class="seg" role="group" aria-label="근무표">{% for b in board_links %}<a href="{{ b.href }}"{% if b.current %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</span>{% endif %}
+  <h3 class="cal-title">{{ title }}{% if multi %} <span class="bnames">{{ sel_names }}</span>{% endif %}{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</h3>
+  {% if to_mine %}<a class="to-mine" role="button" href="/?board={{ home_code }}">{{ to_mine }}</a>{% endif %}
+  {% if pick_boards %}<form method="get" class="board-pick">
+    <input type="hidden" name="pick" value="1"><input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+    {% for n in names %}{% if n %}<input type="hidden" name="q{{ forloop.counter }}" value="{{ n }}">{% endif %}{% endfor %}
+    <details class="dropdown"><summary role="button" class="outline">근무표: {{ sel_names }}</summary>
+      <ul>
+        <li><button>보기</button></li>
+        <li><small>하나도 고르지 않으면 내 근무표만 보입니다</small></li>
+        {% for b in pick_boards %}<li><label><input type="checkbox" name="board" value="{{ b.code }}"{% if b.on %} checked{% endif %}> {{ b.name }}{% if b.home %} (내 근무표){% endif %}</label></li>
+        {% endfor %}<li><button>보기</button></li>
+      </ul>
+    </details>
+  </form>{% endif %}
   <span class="seg" role="group" aria-label="보기">
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>
@@ -19,7 +30,7 @@
   {% endfor %}<button>검색</button></span>
   {% include "duty/_filters.html" with nested=True %}
   </div></details></form>
-{% if view == 'week' %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=weeks.0.0.week_memo %}{% endif %}
+{% if view == 'week' %}{% for s in weeks.0.0.sections %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=s.week_memo p=s %}{% endfor %}{% endif %}
 <div class="grid-wrap roster-scroll">
 <table class="roster month{% if view == 'week' %} stack{% endif %}" id="roster">
   <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
@@ -32,16 +43,16 @@
       </td>
     {% endfor %}
     </tr>
-    {% if view == 'month' %}{% if week.0.week_memo or memo_admin %}<tr class="wmemo"><td colspan="5">{% include "duty/_memo.html" with scope="week" md=week.0.date m=week.0.week_memo dated=True %}</td></tr>{% endif %}{% endif %}
+    {% if view == 'month' %}{% if week.0.wm_row %}<tr class="wmemo"><td colspan="5">{% for s in week.0.sections %}{% include "duty/_memo.html" with scope="week" md=week.0.date m=s.week_memo dated=True p=s %}{% endfor %}</td></tr>{% endif %}{% endif %}
   {% endfor %}
   </tbody>
 </table>
 </div>
-{% for mm in month_memos %}{% include "duty/_memo.html" with scope="month" md=mm.date m=mm.memo %}{% endfor %}
-{% if history %}<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc"><s>이름(휴가)</s></span> = 사유로 그날 근무 아님{% if weeks.0.0.edit or weeks.0.4.edit %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>{% endif %}
+{% for mm in month_memos %}{% include "duty/_memo.html" with scope="month" md=mm.date m=mm.memo p=mm.p %}{% endfor %}
+{% if history %}<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc"><s>이름(휴가)</s></span> = 사유로 그날 근무 아님{% if can_click %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>{% endif %}
 <script>
   const today = document.getElementById("today");
-  if (today) {
+  if (today{% if multi %} && !location.hash.startsWith("#d-"){# 겹친 화면: 팝업에서 돌아온 날짜 칸을 그대로 둔다 #}{% endif %}) {
     today.scrollIntoView({block: "nearest", inline: "center"});
     if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
   }

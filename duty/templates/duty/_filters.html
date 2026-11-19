@@ -1,5 +1,6 @@
-<input type="hidden" name="f" value="1">{% if bq %}<input type="hidden" name="board" value="{{ board_code }}">{% endif %}
+<input type="hidden" name="f" value="1">{% for c in sel_codes %}<input type="hidden" name="board" value="{{ c }}">{% endfor %}
 {% if not nested %}<details class="filters"><summary>필터{% if filter_on %} <span class="on">적용 중</span>{% endif %}</summary><div class="filters-body">{% endif %}
+  {% if multi and filterable %}<p class="hint mine-only">부서·유형·스케줄은 내 근무표에만 적용됩니다</p>{% endif %}
   {% if filterable %}<fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
   {% if type_choices %}<fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
   <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}

@@ -1,6 +1,7 @@
 from datetime import time
 
 from django import forms
+from django.db.models import Case, Value, When
 
 from ..models import AlarmKind, AlarmTiming, Board, Department
 from ..services import boards, prefs
@@ -28,10 +29,15 @@ class RuleForm(forms.Form):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         all_boards = list(Board.objects.order_by("id"))
+        self.home = boards.home(user) if user else all_boards[0]  # 내 근무표(user 없이 만든 폼은 첫 근무표)
+        all_boards = boards.in_order(all_boards, self.home)  # 내 근무표 맨 위(설계 9.5). 아래 Case/When 과 같은 순서를 지킨다
         # 근무표가 하나면 칸을 숨기고 그 근무표로 고정(1단계 화면 그대로)
         self.fixed_board = all_boards[0] if len(all_boards) == 1 else None
         if self.fixed_board is None:
             self.fields["board"].label_from_instance = lambda b: b.name
+            # boards.in_order 와 같은 순서(내 근무표 먼저, id 순). 한쪽을 바꾸면 다른 쪽도 바꾼다
+            self.fields["board"].queryset = Board.objects.order_by(
+                Case(When(pk=self.home.pk, then=Value(0)), default=Value(1)), "id")
         else:
             del self.fields["board"]
         board = self._shift_board(all_boards, user)
@@ -44,15 +50,15 @@ class RuleForm(forms.Form):
         self.fields["depts"].choices = list(depts.values_list("code", "name"))
 
     def _shift_board(self, all_boards, user):
-        """스케줄 선택지의 근무표(설계 8.1). 근무표가 하나면 그것, 보고서 = 보낸(편집 땐 규칙의) 근무표, 개인 = 주인의 근무표."""
+        """스케줄 선택지의 근무표(설계 8.1). 근무표가 하나면 그것, 보고서 = 보낸(편집 땐 규칙의) 근무표, 개인 = 주인의 내 근무표."""
         if self.fixed_board is not None:
             return self.fixed_board
         src = self.data if self.is_bound else self.initial
         if src.get("kind") == "report":
             picked = str(src.get("board") or "")
-            return next((b for b in all_boards if str(b.pk) == picked), all_boards[0] if all_boards else boards.it_board())
+            return next((b for b in all_boards if str(b.pk) == picked), all_boards[0])  # 안 골랐으면 목록 첫 줄 = 내 근무표
         # 화면에서 종류·근무표를 바꾸면 redraw 로 다시 그린다(alarm_rule_form.html)
-        return (boards.board_of(user) if user else None) or boards.it_board()
+        return self.home
 
     @classmethod
     def redraw(cls, data, user=None):
@@ -67,8 +73,8 @@ class RuleForm(forms.Form):
     def initial_from(rule) -> dict:
         h, m = divmod(rule.offset, 60)
         timed = rule.timing == "before_start"
-        # '전부'를 체크로 그릴 근무표: 보고서 = 규칙의 근무표, 개인 = 주인의 근무표(부서 없는 계정은 IT)
-        board = rule.board if rule.board_id else (boards.board_of(rule.user) or boards.it_board())
+        # '전부'를 체크로 그릴 근무표: 보고서 = 규칙의 근무표, 개인 = 주인의 내 근무표
+        board = rule.board if rule.board_id else boards.home(rule.user)
         return dict(enabled=rule.enabled, kind=rule.kind, board=board.pk, timing=rule.timing,
                     hours=h if timed else 2, minutes=m if timed else 0, days=1 if timed else rule.offset,
                     at_time=time(18, 0) if timed else time(*divmod(rule.at_minute, 60)),

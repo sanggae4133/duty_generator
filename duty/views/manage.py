@@ -223,7 +223,8 @@ def period_publish(request, pid):
 @admin_required
 def stats_view(request):
     start, end = date_param(request, "from"), date_param(request, "to")
-    board = perms.stats_boards(request.user).order_by("id").first()  # 관제가 있는 내 근무표 중 첫 것(고르기는 2단계)
+    # ponytail: 관제가 있는 내 근무표 중 id 가 가장 작은 것 하나. 관제 있는 근무표가 둘째로 생기면 근무표 select
+    board = perms.stats_boards(request.user).order_by("id").first()
     if board is None:
         raise PermissionDenied
     rows, duty_summary, total_summary = stats.member_stats(board, start, end)

@@ -1,5 +1,6 @@
 """근무표(Board)와 근무 정의 읽기, 그날의 주인(설계 6.1). 1단계는 IT 근무표 하나."""
 from datetime import date
+from urllib.parse import urlencode
 
 from django.db.models import Exists, F, OuterRef, Subquery
 from django.db.models.functions import Coalesce
@@ -61,6 +62,26 @@ def board_query(user, board: Board) -> str:
     """보이는 근무표가 내 근무표가 아닐 때만 "?board=<code>"(날짜 이동·필터 폼·htmx·변경 POST·알림 링크 공통).
     내 근무표면 "" 라 IT 사람의 링크·알림 주소는 1단계 그대로다."""
     return link_query(home(user), board)
+
+
+def edit_boards(user) -> set[int]:
+    """내가 바꿀 수 있는 근무표 id(근무표 통합 설계 9.4): 관리하는 근무표 ∪ 내 부서의 근무표. 둘 이상이면 팝업에 근무표 이름."""
+    mine = board_of(user)
+    return set(perms.admin_boards(user).values_list("pk", flat=True)) | ({mine.pk} if mine else set())
+
+
+def in_order(chosen, home: Board | None) -> list[Board]:
+    """고른 근무표 순서(근무표 통합 설계 9.1): 내 근무표 먼저, 나머지 id 순. 화면·기억·주소가 모두 이 순서.
+    alarms/forms.py RuleForm 의 board queryset(Case/When)도 같은 순서다 — 바꾸면 함께 바꾼다."""
+    return sorted(chosen, key=lambda b: (home is None or b.pk != home.pk, b.pk))
+
+
+def selection_query(chosen: list[Board], home: Board | None) -> str:
+    """고른 근무표 주소(설계 9.1). 하나면 link_query 그대로("" 또는 "?board=ops") — 근무표 하나인 화면의 링크는 글자 그대로다.
+    둘 이상이면 "?board=it&board=ops"(chosen 은 in_order 순서)."""
+    if len(chosen) == 1:
+        return link_query(home, chosen[0])
+    return "?" + urlencode([("board", b.code) for b in chosen])
 
 
 def _ranked(board):
