@@ -30,6 +30,19 @@
   {% endfor %}<button>검색</button></span>
   {% include "duty/_filters.html" with nested=True %}
   </div></details></form>
+<details class="export"><summary role="button" class="outline">엑셀 다운로드</summary>
+<form method="get" action="{% url 'roster_export' %}" class="dl">
+  <input type="hidden" name="next" value="{{ page_next }}">
+  <label class="date">시작일<input type="date" name="start" value="{{ export.0|date:'Y-m-d' }}" required></label>
+  <label class="date">종료일<input type="date" name="end" value="{{ export.1|date:'Y-m-d' }}" required></label>
+  <p class="hint">기간은 1년까지 고를 수 있습니다. 배포된 근무만 들어갑니다.</p>
+  {% if pick_boards %}<fieldset><legend>근무표</legend>{% for b in pick_boards %}<label><input type="checkbox" name="board" value="{{ b.code }}"{% if b.on %} checked{% endif %}> {{ b.name }}{% if b.home %} (내 근무표){% endif %}</label>{% endfor %}</fieldset>
+  <p class="hint">하나도 고르지 않으면 내 근무표만 받습니다.{% if filterable %} 부서·유형·스케줄은 내 근무표에만 적용됩니다.{% endif %}</p>{% endif %}
+  {% if filterable %}<fieldset><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  {% if type_choices %}<fieldset><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
+  <fieldset><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
+  <button>엑셀 다운로드</button>
+</form></details>
 {% if view == 'week' %}{% for s in weeks.0.0.sections %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=s.week_memo p=s %}{% endfor %}{% endif %}
 <div class="grid-wrap roster-scroll">
 <table class="roster month{% if view == 'week' %} stack{% endif %}" id="roster">

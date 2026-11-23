@@ -41,7 +41,7 @@ CSRF_TRUSTED_ORIGINS = [o for o in env("DUTY_CSRF_ORIGINS", "").split(",") if o]
 ADMIN_PATH = (env("DUTY_ADMIN_PATH") or "admin").strip("/")
 SITE_URL = validate_site_url(env("DUTY_SITE_URL", ""), DEBUG)  # 알림 링크·캘린더 구독 주소용(비면 생략)
 HELP_VIDEO_DIR = BASE_DIR / "duty" / "help_videos"  # 권한별 사용법 영상(member/manager/admin.mp4, tools/help_videos 로 녹화)
-REPO_URL = env("DUTY_REPO_URL", "").strip()  # 화면 아래 저장소 링크(비면 숨김)
+REPO_URL = env("DUTY_REPO_URL", "https://github.com/sanggae4133/duty_generator").strip()  # 화면 아래 링크(일부러 비우면 숨김)
 if REPO_URL and (not REPO_URL.startswith("https://") or any(c.isspace() or c in "\"'<>" for c in REPO_URL)):
     raise ImproperlyConfigured("DUTY_REPO_URL 은 https:// 로 시작하는 주소여야 합니다.")
 if not ADMIN_PATH:

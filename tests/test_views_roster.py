@@ -478,7 +478,7 @@ def test_labels_and_cells_come_from_board_definitions(client, world, it_board):
 
 
 def _dept_codes(body: str) -> list[str]:
-    return re.findall(r'name="dept" value="(\w+)"', body)
+    return re.findall(r'name="dept" value="(\w+)"', body.split('<details class="export"')[0])  # 필터 상자만(엑셀 상자 빼고)
 
 
 def test_views_use_own_board_departments_and_definitions(client, world, it_board):

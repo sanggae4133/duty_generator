@@ -139,3 +139,9 @@ def test_sqlite_waits_for_lock():
     """잠금 대기 20초(파이썬 기본 5초를 넘기면 바로 500 'database is locked')."""
     from django.conf import settings
     assert settings.DATABASES["default"]["OPTIONS"]["timeout"] >= 20
+
+
+def test_repo_url_default_and_override(monkeypatch, restore_settings):
+    assert reload_with(monkeypatch).REPO_URL == "https://github.com/sanggae4133/duty_generator"  # 줄이 없으면 기본 주소
+    assert reload_with(monkeypatch, DUTY_REPO_URL="").REPO_URL == ""  # 일부러 비우면 숨김
+    assert reload_with(monkeypatch, DUTY_REPO_URL="https://example.com/x").REPO_URL == "https://example.com/x"
