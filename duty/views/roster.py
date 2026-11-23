@@ -142,18 +142,20 @@ def _shown(shifts: list[str]):
     return lambda k: not shifts or (SLOT_GROUP if is_slot_cell(k) else k) in shifts
 
 
-def _filter_ctx(board, defs, depts, types, shifts, history: bool = True, mine: bool = True) -> dict:
+def _filter_ctx(board, defs, depts, types, shifts, history: bool = True, mine: bool = True, dims=None) -> dict:
+    dims = dims or {}
+    dim = lambda k, code: code in (dims.get(k) or [])  # noqa: E731  흐리게(보임 목록 안에서만 뜻이 있다)
     return {
-        "history": history,
+        "history": history, "hist_dim": history and bool(dims.get("hist")),
         "filterable": mine,  # 내 근무표가 아니면 부서·유형·스케줄 필터를 그리지 않는다(늘 전체)
         "filter_on": bool(depts or types or shifts),
-        "type_choices": [{"code": t, "name": t, "checked": not types or t in types} for t in (STAFF, DEVELOPER)]
+        "type_choices": [{"code": t, "name": t, "checked": not types or t in types, "dim": dim("type", t)} for t in (STAFF, DEVELOPER)]
         if prefs.has_types(defs) else [],
         "dept_choices": [
-            {"code": d.code, "name": d.name, "checked": not depts or d.code in depts}
+            {"code": d.code, "name": d.name, "checked": not depts or d.code in depts, "dim": dim("dept", d.code)}
             for d in Department.objects.filter(board=board).order_by("order", "code")  # 그 근무표 부서만
         ],
-        "shift_choices": _shift_choices(defs, shifts),
+        "shift_choices": [{**c, "dim": dim("shift", c["code"])} for c in _shift_choices(defs, shifts)],
     }
 
 
@@ -350,7 +352,7 @@ def roster(request):
         "dim_default": request.user.department_id is not None,  # 근무표에 든 사람만 '다른 사람 흐리게'가 처음부터 켜짐
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }
-    ctx.update(_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine))
+    ctx.update(_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine, pref["dims"]))
     return render(request, "duty/roster.html", ctx)
 
 

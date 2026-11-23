@@ -59,7 +59,7 @@
   <fieldset><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
   <button>엑셀 다운로드</button>
 </form></div>
-<div id="roster-root"{% if not history %} class="nohist"{% endif %}>
+<div id="roster-root"{% if not history %} class="nohist"{% elif hist_dim %} class="histdim"{% endif %}>
 {% if view == 'week' %}{% for s in weeks.0.0.sections %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=s.week_memo p=s %}{% endfor %}{% endif %}
 <div class="grid-wrap roster-scroll">
 <table class="roster month{% if view == 'week' %} stack{% else %} cal{% endif %}" id="roster">

@@ -228,6 +228,12 @@
     .x { display: none !important; }
     .nohist .rm, .nohist .lb.exc, .nohist .tk.old, .nohist .ar, .nohist .legend .h { display: none; }
     .nohist .chg { font-weight: inherit; font-style: normal; color: inherit; }
+    /* 흐리게(필터의 셋째 상태): 부서·유형은 이름만, 스케줄은 그 근무조 칸 전체, 변경 내역은 지난 이름·화살표·빠진 사람·사유 */
+    .lb.dm .tk:not(.me):not(.hl1):not(.hl2):not(.hl3), .lb.dm .ar { color: var(--dim-fg); }
+    .sec.dm { opacity: .45; }
+    .histdim .tk.old, .histdim .ar, .histdim .lb.rm, .histdim .lb.exc { opacity: .45; }
+    .histdim .chg { font-weight: inherit; color: inherit; }
+    .dimbox { display: inline-block; width: .9em; height: .9em; vertical-align: -.1em; border-radius: .2em; background: linear-gradient(transparent 42%, #fff 42%, #fff 58%, transparent 58%) center / 60% 100% no-repeat, var(--pico-primary-background); }  /* 체크 상자 흐리게(indeterminate)와 같은 모양: 채운 상자 + 흰 가로줄 */
     .tk.me { padding: 0 .3em; border-radius: .3em; background: var(--nxt-red); color: #fff; font-weight: 800; }
     .tk.me s { color: #fff; }
     .dim .tk:not(.me):not(.hl1):not(.hl2):not(.hl3), .dim .lb:not(:has(.me)) .ar { color: var(--dim-fg); }  /* 나·검색 강조만 빼고 모두(바뀐 근무는 기울임 모양만 남는다) */

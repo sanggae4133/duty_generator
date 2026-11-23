@@ -324,7 +324,7 @@ def test_selected_checkboxes_reflect_params(client, two_depts):
     client.force_login(a)
     boxes = _checked(client.get("/?dept=UI&type=직원").content.decode())
     assert [k for k, v in boxes.items() if v] == [("dept", "UI"), ("type", "직원")]
-    assert "모두 해제하면 전체 표시" in client.get("/").content.decode()
+    assert "모두 숨기면 전체 표시" in client.get("/").content.decode() and "→ ☐ 숨김" in client.get("/").content.decode()
 
 
 def test_unknown_values_are_ignored_next_to_valid(client, two_depts):

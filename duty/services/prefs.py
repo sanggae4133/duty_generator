@@ -3,6 +3,8 @@ from ..shifts import DEVELOPER, SLOT_GROUP, SLOT_GROUP_NAME, STAFF, lunch_defs, 
 from . import boards
 
 _FILTER_KEYS = ("f", "dept", "type", "shift")
+DIM_KEYS = ("dept", "type", "shift")
+_DIM_PARAMS = {"dept": "ddim", "type": "tdim", "shift": "sdim"}  # roster.js 가 fd=1 과 함께 보낸다
 
 
 def choices(defs) -> dict[str, str]:
@@ -20,19 +22,29 @@ def has_types(defs) -> bool:
     return bool(slot_defs([x for x in defs if x.active]))
 
 
+def _valid(board) -> tuple[set, set, set]:
+    """그 근무표에서 고를 수 있는 부서·유형·스케줄 값."""
+    active = boards.active_defs(board)
+    return (set(Department.objects.filter(board=board).values_list("code", flat=True)),
+            {STAFF, DEVELOPER} if has_types(active) else set(),  # 없으면 저장값도 무시
+            set(choices(active)))  # 꺼진 정의는 새로 고를 수 없다
+
+
 def clean(board, depts, types, shifts) -> tuple[list[str], list[str], list[str]]:
     """유효한 값만 남긴다(부서·스케줄은 그 근무표 것만). 전부 선택했거나 남은 게 없으면 [](= 전체)."""
-    active = boards.active_defs(board)
-
     def pick(vals, valid):
         got = [c for c in dict.fromkeys(vals) if c in valid]
         return [] if set(got) == valid else got
 
-    return (
-        pick(depts, set(Department.objects.filter(board=board).values_list("code", flat=True))),
-        pick(types, {STAFF, DEVELOPER}) if has_types(active) else [],  # 없으면 저장값도 무시
-        pick(shifts, set(choices(active))),  # 꺼진 정의는 새로 고를 수 없다
-    )
+    vd, vt, vs = _valid(board)
+    return pick(depts, vd), pick(types, vt), pick(shifts, vs)
+
+
+def clean_dims(board, dims: dict, mine: bool = True) -> dict:
+    """흐리게 값: 유효한 것만(내 근무표가 아니면 부서·유형·스케줄은 없음). 흐리게는 '모두'여도 줄이지 않는다."""
+    valid = _valid(board) if mine else (set(), set(), set())
+    return {**{k: [c for c in dict.fromkeys(dims.get(k) or []) if c in v] for k, v in zip(DIM_KEYS, valid)},
+            "hist": bool(dims.get("hist"))}
 
 
 def resolve(user, get, board, with_view: bool = True, mine: bool = True) -> dict:
@@ -44,13 +56,22 @@ def resolve(user, get, board, with_view: bool = True, mine: bool = True) -> dict
     has_f = mine and any(k in get for k in _FILTER_KEYS)
     has_h, has_v = "hist" in get, with_view and "view" in get
     if pref is None:
-        saved = {"depts": [], "types": [], "shifts": [], "view": "week", "history": True}
+        saved = {"depts": [], "types": [], "shifts": [], "view": "week", "history": True,
+                 "dims": clean_dims(board, {}, mine)}
     else:
         d, t, s = clean(board, pref.depts, pref.types, pref.shifts) if mine else ([], [], [])
-        saved = {"depts": d, "types": t, "shifts": s, "view": pref.view, "history": pref.history}
-    if not (has_f or has_h or has_v):
+        saved = {"depts": d, "types": t, "shifts": s, "view": pref.view, "history": pref.history,
+                 "dims": clean_dims(board, pref.dims, mine)}
+    has_d = "fd" in get  # 흐리게는 근무표 화면(roster.js)만 보낸다: 하루 화면 필터 폼은 저장된 흐리게를 두고 간다
+    if not (has_f or has_h or has_v or has_d):
         return saved
     new = {}
+    if has_d:
+        hist = get.get("hdim") == "1"
+        if mine:
+            new["dims"] = clean_dims(board, {**{k: get.getlist(p) for k, p in _DIM_PARAMS.items()}, "hist": hist})
+        else:  # 남의 근무표만 볼 때: 내 근무표의 흐리게 값은 그대로 두고 변경 내역만
+            new["dims"] = {**(pref.dims if pref else {}), "hist": hist}
     if has_f:
         new["depts"], new["types"], new["shifts"] = clean(board, get.getlist("dept"), get.getlist("type"), get.getlist("shift"))
     if has_v:
