@@ -310,7 +310,7 @@
 {% with welcome=welcome_videos %}{% if welcome %}
 <dialog id="help-welcome" class="welcome" aria-labelledby="help-welcome-title"><article>
   <header><strong id="help-welcome-title">NXT 당번표 사용법</strong></header>
-  <p>1분 안팎의 짧은 영상입니다. 메뉴의 <a href="/help/">도움말</a>에서 언제든 다시 볼 수 있고, 글로 된 설명도 있습니다.</p>
+  <p>1~3분의 짧은 영상입니다. 메뉴의 <a href="/help/">도움말</a>에서 언제든 다시 볼 수 있고, 글로 된 설명도 있습니다.</p>
   {% for v in welcome %}<details{% if forloop.first %} open{% endif %}><summary>{{ v.title }} <small>· {{ v.who }}</small></summary>
     <video controls playsinline preload="none" src="/help/video/{{ v.name }}.mp4"></video></details>{% endfor %}
   <footer>

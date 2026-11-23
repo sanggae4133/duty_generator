@@ -32,6 +32,7 @@
 | `duty/services/` | **DB를 바꾸는 규칙은 전부 여기**. 뷰·관리 명령은 서비스만 부른다. 근무표·근무 정의 읽기와 그날의 주인, 고른 근무표 순서·주소는 `boards.py`, [근무표 설정]의 쓰기는 `board_settings.py` | O |
 | `duty/forms.py` | 관리 화면과 [근무표 설정]이 함께 쓰는 폼(근무 정의 한 줄·근무표 전체 검사, 회차 단계 칸, 부서 출근조·점심 시각) | |
 | `duty/views/` | 화면. 요청을 읽고 서비스를 부르고 템플릿을 그린다 | 읽기만 |
+| `duty/static/duty/roster.js` | 근무표 화면의 브라우저 쪽: 필터(보임·흐리게·숨김)·변경 내역·이름 강조·다른 사람 흐리게·관제 펼치기를 바로 적용, 주소창·`/prefs/` 저장, ◀ ▶ 미리 받기, 좌우로 밀어 넘기기, 휴대폰 월간의 누른 날 명단. 권한·편집 가능 판단은 하지 않는다(서버가 그린 것만 숨기고 칠한다). 테스트는 서버가 붙이는 표시(`data-*`·클래스)만 보므로 동작은 브라우저에서 확인한다 | |
 | `duty/management/commands/` | `run_worker`, `backup`, `restore`, `add_board`(작성 중·마감을 끈 근무표(입력 중 → 확정 → 배포됨) 한 번에 만들기, 규칙은 `services/board_setup.py`) | |
 | `duty/admin.py` | Django 관리 화면(사용자(재직 관리자 한 명 이상)·부서(점심 시각)·근무표와 근무 정의(편집·설계 4.3 검증)·그룹(이름·멤버 보기)·휴장일·계정 발급·알림 설정) | |
 | `deploy/` | systemd 유닛 두 개 | |
@@ -48,7 +49,7 @@ Board(근무표) ─< BoardShift(근무 정의: 키·이름·시각·자격)
       ─< Memo(날·주·달 메모, 근무 없음)
 Holiday(휴장일, 모든 근무표 공통)
 auth.Group: Board.admin_group(근무표 관리), Department.input_group(출근표 입력, 첫 담당자를 넣을 때 생긴다)
-User ─ RosterPref(boards: 고른 근무표 code 목록) · CalendarFeed · TelegramAlarmProfile · PushAlarmSubscription · AlarmRule(─ Board) ─< AlarmDelivery
+User ─ RosterPref(boards: 고른 근무표 code 목록, dims: 흐리게 값) · CalendarFeed · TelegramAlarmProfile · PushAlarmSubscription · AlarmRule(─ Board) ─< AlarmDelivery
 AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 ```
 
