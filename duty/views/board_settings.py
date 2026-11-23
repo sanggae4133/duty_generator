@@ -16,7 +16,7 @@ from ..forms import StepsForm, shift_forms
 from ..models import Board, Department, Period, User
 from ..services import board_settings, boards, prefs
 from ..shifts import DEVELOPER, STAFF, josa, shift_defs, slot_defs
-from .common import admin_required
+from .common import admin_required, int_param
 
 
 def _mine(request) -> list[Board]:
@@ -40,8 +40,8 @@ def _here(board) -> str:
 
 
 def _user(request) -> User:
-    pid = request.POST.get("user", "")
-    user = User.objects.filter(pk=pid).first() if pid.isdigit() else None
+    pid = int_param(request.POST.get("user"))
+    user = User.objects.filter(pk=pid).first() if pid is not None else None
     if user is None:
         raise Http404
     return user
@@ -119,9 +119,9 @@ def _cells(request, board, user, cells) -> list[tuple[str, str]]:
 
 
 def _leave(request, board):
-    user, confirm = _user(request), request.POST.get("confirm", "")
+    user, confirm = _user(request), int_param(request.POST.get("confirm"))
     try:
-        cells = board_settings.set_active(request.user, board, user, False, int(confirm) if confirm.isdigit() else None)
+        cells = board_settings.set_active(request.user, board, user, False, confirm)
     except board_settings.NeedsConfirm as e:  # 오늘 이후 근무가 남았다: 그 줄 아래에 목록과 [그래도 퇴사 처리](본 칸 수)
         rows = _cells(request, board, user, board_settings.future_cells(board, user))
         return _render(request, board, leave={"pk": user.pk, "cells": rows, "msg": str(e), "n": len(rows)})
@@ -142,7 +142,7 @@ def _rejoin(request, board):
 
 def _issue(request, board):
     ids = set(request.POST.getlist("users"))  # 같은 사람을 두 번 보내도 한 번만 발급(두 번째 비밀번호가 첫 번째를 덮지 않게)
-    users = list(User.objects.filter(pk__in=[i for i in ids if i.isdigit()]))
+    users = list(User.objects.filter(pk__in=[i for i in map(int_param, ids) if i is not None]))
     if len(users) != len(ids):  # 없는 id 가 섞였다
         raise Http404
     issued = board_settings.issue(request.user, board, users)
@@ -160,10 +160,12 @@ def _shifts(request, board):
         if other_shift or other_dept:
             raise Http404
     formset, dept_forms = shift_forms(board, request.POST)
-    confirm = request.POST.get("confirm", "")
     try:
         warnings = board_settings.save_shifts(request.user, board, formset, dept_forms,
-                                              int(confirm) if confirm.isdigit() else None)
+                                              int_param(request.POST.get("confirm")))
+    except board_settings.Stale as e:  # 보낸 값은 낡았다: 다시 그리면 [저장]이 같은 낡은 값으로 맴도니 새로 읽은 화면으로
+        messages.error(request, str(e), extra_tags="shifts")
+        return redirect(f"{_here(board)}#shifts")
     except board_settings.NeedsConfirm as e:  # 저장하지 않았다: 보낸 값 그대로 다시 그리고 [그래도 저장]
         messages.warning(request, str(e), extra_tags="shifts")
         return _render(request, board, shifts=(formset, dept_forms), ask=e.rows)

@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 S = Period.Status
 BEFORE_PUBLISH = [S.DRAFT, S.COLLECTING, S.CLOSED, S.GENERATED]
 INVALID = "저장하지 않았습니다. 빨간 글씨로 표시한 칸을 고쳐 주세요."
+STALE = "화면을 연 뒤 근무 정의나 부서가 바뀌었습니다. 저장하지 않았습니다. 근무표 설정 화면을 다시 열어 주세요."
 NO_ADMIN_LEFT = "재직 중인 관리자가 아무도 남지 않습니다. 회차·배포·설정을 할 사람이 없으니 다른 사람을 먼저 넣으세요."
 
 
@@ -107,6 +108,10 @@ def remove_assignee(by, board, dept, user) -> None:
     _audit(by, board, user, user.username, f"{dept.code} 입력 담당자 빼기")
 
 
+class Stale(DutyError):
+    """화면을 연 뒤 근무 정의·부서가 바뀌어 저장하지 않았다: 화면은 보낸 값 대신 새로 읽은 설정을 보인다."""
+
+
 class NeedsConfirm(DutyError):
     """저장하지 않고 한 번 더 묻는다: 화면이 글을 보이고 [그래도 저장]이 rows 를 confirm 으로 다시 보낸다
     (메모의 근무 없음 확인과 같은 방식: 그사이 rows 가 바뀌면 다시 묻는다)."""
@@ -155,6 +160,12 @@ def save_shifts(by, board, formset, dept_forms, confirm: int | None = None) -> l
     _require_admin(by, board)
     if formset.instance.pk != board.pk or any(f.instance.board_id != board.pk for f in dept_forms):
         raise PermissionDenied("이 근무표의 근무 정의·부서가 아닙니다.")
+    # 표 전체 검사는 보낸 행만 본다: 행을 빼고 보냈거나 화면을 연 뒤 정의·부서가 생겼으면 그 행이 검사에서 빠지므로 저장하지 않는다.
+    # 부서 폼은 요청 때 DB 에서 만드니, 화면이 그린 부서인지는 늘 보내는 숨은 칸(d-<코드>-shown)으로 본다
+    if ({f.instance.pk for f in formset.initial_forms} != set(board.shifts.values_list("pk", flat=True))
+            or {f.instance.pk for f in dept_forms} != set(board.departments.values_list("pk", flat=True))
+            or any(f.add_prefix("shown") not in f.data for f in dept_forms)):
+        raise Stale(STALE)
     # 부서 출근조는 트랜잭션 안에서 다시 읽는다(화면이 그린 뒤 바뀌었을 수 있다, 설계 6.2). 화면에는 그린 때 켜진 근무조만
     # 체크박스로 나오므로, 나오지 않은 키(꺼진 근무조, 그린 뒤 다른 관리자가 켠 근무조)는 그대로 둔다: 다시 켜면 그 부서 입력 표 칸이 돌아온다
     saved = {code: set(keys.split(",")) - {""} for code, keys in board.departments.values_list("code", "shifts")}

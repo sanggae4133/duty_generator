@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from functools import wraps
 
@@ -16,6 +17,12 @@ def admin_required(view):
         return view(request, *args, **kwargs)
 
     return login_required(wrapped)
+
+
+def int_param(raw: str | None) -> int | None:
+    """보낸 id·확인 수: ASCII 숫자 18자리까지만 int(아니면 None). str.isdigit() 는 '²' 같은 글자도 참이라 int() 가 터지고,
+    아주 긴 숫자는 SQLite 정수 범위를 넘어 500 이 난다."""
+    return int(raw) if raw and re.fullmatch(r"\d{1,18}", raw, re.ASCII) else None
 
 
 def date_param(request, name: str) -> date | None:

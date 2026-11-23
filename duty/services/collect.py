@@ -198,6 +198,8 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
         raise DutyError("회차 기간 밖의 주입니다.")
     if keep_before:
         week = [d for d in week if d >= keep_before]
+        if not week:  # 그 주가 모두 지난 날: 고칠 줄이 없다
+            return dict(table)
     keys = input_keys(dept)
     names = list(User.objects.roster().filter(department=dept).order_by("name").values_list("name", flat=True))
     if how == FILL_2W:

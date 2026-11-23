@@ -185,6 +185,19 @@ def test_shift_errors_redraw_with_sent_values(ops_client, ops_board):
     assert "<legend>가운데</legend>" in body and "<legend>중간</legend>" not in body  # 카드 제목은 저장된 이름
 
 
+def test_department_added_after_render_is_stale_and_redraws_fresh(ops_client, ops_board):
+    """화면을 그린 뒤 생긴 부서(숨은 칸 d-<코드>-shown 이 없다)는 빈 칸 오류가 아니라 '바뀌었습니다'로 막고,
+    새로 읽은 화면으로 돌아가 다시 [저장]해도 같은 낡은 값으로 맴돌지 않게 한다."""
+    data = dict(shift_data(ops_board, change={"normal": {"name": "중간"}}).lists()) | {"do": "shifts"}
+    Department.objects.create(code="OPS2", name="운영2", shifts="dawn", board=ops_board)  # 다른 관리자가 그사이 만들었다
+    r = ops_client.post(URL + "?board=ops", data)
+    assert r.status_code == 302 and r["Location"] == "/settings/?board=ops#shifts"
+    body = ops_client.get(URL + "?board=ops").content.decode()
+    assert "화면을 연 뒤 근무 정의나 부서가 바뀌었습니다" in body and "빨간 글씨" not in body
+    assert '<input type="hidden" name="d-OPS2-shown"' in body  # 새 화면에는 새 부서가 있다
+    assert BoardShift.objects.get(board=ops_board, key="normal").name == "가운데"
+
+
 def test_unassigned_warning_names_confirm_button_while_asking(ops_client, ops_board):
     _post_shifts(ops_client, ops_board, extra={"key": "night", "name": "밤", "start": "13:00", "end": "22:00", "active": "on"})
     m = _ops_member("가상하나", "OPS801")
