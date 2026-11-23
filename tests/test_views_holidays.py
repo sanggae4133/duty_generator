@@ -39,9 +39,9 @@ def test_turned_off_holiday_not_shown(viewer):
         assert 'class="hol"' not in viewer.get(url).content.decode()
 
 
-def test_month_view_hides_holiday_of_other_month(viewer):
+def test_month_view_shows_holiday_of_adjacent_month(viewer):
     Holiday.objects.create(date=date(2026, 11, 30), name="지난달 휴장")  # 12월 달력 첫 줄에 걸린 11월 월요일
-    assert "지난달 휴장" not in viewer.get("/?view=month&date=2026-12-02").content.decode()
+    assert "지난달 휴장" in viewer.get("/?view=month&date=2026-12-02").content.decode()  # 앞뒤 달 날짜도 옅게 다 보인다
     assert "지난달 휴장" in viewer.get(f"/?view=month&date={D}").content.decode()
 
 

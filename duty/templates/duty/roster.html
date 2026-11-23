@@ -8,9 +8,9 @@
   <symbol id="ic-lunch" viewBox="0 0 24 24"><path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 2-2 6 0 8v10"/></symbol>
 </defs></svg>
 <div class="cal-nav">
-  {% if prev %}<a class="navbtn" role="button" data-nav href="{{ prev }}" aria-label="이전{% if view == 'week' %} 주{% else %} 달{% endif %}">◀</a>{% endif %}
+  {% if prev %}<a class="navbtn" role="button" data-nav="prev" href="{{ prev }}" aria-label="이전{% if view == 'week' %} 주{% else %} 달{% endif %}">◀</a>{% endif %}
   <h3 class="cal-title">{{ title }}{% if multi %} <span class="bnames">{{ sel_names }}</span>{% endif %}{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</h3>
-  {% if next %}<a class="navbtn" role="button" data-nav href="{{ next }}" aria-label="다음{% if view == 'week' %} 주{% else %} 달{% endif %}">▶</a>{% endif %}
+  {% if next %}<a class="navbtn" role="button" data-nav="next" href="{{ next }}" aria-label="다음{% if view == 'week' %} 주{% else %} 달{% endif %}">▶</a>{% endif %}
   {% if to_mine %}<a class="to-mine" role="button" href="/?board={{ home_code }}">{{ to_mine }}</a>{% endif %}
   {% if pick_boards %}<form method="get" class="board-pick">
     <input type="hidden" name="pick" value="1"><input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
@@ -71,7 +71,7 @@
   {% for week in weeks %}
     <tr>
     {% for d in week %}
-      <td{% if d.is_today and not d.other %} id="today"{% endif %} class="{% if d.other %}other{% else %}{% if d.is_today %}today-col{% endif %}{% if d.my %} mine{% endif %}{% endif %}{% if d.weekend %} we{% if d.we_empty %} we-empty{% endif %}{% endif %}"{% if not d.other %} data-label="{{ d.label }}" data-day="{% url 'day' d.date %}{{ bq }}"{% endif %}>
+      <td{% if d.is_today and not d.other %} id="today"{% endif %} class="{% if d.other %}other{% else %}{% if d.is_today %}today-col{% endif %}{% if d.my %} mine{% endif %}{% endif %}{% if d.weekend %} we{% if d.we_empty %} we-empty{% endif %}{% endif %}" data-label="{{ d.label }}" data-day="{% url 'day' d.date %}{{ bq }}">
         {% include "duty/_daycell.html" %}
       </td>
     {% endfor %}
