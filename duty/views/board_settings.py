@@ -195,12 +195,18 @@ def _steps(request, board):
     return redirect(f"{_here(board)}#steps")
 
 
+def _memo_notice(request, board):
+    on = bool(request.POST.get("on"))
+    board_settings.set_memo_notice(request.user, board, on)
+    return "메모 알림을 " + ("켰습니다. 메모를 새로 달거나 고치면 이 근무표 사람 모두에게 갑니다." if on else "껐습니다.")
+
+
 ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시지)이나 응답(다시 그리기·다른 곳으로)을 돌려준다
     "add_person": ("people", _add_person), "set_person": ("people", _set_person),
     "leave": ("people", _leave), "rejoin": ("people", _rejoin), "issue": ("people", _issue),
     "add_admin": ("admins", _add_admin), "remove_admin": ("admins", _remove_admin),
     "add_assignee": ("assignees", _add_assignee), "remove_assignee": ("assignees", _remove_assignee),
-    "shifts": ("shifts", _shifts), "steps": ("steps", _steps),
+    "shifts": ("shifts", _shifts), "steps": ("steps", _steps), "memo_notice": ("notices", _memo_notice),
 }
 
 

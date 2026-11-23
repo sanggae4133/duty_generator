@@ -58,7 +58,6 @@ urlpatterns = [
     path("alarms/telegram/link/", alarm_views.telegram_link, name="alarm_telegram_link"),
     path("alarms/telegram/link/check/", alarm_views.telegram_link_check, name="alarm_telegram_check"),
     path("alarms/changes/", alarm_views.notify_changes, name="alarm_notify_changes"),
-    path("alarms/memos/", alarm_views.notify_memos, name="alarm_notify_memos"),
     path("alarms/rules/new/", alarm_views.rule_new, name="alarm_rule_new"),
     path("alarms/rules/<int:pk>/", alarm_views.rule_edit, name="alarm_rule_edit"),
     path("alarms/rules/<int:pk>/delete/", alarm_views.rule_delete, name="alarm_rule_delete"),

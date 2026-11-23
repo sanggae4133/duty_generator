@@ -81,7 +81,7 @@ def _send(conf, user, title, text, url) -> int:
     if conf.push_on:
         for sub in PushAlarmSubscription.objects.filter(user=user):
             try:
-                senders.push_send(cfg, sub, title, text.split("\n", 1)[1], url, 86400)
+                senders.push_send(cfg, sub, title, m.push_body(text), url, 86400)  # 텔레그램과 같은 글
                 n += 1
             except senders.Gone:
                 sub.delete()

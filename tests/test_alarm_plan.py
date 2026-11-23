@@ -163,9 +163,9 @@ def test_length_limits():
     d = [day(slot0=names, slot1=names)]
     due = plan(IT_DEFS, [r], d, info, {}, SUN18, dests([r]))[0]
     assert len(due.text) == 4000 and due.text.endswith("(이하 생략, 웹에서 확인)")
-    assert len(due.push_text.encode()) <= 1000
+    assert len(due.push_text.encode()) <= 3000 and due.push_text.endswith("...")  # 푸시는 한 통 한도(m.PUSH_BYTES)에서 자른다
     p = plan(IT_DEFS, [rule(shifts=("dawn",))], [day(dawn=["가"])], INFO, {}, SUN18, dests([rule()]))[0]
-    assert len(p.push_text.encode()) <= 1000 and "\n" not in p.push_text
+    assert p.push_text == p.text  # 짧으면 텔레그램과 같은 글 그대로(줄바꿈 포함)
 
 
 def test_successor_chain_and_updates():
@@ -190,10 +190,10 @@ def test_successor_chain_and_updates():
     assert run(r, [day(dawn=["가"])], SUN18, {k: h_c})[0].content_hash == h_in
 
 
-def test_report_unique_count():
+def test_report_push_is_full_text():
     r = rep(shifts=("slots",))
     due = run([r], [day(slot0=["가"], slot1=["가"], slot2=["나"])], SUN18)[0]
-    assert due.push_text.endswith("2명")
+    assert due.push_text == due.text  # 예전엔 '머리 · N명' 한 줄이라 너무 짧았다
 
 
 def test_synthetic_day_no_first_report():

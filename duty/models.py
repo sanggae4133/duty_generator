@@ -57,6 +57,8 @@ class Board(models.Model):
     step_published = models.CharField("배포됨 이름", max_length=16, default="배포됨")
     admin_group = models.OneToOneField(Group, on_delete=models.PROTECT, related_name="admin_board",
                                        verbose_name="관리 그룹", editable=False)
+    # 메모 알림(공지): 근무표 관리자가 [근무표 설정]에서 켜면 메모를 새로 달거나 고칠 때 그 근무표 사람 모두에게 보낸다
+    notify_memos = models.BooleanField("메모 알림", default=False)
 
     class Meta:
         verbose_name = verbose_name_plural = "근무표"
@@ -253,7 +255,6 @@ class User(AbstractUser):
     must_change_password = models.BooleanField("첫 로그인 비번 변경 필요", default=False)
     help_dismissed = models.BooleanField("사용법 팝업 다시 보지 않기", default=False)
     notify_changes = models.BooleanField("내 근무가 바뀌면 알림", default=True)
-    notify_memos = models.BooleanField("메모가 달리거나 바뀌면 알림", default=False)
 
     objects = UserManager()
     REQUIRED_FIELDS = ["name"]  # createsuperuser 가 이름을 묻는다

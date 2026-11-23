@@ -44,7 +44,7 @@ def change_notice(defs, d: date, cell: str, before: str | None, after: str | Non
 def memo_notice(board: str, scope: str, d: date, text: str, no_work: bool, by: str) -> tuple[str, str]:
     """메모가 새로 달리거나 바뀌었을 때(제목, 본문). 날 = 11/10(화), 주 = 11/9(월) 주, 달 = 11월."""
     where = {"day": day_label(d), "week": f"{day_label(d)} 주", "month": f"{d.month}월"}[scope]
-    body = clip(("근무 없음: " if no_work else "") + (text or "근무 없음"), 500)
+    body = ("근무 없음: " if no_work else "") + (text or "근무 없음")  # 메모는 500자까지라 자르지 않는다
     return "메모", f"[메모] {board} · {where}\n{body}\n쓴 사람: {by}"
 
 
@@ -77,6 +77,14 @@ def report_line(defs, cell: str, names: list[str]) -> str:
 
 def clip(text: str, limit: int = 4000) -> str:
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
+
+
+PUSH_BYTES = 3000  # 웹 푸시 한 통의 본문 한도(암호화 포함 4KB 안: 제목·주소 자리를 남긴다)
+
+
+def push_body(text: str) -> str:
+    """푸시 본문 = 텔레그램과 같은 글(줄바꿈 그대로, 링크 줄 없음: 알림을 누르면 열린다)."""
+    return clip_bytes(text, PUSH_BYTES)
 
 
 def clip_bytes(text: str, limit: int = 1000) -> str:

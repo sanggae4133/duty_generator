@@ -132,7 +132,7 @@ def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today,
             if last == h or (not inside and not (last or "").startswith(("in:", "out:"))):
                 continue
             out.append(Due(r.id, day.date, c, ch, title, m.clip(text), h, f"/day/{day.date.isoformat()}/{r.query}",
-                           start, m.clip_bytes(text.replace("\n", " ")), dest))
+                           start, m.push_body(text), dest))
     return out
 
 
@@ -145,10 +145,9 @@ def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synt
         dept, typ = info.get(name, ("", ""))
         return (not r.depts or dept in r.depts) and (not r.types or typ in r.types)
 
-    lines, uniq = [], set()
+    lines = []
     for c in cells:
         names = [n for n in day.members.get(c, []) if keep(n)]
-        uniq.update(n for n in names if not day.excused(n))  # 요약 인원은 근무로 치는 사람만
         lines.append(m.report_line(defs, c, [join_reason(n, day.reason(c, n)) for n in names]))  # 가(휴가)
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
     # 변경 표지만 빼고 보이는 내용 전체(머리·조건·근무표)
@@ -159,7 +158,7 @@ def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synt
         if prev == h or (prev is None and synthetic):
             continue
         head = m.report_header(day.date, cond, prev is not None)
-        summary = f"{head} · {len(uniq)}명"
-        out.append(Due(r.id, day.date, "report", ch, m.REPORT_TITLE, m.clip("\n".join([head, *lines])), h,
-                       f"/day/{day.date.isoformat()}/{r.query}", last_start, m.clip_bytes(summary), dest))
+        text = "\n".join([head, *lines])
+        out.append(Due(r.id, day.date, "report", ch, m.REPORT_TITLE, m.clip(text), h,
+                       f"/day/{day.date.isoformat()}/{r.query}", last_start, m.push_body(text), dest))
     return out

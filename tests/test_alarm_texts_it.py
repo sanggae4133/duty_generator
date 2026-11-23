@@ -39,7 +39,7 @@ def test_personal_shift():
     assert (due.title, due.text, due.content_hash, due.url, due.expires_at) == (
         "당번 알림", "[당번 알림] 11/16(월) 새벽 06:30~15:30\n가님, 내일 새벽 당번입니다.", "in:b67c7c6d5f7f719a",
         "/day/2026-11-16/", datetime(2026, 11, 16, 6, 30))
-    assert due.push_text == "[당번 알림] 11/16(월) 새벽 06:30~15:30 가님, 내일 새벽 당번입니다."
+    assert due.push_text == due.text  # 푸시도 텔레그램과 같은 글(줄바꿈 그대로)
 
 
 def test_personal_slot():
@@ -63,7 +63,7 @@ def test_report_full_text():
     [due] = run(r, d, dept_names={"MEMS": "매칭엔진실"})
     assert (due.title, due.text, due.content_hash, due.push_text, due.url, due.expires_at) == (
         "출근표", "[출근표] 11/16(월) — 매칭엔진실\n" + REPORT_BODY, "report:1b8af80d11eb4183",
-        "[출근표] 11/16(월) — 매칭엔진실 · 2명", "/day/2026-11-16/", datetime(2026, 11, 16, 17, 0))
+        "[출근표] 11/16(월) — 매칭엔진실\n" + REPORT_BODY, "/day/2026-11-16/", datetime(2026, 11, 16, 17, 0))  # 푸시도 전체
     [changed] = run(r, d, {(1, D, "report", "telegram", "d"): "old"}, dept_names={"MEMS": "매칭엔진실"})
     assert changed.text == "[출근표 변경] 11/16(월) — 매칭엔진실\n" + REPORT_BODY
     assert changed.content_hash == "report:1b8af80d11eb4183"

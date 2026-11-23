@@ -238,6 +238,6 @@ def test_steps_cover_roster_redesign_features():
     from duty.help import STEPS
     text = "\n".join(STEPS["member"])
     for word in ("빨간 이름표", "'오늘'", "다른 사람 흐리게", "관제 10명", "토·일", "흐리게(가로줄)", "좌우로 밀어도", "일요일부터",
-                 "N월 내 근무", "[엑셀 ▾]", "메모가 달리거나 바뀌면 알림"):
+                 "N월 내 근무", "[엑셀 ▾]", "메모 알림은 근무표 관리자가", "텔레그램과 같습니다"):
         assert word in text, word
     assert "토·일 칸에도 메모" in "\n".join(STEPS["admin"])

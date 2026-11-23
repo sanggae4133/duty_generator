@@ -69,6 +69,7 @@ def _index(request, **extra):
     ]
     conf = alarm_settings.ensure_push_keys()
     return render(request, "duty/alarms.html", {
+        "memo_board": request.user.department.board if request.user.department_id else None,  # 메모 알림은 근무표 설정(관리자)
         "tg": TelegramAlarmProfile.objects.filter(user=request.user).first(),
         "tg_token": conf.telegram_on,
         "bot_ready": conf.bot_ready,
@@ -263,15 +264,6 @@ def notify_changes(request):
     on = bool(request.POST.get("on"))
     alarms.set_notify_changes(request.user, on)
     messages.success(request, "내 근무가 바뀌면 알림을 " + ("켰습니다." if on else "껐습니다."))
-    return redirect("alarms")
-
-
-@require_POST
-@login_required
-def notify_memos(request):
-    on = bool(request.POST.get("on"))
-    alarms.set_notify_memos(request.user, on)
-    messages.success(request, "메모 알림을 " + ("켰습니다." if on else "껐습니다."))
     return redirect("alarms")
 
 
