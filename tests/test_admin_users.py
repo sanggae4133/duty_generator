@@ -150,17 +150,17 @@ def test_bulk_delete_of_two_admins_of_same_board_refused(su_client, ops_board, o
     assert User.objects.filter(pk__in=[ops_only_admin.pk, second.pk]).count() == 2
 
 
-@pytest.mark.django_db(transaction=True)
 def test_bulk_delete_checks_and_deletes_in_one_transaction(su_client, make_member, monkeypatch):
-    """일괄 지우기의 관리자 검사와 지우기가 한 트랜잭션(IMMEDIATE)이라 두 슈퍼유저가 동시에 지워도 관리자 0명이 되지 않는다."""
-    seen = []
+    """일괄 지우기의 관리자 검사와 지우기가 한 트랜잭션(IMMEDIATE)이라 두 슈퍼유저가 동시에 지워도 관리자 0명이 되지 않는다.
+    테스트는 이미 트랜잭션 안이라 지울 때 트랜잭션이 한 겹 더 열려 있는지(savepoint)로 본다."""
+    depth, seen = len(connection.savepoint_ids), []
     orig = UserAdmin.delete_queryset
     monkeypatch.setattr(UserAdmin, "delete_queryset",
-                        lambda self, request, qs: (seen.append(connection.in_atomic_block), orig(self, request, qs)))
+                        lambda self, request, qs: (seen.append(len(connection.savepoint_ids) - depth), orig(self, request, qs)))
     m = make_member("가상지움")
     su_client.post(reverse("admin:duty_user_changelist"),
                    {"action": "delete_selected", "_selected_action": [m.pk], "post": "yes"})
-    assert seen == [True] and not User.objects.filter(pk=m.pk).exists()
+    assert seen == [1] and not User.objects.filter(pk=m.pk).exists()
 
 
 def test_admin_log_entries_use_username_not_name(su_client, depts, make_member):
