@@ -1,6 +1,10 @@
+import json
+
 from django import forms
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
+from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import UserChangeForm
@@ -196,6 +200,30 @@ class UserAdmin(DjangoUserAdmin):
         Django 의 '보호된 객체' 목록에 그 까닭을 넣어 아무것도 지우지 않는다(두 길 모두 이 목록이 비어야 지운다)."""
         deleted, count, perms_needed, protected = super().get_deleted_objects(objs, request)
         return deleted, count, perms_needed, [*protected, *map(_no_admin_left, boards.left_without_admin(objs))]
+
+    def changelist_view(self, request, extra_context=None):
+        """'선택한 사용자 삭제'는 위 검사와 지우기를 따로 부른다: POST 를 한 트랜잭션(IMMEDIATE, 쓰기가 줄 선다)으로 묶어
+        두 슈퍼유저가 관리자를 하나씩 동시에 지워도 재직 관리자가 0명이 되지 않게(한 명 지우기는 Django 가 이미 한 트랜잭션)."""
+        if request.method != "POST":
+            return super().changelist_view(request, extra_context)
+        with transaction.atomic():
+            return super().changelist_view(request, extra_context)
+
+    # 관리 화면 기록(LogEntry.object_repr)은 Django 기본이 str(user) = 실명이라 아이디로 남긴다(로그에 실명 금지)
+    def _log(self, request, objs, flag, message=""):
+        return LogEntry.objects.bulk_create(
+            LogEntry(user_id=request.user.pk, content_type=ContentType.objects.get_for_model(User), object_id=str(o.pk),
+                     object_repr=o.username, action_flag=flag,
+                     change_message=json.dumps(message) if isinstance(message, list) else message) for o in objs)
+
+    def log_addition(self, request, obj, message):
+        return self._log(request, [obj], ADDITION, message)[0]
+
+    def log_change(self, request, obj, message):
+        return self._log(request, [obj], CHANGE, message)[0]
+
+    def log_deletions(self, request, queryset):
+        return self._log(request, queryset, DELETION)
 
     def save_model(self, request, obj, form, change):
         old = User.objects.filter(pk=obj.pk).values_list("department_id", flat=True).first() if change else None
