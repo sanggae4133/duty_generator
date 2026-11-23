@@ -469,6 +469,8 @@ class RosterPref(models.Model):
     # 고른 근무표 code 목록(내 근무표 먼저, 나머지 id 순, 근무표 통합 5단계). [] = 내 근무표만.
     # code 는 만든 뒤 바뀌지 않고 근무표는 지우지 않아 FK 대신 code. 읽을 때 없는 code 는 버린다
     boards = models.JSONField(default=list)
+    # 흐리게(근무표 화면 필터의 셋째 상태): {"dept": [...], "type": [...], "shift": [...], "hist": bool}. 흐리게 값도 위 목록(보임)에 든다
+    dims = models.JSONField(default=dict)
 
     class Meta:
         constraints = [_one_of("view", ("week", "month"), "rosterpref_view_valid")]

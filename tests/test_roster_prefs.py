@@ -233,3 +233,31 @@ def test_schedule_choices_follow_definitions():
     assert list(prefs.choices(IT_DEFS)) == ["dawn", "normal", "dinner", "night", "slots"]  # 화면 순서
     no_slots = [d for d in IT_DEFS if not is_slot_cell(d.key)]
     assert list(prefs.choices(no_slots)) == ["dawn", "normal", "dinner", "night"]  # 관제 없는 근무표엔 묶음 없음
+
+
+# ── 흐리게(보임 / 흐리게 / 숨김): 부서·유형·스케줄·변경 내역 ──
+
+def test_dim_saved_via_prefs_and_rendered(client, two_depts):
+    """roster.js 가 fd=1 과 흐리게 값(ddim·tdim·sdim·hdim)을 보낸다. 흐리게도 '보임' 목록에 든다(엑셀·하루 화면은 보임으로)."""
+    a, _ = two_depts
+    client.force_login(a)
+    client.post("/prefs/", {"f": "1", "fd": "1", "dept": ["MEMS", "UI"], "ddim": ["UI", "NOPE"], "sdim": "normal",
+                            "hist": ["0", "1"], "hdim": "1"})
+    p = RosterPref.objects.get(user=a)
+    assert p.dims == {"dept": ["UI"], "type": [], "shift": ["normal"], "hist": True}  # 없는 값은 버린다
+    body = client.get("/").content.decode()
+    box = flt(body)
+    assert 'name="dept" value="UI" checked data-state="dim"' in box and 'name="dept" value="MEMS" checked>' in box
+    assert 'name="shift" value="normal" checked data-state="dim"' in box
+    assert 'name="hist" value="1" checked data-state="dim"' in box
+    assert '<div id="roster-root" class="histdim">' in body
+
+
+def test_filter_form_without_fd_keeps_dims(client, two_depts):
+    """하루 화면의 필터 폼(흐리게를 모른다)은 흐리게 값을 지우지 않는다."""
+    a, _ = two_depts
+    client.force_login(a)
+    client.post("/prefs/", {"f": "1", "fd": "1", "sdim": "normal"})
+    client.get(f"/day/{D}/?f=1&shift=normal&shift=dinner")
+    p = RosterPref.objects.get(user=a)
+    assert p.dims["shift"] == ["normal"] and p.shifts == ["normal", "dinner"]

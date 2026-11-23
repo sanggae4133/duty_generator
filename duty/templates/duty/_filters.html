@@ -1,11 +1,12 @@
 <input type="hidden" name="f" value="1">{% for c in sel_codes %}<input type="hidden" name="board" value="{{ c }}">{% endfor %}
 {% if not nested %}<details class="filters"><summary>필터{% if filter_on %} <span class="on">적용 중</span>{% endif %}</summary><div class="filters-body">{% endif %}
   {% if multi and filterable %}<p class="hint mine-only">부서·유형·스케줄은 내 근무표에만 적용됩니다</p>{% endif %}
-  {% if filterable %}<fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  {% if type_choices %}<fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
-  <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
-  <fieldset class="filter"><legend>보기</legend><input type="hidden" name="hist" value="0"><label><input type="checkbox" name="hist" value="1"{% if history %} checked{% endif %}> 변경 내역 표시(A&gt;B·취소선)</label></fieldset>
-  {% if filterable %}<small class="hint">부서·{% if type_choices %}유형·{% endif %}스케줄은 모두 해제하면 전체 표시</small>{% endif %}
+  {% if filterable %}<fieldset class="filter"><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% if live and c.dim %} data-state="dim"{% endif %}{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  {% if type_choices %}<fieldset class="filter"><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% if live and c.dim %} data-state="dim"{% endif %}{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
+  <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% if live and c.dim %} data-state="dim"{% endif %}{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
+  <fieldset class="filter"><legend>보기</legend><input type="hidden" name="hist" value="0"><label><input type="checkbox" name="hist" value="1"{% if history %} checked{% if live and hist_dim %} data-state="dim"{% endif %}{% endif %}> 변경 내역 표시(A&gt;B·취소선)</label></fieldset>
+  {% if live %}<small class="hint">누를 때마다 ✓ 보임 → <span class="dimbox" aria-hidden="true"></span> 흐리게 → ☐ 숨김{% if filterable %} · 모두 숨기면 전체 표시{% endif %}</small>
+  {% elif filterable %}<small class="hint">부서·{% if type_choices %}유형·{% endif %}스케줄은 모두 해제하면 전체 표시</small>{% endif %}
 {% if not nested %}</div></details>{% endif %}
   {% if not live %}<script>{
     // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게)

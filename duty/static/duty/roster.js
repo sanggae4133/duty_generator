@@ -9,6 +9,11 @@
     set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} },
   };
   const FILTER = ["f", "dept", "type", "shift", "hist"], NAMES = ["q1", "q2", "q3"];
+  const DIMS = {dept: "ddim", type: "tdim", shift: "sdim"}, DIM_PARAMS = ["fd", "ddim", "tdim", "sdim", "hdim"];
+  const TRI = "input[type=checkbox][name=dept], input[type=checkbox][name=type], input[type=checkbox][name=shift], input[type=checkbox][name=hist]";
+  // 체크 상자 셋째 상태: 누를 때마다 보임(on) → 흐리게(dim, indeterminate) → 숨김(off). 흐리게도 checked(보임 목록에 든다)
+  const setTri = (c, st) => { c.dataset.state = st; c.checked = st !== "off"; c.indeterminate = st === "dim"; };
+  const tri = c => c.dataset.state || (c.checked ? "on" : "off");
   const cache = new Map();  // 미리 받은 화면 {주소(이름 강조 뺌): Promise<HTML|null>}
   let carry = null, saveTimer = 0;
 
@@ -17,8 +22,10 @@
       const all = $$(`input[type=checkbox][name=${n}]`, f), on = all.filter(c => c.checked).map(c => c.value);
       return on.length && on.length < all.length ? new Set(on) : null;
     };
-    const hist = $("input[type=checkbox][name=hist]", f);
-    return {dept: pick("dept"), type: pick("type"), shift: pick("shift"), hist: hist ? hist.checked : true,
+    const dim = n => new Set($$(`input[type=checkbox][name=${n}]`, f).filter(c => tri(c) === "dim").map(c => c.value));
+    const hist = $("input[type=checkbox][name=hist]", f), h = hist ? tri(hist) : "on";
+    return {dept: pick("dept"), type: pick("type"), shift: pick("shift"), hist: h !== "off", histDim: h === "dim",
+            ddim: dim("dept"), tdim: dim("type"), sdim: dim("shift"),
             names: NAMES.map(n => (($(`[name=${n}]`, f) || {}).value || "").trim())};
   }
 
@@ -26,9 +33,15 @@
     const s = state(f), root = $("#roster-root");
     if (!root) return s;
     root.classList.toggle("nohist", !s.hist);
-    $$(".lb[data-t]", root).forEach(e => e.classList.toggle("x",
-      !!(s.dept && !s.dept.has(e.dataset.d)) || !!(s.type && !s.type.has(e.dataset.t))));
-    $$(".sec[data-k]", root).forEach(e => e.classList.toggle("x", !!(s.shift && !s.shift.has(e.dataset.k))));
+    root.classList.toggle("histdim", s.histDim);
+    $$(".lb[data-t]", root).forEach(e => {
+      e.classList.toggle("x", !!(s.dept && !s.dept.has(e.dataset.d)) || !!(s.type && !s.type.has(e.dataset.t)));
+      e.classList.toggle("dm", s.ddim.has(e.dataset.d) || s.tdim.has(e.dataset.t));
+    });
+    $$(".sec[data-k]", root).forEach(e => {
+      e.classList.toggle("x", !!(s.shift && !s.shift.has(e.dataset.k)));
+      e.classList.toggle("dm", s.sdim.has(e.dataset.k));
+    });
     $$(".tk", root).forEach(e => {
       e.classList.remove("hl1", "hl2", "hl3");
       const i = s.names.indexOf(e.textContent.trim());
@@ -48,7 +61,8 @@
     });
     const md = $("#mydays");
     if (md) md.textContent = `${mine}일`;
-    const n = [s.dept, s.type, s.shift].filter(Boolean).length + s.names.filter(Boolean).length + (s.hist ? 0 : 1);
+    const touched = k => !!s[k] || s[DIMS[k]].size > 0;  // 숨김이나 흐리게가 하나라도 있는 묶음
+    const n = ["dept", "type", "shift"].filter(touched).length + s.names.filter(Boolean).length + (s.hist && !s.histDim ? 0 : 1);
     const cnt = $("#flt-cnt");
     if (cnt) cnt.textContent = n ? `(${n}개 적용 중)` : "(적용 없음)";
     // 엑셀 받기 조건도 지금 화면을 따른다(받기 전에 바꿀 수 있다)
@@ -61,16 +75,24 @@
 
   function syncUrl(f, s) {
     const u = new URL(location.href);
-    [...FILTER, ...NAMES, "q"].forEach(k => u.searchParams.delete(k));
+    [...FILTER, ...NAMES, ...DIM_PARAMS, "q"].forEach(k => u.searchParams.delete(k));
     for (const [k, v] of new FormData(f)) {
       if ((FILTER.includes(k) && (k !== "f" || f.dataset.mine === "1")) || (NAMES.includes(k) && v.trim())) u.searchParams.append(k, v.trim());
     }
+    for (const [k, v] of dimParams(f, s)) u.searchParams.append(k, v);
     history.replaceState(history.state, "", u);
     $$("a[data-nav]").forEach(a => {  // ◀ ▶ 는 이름 강조만 싣는다(필터는 저장값을 따른다)
       const v = new URL(a.href);
       NAMES.forEach((k, i) => { v.searchParams.delete(k); if (s.names[i]) v.searchParams.set(k, s.names[i]); });
       a.href = v.pathname + v.search;
     });
+  }
+
+  function dimParams(f, s) {  // 흐리게 값(fd=1 이 있어야 서버가 읽고 저장한다)
+    const out = [["fd", "1"]];
+    if (f.dataset.mine === "1") Object.values(DIMS).forEach(p => s[p].forEach(v => out.push([p, v])));
+    if (s.histDim) out.push(["hdim", "1"]);
+    return out;
   }
 
   function save(f) {
@@ -80,16 +102,17 @@
       for (const [k, v] of new FormData(f)) {
         if (k === "hist" || (f.dataset.mine === "1" && FILTER.includes(k))) body.append(k, v);
       }
+      for (const [k, v] of dimParams(f, state(f))) body.append(k, v);
       fetch(f.dataset.prefs, {method: "POST", body, keepalive: true, credentials: "same-origin",
                               headers: {"X-CSRFToken": ($("input[name=csrfmiddlewaretoken]") || {}).value || ""}}).catch(() => {});
     }, 300);
   }
 
-  const snapshot = f => $$("input", f).filter(i => i.name && i.type !== "hidden").map(i => [i.name, i.value, i.type === "checkbox" ? i.checked : null]);
+  const snapshot = f => $$("input", f).filter(i => i.name && i.type !== "hidden").map(i => [i.name, i.value, i.type === "checkbox" ? tri(i) : null]);
   function restore(f, snap) {
-    snap.forEach(([name, value, checked]) => {
-      if (checked === null) { const i = $(`input[name="${name}"]`, f); if (i) i.value = value; }
-      else { const i = $(`input[type=checkbox][name="${name}"][value="${CSS.escape(value)}"]`, f); if (i) i.checked = checked; }
+    snap.forEach(([name, value, st]) => {
+      if (st === null) { const i = $(`input[name="${name}"]`, f); if (i) i.value = value; }
+      else { const i = $(`input[type=checkbox][name="${name}"][value="${CSS.escape(value)}"]`, f); if (i) setTri(i, st); }
     });
   }
 
@@ -135,6 +158,10 @@
   function init() {
     const f = $("#flt");
     if (!f) return;
+    $$(TRI, f).forEach(c => {
+      setTri(c, tri(c));
+      c.addEventListener("click", () => setTri(c, {on: "dim", dim: "off", off: "on"}[c.dataset.state]));  // change 보다 먼저
+    });
     if (carry) { restore(f, carry); carry = null; }
     const changed = () => { const s = apply(f); syncUrl(f, s); return s; };
     f.addEventListener("change", e => { changed(); if (!NAMES.includes(e.target.name)) save(f); });
