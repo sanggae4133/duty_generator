@@ -1,1 +1,1 @@
-{% for line in c.lines %}{% include "duty/_line.html" %}{% empty %}<span class="add">+</span>{% endfor %}
+<div class="line">{% with line=c.items %}{% include "duty/_labels.html" %}{% endwith %}</div>{% if not c.items %}<span class="add">+</span>{% endif %}

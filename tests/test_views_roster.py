@@ -41,15 +41,15 @@ def test_roster_shows_names_and_highlight(client, world):
     client.force_login(a)
     r = client.get("/?q=가")
     body = r.content.decode()
-    assert r.status_code == 200 and '<span class="hl1">가</span>' in body
-    assert '<span class="hl1">나' not in body
+    assert r.status_code == 200 and '<span class="tk me hl1">가</span>' in body  # 로그인한 본인 = me
+    assert '<span class="tk hl1">나' not in body
 
 
 def test_second_name_gets_hl2(client, world):
     a, _ = world
     client.force_login(a)
     body = client.get("/?q1=가&q2=나").content.decode()
-    assert '<span class="hl1">가</span>' in body and '<span class="hl2">나</span>' in body
+    assert '<span class="tk me hl1">가</span>' in body and '<span class="tk hl2">나</span>' in body
 
 
 def test_name_inside_chain_highlights(client, world, make_member):
@@ -59,7 +59,8 @@ def test_name_inside_chain_highlights(client, world, make_member):
     client.post(f"/cell/{D}/normal/", {"before": a.username, "after": c.username})
     body = client.get("/?q3=다").content.decode()
     body = body.replace("&gt;", ">")
-    assert '<span class="lb chg"><s>가</s>><span class="hl3">다</span></span>' in body
+    assert '"><span class="tk old"><s>가</s></span><span class="ar">></span><span class="tk hl3">다</span></span>' in body
+    assert '<span class="lb chg" data-d=' in body
     assert "changed" not in body.split("<body")[1].split("<script")[0]  # 셀 배경 클래스 없음
 
 
@@ -69,7 +70,7 @@ def test_highlighted_struck_name_keeps_both(client, world, make_member):
     client.force_login(a)
     client.post(f"/cell/{D}/normal/", {"before": a.username, "after": c.username})
     body = client.get("/?q1=가").content.decode()
-    assert '<span class="hl1"><s>가</s></span>' in body
+    assert '<span class="tk old hl1"><s>가</s></span>' in body
 
 
 def test_cells_use_nowrap_lines(client, world):
@@ -85,8 +86,8 @@ def test_week_view_default(client, world):
     body = client.get("/").content.decode()
     for d in range(9, 14):
         assert f"/day/2026-11-{d:02d}/" in body
-    assert "새벽" in body and "석식교대" in body and "관제" in body and "08:30" in body and 'class="sec slot"' in body
-    assert "<th scope=" not in body and body.count('class="sec"') == 5 * 4  # 행 라벨 열 없음, 날짜마다 4개 구역
+    assert "새벽" in body and "석식교대" in body and "관제" in body and "08:30" in body and 'class="sec slot k-slot"' in body
+    assert "<th scope=" not in body and body.count('class="sec k-') == 5 * 4  # 행 라벨 열 없음, 날짜마다 4개 구역
     assert 'id="today"' in body and "/cell/2026-11-10/normal/" in body and "/cell/2026-11-10/slot0/" in body
     assert "/cell/2026-11-13/night/" in body  # 미래일도 편집 가능
 
@@ -239,24 +240,31 @@ def two_depts(world, make_member):
     return a, c
 
 
+def _lb(body: str, name: str) -> tuple[str, str] | None:
+    """이름표의 필터 표시(data-d=부서, data-t=유형). 브라우저(roster.js)가 이 값으로 숨긴다."""
+    m = re.search(r'<span class="lb[^"]*" data-d="([^"]*)" data-t="([^"]*)">(?:(?!</span></span>).)*?<span class="tk[^"]*">(?:<s>)?' + name + "<", body)
+    return (m.group(1), m.group(2)) if m else None
+
+
 @pytest.mark.parametrize("view", ["week", "month"])
-def test_dept_filter_hides_other_departments(client, two_depts, view):
+def test_dept_filter_marks_instead_of_hiding(client, two_depts, view):
+    """필터는 서버가 거르지 않는다: 모두 그리고 부서·유형을 붙인다. 체크 상태는 주소(그리고 저장값)를 따른다."""
     a, _ = two_depts
     client.force_login(a)
-
-    def grid(q):
-        return client.get(f"/?view={view}{q}").content.decode().split("<tbody>")[1].split("</tbody>")[0]
-
-    assert "라" in grid("&dept=UI") and "가" not in grid("&dept=UI")
-    assert "라" in grid("") and "가" in grid("")
+    body = client.get(f"/?view={view}&dept=UI").content.decode()
+    grid = body.split("<tbody>")[1].split("</tbody>")[0]
+    assert _lb(grid, "라") == ("UI", "개발자") and _lb(grid, "가") == ("MEMS", "개발자")
+    assert [k for k, v in _checked(body).items() if v and k[0] == "dept"] == [("dept", "UI")]
 
 
-def test_dept_carried_through_links_and_popup_url(client, two_depts):
+def test_links_carry_only_view_date_and_names(client, two_depts):
+    """◀ ▶·주간/월간 링크는 필터를 싣지 않는다(필터는 브라우저가 바꾸고 /prefs/ 로 저장, 링크는 저장값을 따른다)."""
     a, _ = two_depts
     client.force_login(a)
-    body = client.get("/?dept=UI&dept=MD").content.decode().replace("&amp;", "&")
-    assert "dept=UI&dept=MD" in body.split('class="cal-nav"')[1].split("</div>")[0]
-    assert "dept=UI&dept=MD" in body.split("</form>")[1]  # next=… 와 &dept= 가 팝업 URL에 실린다
+    body = client.get("/?dept=UI&dept=MD&q1=라").content.decode().replace("&amp;", "&")
+    nav = body.split('class="cal-nav"')[1].split('id="flt-panel"')[0]
+    assert "dept=" not in nav and "q1=%EB%9D%BC" in nav
+    assert "dept=" not in body.split('id="roster-root"')[1]  # 팝업 URL 의 부서는 roster.js 가 지금 필터로 붙인다
 
 
 @pytest.fixture
@@ -270,25 +278,18 @@ def mixed(world, make_member):
 
 
 @pytest.mark.parametrize("view", ["week", "month"])
-def test_type_filter_and_combination(client, mixed, view):
+def test_type_marked_and_combination_saved(client, mixed, view):
     a, _ = mixed
     client.force_login(a)
-
-    def grid(q):
-        return client.get(f"/?view={view}{q}").content.decode().split("<tbody>")[1].split("</tbody>")[0]
-
-    assert "라" in grid("&type=직원") and "가" not in grid("&type=직원")
-    assert "가" in grid("&type=개발자") and "라" not in grid("&type=개발자")
-    assert "가" not in grid("&type=직원&dept=UI") and "라" not in grid("&type=직원&dept=UI")  # 둘 다 통과해야 표시
-    assert "라" in grid("&type=직원&dept=MEMS")
+    body = client.get(f"/?view={view}&type=직원&dept=MEMS").content.decode()
+    grid = body.split("<tbody>")[1].split("</tbody>")[0]
+    assert _lb(grid, "라") == ("MEMS", "직원") and _lb(grid, "가") == ("MEMS", "개발자")
+    assert [k for k, v in _checked(body).items() if v] == [("dept", "MEMS"), ("type", "직원")]
 
 
-def test_type_carried_and_popup_filtered(client, mixed):
+def test_popup_filtered_by_type(client, mixed):
     a, c = mixed
     client.force_login(a)
-    body = client.get("/?type=직원").content.decode().replace("&amp;", "&")
-    assert "type=%EC%A7%81%EC%9B%90" in body.split('class="cal-nav"')[1].split("</div>")[0]
-    assert "&type=%EC%A7%81%EC%9B%90" in body.split("</form>")[1]
     popup = client.get(f"/cell/{D}/normal/?type=직원").content.decode()
     assert f'<option value="{c.username}">' in popup and f'<option value="{a.username}">' not in popup
 
@@ -330,18 +331,17 @@ def test_unknown_values_are_ignored_next_to_valid(client, two_depts):
     a, _ = two_depts
     client.force_login(a)
     body = client.get("/?dept=UI&dept=NOPE&type=외부").content.decode()
-    grid = body.split("<tbody>")[1].split("</tbody>")[0]
-    nav = body.split('class="cal-nav"')[1].split("</div>")[0]
-    assert "라" in grid and "가" not in grid and "NOPE" not in nav and "dept=UI" in nav
+    assert "NOPE" not in body.split('class="cal-nav"')[1].split("</div>")[0]
     assert _checked(body)[("type", "직원")] and _checked(body)[("dept", "UI")]  # 잘못된 type만 줬으니 유형은 전체
+    assert not _checked(body)[("dept", "MEMS")]
 
 
-def test_removed_label_filtered_by_its_department(client, two_depts):
+def test_removed_label_marked_by_its_department(client, two_depts):
     a, c = two_depts
     client.force_login(a)
-    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": ""})  # 가(MEMS) 제거 → 취소선
-    grid = lambda q: client.get(f"/?{q}").content.decode().split("<tbody>")[1].split("</tbody>")[0]
-    assert "<s>가</s>" in grid("dept=MEMS") and "<s>가</s>" not in grid("dept=UI")
+    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": ""})  # 가(MEMS) 제거 → 취소선(변경 내역)
+    grid = client.get("/").content.decode().split("<tbody>")[1].split("</tbody>")[0]
+    assert '<span class="lb chg rm" data-d="MEMS" data-t="개발자"><span class="tk old"><s>가</s></span></span>' in grid
 
 
 def test_edge_dates_hide_prev_next(client, world):
@@ -356,7 +356,7 @@ def test_separate_move_and_search_buttons(client, world):
     a, _ = world
     client.force_login(a)
     body = client.get("/").content.decode()
-    assert "<button>이동</button>" in body and "<button>검색</button>" in body and "Today" not in body
+    assert "<button>날짜로 이동</button>" in body and 'name="q1"' in body and "Today" not in body  # 이름 강조는 입력하면 바로
 
 
 def test_today_link_survives_out_of_range_today(client, world, fixed_today):
@@ -379,7 +379,7 @@ def test_candidates_exclude_departed_and_no_department(client, world, make_membe
     for u in (b, gone, admin_user):
         assert f'value="{u.username}"' not in to
     assert f'value="{a.username}"' in to
-    assert '<span class="hl1">나</span>' in client.get("/?q1=나").content.decode()  # 근무표 조회엔 그대로
+    assert '<span class="tk hl1">나</span>' in client.get("/?q1=나").content.decode()  # 근무표 조회엔 그대로
 
 
 def test_me_shift_filter(client, world):
@@ -478,7 +478,7 @@ def test_labels_and_cells_come_from_board_definitions(client, world, it_board):
 
 
 def _dept_codes(body: str) -> list[str]:
-    return re.findall(r'name="dept" value="(\w+)"', body.split('<details class="export"')[0])  # 필터 상자만(엑셀 상자 빼고)
+    return re.findall(r'name="dept" value="(\w+)"', body.split('id="xl-panel"')[0])  # 필터 상자만(엑셀 상자 빼고)
 
 
 def test_views_use_own_board_departments_and_definitions(client, world, it_board):

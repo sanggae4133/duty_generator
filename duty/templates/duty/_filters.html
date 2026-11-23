@@ -7,7 +7,7 @@
   <fieldset class="filter"><legend>보기</legend><input type="hidden" name="hist" value="0"><label><input type="checkbox" name="hist" value="1"{% if history %} checked{% endif %}> 변경 내역 표시(A&gt;B·취소선)</label></fieldset>
   {% if filterable %}<small class="hint">부서·{% if type_choices %}유형·{% endif %}스케줄은 모두 해제하면 전체 표시</small>{% endif %}
 {% if not nested %}</div></details>{% endif %}
-  <script>{
+  {% if not live %}<script>{
     // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게)
     const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname;
     let s = null;
@@ -23,4 +23,4 @@
       if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; }
       scrollTo(0, s.y);
     });
-  }</script>
+  }</script>{% endif %}

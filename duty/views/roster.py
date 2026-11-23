@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from .. import perms, xlsx
 from ..csv_io import split_names
@@ -49,12 +50,6 @@ def _latest(labels: list[str]) -> list[str]:
 def _visible(labels: list[str], why: dict[str, str], history: bool) -> list[str]:
     """변경 내역 표시를 끄면 지금 사람만 남기고, 사유 있는 사람도 빠진 사람처럼 숨긴다."""
     return labels if history else [n for n in _latest(labels) if n not in why]
-
-
-def _lines(labels: list[str], names: list[str], removed: bool = False, per_line: int = 3,
-           reasons: dict[str, str] | None = None) -> list[list[dict]]:
-    items = _items(labels, names, removed, reasons)
-    return [items[i:i + per_line] for i in range(0, len(items), per_line)]
 
 
 def _member(username: str | None) -> User | None:
@@ -209,9 +204,11 @@ def _month_shift(d: date, step: int) -> date:
 
 @login_required
 def roster(request):
+    """근무표 화면. 부서·유형·스케줄·변경 내역·이름 강조는 서버가 거르지 않고 전부 그린 뒤 브라우저가 바로 숨기고 칠한다
+    (duty/static/duty/roster.js, 결정 기록 2026-11-23). 그래서 이 화면의 응답은 필터와 상관없이 기간·근무표로만 정해진다."""
     names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
-    today = perms.today()
+    today, me = perms.today(), request.user.name
     chosen, home = _selection(request, remember=True)
     multi, sq = len(chosen) > 1, boards.selection_query(chosen, home)
     mine = home in chosen  # 부서·유형·스케줄 필터는 내 근무표 구역에만(설계 9.3). 목록에 없으면 필터 상자도 없다
@@ -221,17 +218,18 @@ def roster(request):
     anchor = date_param(request, "date") or today
     if not LOW <= anchor <= HIGH:  # 극단 날짜의 overflow 방지
         anchor = today
-    keep, shown = _keeper(depts, types), _shown(shifts)
+    # 필터용 표시: 라벨의 지금(마지막) 사람의 부서·유형. 내 근무표 구역에만 붙인다
+    info = {n: (d or "", t) for n, d, t in User.objects.values_list("name", "department_id", "type")} if mine else {}
 
     def link(v: str, d: date) -> str | None:
         if not LOW <= d <= HIGH:
             return None  # 범위 밖으로 가는 링크는 만들지 않는다
-        params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}, "dept": depts, "type": types, "shift": shifts}
-        return (sq + "&" if sq else "?") + urlencode(params, doseq=True)
+        params = {"view": v, "date": d.isoformat(), **{f"q{i}": n for i, n in enumerate(names, 1) if n}}
+        return (sq + "&" if sq else "?") + urlencode(params)
 
     if view == "week":
         monday = anchor - timedelta(days=anchor.weekday())
-        weeks = [[monday + timedelta(days=i) for i in range(5)]]
+        weeks = [[monday + timedelta(days=i) for i in range(7)]]
         prev_d, next_d = monday - timedelta(days=7), monday + timedelta(days=7)
         title = f"{monday:%Y-%m-%d} ~ {monday + timedelta(days=4):%m-%d}"
         export = (monday, monday + timedelta(days=4))
@@ -241,8 +239,7 @@ def roster(request):
         weeks = []
         last = _month_shift(first, 1) - timedelta(days=1)
         while cur <= last:
-            if cur + timedelta(days=4) >= first:  # 주말만 걸친 앞 주는 건너뜀
-                weeks.append([cur + timedelta(days=i) for i in range(5)])
+            weeks.append([cur + timedelta(days=i) for i in range(7)])  # 주말 칸도 그린다(메모용)
             cur += timedelta(days=7)
         prev_d, next_d = _month_shift(first, -1), _month_shift(first, 1)
         title = f"{first.year}년 {first.month}월"
@@ -250,56 +247,79 @@ def roster(request):
     first_day, last_day = weeks[0][0], weeks[-1][-1]
     closed = holidays.closed(first_day, last_day)  # 휴장일은 모든 근무표 공통이라 날짜 칸에 한 번
     page_next = _page_next(request)
-    dept_qs = "".join("&" + urlencode({k: v}) for k, vs in (("dept", depts), ("type", types)) for v in vs)
 
     def part(b: Board) -> dict:
         """근무표 하나의 구역 재료(설계 9.2 '한 길'). 쿼리는 근무표마다 몇 번뿐이고 날짜마다 묻지 않는다(계획 9번)."""
-        is_home, bq = b == home, boards.link_query(home, b)
+        bq = boards.link_query(home, b)
         bqa = "&" + bq[1:] if bq else ""
         admin = perms.is_board_admin(request.user, b)
         return {
-            "defs": boards.defs(b),
-            "keep": keep if is_home else _keeper([], []), "shown": shown if is_home else _shown([]),
+            "defs": boards.defs(b), "filter": b == home,
             # 칸 링크 권한: 날짜마다 묻지 않고 지난 날·오늘 이후 두 번만 묻는다
             "edit_past": perms.can_edit(request.user, b, today - timedelta(days=1)),
             "edit_now": perms.can_edit(request.user, b, today),
             "by_date": {x.date: x for x in published_days(b, first_day, last_day)},
             "notes": memos.for_range(b, first_day, last_day),  # 메모는 회차가 아니라 (근무표, 날짜)에 붙는다
             "meta": {"name": b.name if multi else "", "code": b.code, "bq": bq, "bqa": bqa, "memo_admin": admin,
-                     "view_only": b != boards.board_of(request.user) and not admin,
-                     # 근무 변경 창 To 후보를 거를 부서·유형 꼬리도 내 근무표 구역만(계획 8번)
-                     "filter_qs": (dept_qs if is_home else "") + bqa},
+                     "view_only": b != boards.board_of(request.user) and not admin, "home": b == home,
+                     # 근무 변경 창 To 후보를 거를 부서·유형은 브라우저가 지금 필터로 붙인다(roster.js)
+                     "filter_qs": bqa},
         }
 
     parts = [part(b) for b in chosen]
 
+    def mark(items: list[dict], flt: bool) -> bool:
+        """이름 토큰에 '나'를, 라벨에 부서·유형(필터용)을 붙이고 내가 지금 이 칸에 있는지 돌려준다(빠짐·사유는 아님)."""
+        here = False
+        for it in items:
+            last = it["tokens"][-1]["name"]
+            if flt:
+                it["d"], it["t"] = info.get(last, ("", ""))
+            for t in it["tokens"]:
+                t["me"] = bool(me) and t["name"] == me and not t["struck"]
+            here = here or (bool(me) and last == me and not it.get("rm") and not it["reason"])
+        return here
+
     def section(p: dict, d: date, other: bool) -> dict:
-        found, keep_, shown_, defs = p["by_date"].get(d), p["keep"], p["shown"], p["defs"]
-        cells = {
-            x.key: {
-                "key": x.key, "slot": is_slot_cell(x.key), "label": x.name,
-                "lines": _lines(_visible([lb for lb in found.cells[x.key].labels if keep_(lb)], _why(found, x.key), history),
-                                names, reasons=_why(found, x.key)) if found else [],
-                "removed": _lines([lb for lb in found.cells[x.key].removed if keep_(lb)], names, True) if found and history else [],
-            }
-            for x in display_order(defs) if shown_(x.key)
-        }
+        found, defs, flt = p["by_date"].get(d), p["defs"], p["filter"]
+        cells, here = {}, []
+        for x in display_order(defs):
+            why = _why(found, x.key)
+            items = _items(found.cells[x.key].labels, names, reasons=why) if found else []
+            gone = _items(found.cells[x.key].removed, names, True) if found else []
+            for it in gone:
+                it["rm"] = True
+            items += gone
+            if mark(items, flt):
+                here.append(x.key)
+            cells[x.key] = {"key": x.key, "slot": is_slot_cell(x.key), "label": x.name, "items": items,
+                            "k": SLOT_GROUP if is_slot_cell(x.key) else x.key, "n": len(found.cells[x.key].labels) if found else 0}
         note = p["notes"]["day"].get(d)
         no_work = bool(note and note.no_work)
+        duty = [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs)]
+        commute = [cells[x.key] for x in shift_defs(defs) + lunch_defs(defs)]  # 근무조 → 점심당번
+        mine_shift = next((c["label"] for c in commute if c["key"] in here), "관제" if any(c["key"] in here for c in duty) else "")
         return {
             **p["meta"], "memo": note.text if note else "", "no_work": no_work, "empty": found is None,
+            "weekend": d.weekday() >= 5, "filter": flt,
             "week_memo": p["notes"]["week"].get(d),  # 월요일 칸에만 붙는다(week.0 = 그 주 월요일)
             # 배포된 근무표가 있는 날만, 근무 없음 날은 못 바꾼다
             "edit": (p["edit_past"] if d < today else p["edit_now"]) and not other and found is not None and not no_work,
-            "commute": [cells[x.key] for x in shift_defs(defs) + lunch_defs(defs) if x.key in cells],  # 근무조 → 점심당번
-            "duty": [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs) if x.key in cells],
+            "commute": commute, "duty": duty, "slot_n": sum(c["n"] for c in duty),
+            "my_shift": "" if no_work else mine_shift, "my_slots": [c["time"] for c in duty if c["key"] in here],
         }
 
     def day_info(d: date) -> dict:
         other = view == "month" and d.month != anchor.month
         secs = [section(p, d, other) for p in parts]
+        my = next((s["my_shift"] for s in secs if s["my_shift"]), "") if not other else ""
+        weekend = d.weekday() >= 5
         return {
             "date": d, "is_today": d == today, "other": other, "holiday": closed.get(d, ""), "sections": secs,
+            "weekend": weekend, "my_shift": my, "label": f"{d.month}월 {d.day}일 ({DAY_LABELS[d.weekday()]})",
+            "has_memo": any(s["memo"] for s in secs),
+            # 휴대폰 주간: 주말은 메모·휴장일이 있거나 메모를 쓸 수 있을 때만 카드로
+            "we_empty": weekend and not closed.get(d) and not any(s["memo"] or s["memo_admin"] for s in secs),
             # 팝업이 돌아올 주소. 둘 이상이면 그 날짜 칸으로(계획 4번)
             "nq": quote(page_next + (f"#d-{d.isoformat()}" if multi else "")),
             "wm_row": any(s["week_memo"] or s["memo_admin"] for s in secs),  # 월간: 그 주 메모 줄
@@ -321,10 +341,22 @@ def roster(request):
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
         "can_click": any(s["edit"] for d in (days[0][0], days[0][4]) for s in d["sections"]),  # 범례 '칸을 누르면…'
         "weeks": days, "export": export,
+        "my_days": sum(1 for w in days for d in w if d["my_shift"]) if view == "month" else None,
+        "dim_default": request.user.department_id is not None,  # 근무표에 든 사람만 '다른 사람 흐리게'가 처음부터 켜짐
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }
     ctx.update(_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine))
     return render(request, "duty/roster.html", ctx)
+
+
+@login_required
+@require_POST
+def roster_prefs(request):
+    """근무표 화면에서 브라우저가 바꾼 필터·변경 내역 표시를 저장한다(화면은 이미 바뀌어 있다). 보기는 링크가 정한다."""
+    home = boards.home(request.user)
+    if home is not None:
+        prefs.resolve(request.user, request.POST, home, with_view=False)
+    return HttpResponse(status=204)
 
 
 @login_required
