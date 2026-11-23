@@ -19,6 +19,9 @@ def build(rows) -> bytes:
     ws.append(HEAD)
     for r in rows:
         ws.append([v or None for v in r])  # 빈 사유는 빈 칸
+        for c in ws[ws.max_row]:  # '=' 로 시작하는 이름도 글자로(관리자가 넣은 값이 받는 사람 엑셀에서 수식으로 돌지 않게)
+            if isinstance(c.value, str) and c.value.startswith("="):
+                c.data_type = "s"
     for c in ws[1]:
         c.font = Font(bold=True)
     for c in ws["A"][1:]:

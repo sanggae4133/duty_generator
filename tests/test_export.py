@@ -35,6 +35,14 @@ def test_build_is_pure_and_formatted():
     assert xlsx.build([])  # 빈 표도 머리줄만 있는 파일
 
 
+def test_build_never_writes_formulas():
+    """관리자가 넣은 이름이 '=' 로 시작해도 받는 사람의 엑셀에서 수식으로 돌지 않게(수식 주입) 글자로만 쓴다."""
+    data = xlsx.build([(D, "월", "=HYPERLINK(\"http://x\",\"a\")", "=1+1", "", "=가상", "", "")])
+    ws = load_workbook(BytesIO(data)).active
+    assert [ws.cell(2, c).data_type for c in (3, 4, 6)] == ["s", "s", "s"]
+    assert ws["D2"].value == "=1+1"
+
+
 def test_login_required(client, db):
     for url in ("/export.xlsx", "/me/export.xlsx"):
         r = client.get(url)
