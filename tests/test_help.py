@@ -231,3 +231,13 @@ def test_settings_text_help_for_board_admins(client, people, videos):
                  "[계정 발급]", "1:1로만", "띄어쓰기 없이", "[비밀번호 초기화]", "[다시 재직]", "관리자 계정"):
         assert word in part, word
     assert "IT 당번표: 작성 중" not in part  # 단계 줄은 '회차 운영' 글에만
+
+
+def test_steps_cover_roster_redesign_features():
+    """근무표 화면 개선(2026-11-23) 기능이 사용법 글에 있다(영상과 같은 순서)."""
+    from duty.help import STEPS
+    text = "\n".join(STEPS["member"])
+    for word in ("빨간 이름표", "'오늘'", "다른 사람 흐리게", "관제 10명", "토·일", "흐리게(가로줄)", "좌우로 밀어도", "일요일부터",
+                 "N월 내 근무", "[엑셀 ▾]", "메모가 달리거나 바뀌면 알림"):
+        assert word in text, word
+    assert "토·일 칸에도 메모" in "\n".join(STEPS["admin"])

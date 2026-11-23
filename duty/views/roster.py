@@ -348,7 +348,7 @@ def roster(request):
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
         "can_click": any(s["edit"] for w in days for d in w for s in d["sections"]),  # 범례 '칸을 누르면…'
         "weeks": days, "export": export,
-        "my_days": sum(1 for w in days for d in w if d["my"] and not d["other"]) if view == "month" else None,  # 스케줄 체크를 따르는 값은 roster.js 가 다시 센다
+        "my_days": sum(1 for w in days for d in w if d["my"] and not d["other"]) if view == "month" and request.user.department_id else None,  # 근무표에 없는 계정은 표시 안 함  # 스케줄 체크를 따르는 값은 roster.js 가 다시 센다
         "dim_default": request.user.department_id is not None,  # 근무표에 든 사람만 '다른 사람 흐리게'가 처음부터 켜짐
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }
