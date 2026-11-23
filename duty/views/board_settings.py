@@ -163,6 +163,9 @@ def _shifts(request, board):
     try:
         warnings = board_settings.save_shifts(request.user, board, formset, dept_forms,
                                               int_param(request.POST.get("confirm")))
+    except board_settings.Stale as e:  # 보낸 값은 낡았다: 다시 그리면 [저장]이 같은 낡은 값으로 맴도니 새로 읽은 화면으로
+        messages.error(request, str(e), extra_tags="shifts")
+        return redirect(f"{_here(board)}#shifts")
     except board_settings.NeedsConfirm as e:  # 저장하지 않았다: 보낸 값 그대로 다시 그리고 [그래도 저장]
         messages.warning(request, str(e), extra_tags="shifts")
         return _render(request, board, shifts=(formset, dept_forms), ask=e.rows)

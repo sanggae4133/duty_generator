@@ -293,5 +293,5 @@ def test_non_ascii_or_huge_ids_are_404(ops_client, ops_board):
         for data in ({"do": "leave", "user": bad}, {"do": "issue", "users": [bad]}):
             assert ops_client.post(OPS, data).status_code == 404, data
         assert ops_client.post(OPS, {"do": "leave", "user": a.pk, "confirm": bad}).status_code == 302  # confirm 은 없는 것으로
-        assert ops_client.post(OPS, {"do": "shifts", "confirm": bad}).status_code == 200
+        assert ops_client.post(OPS, {"do": "shifts", "confirm": bad}).status_code == 302  # 폼 없음 = 낡은 화면, 500 아님
     assert User.objects.get(pk=a.pk).is_active is False

@@ -253,4 +253,5 @@ def test_week_all_before_keep_before_is_left_as_is(ops):
     p, dept = ops
     table = {d(11, 30): {"dawn": ["가상가"]}}
     for how in (collect.FILL_2W, collect.FILL_1W):
-        assert collect.fill_week(p, dept, table, d(11, 30), how, keep_before=d(12, 7)) == table
+        out = collect.fill_week(p, dept, table, d(11, 30), how, keep_before=d(12, 7))
+        assert out == table and out is not table  # 늘 새 표

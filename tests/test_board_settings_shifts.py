@@ -11,6 +11,7 @@ from duty.forms import StepsForm, shift_forms
 from duty.models import AlarmRule, Board, BoardShift, Commute, Department, DutyAssignment, Period, User
 from duty.services import board_settings as bs
 from duty.services import collect
+from duty.shifts import SHIFT_KEYS
 
 S = Period.Status
 MON = date(2026, 11, 16)
@@ -40,8 +41,9 @@ def shift_data(board, change=None, extra=None, depts=None):
                             "default_alarm": "on" if s.default_alarm else None, "active": "on" if s.active else None,
                             **(change or {}).get(s.key, {})})
     put(f"shifts-{len(shifts)}", extra or {"active": "on"})  # 손대지 않은 빈 추가 줄(브라우저는 켜진 '사용'을 보낸다)
+    shown = ",".join(s.key for s in shifts if s.active and s.key in SHIFT_KEYS)  # 화면이 숨은 칸으로 보내는 그린 때 체크박스
     for d in board.departments.all():
-        put(f"d-{d.code}", {"shifts": d.shift_keys(), "lunch_start": d.lunch_start and f"{d.lunch_start:%H:%M}",
+        put(f"d-{d.code}", {"shifts": d.shift_keys(), "shown": shown, "lunch_start": d.lunch_start and f"{d.lunch_start:%H:%M}",
                             "lunch_end": d.lunch_end and f"{d.lunch_end:%H:%M}", **(depts or {}).get(d.code, {})})
     return MultiValueDict(data)
 
@@ -95,16 +97,17 @@ def test_turned_off_shift_comes_back_in_department(ops_board, ops_admin):
 
 def test_shift_turned_on_by_other_admin_after_render_is_kept(ops_board, ops_admin):
     """남길 꺼진 키는 화면이 그린 때 체크박스로 보인 키(d-<코드>-shown)로 정한다: 그린 뒤 다른 관리자가 근무조를 켜도
-    그 체크박스를 못 본 이 저장이 부서에서 그 키를 빼지 않는다. shown 이 없으면 지금 켜진 근무조로 본다."""
+    그 체크박스를 못 본 이 저장이 부서에서 그 키를 빼지 않는다."""
     BoardShift.objects.filter(board=ops_board, key="dinner").update(active=False)  # 그린 때: 늦은 조는 꺼져 체크박스 없음
     data = shift_data(ops_board, depts={"OPS": {"shifts": ["dawn", "normal"], "shown": "dawn,normal"}})
     BoardShift.objects.filter(board=ops_board, key="dinner").update(active=True)  # 그사이 다른 관리자가 켰다
     data.setlist("shifts-2-active", ["on"])  # 이 저장도 켠 채로(정의 칸은 다른 관리자 저장을 덮지 않게)
     save(ops_admin, ops_board, data)
     assert _dept().shifts == "dawn,normal,dinner"
-    data.pop("d-OPS-shown")  # 보인 키를 안 보내면(옛 화면) 지금 켜진 근무조가 다 보였던 것으로 본다
-    save(ops_admin, ops_board, data)
-    assert _dept().shifts == "dawn,normal"
+    data.pop("d-OPS-shown")  # 숨은 칸이 없으면 그 부서를 그린 적 없는 화면(그린 뒤 생긴 부서): 저장하지 않는다
+    with pytest.raises(DutyError, match=STALE):
+        save(ops_admin, ops_board, data)
+    assert _dept().shifts == "dawn,normal,dinner"
 
 
 def test_redraw_keeps_posted_shown_value(ops_board):
