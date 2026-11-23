@@ -34,6 +34,20 @@
       const i = s.names.indexOf(e.textContent.trim());
       if (i >= 0 && s.names[i]) e.classList.add("hl" + (i + 1));
     });
+    // 내 근무 표시·'N월 내 근무': 스케줄 체크를 따른다(내 근무표 구역 것만 data-k). 날마다 보이는 첫 것만
+    let mine = 0;
+    $$("#roster td[data-label]", root).forEach(td => {
+      let shown = false;
+      $$(".dh .mychip", td).forEach(c => {
+        const ok = !(s.shift && c.dataset.k && !s.shift.has(c.dataset.k));
+        c.classList.toggle("x", !ok || shown);
+        shown = shown || ok;
+      });
+      td.classList.toggle("mine", shown);
+      if (shown && !td.classList.contains("other")) mine++;
+    });
+    const md = $("#mydays");
+    if (md) md.textContent = `${mine}일`;
     const n = [s.dept, s.type, s.shift].filter(Boolean).length + s.names.filter(Boolean).length + (s.hist ? 0 : 1);
     const cnt = $("#flt-cnt");
     if (cnt) cnt.textContent = n ? `(${n}개 적용 중)` : "(적용 없음)";

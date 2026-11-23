@@ -235,7 +235,7 @@ def roster(request):
         export = (monday, monday + timedelta(days=4))
     else:
         first = anchor.replace(day=1)
-        cur = first - timedelta(days=first.weekday())
+        cur = first - timedelta(days=(first.weekday() + 1) % 7)  # 월간은 일요일부터(주간은 월요일부터)
         weeks = []
         last = _month_shift(first, 1) - timedelta(days=1)
         while cur <= last:
@@ -298,7 +298,10 @@ def roster(request):
         no_work = bool(note and note.no_work)
         duty = [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs)]
         commute = [cells[x.key] for x in shift_defs(defs) + lunch_defs(defs)]  # 근무조 → 점심당번
-        mine_shift = next((c["label"] for c in commute if c["key"] in here), "관제" if any(c["key"] in here for c in duty) else "")
+        # 내 근무(날짜 옆 표시·'N월 내 근무'): 근무마다 하나. 내 근무표 구역은 스케줄 키를 붙여 roster.js 가 스케줄 체크로 거른다
+        mine = [{"k": c["k"] if flt else "", "label": c["label"]} for c in commute if c["key"] in here]
+        if any(c["key"] in here for c in duty):
+            mine.append({"k": SLOT_GROUP if flt else "", "label": "관제"})
         return {
             **p["meta"], "memo": note.text if note else "", "no_work": no_work, "empty": found is None,
             "weekend": d.weekday() >= 5, "filter": flt,
@@ -306,17 +309,19 @@ def roster(request):
             # 배포된 근무표가 있는 날만, 근무 없음 날은 못 바꾼다
             "edit": (p["edit_past"] if d < today else p["edit_now"]) and not other and found is not None and not no_work,
             "commute": commute, "duty": duty, "slot_n": sum(c["n"] for c in duty),
-            "my_shift": "" if no_work else mine_shift, "my_slots": [c["time"] for c in duty if c["key"] in here],
+            "mine": [] if no_work else mine, "my_slots": [c["time"] for c in duty if c["key"] in here],
         }
 
     def day_info(d: date) -> dict:
         other = view == "month" and d.month != anchor.month
         secs = [section(p, d, other) for p in parts]
-        my = next((s["my_shift"] for s in secs if s["my_shift"]), "") if not other else ""
+        my = [m for s in secs for m in s["mine"]] if not other else []
+        for i, m in enumerate(my):
+            m["more"] = i > 0  # 첫 것만 보인다(스케줄 체크로 앞의 것이 숨으면 roster.js 가 다음 것을 보인다)
         weekend = d.weekday() >= 5
         return {
             "date": d, "is_today": d == today, "other": other, "holiday": closed.get(d, ""), "sections": secs,
-            "weekend": weekend, "my_shift": my, "label": f"{d.month}월 {d.day}일 ({DAY_LABELS[d.weekday()]})",
+            "weekend": weekend, "my": my, "label": f"{d.month}월 {d.day}일 ({DAY_LABELS[d.weekday()]})",
             "has_memo": any(s["memo"] for s in secs),
             # 휴대폰 주간: 주말은 메모·휴장일이 있거나 메모를 쓸 수 있을 때만 카드로
             "we_empty": weekend and not closed.get(d) and not any(s["memo"] or s["memo_admin"] for s in secs),
@@ -339,9 +344,9 @@ def roster(request):
         "multi": multi, "bq": sq, "sel_codes": [b.code for b in chosen] if sq else [],
         "sel_names": " + ".join(b.name for b in chosen), "page_nq": quote(page_next), "page_next": page_next,
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
-        "can_click": any(s["edit"] for d in (days[0][0], days[0][4]) for s in d["sections"]),  # 범례 '칸을 누르면…'
+        "can_click": any(s["edit"] for w in days for d in w for s in d["sections"]),  # 범례 '칸을 누르면…'
         "weeks": days, "export": export,
-        "my_days": sum(1 for w in days for d in w if d["my_shift"]) if view == "month" else None,
+        "my_days": sum(1 for w in days for d in w if d["my"]) if view == "month" else None,  # 스케줄 체크를 따르는 값은 roster.js 가 다시 센다
         "dim_default": request.user.department_id is not None,  # 근무표에 든 사람만 '다른 사람 흐리게'가 처음부터 켜짐
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }
@@ -540,7 +545,7 @@ def me(request):
     q = _me_query(request)
     member, board, today, start, end = q["member"], q["board"], q["today"], q["start"], q["end"]
     ok = member and not q["error"]
-    rows = dict(member_schedule(board, member, start, _shown(q["shifts"]), end)) if ok else {}
+    rows = dict(member_schedule(board, member, start, end=end, keys=True)) if ok else {}  # 스케줄은 브라우저가 거른다
     days = boards.owners(board, start, end) if ok else {}
     if days:  # 휴장일·근무 없음 날도 회색 줄로(근무 없는 보통 날은 뺀다)
         off = holidays.closed(start, max(days)) | {
@@ -551,7 +556,7 @@ def me(request):
     return render(request, "duty/me.html", {
         "member": member, "start": start, "end": end, "error": q["error"],
         "shift_choices": _shift_choices(boards.defs(board), q["shifts"]),
-        "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": rows.get(d) or [off[d]], "off": d in off,
+        "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": rows.get(d, []), "why": off.get(d, ""), "off": d in off,
                    "today": d == today} for d in sorted(rows.keys() | off.keys())],
     })
 

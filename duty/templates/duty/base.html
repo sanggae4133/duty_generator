@@ -230,7 +230,7 @@
     .nohist .chg { font-weight: inherit; font-style: normal; color: inherit; }
     .tk.me { padding: 0 .3em; border-radius: .3em; background: var(--nxt-red); color: #fff; font-weight: 800; }
     .tk.me s { color: #fff; }
-    .dim .lb:not(.chg):not(.exc) .tk:not(.me):not(.hl1):not(.hl2):not(.hl3) { color: var(--dim-fg); }
+    .dim .tk:not(.me):not(.hl1):not(.hl2):not(.hl3), .dim .lb:not(:has(.me)) .ar { color: var(--dim-fg); }  /* 나·검색 강조만 빼고 모두(바뀐 근무는 기울임 모양만 남는다) */
     .mychip { margin-left: .3rem; padding: 0 .4rem; border-radius: .3rem; background: var(--nxt-red); color: #fff; font-size: .8rem; font-weight: 700; white-space: nowrap; }
     .mdot { display: none; }
     details.slot { margin-bottom: 0; }

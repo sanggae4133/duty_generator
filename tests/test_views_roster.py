@@ -385,11 +385,11 @@ def test_candidates_exclude_departed_and_no_department(client, world, make_membe
 def test_me_shift_filter(client, world):
     a, _ = world
     client.force_login(a)
-    body = client.get("/me/?shift=slots").content.decode()
-    assert '<span class="what">장중관제 08:30~09:30</span>' in body
+    body = client.get("/me/?shift=slots").content.decode()  # 스케줄은 브라우저가 거른다: 다 그리고 체크만 주소대로
+    assert ('<span class="what"><span class="w f" data-k="normal">정상 08:00~17:00</span>'
+            '<span class="w" data-k="slots">장중관제 08:30~09:30</span></span>') in body
     assert re.search(r'value="slots" checked', body) and not re.search(r'value="normal" checked', body)
-    assert "예정된 근무가 없습니다" in client.get("/me/?shift=dinner").content.decode()
-    assert '<span class="what">정상 08:00~17:00 · 장중관제 08:30~09:30</span>' in client.get("/me/").content.decode()
+    assert 'id="me-empty"' in body and "requestSubmit" not in body  # 다 숨으면 보일 안내, 체크로 다시 부르지 않는다
 
 
 def test_me_shows_holiday_and_no_work_days_gray(client, world, admin_user, it_board):
@@ -539,3 +539,25 @@ def test_slot_popup_offers_keep_other_and_post_takes_both(client, world, make_me
     assert 'name="keep_other"' not in client.get(f"/cell/{D}/normal/").content.decode()  # 근무조 칸에는 없다
     client.post(f"/cell/{D}/slot0/", {"before": a.username, "after": b.username, "keep_other": "1"})
     assert set(DutyAssignment.objects.filter(member=b).values_list("cell", flat=True)) == {"slot0", "slot1"}
+
+
+def test_my_chips_carry_schedule_key_for_browser_filter(client, world):
+    """날짜 옆 내 근무 표시는 근무마다 하나씩(스케줄 키 data-k), roster.js 가 스케줄 체크로 거르고 첫 것만 보인다."""
+    a, _ = world  # 가: 11/10 정상 + 관제 08:30
+    client.force_login(a)
+    body = client.get(f"/?date={D}").content.decode()
+    assert '<span class="mychip" data-k="normal" title="내 근무: 정상">정<span class="sx">상</span></span>' in body
+    assert '<span class="mychip x" data-k="slots" title="내 근무: 관제">관<span class="sx">제</span></span>' in body  # 둘째부터 숨김
+    month = client.get(f"/?view=month&date={D}").content.decode()
+    assert '<b id="mydays">1일</b>' in month
+
+
+def test_month_starts_on_sunday_week_on_monday(client, world):
+    a, _ = world
+    client.force_login(a)
+    head = lambda b: re.findall(r"<th[^>]*>(.)</th>", b.split("<thead>")[1].split("</thead>")[0])
+    month = client.get(f"/?view=month&date={D}").content.decode()
+    assert head(month) == list("일월화수목금토")
+    assert month.split("<tbody>")[1].index("/day/2026-11-01/") < month.split("<tbody>")[1].index("/day/2026-11-02/")  # 11/1 일요일이 첫 칸
+    assert "/day/2026-10-26/" not in month  # 월요일 시작이면 들어가던 앞 주
+    assert head(client.get(f"/?view=week&date={D}").content.decode()) == list("월화수목금토일")
