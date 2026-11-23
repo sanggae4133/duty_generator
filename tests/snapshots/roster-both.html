@@ -1,6 +1,27 @@
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="ic-dawn" viewBox="0 0 24 24">
+<path d="M12 3v3M5 10l2 2M19 10l-2 2M3 18h18M7 18a5 5 0 0 1 10 0"/>
+</symbol>
+<symbol id="ic-normal" viewBox="0 0 24 24">
+<path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8"/>
+</symbol>
+<symbol id="ic-dinner" viewBox="0 0 24 24">
+<path d="M4 13h16M6 13a6 6 0 0 0 12 0M12 7v2M9 4v2M15 4v2"/>
+</symbol>
+<symbol id="ic-night" viewBox="0 0 24 24">
+<path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10"/>
+</symbol>
+<symbol id="ic-lunch" viewBox="0 0 24 24">
+<path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 2-2 6 0 8v10"/>
+</symbol>
+</defs>
+</svg>
 <div class="cal-nav">
+<a class="navbtn" role="button" data-nav href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-09" aria-label="이전 주">◀</a>
 <h3 class="cal-title">2026-11-16 ~ 11-20 <span class="bnames">IT 당번표 + 운영팀</span>
 </h3>
+<a class="navbtn" role="button" data-nav href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-23" aria-label="다음 주">▶</a>
 <a class="to-mine" role="button" href="/?board=it">내 근무표만 보기</a>
 <form method="get" class="board-pick">
 <input type="hidden" name="pick" value="1">
@@ -28,42 +49,50 @@
 </ul>
 </details>
 </form>
+<span class="seg" role="group" aria-label="이동">
+<a href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-16#today">오늘</a>
+</span>
 <span class="seg" role="group" aria-label="보기">
 <a href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-16" aria-current="page">주간</a>
 <a href="?board=it&amp;board=ops&amp;view=month&amp;date=2026-11-16">월간</a>
 </span>
-<span class="seg" role="group" aria-label="이동">
-<a href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-09" aria-label="이전 주">◀</a>
-<a href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-16#today">오늘</a>
-<a href="?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-23" aria-label="다음 주">▶</a>
+<span class="tb-gap">
 </span>
+<label class="dimsw">
+<input type="checkbox" id="dim" role="switch" data-default="1" checked> 다른 사람 흐리게</label>
+<button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="flt-panel" data-toggle>검색·필터 ▾ <span class="cnt" id="flt-cnt">
+</span>
+</button>
+<button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="xl-panel" data-toggle>엑셀 ▾</button>
 </div>
-<form method="get" class="search">
+<div class="panel" id="flt-panel" hidden>
+<form method="get" class="search jump">
 <input type="hidden" name="view" value="week">
-<details class="filters">
-<summary>검색·필터</summary>
-<div class="filters-body">
+<input type="hidden" name="board" value="it">
+<input type="hidden" name="board" value="ops">
 <span class="pair">
 <input type="date" name="date" value="2026-11-16" aria-label="이동할 날짜" style="min-width:10rem">
-<button>이동</button>
+<button>날짜로 이동</button>
 </span>
+</form>
+<form method="get" class="search" id="flt" data-prefs="/prefs/" data-mine="1">
+<input type="hidden" name="view" value="week">
 <span class="names">
 <span class="name">
 <span class="swatch hl1" aria-hidden="true">
 </span>
-<input name="q1" value="" placeholder="강조할 이름" aria-label="강조할 이름 1">
+<input name="q1" value="" placeholder="강조할 이름" aria-label="강조할 이름 1" autocomplete="off">
 </span>
 <span class="name">
 <span class="swatch hl2" aria-hidden="true">
 </span>
-<input name="q2" value="" placeholder="강조할 이름" aria-label="강조할 이름 2">
+<input name="q2" value="" placeholder="강조할 이름" aria-label="강조할 이름 2" autocomplete="off">
 </span>
 <span class="name">
 <span class="swatch hl3" aria-hidden="true">
 </span>
-<input name="q3" value="" placeholder="강조할 이름" aria-label="강조할 이름 3">
+<input name="q3" value="" placeholder="강조할 이름" aria-label="강조할 이름 3" autocomplete="off">
 </span>
-<button>검색</button>
 </span>
 <input type="hidden" name="f" value="1">
 <input type="hidden" name="board" value="it">
@@ -107,12 +136,9 @@
 <input type="checkbox" name="hist" value="1" checked> 변경 내역 표시(A&gt;B·취소선)</label>
 </fieldset>
 <small class="hint">부서·유형·스케줄은 모두 해제하면 전체 표시</small>
-<script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { const g = document.querySelector(".roster-scroll"); try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => { // 근무표의 '오늘로 이동'보다 뒤에 const g = document.querySelector(".roster-scroll"); if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; } scrollTo(0, s.y); }); }</script>
-</div>
-</details>
 </form>
-<details class="export">
-<summary role="button" class="outline">엑셀 다운로드</summary>
+</div>
+<div class="panel" id="xl-panel" hidden>
 <form method="get" action="/export.xlsx" class="dl">
 <input type="hidden" name="next" value="/?board=it&amp;board=ops&amp;view=week">
 <label class="date">시작일<input type="date" name="start" value="2026-11-16" required>
@@ -161,9 +187,19 @@
 </fieldset>
 <button>엑셀 다운로드</button>
 </form>
-</details>
+</div>
+<div id="roster-root">
 <div class="grid-wrap roster-scroll">
 <table class="roster month stack" id="roster">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col class="we">
+<col class="we">
+</colgroup>
 <thead>
 <tr>
 <th>월</th>
@@ -171,46 +207,86 @@
 <th>수</th>
 <th>목</th>
 <th>금</th>
+<th class="we">토</th>
+<th class="we">일</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td id="today" class="today-col">
+<td id="today" class="today-col mine" data-label="11월 16일 (월)" data-day="/day/2026-11-16/?board=it&amp;board=ops">
+<div class="dh">
 <a id="d-2026-11-16" href="/day/2026-11-16/?board=it&amp;board=ops">
 <strong>11/16 (월)</strong>
 </a>
+<span class="mychip" title="내 근무: 새벽">새<span class="sx">벽</span>
+</span>
+</div>
 <div class="bsec">
 <p class="bname">IT 당번표</p>
-<div class="sec">
-<b class="sh">새벽</b>
+<div class="sec k-dawn" data-k="dawn">
+<b class="sh" title="새벽">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">새벽</span>
+</b>
 <a class="cell" href="/day/2026-11-16/#dawn" hx-get="/cell/2026-11-16/dawn/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 새벽 바꾸기">
 <div class="line">
-<span class="lb">가상일</span>
+<span class="lb" data-d="MEMS" data-t="개발자">
+<span class="tk me">가상일</span>
+</span>
 </div>
 </a>
 </div>
-<div class="sec">
-<b class="sh">정상</b>
+<div class="sec k-normal" data-k="normal">
+<b class="sh" title="정상">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">정상</span>
+</b>
 <a class="cell" href="/day/2026-11-16/#normal" hx-get="/cell/2026-11-16/normal/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 정상 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">석식교대</b>
+<div class="sec k-dinner" data-k="dinner">
+<b class="sh" title="석식교대">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">석식교대</span>
+</b>
 <a class="cell" href="/day/2026-11-16/#dinner" hx-get="/cell/2026-11-16/dinner/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 석식교대 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">야간</b>
+<div class="sec k-night" data-k="night">
+<b class="sh" title="야간">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-night"/>
+</svg>
+<span class="shn">야간</span>
+</b>
 <a class="cell" href="/day/2026-11-16/#night" hx-get="/cell/2026-11-16/night/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 야간 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec slot">
+<details class="sec slot k-slot" data-k="slots">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">1명 ▾</span>
+<span class="mychip">08:30 나</span>
+</summary>
 <div>
-<a class="cell" href="/day/2026-11-16/#slot0" hx-get="/cell/2026-11-16/slot0/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 관제 08:30~09:30 바꾸기">08:30 <span class="lb">가상일</span>
+<a class="cell" href="/day/2026-11-16/#slot0" hx-get="/cell/2026-11-16/slot0/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 관제 08:30~09:30 바꾸기">08:30 <span class="lb" data-d="MEMS" data-t="개발자">
+<span class="tk me">가상일</span>
+</span>
 </a>
 </div>
 <div>
@@ -249,74 +325,143 @@
 <a class="cell" href="/day/2026-11-16/#slot9" hx-get="/cell/2026-11-16/slot9/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-16" hx-target="#dlg-body" aria-label="IT 당번표 11/16 관제 17:00~18:00 바꾸기">17:00 <span class="add">+</span>
 </a>
 </div>
-</div>
+</details>
 </div>
 <div class="bsec">
 <p class="bname">운영팀 <small>보기만</small>
 </p>
-<div class="sec">
-<b class="sh">이른</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
 </div>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
-</div>
-<div class="sec">
-<b class="sh">늦은</b>
-</div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
 </div>
 </div>
-<div class="sec slot">
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
+</div>
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </div>
 </td>
-<td>
+<td class=" mine" data-label="11월 17일 (화)" data-day="/day/2026-11-17/?board=it&amp;board=ops">
+<div class="dh">
 <a id="d-2026-11-17" href="/day/2026-11-17/?board=it&amp;board=ops">
 <strong>11/17 (화)</strong>
 </a>
+<span class="mychip" title="내 근무: 새벽">새<span class="sx">벽</span>
+</span>
+</div>
 <div class="bsec">
 <p class="bname">IT 당번표</p>
-<div class="sec">
-<b class="sh">새벽</b>
+<div class="sec k-dawn" data-k="dawn">
+<b class="sh" title="새벽">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">새벽</span>
+</b>
 <a class="cell" href="/day/2026-11-17/#dawn" hx-get="/cell/2026-11-17/dawn/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 새벽 바꾸기">
 <div class="line">
-<span class="lb">가상일</span>
+<span class="lb" data-d="MEMS" data-t="개발자">
+<span class="tk me">가상일</span>
+</span>
 </div>
 </a>
 </div>
-<div class="sec">
-<b class="sh">정상</b>
+<div class="sec k-normal" data-k="normal">
+<b class="sh" title="정상">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">정상</span>
+</b>
 <a class="cell" href="/day/2026-11-17/#normal" hx-get="/cell/2026-11-17/normal/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 정상 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">석식교대</b>
+<div class="sec k-dinner" data-k="dinner">
+<b class="sh" title="석식교대">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">석식교대</span>
+</b>
 <a class="cell" href="/day/2026-11-17/#dinner" hx-get="/cell/2026-11-17/dinner/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 석식교대 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">야간</b>
+<div class="sec k-night" data-k="night">
+<b class="sh" title="야간">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-night"/>
+</svg>
+<span class="shn">야간</span>
+</b>
 <a class="cell" href="/day/2026-11-17/#night" hx-get="/cell/2026-11-17/night/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 야간 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec slot">
+<details class="sec slot k-slot" data-k="slots">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">1명 ▾</span>
+<span class="mychip">09:30 나</span>
+</summary>
 <div>
 <a class="cell" href="/day/2026-11-17/#slot0" hx-get="/cell/2026-11-17/slot0/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 관제 08:30~09:30 바꾸기">08:30 <span class="add">+</span>
 </a>
 </div>
 <div>
-<a class="cell" href="/day/2026-11-17/#slot1" hx-get="/cell/2026-11-17/slot1/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 관제 09:30~10:30 바꾸기">09:30 <span class="lb">가상일</span>
+<a class="cell" href="/day/2026-11-17/#slot1" hx-get="/cell/2026-11-17/slot1/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 관제 09:30~10:30 바꾸기">09:30 <span class="lb" data-d="MEMS" data-t="개발자">
+<span class="tk me">가상일</span>
+</span>
 </a>
 </div>
 <div>
@@ -351,65 +496,131 @@
 <a class="cell" href="/day/2026-11-17/#slot9" hx-get="/cell/2026-11-17/slot9/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-17" hx-target="#dlg-body" aria-label="IT 당번표 11/17 관제 17:00~18:00 바꾸기">17:00 <span class="add">+</span>
 </a>
 </div>
-</div>
+</details>
 </div>
 <div class="bsec">
 <p class="bname">운영팀 <small>보기만</small>
 </p>
-<div class="sec">
-<b class="sh">이른</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
 </div>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
 </div>
-<div class="sec slot">
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </div>
 </td>
-<td>
+<td class=" mine" data-label="11월 18일 (수)" data-day="/day/2026-11-18/?board=it&amp;board=ops">
+<div class="dh">
 <a id="d-2026-11-18" href="/day/2026-11-18/?board=it&amp;board=ops">
 <strong>11/18 (수)</strong>
 </a>
+<span class="mychip" title="내 근무: 새벽">새<span class="sx">벽</span>
+</span>
+</div>
 <div class="bsec">
 <p class="bname">IT 당번표</p>
-<div class="sec">
-<b class="sh">새벽</b>
+<div class="sec k-dawn" data-k="dawn">
+<b class="sh" title="새벽">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">새벽</span>
+</b>
 <a class="cell" href="/day/2026-11-18/#dawn" hx-get="/cell/2026-11-18/dawn/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-18" hx-target="#dlg-body" aria-label="IT 당번표 11/18 새벽 바꾸기">
 <div class="line">
-<span class="lb">가상일</span>
+<span class="lb" data-d="MEMS" data-t="개발자">
+<span class="tk me">가상일</span>
+</span>
 </div>
 </a>
 </div>
-<div class="sec">
-<b class="sh">정상</b>
+<div class="sec k-normal" data-k="normal">
+<b class="sh" title="정상">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">정상</span>
+</b>
 <a class="cell" href="/day/2026-11-18/#normal" hx-get="/cell/2026-11-18/normal/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-18" hx-target="#dlg-body" aria-label="IT 당번표 11/18 정상 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">석식교대</b>
+<div class="sec k-dinner" data-k="dinner">
+<b class="sh" title="석식교대">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">석식교대</span>
+</b>
 <a class="cell" href="/day/2026-11-18/#dinner" hx-get="/cell/2026-11-18/dinner/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-18" hx-target="#dlg-body" aria-label="IT 당번표 11/18 석식교대 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">야간</b>
+<div class="sec k-night" data-k="night">
+<b class="sh" title="야간">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-night"/>
+</svg>
+<span class="shn">야간</span>
+</b>
 <a class="cell" href="/day/2026-11-18/#night" hx-get="/cell/2026-11-18/night/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-18" hx-target="#dlg-body" aria-label="IT 당번표 11/18 야간 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec slot">
+<details class="sec slot k-slot" data-k="slots">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">0명 ▾</span>
+</summary>
 <div>
 <a class="cell" href="/day/2026-11-18/#slot0" hx-get="/cell/2026-11-18/slot0/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-18" hx-target="#dlg-body" aria-label="IT 당번표 11/18 관제 08:30~09:30 바꾸기">08:30 <span class="add">+</span>
 </a>
@@ -450,63 +661,127 @@
 <a class="cell" href="/day/2026-11-18/#slot9" hx-get="/cell/2026-11-18/slot9/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-18" hx-target="#dlg-body" aria-label="IT 당번표 11/18 관제 17:00~18:00 바꾸기">17:00 <span class="add">+</span>
 </a>
 </div>
-</div>
+</details>
 </div>
 <div class="bsec">
 <p class="bname">운영팀 <small>보기만</small>
 </p>
-<div class="sec">
-<b class="sh">이른</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
 </div>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
 </div>
-<div class="sec slot">
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </div>
 </td>
-<td>
+<td class="" data-label="11월 19일 (목)" data-day="/day/2026-11-19/?board=it&amp;board=ops">
+<div class="dh">
 <a id="d-2026-11-19" href="/day/2026-11-19/?board=it&amp;board=ops">
 <strong>11/19 (목)</strong>
 </a>
+</div>
 <div class="bsec">
 <p class="bname">IT 당번표</p>
-<div class="sec">
-<b class="sh">새벽</b>
+<div class="sec k-dawn" data-k="dawn">
+<b class="sh" title="새벽">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">새벽</span>
+</b>
 <a class="cell" href="/day/2026-11-19/#dawn" hx-get="/cell/2026-11-19/dawn/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-19" hx-target="#dlg-body" aria-label="IT 당번표 11/19 새벽 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">정상</b>
+<div class="sec k-normal" data-k="normal">
+<b class="sh" title="정상">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">정상</span>
+</b>
 <a class="cell" href="/day/2026-11-19/#normal" hx-get="/cell/2026-11-19/normal/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-19" hx-target="#dlg-body" aria-label="IT 당번표 11/19 정상 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">석식교대</b>
+<div class="sec k-dinner" data-k="dinner">
+<b class="sh" title="석식교대">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">석식교대</span>
+</b>
 <a class="cell" href="/day/2026-11-19/#dinner" hx-get="/cell/2026-11-19/dinner/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-19" hx-target="#dlg-body" aria-label="IT 당번표 11/19 석식교대 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">야간</b>
+<div class="sec k-night" data-k="night">
+<b class="sh" title="야간">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-night"/>
+</svg>
+<span class="shn">야간</span>
+</b>
 <a class="cell" href="/day/2026-11-19/#night" hx-get="/cell/2026-11-19/night/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-19" hx-target="#dlg-body" aria-label="IT 당번표 11/19 야간 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec slot">
+<details class="sec slot k-slot" data-k="slots">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">0명 ▾</span>
+</summary>
 <div>
 <a class="cell" href="/day/2026-11-19/#slot0" hx-get="/cell/2026-11-19/slot0/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-19" hx-target="#dlg-body" aria-label="IT 당번표 11/19 관제 08:30~09:30 바꾸기">08:30 <span class="add">+</span>
 </a>
@@ -547,60 +822,124 @@
 <a class="cell" href="/day/2026-11-19/#slot9" hx-get="/cell/2026-11-19/slot9/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-19" hx-target="#dlg-body" aria-label="IT 당번표 11/19 관제 17:00~18:00 바꾸기">17:00 <span class="add">+</span>
 </a>
 </div>
-</div>
+</details>
 </div>
 <div class="bsec">
 <p class="bname">운영팀 <small>보기만</small>
 </p>
-<div class="sec">
-<b class="sh">이른</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
 </div>
-<div class="sec slot">
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
+</div>
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </div>
 </td>
-<td>
+<td class="" data-label="11월 20일 (금)" data-day="/day/2026-11-20/?board=it&amp;board=ops">
+<div class="dh">
 <a id="d-2026-11-20" href="/day/2026-11-20/?board=it&amp;board=ops">
 <strong>11/20 (금)</strong>
 </a>
+</div>
 <div class="bsec">
 <p class="bname">IT 당번표</p>
-<div class="sec">
-<b class="sh">새벽</b>
+<div class="sec k-dawn" data-k="dawn">
+<b class="sh" title="새벽">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">새벽</span>
+</b>
 <a class="cell" href="/day/2026-11-20/#dawn" hx-get="/cell/2026-11-20/dawn/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-20" hx-target="#dlg-body" aria-label="IT 당번표 11/20 새벽 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">정상</b>
+<div class="sec k-normal" data-k="normal">
+<b class="sh" title="정상">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">정상</span>
+</b>
 <a class="cell" href="/day/2026-11-20/#normal" hx-get="/cell/2026-11-20/normal/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-20" hx-target="#dlg-body" aria-label="IT 당번표 11/20 정상 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">석식교대</b>
+<div class="sec k-dinner" data-k="dinner">
+<b class="sh" title="석식교대">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">석식교대</span>
+</b>
 <a class="cell" href="/day/2026-11-20/#dinner" hx-get="/cell/2026-11-20/dinner/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-20" hx-target="#dlg-body" aria-label="IT 당번표 11/20 석식교대 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec">
-<b class="sh">야간</b>
+<div class="sec k-night" data-k="night">
+<b class="sh" title="야간">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-night"/>
+</svg>
+<span class="shn">야간</span>
+</b>
 <a class="cell" href="/day/2026-11-20/#night" hx-get="/cell/2026-11-20/night/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-20" hx-target="#dlg-body" aria-label="IT 당번표 11/20 야간 바꾸기">
+<div class="line">
+</div>
 <span class="add">+</span>
 </a>
 </div>
-<div class="sec slot">
+<details class="sec slot k-slot" data-k="slots">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">0명 ▾</span>
+</summary>
 <div>
 <a class="cell" href="/day/2026-11-20/#slot0" hx-get="/cell/2026-11-20/slot0/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-20" hx-target="#dlg-body" aria-label="IT 당번표 11/20 관제 08:30~09:30 바꾸기">08:30 <span class="add">+</span>
 </a>
@@ -641,26 +980,85 @@
 <a class="cell" href="/day/2026-11-20/#slot9" hx-get="/cell/2026-11-20/slot9/?next=/%3Fboard%3Dit%26board%3Dops%26view%3Dweek%23d-2026-11-20" hx-target="#dlg-body" aria-label="IT 당번표 11/20 관제 17:00~18:00 바꾸기">17:00 <span class="add">+</span>
 </a>
 </div>
-</div>
+</details>
 </div>
 <div class="bsec">
 <p class="bname">운영팀 <small>보기만</small>
 </p>
-<div class="sec">
-<b class="sh">이른</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
 </div>
-<div class="sec slot">
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
+</div>
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </div>
+</td>
+<td class=" we we-empty" data-label="11월 21일 (토)" data-day="/day/2026-11-21/?board=it&amp;board=ops">
+<div class="dh">
+<a id="d-2026-11-21" href="/day/2026-11-21/?board=it&amp;board=ops">
+<strong>11/21 (토)</strong>
+</a>
+</div>
+<div class="bsec">
+<p class="bname">IT 당번표</p>
+</div>
+<div class="bsec">
+<p class="bname">운영팀 <small>보기만</small>
+</p>
+</div>
+</td>
+<td class=" we we-empty" data-label="11월 22일 (일)" data-day="/day/2026-11-22/?board=it&amp;board=ops">
+<div class="dh">
+<a id="d-2026-11-22" href="/day/2026-11-22/?board=it&amp;board=ops">
+<strong>11/22 (일)</strong>
+</a>
+</div>
+<div class="bsec">
+<p class="bname">IT 당번표</p>
+</div>
+<div class="bsec">
+<p class="bname">운영팀 <small>보기만</small>
+</p>
 </div>
 </td>
 </tr>
@@ -669,8 +1067,10 @@
 </div>
 <p class="legend">
 <small>
-<span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc">
+<span class="tk me">빨간 이름표</span> = 나<span class="h"> · <span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc">
 <s>이름(휴가)</s>
-</span> = 사유로 그날 근무 아님 · 칸을 누르면 바꿀 수 있습니다</small>
+</span> = 사유로 그날 근무 아님</span> · 칸을 누르면 바꿀 수 있습니다</small>
 </p>
-<script> const today = document.getElementById("today"); if (today && !location.hash.startsWith("#d-")) { today.scrollIntoView({block: "nearest", inline: "center"}); if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink")); } </script>
+</div>
+<script src="/static/duty/roster.js">
+</script>

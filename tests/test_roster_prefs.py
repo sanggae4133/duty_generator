@@ -32,22 +32,30 @@ def grid(client, q=""):
     return client.get("/" + q).content.decode().split("<tbody>")[1].split("</tbody>")[0]
 
 
-def test_shift_filter_hides_unchecked_in_roster(client, world):
+def flt(body):
+    """필터 상자(브라우저가 거르는 기준)만."""
+    return body.split('id="flt"')[1].split('id="xl-panel"')[0]
+
+
+def test_shift_filter_marks_rows_and_checks_boxes(client, world):
+    """스케줄 필터는 서버가 지우지 않고 칸마다 data-k 를 붙인다. 체크 상태는 주소를 따른다(roster.js 가 숨긴다)."""
     client.force_login(world[0])
-    g = grid(client, "?shift=normal")
-    assert '<b class="sh">정상</b>' in g and '<b class="sh">석식교대</b>' not in g and "관제" not in g
-    assert '<b class="sh">석식교대</b>' in grid(client, "?shift=dinner") and '<b class="sh">정상</b>' not in grid(client, "?shift=dinner")
+    body = client.get("/?shift=normal").content.decode()
+    g = body.split("<tbody>")[1].split("</tbody>")[0]
+    assert 'class="sec k-normal" data-k="normal"' in g and 'class="sec k-dinner" data-k="dinner"' in g and 'data-k="slots"' in g
+    assert 'value="normal" checked' in flt(body) and 'value="dinner" checked' not in flt(body)
 
 
 def test_slots_toggle_is_all_control_cells(client, world):
     client.force_login(world[0])
-    g = grid(client, "?shift=slots")
-    assert "관제" in g and '<b class="sh">정상</b>' not in g and "08:30" in g
+    body = client.get("/?shift=slots").content.decode()
+    assert '<details class="sec slot k-slot" data-k="slots">' in body and "08:30" in body
+    assert 'value="slots" checked' in flt(body) and 'value="normal" checked' not in flt(body)
 
 
 def test_invalid_shift_ignored(client, world):
     client.force_login(world[0])
-    assert '<b class="sh">정상</b>' in grid(client, "?shift=bogus") and "관제" in grid(client, "?shift=bogus")
+    assert flt(client.get("/?shift=bogus").content.decode()).count(" checked") == 12
 
 
 def test_fold_button_gone(client, world):
@@ -56,10 +64,31 @@ def test_fold_button_gone(client, world):
     assert "slot-toggle" not in body and "slots-hidden" not in body  # 예전 관제 접기 버튼(localStorage 는 이제 화면 모드가 쓴다)
 
 
-def test_shift_carried_in_links(client, world):
+def test_links_do_not_carry_filters_and_keep_saved(client, world):
+    """이동 링크는 보기·날짜만 싣는다. 그 링크(view 가 있다)를 눌러도 저장된 필터는 그대로다."""
     client.force_login(world[0])
     body = client.get("/?shift=normal").content.decode().replace("&amp;", "&")
-    assert "shift=normal" in body.split('class="cal-nav"')[1].split("</div>")[0]
+    assert "shift=" not in body.split('class="cal-nav"')[1].split('id="flt-panel"')[0]
+    client.get("/?view=month&date=2026-12-01")
+    p = RosterPref.objects.get(user=world[0])
+    assert p.shifts == ["normal"] and p.view == "month"
+
+
+def test_prefs_endpoint_saves_filters_and_history(client, two_depts):
+    a, _ = two_depts
+    client.force_login(a)
+    r = client.post("/prefs/", {"f": "1", "dept": "UI", "shift": "normal", "hist": ["0", "1"]})
+    assert r.status_code == 204
+    p = RosterPref.objects.get(user=a)
+    assert (p.depts, p.shifts, p.history, p.view) == (["UI"], ["normal"], True, "week")
+    client.post("/prefs/", {"hist": "0"})  # 필터 없이 변경 내역만: 필터는 그대로
+    p.refresh_from_db()
+    assert (p.depts, p.history) == (["UI"], False)
+    assert client.get("/prefs/").status_code == 405
+
+
+def test_prefs_endpoint_requires_login(client, db):
+    assert client.post("/prefs/", {"f": "1"}).status_code == 302
 
 
 def test_day_shift_filter(client, world):
@@ -75,7 +104,7 @@ def test_day_dept_filter_names_and_cell_form(client, two_depts):
     client.force_login(a)
     body = client.get(f"/day/{D}/?dept=UI&shift=normal").content.decode()
     art = body.split('<article id="normal" class="dcell">')[1].split("</article>")[0]
-    assert '<span class="lb">라</span>' in art and '<span class="lb">가</span>' not in art
+    assert '<span class="lb"><span class="tk">라</span></span>' in art and '<span class="tk me">가</span>' not in art
     assert f'value="{c.username}"' in art and f'value="{a.username}"' not in art
 
 
@@ -94,16 +123,15 @@ def test_saved_and_loaded(client, two_depts):
     p = RosterPref.objects.get(user=a)
     assert (p.depts, p.types, p.shifts, p.view) == (["UI"], ["개발자"], ["normal"], "month")
     body = client.get("/").content.decode()  # 파라미터 없음 → 저장값
-    assert "라" in body and '<b class="sh">석식교대</b>' not in body and "2026년 11월" in body
+    assert "라" in body and 'value="normal" checked' in flt(body) and 'value="dinner" checked' not in flt(body) and "2026년 11월" in body
 
 
 def test_f1_without_boxes_means_all_and_saves(client, two_depts):
     a, _ = two_depts
     client.force_login(a)
     client.get("/?dept=UI&shift=normal")
-    g = grid(client, "?f=1")
-    assert "라" in g and "가" in g and '<b class="sh">석식교대</b>' in g
-    assert RosterPref.objects.get(user=a).depts == []
+    body = client.get("/?f=1").content.decode()
+    assert flt(body).count(" checked") == 12 and RosterPref.objects.get(user=a).depts == []
 
 
 def test_all_checked_stored_as_empty(client, two_depts):
@@ -118,7 +146,7 @@ def test_per_user_isolation(client, world):
     client.force_login(a)
     client.get("/?shift=normal")
     client.force_login(b)
-    assert '<b class="sh">석식교대</b>' in grid(client)
+    assert 'value="dinner" checked' in flt(client.get("/").content.decode())
     assert RosterPref.objects.get(user=a).shifts == ["normal"]
 
 
@@ -135,7 +163,7 @@ def test_day_does_not_overwrite_view_but_shares_filters(client, world):
 
 def test_defaults_without_prefs(client, world):
     client.force_login(world[0])
-    body = client.get("/").content.decode().split('<details class="export"')[0]  # 필터 상자만(엑셀 상자 빼고)
+    body = flt(client.get("/").content.decode())  # 필터 상자만(엑셀 상자·흐리게 스위치 빼고)
     assert body.count('type="checkbox"') == 12 and body.count(" checked") == 12
     assert not RosterPref.objects.exists()
 
@@ -145,7 +173,7 @@ def test_stale_saved_prefs_fall_back_to_all(client, world):
     RosterPref.objects.create(user=a, depts=["GONE"], types=["외부"], shifts=["bogus"])
     client.force_login(a)
     body = client.get("/").content.decode()
-    assert '<b class="sh">정상</b>' in body and body.split('<details class="export"')[0].count(" checked") == 12  # 엑셀 상자 빼고
+    assert 'data-k="normal"' in body and flt(body).count(" checked") == 12  # 엑셀 상자 빼고
 
 
 def test_unchanged_get_does_not_write(client, world):
@@ -177,22 +205,25 @@ def test_history_shown_by_default(client, changed):
     assert "&gt;" in g and "<s>" in g and "chg" in g
 
 
-def test_history_off_shows_latest_only_and_is_saved(client, changed):
+def roots(client, q=""):
+    return client.get("/" + q).content.decode().split('<div id="roster-root"')[1].split(">")[0]
+
+
+def test_history_off_hides_by_class_and_is_saved(client, changed):
+    """변경 내역을 끄면 표 전체에 nohist(CSS 가 A>· 취소선·사유를 숨긴다). 내용은 그대로 그린다."""
     client.force_login(changed)
-    g = grid(client, "?f=1&hist=0")
-    assert "&gt;" not in g and "<s>" not in g and "chg" not in g and ">다<" in g
-    assert RosterPref.objects.get(user=changed).history is False
-    g = grid(client)  # 저장값
-    assert "&gt;" not in g and "<s>" not in g
+    assert roots(client, "?f=1&hist=0") == ' class="nohist"'
+    assert "&gt;" in grid(client) and RosterPref.objects.get(user=changed).history is False
+    assert roots(client) == ' class="nohist"'  # 저장값
     day = client.get(f"/day/{D}/").content.decode()
-    assert "<s>" not in day.split('<h4 class="grp">')[1]
-    assert "&gt;" in grid(client, "?f=1&hist=0&hist=1")  # 체크하면 hidden 0 뒤에 1 이 온다
+    assert "<s>" not in day.split('<h4 class="grp">')[1]  # 하루 화면은 서버가 거른다
+    assert roots(client, "?f=1&hist=0&hist=1") == ""  # 체크하면 hidden 0 뒤에 1 이 온다
 
 
 def test_history_kept_when_link_has_no_hist(client, changed):
     client.force_login(changed)
-    grid(client, "?f=1&hist=0")
-    assert "&gt;" not in grid(client, "?f=1&dept=MEMS")  # 날짜 이동 등 hist 없는 주소
+    client.get("/?f=1&hist=0")
+    assert roots(client, "?f=1&dept=MEMS") == ' class="nohist"'  # 날짜 이동 등 hist 없는 주소
 
 
 def test_schedule_choices_follow_definitions():

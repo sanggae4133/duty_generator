@@ -2,7 +2,7 @@ from ..models import Department, RosterPref
 from ..shifts import DEVELOPER, SLOT_GROUP, SLOT_GROUP_NAME, STAFF, lunch_defs, shift_defs, slot_defs
 from . import boards
 
-_KEYS = ("f", "dept", "type", "shift", "hist")
+_FILTER_KEYS = ("f", "dept", "type", "shift")
 
 
 def choices(defs) -> dict[str, str]:
@@ -36,23 +36,30 @@ def clean(board, depts, types, shifts) -> tuple[list[str], list[str], list[str]]
 
 
 def resolve(user, get, board, with_view: bool = True, mine: bool = True) -> dict:
-    """요청에 필터 값이 있으면 그 값을 쓰고 저장, 없으면 저장값을 불러온다. 빈 목록 = 전체.
-    mine=False(보이는 근무표가 내 근무표가 아님, 설계 7): 부서·유형·스케줄은 늘 전체이고 저장된 필터를 덮어쓰지 않는다.
-    보기(주간·월간)와 변경 내역 표시는 근무표와 상관없이 따르고 저장한다."""
+    """요청에 값이 있으면 그 값을 쓰고 저장, 없으면 저장값을 불러온다. 빈 목록 = 전체. 세 묶음은 따로 본다:
+    필터(f·dept·type·shift 중 하나라도 있을 때), 변경 내역(hist), 보기(view). 없는 묶음은 저장값을 그대로 둔다
+    (근무표 화면의 이동 링크는 보기·날짜만 싣고 필터는 브라우저가 바꾸며 /prefs/ 로 저장한다).
+    mine=False(보이는 근무표가 내 근무표가 아님, 설계 7): 부서·유형·스케줄은 늘 전체이고 저장된 필터를 덮어쓰지 않는다."""
     pref = RosterPref.objects.filter(user=user).first()
-    if not any(k in get for k in (_KEYS if mine else ("hist",))) and not (with_view and "view" in get):
-        if pref is None:
-            return {"depts": [], "types": [], "shifts": [], "view": "week", "history": True}
+    has_f = mine and any(k in get for k in _FILTER_KEYS)
+    has_h, has_v = "hist" in get, with_view and "view" in get
+    if pref is None:
+        saved = {"depts": [], "types": [], "shifts": [], "view": "week", "history": True}
+    else:
         d, t, s = clean(board, pref.depts, pref.types, pref.shifts) if mine else ([], [], [])
-        return {"depts": d, "types": t, "shifts": s, "view": pref.view, "history": pref.history}
-    d, t, s = clean(board, get.getlist("dept"), get.getlist("type"), get.getlist("shift")) if mine else ([], [], [])
-    view = get["view"] if with_view and get.get("view") in ("week", "month") else (pref.view if pref else "week")
-    # 체크박스는 hidden hist=0 뒤에 오므로 마지막 값을 본다. hist 가 없는 주소(날짜 이동 등)는 저장값 유지
-    history = get.getlist("hist")[-1] == "1" if "hist" in get else (pref.history if pref else True)
-    new = {"view": view, "history": history, **({"depts": d, "types": t, "shifts": s} if mine else {})}
+        saved = {"depts": d, "types": t, "shifts": s, "view": pref.view, "history": pref.history}
+    if not (has_f or has_h or has_v):
+        return saved
+    new = {}
+    if has_f:
+        new["depts"], new["types"], new["shifts"] = clean(board, get.getlist("dept"), get.getlist("type"), get.getlist("shift"))
+    if has_v:
+        new["view"] = get["view"] if get.get("view") in ("week", "month") else saved["view"]
+    if has_h:  # 체크박스는 hidden hist=0 뒤에 오므로 마지막 값을 본다
+        new["history"] = get.getlist("hist")[-1] == "1"
     if pref is None or any(getattr(pref, k) != v for k, v in new.items()):
         RosterPref.objects.update_or_create(user=user, defaults=new)  # 첫 저장 동시 요청도 안전
-    return {"depts": d, "types": t, "shifts": s, **new}
+    return {**saved, **new}
 
 
 def remember_boards(user, chosen, home) -> None:

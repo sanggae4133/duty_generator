@@ -1,5 +1,26 @@
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="ic-dawn" viewBox="0 0 24 24">
+<path d="M12 3v3M5 10l2 2M19 10l-2 2M3 18h18M7 18a5 5 0 0 1 10 0"/>
+</symbol>
+<symbol id="ic-normal" viewBox="0 0 24 24">
+<path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8"/>
+</symbol>
+<symbol id="ic-dinner" viewBox="0 0 24 24">
+<path d="M4 13h16M6 13a6 6 0 0 0 12 0M12 7v2M9 4v2M15 4v2"/>
+</symbol>
+<symbol id="ic-night" viewBox="0 0 24 24">
+<path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10"/>
+</symbol>
+<symbol id="ic-lunch" viewBox="0 0 24 24">
+<path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 2-2 6 0 8v10"/>
+</symbol>
+</defs>
+</svg>
 <div class="cal-nav">
+<a class="navbtn" role="button" data-nav href="?board=ops&amp;view=week&amp;date=2026-11-09" aria-label="이전 주">◀</a>
 <h3 class="cal-title">2026-11-16 ~ 11-20</h3>
+<a class="navbtn" role="button" data-nav href="?board=ops&amp;view=week&amp;date=2026-11-23" aria-label="다음 주">▶</a>
 <a class="to-mine" role="button" href="/?board=it">보기 전용 · 내 근무표로</a>
 <form method="get" class="board-pick">
 <input type="hidden" name="pick" value="1">
@@ -27,42 +48,49 @@
 </ul>
 </details>
 </form>
+<span class="seg" role="group" aria-label="이동">
+<a href="?board=ops&amp;view=week&amp;date=2026-11-16#today">오늘</a>
+</span>
 <span class="seg" role="group" aria-label="보기">
 <a href="?board=ops&amp;view=week&amp;date=2026-11-16" aria-current="page">주간</a>
 <a href="?board=ops&amp;view=month&amp;date=2026-11-16">월간</a>
 </span>
-<span class="seg" role="group" aria-label="이동">
-<a href="?board=ops&amp;view=week&amp;date=2026-11-09" aria-label="이전 주">◀</a>
-<a href="?board=ops&amp;view=week&amp;date=2026-11-16#today">오늘</a>
-<a href="?board=ops&amp;view=week&amp;date=2026-11-23" aria-label="다음 주">▶</a>
+<span class="tb-gap">
 </span>
+<label class="dimsw">
+<input type="checkbox" id="dim" role="switch" data-default="1" checked> 다른 사람 흐리게</label>
+<button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="flt-panel" data-toggle>검색·필터 ▾ <span class="cnt" id="flt-cnt">
+</span>
+</button>
+<button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="xl-panel" data-toggle>엑셀 ▾</button>
 </div>
-<form method="get" class="search">
+<div class="panel" id="flt-panel" hidden>
+<form method="get" class="search jump">
 <input type="hidden" name="view" value="week">
-<details class="filters">
-<summary>검색·필터</summary>
-<div class="filters-body">
+<input type="hidden" name="board" value="ops">
 <span class="pair">
 <input type="date" name="date" value="2026-11-16" aria-label="이동할 날짜" style="min-width:10rem">
-<button>이동</button>
+<button>날짜로 이동</button>
 </span>
+</form>
+<form method="get" class="search" id="flt" data-prefs="/prefs/" data-mine="0">
+<input type="hidden" name="view" value="week">
 <span class="names">
 <span class="name">
 <span class="swatch hl1" aria-hidden="true">
 </span>
-<input name="q1" value="" placeholder="강조할 이름" aria-label="강조할 이름 1">
+<input name="q1" value="" placeholder="강조할 이름" aria-label="강조할 이름 1" autocomplete="off">
 </span>
 <span class="name">
 <span class="swatch hl2" aria-hidden="true">
 </span>
-<input name="q2" value="" placeholder="강조할 이름" aria-label="강조할 이름 2">
+<input name="q2" value="" placeholder="강조할 이름" aria-label="강조할 이름 2" autocomplete="off">
 </span>
 <span class="name">
 <span class="swatch hl3" aria-hidden="true">
 </span>
-<input name="q3" value="" placeholder="강조할 이름" aria-label="강조할 이름 3">
+<input name="q3" value="" placeholder="강조할 이름" aria-label="강조할 이름 3" autocomplete="off">
 </span>
-<button>검색</button>
 </span>
 <input type="hidden" name="f" value="1">
 <input type="hidden" name="board" value="ops">
@@ -72,12 +100,9 @@
 <label>
 <input type="checkbox" name="hist" value="1" checked> 변경 내역 표시(A&gt;B·취소선)</label>
 </fieldset>
-<script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { const g = document.querySelector(".roster-scroll"); try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => { // 근무표의 '오늘로 이동'보다 뒤에 const g = document.querySelector(".roster-scroll"); if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; } scrollTo(0, s.y); }); }</script>
-</div>
-</details>
 </form>
-<details class="export">
-<summary role="button" class="outline">엑셀 다운로드</summary>
+</div>
+<div class="panel" id="xl-panel" hidden>
 <form method="get" action="/export.xlsx" class="dl">
 <input type="hidden" name="next" value="/?board=ops&amp;view=week">
 <label class="date">시작일<input type="date" name="start" value="2026-11-16" required>
@@ -95,9 +120,19 @@
 <p class="hint">하나도 고르지 않으면 내 근무표만 받습니다.</p>
 <button>엑셀 다운로드</button>
 </form>
-</details>
+</div>
+<div id="roster-root">
 <div class="grid-wrap roster-scroll">
 <table class="roster month stack" id="roster">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col class="we">
+<col class="we">
+</colgroup>
 <thead>
 <tr>
 <th>월</th>
@@ -105,120 +140,301 @@
 <th>수</th>
 <th>목</th>
 <th>금</th>
+<th class="we">토</th>
+<th class="we">일</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td id="today" class="today-col">
+<td id="today" class="today-col" data-label="11월 16일 (월)" data-day="/day/2026-11-16/?board=ops">
+<div class="dh">
 <a href="/day/2026-11-16/?board=ops">
 <strong>11/16 (월)</strong>
 </a>
-<div class="sec">
-<b class="sh">이른</b>
+</div>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
 </div>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
-</div>
-<div class="sec">
-<b class="sh">늦은</b>
-</div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
 </div>
 </div>
-<div class="sec slot">
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
+</div>
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </td>
-<td>
+<td class="" data-label="11월 17일 (화)" data-day="/day/2026-11-17/?board=ops">
+<div class="dh">
 <a href="/day/2026-11-17/?board=ops">
 <strong>11/17 (화)</strong>
 </a>
-<div class="sec">
-<b class="sh">이른</b>
+</div>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
 </div>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
 </div>
-<div class="sec slot">
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </td>
-<td>
+<td class="" data-label="11월 18일 (수)" data-day="/day/2026-11-18/?board=ops">
+<div class="dh">
 <a href="/day/2026-11-18/?board=ops">
 <strong>11/18 (수)</strong>
 </a>
-<div class="sec">
-<b class="sh">이른</b>
+</div>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
 <div class="line">
-<span class="lb">가상이</span>
+<span class="lb">
+<span class="tk">가상이</span>
+</span>
 </div>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
 </div>
-<div class="sec slot">
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </td>
-<td>
+<td class="" data-label="11월 19일 (목)" data-day="/day/2026-11-19/?board=ops">
+<div class="dh">
 <a href="/day/2026-11-19/?board=ops">
 <strong>11/19 (목)</strong>
 </a>
-<div class="sec">
-<b class="sh">이른</b>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec slot">
+</div>
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
+</div>
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
-</div>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
 </td>
-<td>
+<td class="" data-label="11월 20일 (금)" data-day="/day/2026-11-20/?board=ops">
+<div class="dh">
 <a href="/day/2026-11-20/?board=ops">
 <strong>11/20 (금)</strong>
 </a>
-<div class="sec">
-<b class="sh">이른</b>
 </div>
-<div class="sec">
-<b class="sh">가운데</b>
+<div class="sec k-dawn">
+<b class="sh" title="이른">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dawn"/>
+</svg>
+<span class="shn">이른</span>
+</b>
+<div class="line">
 </div>
-<div class="sec">
-<b class="sh">늦은</b>
 </div>
-<div class="sec">
-<b class="sh">점심당번</b>
+<div class="sec k-normal">
+<b class="sh" title="가운데">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-normal"/>
+</svg>
+<span class="shn">가운데</span>
+</b>
+<div class="line">
 </div>
-<div class="sec slot">
+</div>
+<div class="sec k-dinner">
+<b class="sh" title="늦은">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-dinner"/>
+</svg>
+<span class="shn">늦은</span>
+</b>
+<div class="line">
+</div>
+</div>
+<div class="sec k-lunch">
+<b class="sh" title="점심당번">
+<svg class="ic" aria-hidden="true">
+<use href="#ic-lunch"/>
+</svg>
+<span class="shn">점심당번</span>
+</b>
+<div class="line">
+</div>
+</div>
+<details class="sec slot k-slot">
+<summary>
 <b class="sh">관제</b>
+<span class="cnt">0명 ▾</span>
+</summary>
+</details>
+</td>
+<td class=" we we-empty" data-label="11월 21일 (토)" data-day="/day/2026-11-21/?board=ops">
+<div class="dh">
+<a href="/day/2026-11-21/?board=ops">
+<strong>11/21 (토)</strong>
+</a>
+</div>
+</td>
+<td class=" we we-empty" data-label="11월 22일 (일)" data-day="/day/2026-11-22/?board=ops">
+<div class="dh">
+<a href="/day/2026-11-22/?board=ops">
+<strong>11/22 (일)</strong>
+</a>
 </div>
 </td>
 </tr>
@@ -227,8 +443,11 @@
 </div>
 <p class="legend">
 <small>
-<span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc">
+<span class="tk me">빨간 이름표</span> = 나<span class="h"> · <span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc">
 <s>이름(휴가)</s>
-</span> = 사유로 그날 근무 아님</small>
+</span> = 사유로 그날 근무 아님</span>
+</small>
 </p>
-<script> const today = document.getElementById("today"); if (today) { today.scrollIntoView({block: "nearest", inline: "center"}); if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink")); } </script>
+</div>
+<script src="/static/duty/roster.js">
+</script>

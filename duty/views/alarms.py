@@ -266,6 +266,15 @@ def notify_changes(request):
     return redirect("alarms")
 
 
+@require_POST
+@login_required
+def notify_memos(request):
+    on = bool(request.POST.get("on"))
+    alarms.set_notify_memos(request.user, on)
+    messages.success(request, "메모 알림을 " + ("켰습니다." if on else "껐습니다."))
+    return redirect("alarms")
+
+
 @login_required
 def help_push(request):
     return render(request, "duty/help_push.html")

@@ -62,13 +62,13 @@ def test_sections_in_order_with_labels(client, two):
     _, ga, _ = two
     client.force_login(ga)
     body = client.get(WEEK + "&board=ops&board=it").content.decode()
-    assert _names(body) == ["IT 당번표", "운영팀"] * 5  # 날짜마다 내 근무표 먼저(주간 5일)
-    assert body.count("<small>보기만</small>") == 5  # 바꿀 수 없는 운영팀 구역만
+    assert _names(body) == ["IT 당번표", "운영팀"] * 7  # 날짜마다 내 근무표 먼저(주간 5일 + 주말 메모 칸 2일)
+    assert body.count("<small>보기만</small>") == 7  # 바꿀 수 없는 운영팀 구역만
     assert '<span class="bnames">IT 당번표 + 운영팀</span>' in body  # 제목 옆 고른 이름들
     assert "보기 전용</small>" not in body  # 바꿀 수 있는 근무표(IT)가 있다
     assert '<a class="to-mine" role="button" href="/?board=it">내 근무표만 보기</a>' in body
     month = client.get(BOTH.replace("view=week", "view=month")).content.decode()
-    assert len(_names(month)) == 2 * 21  # 2026년 11월 평일 21일 × 2, 다른 달 날짜에는 구역이 없다
+    assert len(_names(month)) == 2 * 30  # 2026년 11월 30일(주말 메모 칸 포함) × 2, 다른 달 날짜에는 구역이 없다
 
 
 def test_holiday_once_memos_named_and_nowork_line(client, two):
@@ -107,12 +107,14 @@ def test_only_editable_sections_link_with_their_board(client, two):
 def test_filters_apply_to_my_section_only(client, two):
     _, ga, _ = two
     client.force_login(ga)
-    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터: 가상다(MEMS)가 숨는다
-    body = client.get(f"/?date={D}&board=it&board=ops").content.decode()  # view 가 없으면 저장한 필터 그대로
-    assert "가상다" not in body and "가상나" in body  # 운영팀 구역은 늘 전체
+    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터: 가상다(MEMS)가 숨는다(브라우저가)
+    body = client.get(f"/?date={D}&board=it&board=ops").content.decode()  # 저장한 필터 그대로
+    assert 'value="TMCH" checked' in body and 'value="MEMS" checked' not in body
+    assert re.search(r'data-d="MEMS" data-t="[^"]+"><span class="tk[^"]*">가상다<', body)  # 내 근무표 구역만 필터 표시
+    assert re.search(r'<span class="lb"><span class="tk">가상나<', body)  # 운영팀 구역은 늘 전체(표시 없음)
     assert "부서·유형·스케줄은 내 근무표에만 적용됩니다" in body
     assert '<input type="hidden" name="board" value="it"><input type="hidden" name="board" value="ops">' in body  # 필터 폼이 고른 목록 그대로
-    one = client.get(WEEK + "&board=it").content.decode().split('<details class="export"')[0]  # 엑셀 상자는 근무표를 더 고를 수 있어 늘 적는다
+    one = client.get(WEEK + "&board=it").content.decode().split('id="xl-panel"')[0]  # 엑셀 상자는 근무표를 더 고를 수 있어 늘 적는다
     assert "부서·유형·스케줄은 내 근무표에만" not in one  # 하나면 지금 그대로
 
 
@@ -254,4 +256,4 @@ def test_picker_keeps_search_and_saved_filter(client, two):
     client.get(WEEK + "&board=ops")  # 남의 근무표만(필터 상자 없음)
     body = client.get(f"/?pick=1&board=it&board=ops&date={D}&q1=가상나").content.decode()
     assert RosterPref.objects.get(user=ga).depts == ["TMCH"]  # 고르기 폼이 저장된 필터를 지우지 않는다(계획 2번)
-    assert "가상다" not in body and '<span class="hl1">가상나</span>' in body  # 필터·검색 색칠이 남는다
+    assert 'value="TMCH" checked' in body and '<span class="tk hl1">가상나</span>' in body  # 필터·검색 색칠이 남는다

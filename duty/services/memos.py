@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.utils import timezone
 
 from .. import perms
 from ..errors import DutyError
@@ -64,6 +65,8 @@ def save(user, board, scope: str, d: date, text: str, no_work: bool = False, con
     text = (text or "").strip()
     if no_work and scope != DAY:
         raise DutyError("근무 없음은 날 메모에만 달 수 있습니다.")
+    if no_work and d.weekday() >= 5:
+        raise DutyError("근무 없음은 평일에만 달 수 있습니다.")
     if len(text) > MAX_TEXT:
         raise DutyError(f"메모는 {MAX_TEXT}자까지 쓸 수 있습니다.")
     if not text and not no_work:
@@ -75,7 +78,11 @@ def save(user, board, scope: str, d: date, text: str, no_work: bool = False, con
         if n and confirm != n:
             raise DutyError(f"{n}명의 근무가 지워집니다. 확인하고 다시 저장해 주세요.")
         cleared = _clear_day(user, board, d)
-    Memo.objects.update_or_create(board=board, scope=scope, date=d, defaults={"text": text, "no_work": no_work})
+    old = Memo.objects.filter(board=board, scope=scope, date=d).first()
+    fields = {"text": text, "no_work": no_work}
+    if old is None or old.text != text or old.no_work != no_work:  # 새로 달거나 바꿨을 때만 메모 알림(memo_notice)
+        fields.update(notice_pending=True, edited_by=user, edited_at=timezone.now())
+    Memo.objects.update_or_create(board=board, scope=scope, date=d, defaults=fields)
     return cleared
 
 

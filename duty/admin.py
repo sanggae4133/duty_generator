@@ -166,7 +166,7 @@ class UserAdmin(DjangoUserAdmin):
     fieldsets = (
         (None, {"fields": ("username", "password", "must_change_password")}),
         ("근무표", {"fields": ("name", "department", "part", "type")}),
-        ("도움말·알림", {"fields": ("help_dismissed", "notify_changes"),
+        ("도움말·알림", {"fields": ("help_dismissed", "notify_changes", "notify_memos"),
                      "description": "'사용법 팝업 다시 보지 않기'를 끄면 다음 로그인 때 사용법 팝업이 다시 뜹니다."}),
         # 기본 "개인정보"(이름·성·이메일)는 근무표 "이름"과 헷갈려 숨긴다(칸은 유지).
         # Django 사용자 권한(user_permissions)은 쓰지 않는다: 근무표 관리자·입력 담당은 그룹으로 정한다

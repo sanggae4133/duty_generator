@@ -41,6 +41,13 @@ def change_notice(defs, d: date, cell: str, before: str | None, after: str | Non
     return "근무 변경", f"[근무 변경] {day_label(d)} {_where(defs, cell)}\n{what}\n바꾼 사람: {by}"
 
 
+def memo_notice(board: str, scope: str, d: date, text: str, no_work: bool, by: str) -> tuple[str, str]:
+    """메모가 새로 달리거나 바뀌었을 때(제목, 본문). 날 = 11/10(화), 주 = 11/9(월) 주, 달 = 11월."""
+    where = {"day": day_label(d), "week": f"{day_label(d)} 주", "month": f"{d.month}월"}[scope]
+    body = clip(("근무 없음: " if no_work else "") + (text or "근무 없음"), 500)
+    return "메모", f"[메모] {board} · {where}\n{body}\n쓴 사람: {by}"
+
+
 def swap_notice(defs, d: date, cell_a: str, a: str, cell_b: str, b: str, by: str) -> tuple[str, str]:
     """맞교환 한 번(기록 2건)을 한 통으로: A 는 cell_a → cell_b, B 는 반대로."""
     return "근무 변경", (f"[근무 변경] {day_label(d)} 맞교환\n{a} {_where(defs, cell_a)} → {_where(defs, cell_b)}\n"

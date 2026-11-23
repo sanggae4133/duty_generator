@@ -1,7 +1,16 @@
-{% extends "duty/base.html" %}
+{% extends "duty/base.html" %}{% load static %}
 {% block content %}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="ic-dawn" viewBox="0 0 24 24"><path d="M12 3v3M5 10l2 2M19 10l-2 2M3 18h18M7 18a5 5 0 0 1 10 0"/></symbol>
+  <symbol id="ic-normal" viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8"/></symbol>
+  <symbol id="ic-dinner" viewBox="0 0 24 24"><path d="M4 13h16M6 13a6 6 0 0 0 12 0M12 7v2M9 4v2M15 4v2"/></symbol>
+  <symbol id="ic-night" viewBox="0 0 24 24"><path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10"/></symbol>
+  <symbol id="ic-lunch" viewBox="0 0 24 24"><path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 2-2 6 0 8v10"/></symbol>
+</defs></svg>
 <div class="cal-nav">
+  {% if prev %}<a class="navbtn" role="button" data-nav href="{{ prev }}" aria-label="이전{% if view == 'week' %} 주{% else %} 달{% endif %}">◀</a>{% endif %}
   <h3 class="cal-title">{{ title }}{% if multi %} <span class="bnames">{{ sel_names }}</span>{% endif %}{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</h3>
+  {% if next %}<a class="navbtn" role="button" data-nav href="{{ next }}" aria-label="다음{% if view == 'week' %} 주{% else %} 달{% endif %}">▶</a>{% endif %}
   {% if to_mine %}<a class="to-mine" role="button" href="/?board={{ home_code }}">{{ to_mine }}</a>{% endif %}
   {% if pick_boards %}<form method="get" class="board-pick">
     <input type="hidden" name="pick" value="1"><input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
@@ -15,22 +24,29 @@
       </ul>
     </details>
   </form>{% endif %}
+  <span class="seg" role="group" aria-label="이동"><a href="{{ today_link }}">오늘</a></span>
   <span class="seg" role="group" aria-label="보기">
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>
-  <span class="seg" role="group" aria-label="이동">
-    {% if prev %}<a href="{{ prev }}" aria-label="이전{% if view == 'week' %} 주{% else %} 달{% endif %}">◀</a>{% endif %}<a href="{{ today_link }}">오늘</a>{% if next %}<a href="{{ next }}" aria-label="다음{% if view == 'week' %} 주{% else %} 달{% endif %}">▶</a>{% endif %}
-  </span>
+  <span class="tb-gap"></span>
+  {% if my_days is not None %}<span class="mydays">{{ date.month }}월 내 근무 <b>{{ my_days }}일</b></span>{% endif %}
+  <label class="dimsw"><input type="checkbox" id="dim" role="switch" data-default="{{ dim_default|yesno:'1,0' }}"{% if dim_default %} checked{% endif %}> 다른 사람 흐리게</label>
+  <button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="flt-panel" data-toggle>검색·필터 ▾ <span class="cnt" id="flt-cnt"></span></button>
+  <button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="xl-panel" data-toggle>엑셀 ▾</button>
 </div>
-<form method="get" class="search">
-  <input type="hidden" name="view" value="{{ view }}">
-  <details class="filters"><summary>검색·필터{% if filter_on or names.0 or names.1 or names.2 %} <span class="on">적용 중</span>{% endif %}</summary><div class="filters-body">
-  <span class="pair"><input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem"><button>이동</button></span>
-  <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}" aria-hidden="true"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="강조할 이름" aria-label="강조할 이름 {{ forloop.counter }}"></span>
-  {% endfor %}<button>검색</button></span>
-  {% include "duty/_filters.html" with nested=True %}
-  </div></details></form>
-<details class="export"><summary role="button" class="outline">엑셀 다운로드</summary>
+<div class="panel" id="flt-panel" hidden>
+  <form method="get" class="search jump">
+    <input type="hidden" name="view" value="{{ view }}">{% for c in sel_codes %}<input type="hidden" name="board" value="{{ c }}">{% endfor %}
+    <span class="pair"><input type="date" name="date" value="{{ date|date:'Y-m-d' }}" aria-label="이동할 날짜" style="min-width:10rem"><button>날짜로 이동</button></span>
+  </form>
+  <form method="get" class="search" id="flt" data-prefs="{% url 'roster_prefs' %}" data-mine="{{ filterable|yesno:'1,0' }}">
+    <input type="hidden" name="view" value="{{ view }}">
+    <span class="names">{% for n in names %}<span class="name"><span class="swatch hl{{ forloop.counter }}" aria-hidden="true"></span><input name="q{{ forloop.counter }}" value="{{ n }}" placeholder="강조할 이름" aria-label="강조할 이름 {{ forloop.counter }}" autocomplete="off"></span>
+    {% endfor %}</span>
+    {% include "duty/_filters.html" with nested=True live=True %}
+  </form>
+</div>
+<div class="panel" id="xl-panel" hidden>
 <form method="get" action="{% url 'roster_export' %}" class="dl">
   <input type="hidden" name="next" value="{{ page_next }}">
   <label class="date">시작일<input type="date" name="start" value="{{ export.0|date:'Y-m-d' }}" required></label>
@@ -42,32 +58,30 @@
   {% if type_choices %}<fieldset><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
   <fieldset><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
   <button>엑셀 다운로드</button>
-</form></details>
+</form></div>
+<div id="roster-root"{% if not history %} class="nohist"{% endif %}>
 {% if view == 'week' %}{% for s in weeks.0.0.sections %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=s.week_memo p=s %}{% endfor %}{% endif %}
 <div class="grid-wrap roster-scroll">
-<table class="roster month{% if view == 'week' %} stack{% endif %}" id="roster">
-  <thead><tr>{% for w in "월화수목금" %}<th>{{ w }}</th>{% endfor %}</tr></thead>
+<table class="roster month{% if view == 'week' %} stack{% else %} cal{% endif %}" id="roster">
+  <colgroup>{% for w in "월화수목금" %}<col>{% endfor %}<col class="we"><col class="we"></colgroup>
+  <thead><tr>{% for w in "월화수목금토일" %}<th{% if forloop.counter > 5 %} class="we"{% endif %}>{{ w }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for week in weeks %}
     <tr>
     {% for d in week %}
-      <td{% if d.other %} class="other"{% elif d.is_today %} id="today" class="today-col"{% endif %}>
+      <td{% if d.is_today and not d.other %} id="today"{% endif %} class="{% if d.other %}other{% else %}{% if d.is_today %}today-col{% endif %}{% if d.my_shift %} mine{% endif %}{% endif %}{% if d.weekend %} we{% if d.we_empty %} we-empty{% endif %}{% endif %}"{% if not d.other %} data-label="{{ d.label }}" data-day="{% url 'day' d.date %}{{ bq }}"{% endif %}>
         {% include "duty/_daycell.html" %}
       </td>
     {% endfor %}
     </tr>
-    {% if view == 'month' %}{% if week.0.wm_row %}<tr class="wmemo"><td colspan="5">{% for s in week.0.sections %}{% include "duty/_memo.html" with scope="week" md=week.0.date m=s.week_memo dated=True p=s %}{% endfor %}</td></tr>{% endif %}{% endif %}
+    {% if view == 'month' %}{% if week.0.wm_row %}<tr class="wmemo"><td colspan="7">{% for s in week.0.sections %}{% include "duty/_memo.html" with scope="week" md=week.0.date m=s.week_memo dated=True p=s %}{% endfor %}</td></tr>{% endif %}{% endif %}
   {% endfor %}
   </tbody>
 </table>
 </div>
+{% if view == 'month' %}<section id="mday" class="mday" aria-live="polite"></section>{% endif %}
 {% for mm in month_memos %}{% include "duty/_memo.html" with scope="month" md=mm.date m=mm.memo p=mm.p %}{% endfor %}
-{% if history %}<p class="legend"><small><span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc"><s>이름(휴가)</s></span> = 사유로 그날 근무 아님{% if can_click %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>{% endif %}
-<script>
-  const today = document.getElementById("today");
-  if (today{% if multi %} && !location.hash.startsWith("#d-"){# 겹친 화면: 팝업에서 돌아온 날짜 칸을 그대로 둔다 #}{% endif %}) {
-    today.scrollIntoView({block: "nearest", inline: "center"});
-    if (location.hash === "#today") document.querySelectorAll(".today-col").forEach(e => e.classList.add("blink"));
-  }
-</script>
+<p class="legend"><small><span class="tk me">빨간 이름표</span> = 나<span class="h"> · <span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc"><s>이름(휴가)</s></span> = 사유로 그날 근무 아님</span>{% if can_click %} · 칸을 누르면 바꿀 수 있습니다{% endif %}</small></p>
+</div>
+<script src="{% static 'duty/roster.js' %}"></script>
 {% endblock %}

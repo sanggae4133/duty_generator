@@ -123,13 +123,13 @@ def test_roster_screen_has_export_box_prefilled(client, two):
     _, ga, _ = two
     client.force_login(ga)
     body = client.get(f"/?view=week&date={D}&board=it&board=ops&dept=MEMS").content.decode()
-    box = body.split('<details class="export"')[1].split("</details>")[0]
+    box = body.split('id="xl-panel"')[1].split("</details>")[0]
     assert 'action="/export.xlsx"' in box
     assert f'name="start" value="{D}"' in box and f'name="end" value="{D + timedelta(days=4)}"' in box
     assert 'name="board" value="it" checked' in box and 'name="board" value="ops" checked' in box
     assert 'name="dept" value="MEMS" checked' in box and 'name="dept" value="TMCH"' in box
     assert 'name="dept" value="TMCH" checked' not in box
-    month = client.get(f"/?view=month&date={D}").content.decode().split('<details class="export"')[1]
+    month = client.get(f"/?view=month&date={D}").content.decode().split('id="xl-panel"')[1]
     assert 'name="start" value="2026-11-01"' in month and 'name="end" value="2026-11-30"' in month
 
 

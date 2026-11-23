@@ -253,6 +253,7 @@ class User(AbstractUser):
     must_change_password = models.BooleanField("첫 로그인 비번 변경 필요", default=False)
     help_dismissed = models.BooleanField("사용법 팝업 다시 보지 않기", default=False)
     notify_changes = models.BooleanField("내 근무가 바뀌면 알림", default=True)
+    notify_memos = models.BooleanField("메모가 달리거나 바뀌면 알림", default=False)
 
     objects = UserManager()
     REQUIRED_FIELDS = ["name"]  # createsuperuser 가 이름을 묻는다
@@ -364,6 +365,10 @@ class Memo(models.Model):
     date = models.DateField("날짜")
     text = models.CharField("내용", max_length=500, blank=True)
     no_work = models.BooleanField("근무 없음", default=False)
+    # 메모 알림(services/memo_notice): 저장할 때 켜고 작업자가 보내며 끈다. 쓴 사람은 받지 않는다
+    notice_pending = models.BooleanField("알림 대기", default=False)
+    edited_by = models.ForeignKey("User", null=True, blank=True, on_delete=models.PROTECT, related_name="+", verbose_name="마지막으로 쓴 사람")
+    edited_at = models.DateTimeField("마지막으로 쓴 때", null=True, blank=True)
 
     class Meta:
         verbose_name = verbose_name_plural = "메모"

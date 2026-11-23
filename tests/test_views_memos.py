@@ -105,7 +105,7 @@ def test_memo_links_only_for_admin(client, world, admin_user):
     week = client.get(f"/?view=week&date={D}").content.decode()
     assert f'hx-get="/memo/day/{D}/?next=' in week and f'/memo/week/{MON}/' in week and "/memo/month/2026-11-01/" in week
     month = client.get(f"/?view=month&date={D}").content.decode()
-    assert month.count('class="wmemo"') == 5  # 11월 달력 5주 모두 [메모] 줄
+    assert month.count('class="wmemo"') == 6  # 11월 달력 6주(1일 일요일이 든 주 포함) 모두 [메모] 줄
     assert f"/memo/day/{D}/" in client.get(f"/day/{D}/").content.decode()
 
 
