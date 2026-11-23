@@ -588,3 +588,8 @@ def test_swipe_nav_links_marked(client, world):
     client.force_login(a)
     body = client.get(f"/?date={D}").content.decode()
     assert 'data-nav="prev"' in body and 'data-nav="next"' in body  # roster.js 가 좌우 밀기로 누른다
+
+
+def test_my_days_hidden_for_account_without_department(client, world, admin_user):
+    client.force_login(admin_user)  # 부서 없는 관리자
+    assert 'id="mydays"' not in client.get(f"/?view=month&date={D}").content.decode()
