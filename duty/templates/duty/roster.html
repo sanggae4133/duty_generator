@@ -29,7 +29,7 @@
     <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>
   <span class="tb-gap"></span>
-  {% if my_days is not None %}<span class="mydays">{{ date.month }}월 내 근무 <b>{{ my_days }}일</b></span>{% endif %}
+  {% if my_days is not None %}<span class="mydays">{{ date.month }}월 내 근무 <b id="mydays">{{ my_days }}일</b></span>{% endif %}
   <label class="dimsw"><input type="checkbox" id="dim" role="switch" data-default="{{ dim_default|yesno:'1,0' }}"{% if dim_default %} checked{% endif %}> 다른 사람 흐리게</label>
   <button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="flt-panel" data-toggle>검색·필터 ▾ <span class="cnt" id="flt-cnt"></span></button>
   <button type="button" class="outline tb-btn" aria-expanded="false" aria-controls="xl-panel" data-toggle>엑셀 ▾</button>
@@ -63,18 +63,20 @@
 {% if view == 'week' %}{% for s in weeks.0.0.sections %}{% include "duty/_memo.html" with scope="week" md=weeks.0.0.date m=s.week_memo p=s %}{% endfor %}{% endif %}
 <div class="grid-wrap roster-scroll">
 <table class="roster month{% if view == 'week' %} stack{% else %} cal{% endif %}" id="roster">
-  <colgroup>{% for w in "월화수목금" %}<col>{% endfor %}<col class="we"><col class="we"></colgroup>
+  {% if view == 'week' %}<colgroup>{% for w in "월화수목금" %}<col>{% endfor %}<col class="we"><col class="we"></colgroup>
   <thead><tr>{% for w in "월화수목금토일" %}<th{% if forloop.counter > 5 %} class="we"{% endif %}>{{ w }}</th>{% endfor %}</tr></thead>
+  {% else %}<colgroup><col class="we">{% for w in "월화수목금" %}<col>{% endfor %}<col class="we"></colgroup>{# 월간은 일요일부터 #}
+  <thead><tr>{% for w in "일월화수목금토" %}<th{% if forloop.first or forloop.last %} class="we"{% endif %}>{{ w }}</th>{% endfor %}</tr></thead>{% endif %}
   <tbody>
   {% for week in weeks %}
     <tr>
     {% for d in week %}
-      <td{% if d.is_today and not d.other %} id="today"{% endif %} class="{% if d.other %}other{% else %}{% if d.is_today %}today-col{% endif %}{% if d.my_shift %} mine{% endif %}{% endif %}{% if d.weekend %} we{% if d.we_empty %} we-empty{% endif %}{% endif %}"{% if not d.other %} data-label="{{ d.label }}" data-day="{% url 'day' d.date %}{{ bq }}"{% endif %}>
+      <td{% if d.is_today and not d.other %} id="today"{% endif %} class="{% if d.other %}other{% else %}{% if d.is_today %}today-col{% endif %}{% if d.my %} mine{% endif %}{% endif %}{% if d.weekend %} we{% if d.we_empty %} we-empty{% endif %}{% endif %}"{% if not d.other %} data-label="{{ d.label }}" data-day="{% url 'day' d.date %}{{ bq }}"{% endif %}>
         {% include "duty/_daycell.html" %}
       </td>
     {% endfor %}
     </tr>
-    {% if view == 'month' %}{% if week.0.wm_row %}<tr class="wmemo"><td colspan="7">{% for s in week.0.sections %}{% include "duty/_memo.html" with scope="week" md=week.0.date m=s.week_memo dated=True p=s %}{% endfor %}</td></tr>{% endif %}{% endif %}
+    {% if view == 'month' %}{% if week.1.wm_row %}<tr class="wmemo"><td colspan="7">{% for s in week.1.sections %}{% include "duty/_memo.html" with scope="week" md=week.1.date m=s.week_memo dated=True p=s %}{% endfor %}</td></tr>{% endif %}{% endif %}{# 주 메모는 월요일(일요일 시작이라 week.1) #}
   {% endfor %}
   </tbody>
 </table>

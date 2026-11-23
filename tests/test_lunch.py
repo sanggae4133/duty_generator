@@ -278,9 +278,9 @@ def test_schedule_filter_and_me(pub, client):
     body = client.get("/?date=2026-11-10&f=1&shift=lunch").content.decode()
     assert 'class="sec k-lunch" data-k="lunch"' in body and 'value="lunch" checked' in body and 'value="dawn" checked' not in body
     me = client.get("/me/").content.decode()
-    assert 'value="lunch"' in me and "새벽 06:30~15:30 · 점심당번</span>" in me  # 부서 점심 시각이 없으면 이름만
+    assert 'value="lunch"' in me and '새벽 06:30~15:30</span><span class="w" data-k="lunch">점심당번</span>' in me  # 부서 점심 시각이 없으면 이름만
     Department.objects.filter(pk=m["가"].department_id).update(lunch_start=time(11, 30), lunch_end=time(12, 30))
-    assert "새벽 06:30~15:30 · 점심당번 11:30~12:30</span>" in client.get("/me/").content.decode()
+    assert '<span class="w" data-k="lunch">점심당번 11:30~12:30</span>' in client.get("/me/").content.decode()
 
 
 def test_cell_form_for_lunch_and_carry(pub, client, lunch):

@@ -56,7 +56,7 @@
 </span>
 <span class="tb-gap">
 </span>
-<span class="mydays">11월 내 근무 <b>3일</b>
+<span class="mydays">11월 내 근무 <b id="mydays">3일</b>
 </span>
 <label class="dimsw">
 <input type="checkbox" id="dim" role="switch" data-default="1" checked> 다른 사람 흐리게</label>
@@ -187,69 +187,27 @@
 <div class="grid-wrap roster-scroll">
 <table class="roster month cal" id="roster">
 <colgroup>
-<col>
-<col>
-<col>
-<col>
-<col>
 <col class="we">
+<col>
+<col>
+<col>
+<col>
+<col>
 <col class="we">
 </colgroup>
 <thead>
 <tr>
+<th class="we">일</th>
 <th>월</th>
 <th>화</th>
 <th>수</th>
 <th>목</th>
 <th>금</th>
 <th class="we">토</th>
-<th class="we">일</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td class="other">
-<div class="dh">
-<a href="/day/2026-10-26/">
-<strong>26</strong>
-</a>
-</div>
-</td>
-<td class="other">
-<div class="dh">
-<a href="/day/2026-10-27/">
-<strong>27</strong>
-</a>
-</div>
-</td>
-<td class="other">
-<div class="dh">
-<a href="/day/2026-10-28/">
-<strong>28</strong>
-</a>
-</div>
-</td>
-<td class="other">
-<div class="dh">
-<a href="/day/2026-10-29/">
-<strong>29</strong>
-</a>
-</div>
-</td>
-<td class="other">
-<div class="dh">
-<a href="/day/2026-10-30/">
-<strong>30</strong>
-</a>
-</div>
-</td>
-<td class="other we we-empty">
-<div class="dh">
-<a href="/day/2026-10-31/">
-<strong>31</strong>
-</a>
-</div>
-</td>
 <td class=" we we-empty" data-label="11월 1일 (일)" data-day="/day/2026-11-01/">
 <div class="dh">
 <a href="/day/2026-11-01/">
@@ -257,8 +215,6 @@
 </a>
 </div>
 </td>
-</tr>
-<tr>
 <td class="" data-label="11월 2일 (월)" data-day="/day/2026-11-02/">
 <div class="dh">
 <a href="/day/2026-11-02/">
@@ -306,6 +262,8 @@
 </a>
 </div>
 </td>
+</tr>
+<tr>
 <td class=" we we-empty" data-label="11월 8일 (일)" data-day="/day/2026-11-08/">
 <div class="dh">
 <a href="/day/2026-11-08/">
@@ -313,8 +271,6 @@
 </a>
 </div>
 </td>
-</tr>
-<tr>
 <td class="" data-label="11월 9일 (월)" data-day="/day/2026-11-09/">
 <div class="dh">
 <a href="/day/2026-11-09/">
@@ -362,6 +318,8 @@
 </a>
 </div>
 </td>
+</tr>
+<tr>
 <td class=" we we-empty" data-label="11월 15일 (일)" data-day="/day/2026-11-15/">
 <div class="dh">
 <a href="/day/2026-11-15/">
@@ -369,14 +327,14 @@
 </a>
 </div>
 </td>
-</tr>
-<tr>
 <td id="today" class="today-col mine" data-label="11월 16일 (월)" data-day="/day/2026-11-16/">
 <div class="dh">
 <a href="/day/2026-11-16/">
 <strong>16</strong>
 </a>
-<span class="mychip" title="내 근무: 새벽">새<span class="sx">벽</span>
+<span class="mychip" data-k="dawn" title="내 근무: 새벽">새<span class="sx">벽</span>
+</span>
+<span class="mychip x" data-k="slots" title="내 근무: 관제">관<span class="sx">제</span>
 </span>
 </div>
 <div class="sec k-dawn" data-k="dawn">
@@ -488,7 +446,9 @@
 <a href="/day/2026-11-17/">
 <strong>17</strong>
 </a>
-<span class="mychip" title="내 근무: 새벽">새<span class="sx">벽</span>
+<span class="mychip" data-k="dawn" title="내 근무: 새벽">새<span class="sx">벽</span>
+</span>
+<span class="mychip x" data-k="slots" title="내 근무: 관제">관<span class="sx">제</span>
 </span>
 </div>
 <div class="sec k-dawn" data-k="dawn">
@@ -600,7 +560,7 @@
 <a href="/day/2026-11-18/">
 <strong>18</strong>
 </a>
-<span class="mychip" title="내 근무: 새벽">새<span class="sx">벽</span>
+<span class="mychip" data-k="dawn" title="내 근무: 새벽">새<span class="sx">벽</span>
 </span>
 </div>
 <div class="sec k-dawn" data-k="dawn">
@@ -921,6 +881,8 @@
 </a>
 </div>
 </td>
+</tr>
+<tr>
 <td class=" we we-empty" data-label="11월 22일 (일)" data-day="/day/2026-11-22/">
 <div class="dh">
 <a href="/day/2026-11-22/">
@@ -928,8 +890,6 @@
 </a>
 </div>
 </td>
-</tr>
-<tr>
 <td class="" data-label="11월 23일 (월)" data-day="/day/2026-11-23/">
 <div class="dh">
 <a href="/day/2026-11-23/">
@@ -977,6 +937,8 @@
 </a>
 </div>
 </td>
+</tr>
+<tr>
 <td class=" we we-empty" data-label="11월 29일 (일)" data-day="/day/2026-11-29/">
 <div class="dh">
 <a href="/day/2026-11-29/">
@@ -984,8 +946,6 @@
 </a>
 </div>
 </td>
-</tr>
-<tr>
 <td class="" data-label="11월 30일 (월)" data-day="/day/2026-11-30/">
 <div class="dh">
 <a href="/day/2026-11-30/">
@@ -1029,13 +989,6 @@
 </a>
 </div>
 </td>
-<td class="other we we-empty">
-<div class="dh">
-<a href="/day/2026-12-06/">
-<strong>6</strong>
-</a>
-</div>
-</td>
 </tr>
 </tbody>
 </table>
@@ -1046,8 +999,7 @@
 <small>
 <span class="tk me">빨간 이름표</span> = 나<span class="h"> · <span class="chg">굵은 기울임</span> = 배포 뒤 바뀐 근무 · <b>A&gt;B</b> = A에서 B로 · <s>취소선</s> = 빠진 사람 · <span class="exc">
 <s>이름(휴가)</s>
-</span> = 사유로 그날 근무 아님</span>
-</small>
+</span> = 사유로 그날 근무 아님</span> · 칸을 누르면 바꿀 수 있습니다</small>
 </p>
 </div>
 <script src="/static/duty/roster.js">
