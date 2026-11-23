@@ -8,9 +8,10 @@ from django.utils.datastructures import MultiValueDict
 
 from duty.errors import DutyError
 from duty.forms import StepsForm, shift_forms
-from duty.models import Board, BoardShift, Commute, Department, DutyAssignment, Period, User
+from duty.models import AlarmRule, Board, BoardShift, Commute, Department, DutyAssignment, Period, User
 from duty.services import board_settings as bs
 from duty.services import collect
+from duty.shifts import SHIFT_KEYS
 
 S = Period.Status
 MON = date(2026, 11, 16)
@@ -40,8 +41,9 @@ def shift_data(board, change=None, extra=None, depts=None):
                             "default_alarm": "on" if s.default_alarm else None, "active": "on" if s.active else None,
                             **(change or {}).get(s.key, {})})
     put(f"shifts-{len(shifts)}", extra or {"active": "on"})  # 손대지 않은 빈 추가 줄(브라우저는 켜진 '사용'을 보낸다)
+    shown = ",".join(s.key for s in shifts if s.active and s.key in SHIFT_KEYS)  # 화면이 숨은 칸으로 보내는 그린 때 체크박스
     for d in board.departments.all():
-        put(f"d-{d.code}", {"shifts": d.shift_keys(), "lunch_start": d.lunch_start and f"{d.lunch_start:%H:%M}",
+        put(f"d-{d.code}", {"shifts": d.shift_keys(), "shown": shown, "lunch_start": d.lunch_start and f"{d.lunch_start:%H:%M}",
                             "lunch_end": d.lunch_end and f"{d.lunch_end:%H:%M}", **(depts or {}).get(d.code, {})})
     return MultiValueDict(data)
 
@@ -95,16 +97,17 @@ def test_turned_off_shift_comes_back_in_department(ops_board, ops_admin):
 
 def test_shift_turned_on_by_other_admin_after_render_is_kept(ops_board, ops_admin):
     """남길 꺼진 키는 화면이 그린 때 체크박스로 보인 키(d-<코드>-shown)로 정한다: 그린 뒤 다른 관리자가 근무조를 켜도
-    그 체크박스를 못 본 이 저장이 부서에서 그 키를 빼지 않는다. shown 이 없으면 지금 켜진 근무조로 본다."""
+    그 체크박스를 못 본 이 저장이 부서에서 그 키를 빼지 않는다."""
     BoardShift.objects.filter(board=ops_board, key="dinner").update(active=False)  # 그린 때: 늦은 조는 꺼져 체크박스 없음
     data = shift_data(ops_board, depts={"OPS": {"shifts": ["dawn", "normal"], "shown": "dawn,normal"}})
     BoardShift.objects.filter(board=ops_board, key="dinner").update(active=True)  # 그사이 다른 관리자가 켰다
     data.setlist("shifts-2-active", ["on"])  # 이 저장도 켠 채로(정의 칸은 다른 관리자 저장을 덮지 않게)
     save(ops_admin, ops_board, data)
     assert _dept().shifts == "dawn,normal,dinner"
-    data.pop("d-OPS-shown")  # 보인 키를 안 보내면(옛 화면) 지금 켜진 근무조가 다 보였던 것으로 본다
-    save(ops_admin, ops_board, data)
-    assert _dept().shifts == "dawn,normal"
+    data.pop("d-OPS-shown")  # 숨은 칸이 없으면 그 부서를 그린 적 없는 화면(그린 뒤 생긴 부서): 저장하지 않는다
+    with pytest.raises(DutyError, match=STALE):
+        save(ops_admin, ops_board, data)
+    assert _dept().shifts == "dawn,normal,dinner"
 
 
 def test_redraw_keeps_posted_shown_value(ops_board):
@@ -149,6 +152,39 @@ def test_invalid_department_hides_admin_only_message(ops_board, ops_admin):
     assert "먼저 바꾸세요" not in str(formset.non_form_errors())
 
 
+# ── 화면을 연 뒤 근무 정의·부서가 바뀌면 저장하지 않는다(표 전체 검사는 제출된 행만 보므로) ──
+
+STALE = "화면을 연 뒤 근무 정의나 부서가 바뀌었습니다"
+
+
+def test_dropped_form_row_is_refused(ops_board, ops_admin):
+    """TOTAL_FORMS 를 줄여 행을 빼고 보내면 빠진 정의는 표 전체 검사를 거치지 않는다: 저장하지 않는다."""
+    data = shift_data(ops_board, change={"normal": {"name": "중간"}})
+    for k in [k for k in data if k.startswith(("shifts-3-", "shifts-4-"))]:
+        data.pop(k)
+    data.setlist("shifts-TOTAL_FORMS", ["3"])
+    data.setlist("shifts-INITIAL_FORMS", ["3"])
+    with pytest.raises(DutyError, match=STALE):
+        save(ops_admin, ops_board, data)
+    assert BoardShift.objects.get(board=ops_board, key="normal").name == "가운데"
+
+
+def test_shift_added_after_render_is_refused(ops_board, ops_admin):
+    data = shift_data(ops_board, change={"normal": {"name": "중간"}})
+    BoardShift.objects.create(board=ops_board, key="night", name="밤", start=time(9, 30), end=time(18, 30))  # 다른 관리자
+    with pytest.raises(DutyError, match=STALE):
+        save(ops_admin, ops_board, data)
+    assert BoardShift.objects.get(board=ops_board, key="normal").name == "가운데"
+
+
+def test_department_added_after_forms_is_refused(ops_board, ops_admin):
+    formset, dept_forms = shift_forms(ops_board, shift_data(ops_board, change={"normal": {"name": "중간"}}))
+    Department.objects.create(code="OPS2", name="운영2", shifts="dawn", board=ops_board)  # 폼을 만든 뒤 생긴 부서
+    with pytest.raises(DutyError, match=STALE):
+        bs.save_shifts(ops_admin, ops_board, formset, dept_forms)
+    assert BoardShift.objects.get(board=ops_board, key="normal").name == "가운데"
+
+
 # ── 부서에서 근무조를 뺄 때: 배포 전 회차 출근표가 있으면 확인 ──
 
 @pytest.fixture
@@ -172,6 +208,7 @@ def test_removing_department_shift_with_rows_asks_again(ops_board, ops_admin, ro
         assert _dept().shifts == "dawn,normal,dinner"
     save(ops_admin, ops_board, data, confirm=1)
     assert _dept().shifts == "dawn,normal"
+    assert Commute.objects.filter(period=rows, shift="dinner").exists()  # 행은 다음 표 저장 때 지워진다(지금은 남는다)
 
 
 def test_turning_shift_off_and_removing_it_asks(ops_board, ops_admin, rows):
@@ -196,6 +233,17 @@ def test_turning_off_slot_with_generated_rows_warns(it_board, depts, admin_user,
     assert warnings == ["생성됨 회차(가상 회차)에 '08:30~09:30' 배정 2개가 남아 있습니다. "
                         "다시 생성하거나 다른 상태로 옮기면 지워지고, 그대로 배포하면 근무표에 나옵니다."]
     assert not BoardShift.objects.get(board=it_board, key="slot0").active
+    assert DutyAssignment.objects.filter(period=p, cell="slot0").count() == 2  # 끄기만 하고 배정은 지우지 않는다
+
+
+def test_renaming_and_retiming_shift_keeps_alarm_rules(ops_board, ops_admin):
+    """근무 정의는 키로 이어지므로 이름·시각을 바꿔도 알림 규칙은 그대로다."""
+    m = User.objects.create_user("OPS802", password=None, name="가상둘", department=_dept(), type="직원")
+    rule = AlarmRule.objects.create(user=m, kind="personal", timing="before_start", offset=60, telegram=True,
+                                    shifts=["dawn"])
+    save(ops_admin, ops_board, shift_data(ops_board, change={"dawn": {"name": "새벽", "start": "06:30", "end": "15:30"}}))
+    rule.refresh_from_db()
+    assert rule.shifts == ["dawn"] and AlarmRule.objects.count() == 1
 
 
 # ── 범위(IDOR)·권한 ──

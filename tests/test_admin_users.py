@@ -1,8 +1,10 @@
 """관리 화면 '사용자'(duty.User)."""
 import pytest
+from django.contrib.admin.models import LogEntry
+from django.db import connection
 from django.urls import reverse
 
-from duty.admin import DepartmentForm
+from duty.admin import DepartmentForm, UserAdmin
 from duty.models import AlarmRule, User
 
 
@@ -136,3 +138,40 @@ def test_delete_refused_for_last_active_admin(su_client, ops_only_admin, make_me
     other = make_member("가상기록없음")  # 관리자가 아니면 그대로 지운다
     r = su_client.post(reverse("admin:duty_user_delete", args=[other.pk]), {"post": "yes"})
     assert r.status_code == 302 and not User.objects.filter(pk=other.pk).exists()
+
+
+def test_bulk_delete_of_two_admins_of_same_board_refused(su_client, ops_board, ops_only_admin, make_member):
+    """같은 근무표 관리자 둘을 함께 고르면 둘 다 지우지 않는다(한 명씩 보면 다른 한 명이 남는 것처럼 보이지만)."""
+    second = make_member("가상둘째", user=True)
+    ops_board.admin_group.user_set.add(second)
+    r = su_client.post(reverse("admin:duty_user_changelist"),
+                       {"action": "delete_selected", "_selected_action": [ops_only_admin.pk, second.pk], "post": "yes"})
+    assert r.status_code == 200 and "운영팀 근무표에 재직 중인 관리자가 남지 않습니다" in r.content.decode()
+    assert User.objects.filter(pk__in=[ops_only_admin.pk, second.pk]).count() == 2
+
+
+def test_bulk_delete_checks_and_deletes_in_one_transaction(su_client, make_member, monkeypatch):
+    """일괄 지우기의 관리자 검사와 지우기가 한 트랜잭션(IMMEDIATE)이라 두 슈퍼유저가 동시에 지워도 관리자 0명이 되지 않는다.
+    테스트는 이미 트랜잭션 안이라 지울 때 트랜잭션이 한 겹 더 열려 있는지(savepoint)로 본다."""
+    depth, seen = len(connection.savepoint_ids), []
+    orig = UserAdmin.delete_queryset
+    monkeypatch.setattr(UserAdmin, "delete_queryset",
+                        lambda self, request, qs: (seen.append(len(connection.savepoint_ids) - depth), orig(self, request, qs)))
+    m = make_member("가상지움")
+    su_client.post(reverse("admin:duty_user_changelist"),
+                   {"action": "delete_selected", "_selected_action": [m.pk], "post": "yes"})
+    assert seen == [1] and not User.objects.filter(pk=m.pk).exists()
+
+
+def test_admin_log_entries_use_username_not_name(su_client, depts, make_member):
+    """관리 화면 기록(LogEntry.object_repr)에 실명 대신 아이디(CLAUDE.md: 로그에 실명 금지)."""
+    su_client.post(reverse("admin:duty_user_add"),
+                   {"username": "NEW09", "name": "가상추가", "department": "MD", "part": "", "type": "개발자"})
+    u = User.objects.get(username="NEW09")
+    su_client.post(reverse("admin:duty_user_change", args=[u.pk]), _user_data(u, name="가상고침"))
+    su_client.post(reverse("admin:duty_user_delete", args=[u.pk]), {"post": "yes"})
+    m = make_member("가상일괄")
+    su_client.post(reverse("admin:duty_user_changelist"),
+                   {"action": "delete_selected", "_selected_action": [m.pk], "post": "yes"})
+    assert sorted(LogEntry.objects.values_list("object_repr", "action_flag")) == [
+        ("MEMS001", 3), ("NEW09", 1), ("NEW09", 2), ("NEW09", 3)]

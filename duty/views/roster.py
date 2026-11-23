@@ -17,7 +17,7 @@ from ..shifts import (
     DAY_LABELS, DEVELOPER, LUNCH, REASONS, SHIFT, SLOT, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell,
     kind, lunch_defs, ordered, shift_defs, slot_defs,
 )
-from .common import date_param, safe_next
+from .common import date_param, int_param, safe_next
 
 
 def _item(label: str, names: list[str], removed: bool = False, reasons: dict[str, str] | None = None) -> dict:
@@ -340,8 +340,8 @@ def cell(request, d, cell):
         reason_form = bool(request.POST.get("set_reason"))  # 근무조 칸의 사유 선택(같은 창의 두 번째 폼)
         try:
             if reason_form:
-                pk = request.POST.get("member", "")  # 위 폼과 option 값이 겹치지 않게 아이디 대신 번호
-                member = User.objects.filter(pk=pk).first() if pk.isdigit() else None
+                pk = int_param(request.POST.get("member"))  # 위 폼과 option 값이 겹치지 않게 아이디 대신 번호
+                member = User.objects.filter(pk=pk).first() if pk is not None else None
                 if member is None:
                     raise DutyError("사유를 붙일 사람을 골라 주세요.")
                 result = changes.set_reason(request.user, board, d, member, request.POST.get("reason", ""))
@@ -423,10 +423,6 @@ def day(request, d):
     })
 
 
-def _int(s):
-    return int(s) if s and s.isdigit() else None
-
-
 @login_required
 def memo(request, scope, d):
     """[메모] 팝업(근무 변경 창과 같은 방식). 근무표 관리 그룹만."""
@@ -443,7 +439,7 @@ def memo(request, scope, d):
                 msg = "메모를 지웠습니다."
             else:
                 cleared = memos.save(request.user, board, scope, d, request.POST.get("text", ""),
-                                     no_work=bool(request.POST.get("no_work")), confirm=_int(request.POST.get("confirm")))
+                                     no_work=bool(request.POST.get("no_work")), confirm=int_param(request.POST.get("confirm")))
                 msg = f"메모를 저장했습니다. {cleared}명의 근무를 지웠습니다." if cleared else "메모를 저장했습니다."
         except DutyError as e:
             messages.error(request, str(e))
