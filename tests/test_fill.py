@@ -246,3 +246,11 @@ def test_non_admin_fill_keeps_past_days_then_saves(client, ops, fixed_today, how
     r = client.post(f"/collect/{p.pk}/OPS/", post, follow=True)
     assert "표를 저장했습니다." in r.content.decode()
     assert Commute.objects.get(period=p, date=d(11, 16)).member == ga
+
+
+def test_week_all_before_keep_before_is_left_as_is(ops):
+    """keep_before 로 그 주가 모두 지난 날이면 아무것도 바꾸지 않고 표를 그대로 돌려준다(2주 기준이 없다는 오류도 내지 않는다)."""
+    p, dept = ops
+    table = {d(11, 30): {"dawn": ["가상가"]}}
+    for how in (collect.FILL_2W, collect.FILL_1W):
+        assert collect.fill_week(p, dept, table, d(11, 30), how, keep_before=d(12, 7)) == table

@@ -284,3 +284,14 @@ def test_people_columns_dont_break_when_row_open(ops_client, ops_board):
     assert "table.people th, table.people td:not(.act) { white-space: nowrap; }" in body
     css = body[body.index("@media (max-width: 40rem)"):]
     assert "table.people td { border: 0; padding: .2rem 0; white-space: normal; }" in css
+
+
+def test_non_ascii_or_huge_ids_are_404(ops_client, ops_board):
+    """'²'.isdigit() 는 참이지만 int() 는 실패하고, 아주 긴 숫자는 SQLite 범위를 넘는다: 500 이 아니라 404·확인 없음으로."""
+    a = _ops_member("가상하나", "ops01")
+    for bad in ("²", "9" * 30):
+        for data in ({"do": "leave", "user": bad}, {"do": "issue", "users": [bad]}):
+            assert ops_client.post(OPS, data).status_code == 404, data
+        assert ops_client.post(OPS, {"do": "leave", "user": a.pk, "confirm": bad}).status_code == 302  # confirm 은 없는 것으로
+        assert ops_client.post(OPS, {"do": "shifts", "confirm": bad}).status_code == 200
+    assert User.objects.get(pk=a.pk).is_active is False
