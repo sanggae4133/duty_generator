@@ -181,6 +181,6 @@ def test_footer_credit(client, two, settings):
     client.force_login(ga)
     settings.REPO_URL = "https://github.com/example/duty"
     body = client.get("/me/").content.decode()
-    assert 'Developed by SJ · <a href="https://github.com/example/duty" target="_blank" rel="noopener">GitHub</a>' in body
+    assert 'Made by SJ · <a href="https://github.com/example/duty" target="_blank" rel="noopener">GitHub</a>' in body
     settings.REPO_URL = ""
-    assert "Developed by SJ" not in client.get("/me/").content.decode()
+    assert "Made by SJ" not in client.get("/me/").content.decode()
