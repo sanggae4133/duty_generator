@@ -3,16 +3,16 @@ from urllib.parse import quote, urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from .. import perms
+from .. import perms, xlsx
 from ..csv_io import split_names
 from ..errors import DutyError
 from ..models import Board, Department, Memo, RosterPref, User
 from ..services import boards, changes, holidays, memos, prefs
-from ..services.roster import find_day, member_schedule, published_days
+from ..services.roster import export_rows, find_day, member_schedule, published_days
 from ..shifts import (
     DAY_LABELS, DEVELOPER, LUNCH, REASONS, SHIFT, SLOT, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell,
     kind, lunch_defs, ordered, shift_defs, slot_defs,
@@ -234,6 +234,7 @@ def roster(request):
         weeks = [[monday + timedelta(days=i) for i in range(5)]]
         prev_d, next_d = monday - timedelta(days=7), monday + timedelta(days=7)
         title = f"{monday:%Y-%m-%d} ~ {monday + timedelta(days=4):%m-%d}"
+        export = (monday, monday + timedelta(days=4))
     else:
         first = anchor.replace(day=1)
         cur = first - timedelta(days=first.weekday())
@@ -245,6 +246,7 @@ def roster(request):
             cur += timedelta(days=7)
         prev_d, next_d = _month_shift(first, -1), _month_shift(first, 1)
         title = f"{first.year}년 {first.month}월"
+        export = (first, last)  # 다른 달 날짜는 화면에 구역이 없다
     first_day, last_day = weeks[0][0], weeks[-1][-1]
     closed = holidays.closed(first_day, last_day)  # 휴장일은 모든 근무표 공통이라 날짜 칸에 한 번
     page_next = _page_next(request)
@@ -315,10 +317,10 @@ def roster(request):
         "pick_boards": [{"code": b.code, "name": b.name, "home": b == home, "on": b in chosen}
                         for b in boards.in_order(all_boards, home)] if len(all_boards) > 1 else [],
         "multi": multi, "bq": sq, "sel_codes": [b.code for b in chosen] if sq else [],
-        "sel_names": " + ".join(b.name for b in chosen), "page_nq": quote(page_next),
+        "sel_names": " + ".join(b.name for b in chosen), "page_nq": quote(page_next), "page_next": page_next,
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
         "can_click": any(s["edit"] for d in (days[0][0], days[0][4]) for s in d["sections"]),  # 범례 '칸을 누르면…'
-        "weeks": days,
+        "weeks": days, "export": export,
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }
     ctx.update(_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine))
@@ -451,23 +453,84 @@ def memo(request, scope, d):
     })
 
 
+MAX_DAYS = 365  # 엑셀 다운로드 기간 한도(1년)
+
+
+def _xlsx(rows, filename: str) -> HttpResponse:
+    r = HttpResponse(xlsx.build(rows), content_type=xlsx.MIME)
+    r["Content-Disposition"] = xlsx.disposition(filename)
+    r["Cache-Control"] = "no-store"  # 이름이 든 파일: 브라우저·중간 서버에 남기지 않는다
+    return r
+
+
 @login_required
-def me(request):
+def roster_export(request):
+    """근무표 엑셀: ?start=&end=(1년까지)&board=…(없으면 내 근무표)&dept=&type=&shift=.
+    화면과 같은 재료(배포된 날·고른 근무표, 필터는 내 근무표 구역만)이고 아무것도 기억하지 않는다."""
+    chosen, home = _selection(request)
+    start, end = date_param(request, "start"), date_param(request, "end")
+    error = ""
+    if not (start and end and LOW <= start <= HIGH and LOW <= end <= HIGH):
+        error = "시작일과 종료일을 넣어 주세요."
+    elif start > end:
+        error = "시작일이 종료일보다 늦습니다."
+    elif (end - start).days > MAX_DAYS:
+        error = "기간은 1년까지 고를 수 있습니다."
+    if error:
+        messages.error(request, error)
+        return redirect(safe_next(request, reverse("roster")))
+    g = request.GET.getlist
+    depts, types, shifts = prefs.clean(home, g("dept"), g("type"), g("shift")) if home in chosen else ([], [], [])
+    rows = []
+    for b in chosen:
+        mine = b == home
+        rows += export_rows(b, start, end, _keeper(depts if mine else [], types if mine else []),
+                            _shown(shifts if mine else []))
+    rows.sort(key=lambda r: r[0])  # 날짜순, 같은 날은 화면처럼 근무표 순서 그대로(안정 정렬)
+    return _xlsx(rows, f"당번표_{start}_{end}.xlsx")
+
+
+def _me_query(request) -> dict:
+    """[내 근무]의 조건: 내 근무표, 스케줄, 시작일(기본 오늘)·종료일(비면 끝까지)."""
     member = request.user if request.user.department_id else None
     board = boards.home(request.user)  # 내 스케줄은 늘 내 근무표
     _, _, shifts = prefs.clean(board, [], [], request.GET.getlist("shift"))
     today = perms.today()
-    rows = dict(member_schedule(board, member, today, _shown(shifts))) if member else {}
-    days = boards.owners(board, today, None) if member else {}
+    start, end = date_param(request, "start") or today, date_param(request, "end")
+    start = start if LOW <= start <= HIGH else today
+    end = end if end and LOW <= end <= HIGH else None
+    return {"member": member, "board": board, "shifts": shifts, "today": today, "start": start, "end": end,
+            "error": "시작일이 종료일보다 늦습니다." if end and start > end else ""}
+
+
+@login_required
+def me(request):
+    q = _me_query(request)
+    member, board, today, start, end = q["member"], q["board"], q["today"], q["start"], q["end"]
+    ok = member and not q["error"]
+    rows = dict(member_schedule(board, member, start, _shown(q["shifts"]), end)) if ok else {}
+    days = boards.owners(board, start, end) if ok else {}
     if days:  # 휴장일·근무 없음 날도 회색 줄로(근무 없는 보통 날은 뺀다)
-        off = holidays.closed(today, max(days)) | {
-            d: m.text or "근무 없음" for d, m in memos.for_range(board, today, max(days))["day"].items() if m.no_work}
+        off = holidays.closed(start, max(days)) | {
+            d: m.text or "근무 없음" for d, m in memos.for_range(board, start, max(days))["day"].items() if m.no_work}
         off = {d: why for d, why in off.items() if d in days and d not in rows}
     else:
         off = {}
     return render(request, "duty/me.html", {
-        "member": member,
-        "shift_choices": _shift_choices(boards.defs(board), shifts),
+        "member": member, "start": start, "end": end, "error": q["error"],
+        "shift_choices": _shift_choices(boards.defs(board), q["shifts"]),
         "items": [{"date": d, "weekday": DAY_LABELS[d.weekday()], "labels": rows.get(d) or [off[d]], "off": d in off,
                    "today": d == today} for d in sorted(rows.keys() | off.keys())],
     })
+
+
+@login_required
+def me_export(request):
+    """[내 근무] 엑셀: 화면과 같은 조건(시작일·종료일·스케줄), 내 이름 줄만."""
+    q = _me_query(request)
+    if q["error"]:
+        messages.error(request, q["error"])
+        return redirect(reverse("me") + "?" + request.GET.urlencode())
+    member, start, end = q["member"], q["start"], q["end"]
+    rows = export_rows(q["board"], start, end, lambda n: n == member.name, _shown(q["shifts"])) if member else []
+    return _xlsx(rows, f"내근무_{start}_{end or (rows[-1][0] if rows else start)}.xlsx")

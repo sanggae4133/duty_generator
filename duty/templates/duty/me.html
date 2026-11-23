@@ -2,12 +2,17 @@
 {% block content %}
 <h3>내 근무</h3>
 {% if not member %}<p>이 계정은 부서가 없어 근무표에 들어가지 않습니다. 전체 근무는 <a href="/">근무표</a>에서 볼 수 있습니다.</p>{% else %}
-<form method="get" class="search">
-  <fieldset class="filter"><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  <small class="hint">모두 해제하면 전체 표시</small>
+<form method="get" class="dl">
+  <label class="date">시작일<input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
+  <label class="date">종료일<input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
+  <p class="hint">종료일을 비우면 마지막 근무까지 보입니다.</p>
+  <fieldset><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  <p class="hint">스케줄을 모두 해제하면 전체 표시</p>
+  <button>보기</button><button class="outline" formaction="{% url 'me_export' %}">엑셀 다운로드</button>
 </form>
+{% if error %}<div class="msg error" role="alert">{{ error }}</div>{% endif %}
 <script>
-  const form = document.querySelector("form.search");
+  const form = document.querySelector("form.dl");
   form.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => form.requestSubmit());
 </script>
 {% endif %}

@@ -76,6 +76,26 @@
 </div>
 </details>
 </form>
+<details class="export">
+<summary role="button" class="outline">엑셀 다운로드</summary>
+<form method="get" action="/export.xlsx" class="dl">
+<input type="hidden" name="next" value="/?board=ops&amp;view=week">
+<label class="date">시작일<input type="date" name="start" value="2026-11-16" required>
+</label>
+<label class="date">종료일<input type="date" name="end" value="2026-11-20" required>
+</label>
+<p class="hint">기간은 1년까지 고를 수 있습니다. 배포된 근무만 들어갑니다.</p>
+<fieldset>
+<legend>근무표</legend>
+<label>
+<input type="checkbox" name="board" value="it"> IT 당번표 (내 근무표)</label>
+<label>
+<input type="checkbox" name="board" value="ops" checked> 운영팀</label>
+</fieldset>
+<p class="hint">하나도 고르지 않으면 내 근무표만 받습니다.</p>
+<button>엑셀 다운로드</button>
+</form>
+</details>
 <div class="grid-wrap roster-scroll">
 <table class="roster month stack" id="roster">
 <thead>

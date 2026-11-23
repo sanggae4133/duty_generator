@@ -111,6 +111,57 @@
 </div>
 </details>
 </form>
+<details class="export">
+<summary role="button" class="outline">엑셀 다운로드</summary>
+<form method="get" action="/export.xlsx" class="dl">
+<input type="hidden" name="next" value="/?board=it&amp;board=ops&amp;view=month">
+<label class="date">시작일<input type="date" name="start" value="2026-11-01" required>
+</label>
+<label class="date">종료일<input type="date" name="end" value="2026-11-30" required>
+</label>
+<p class="hint">기간은 1년까지 고를 수 있습니다. 배포된 근무만 들어갑니다.</p>
+<fieldset>
+<legend>근무표</legend>
+<label>
+<input type="checkbox" name="board" value="it" checked> IT 당번표 (내 근무표)</label>
+<label>
+<input type="checkbox" name="board" value="ops" checked> 운영팀</label>
+</fieldset>
+<p class="hint">하나도 고르지 않으면 내 근무표만 받습니다. 부서·유형·스케줄은 내 근무표에만 적용됩니다.</p>
+<fieldset>
+<legend>부서</legend>
+<label>
+<input type="checkbox" name="dept" value="MEMS" checked> 매칭엔진실</label>
+<label>
+<input type="checkbox" name="dept" value="TMCH" checked> 매매지원실</label>
+<label>
+<input type="checkbox" name="dept" value="MD" checked> 정보분배</label>
+<label>
+<input type="checkbox" name="dept" value="UI" checked> UI</label>
+</fieldset>
+<fieldset>
+<legend>유형</legend>
+<label>
+<input type="checkbox" name="type" value="직원" checked> 직원</label>
+<label>
+<input type="checkbox" name="type" value="개발자" checked> 개발자</label>
+</fieldset>
+<fieldset>
+<legend>스케줄</legend>
+<label>
+<input type="checkbox" name="shift" value="dawn" checked> 새벽</label>
+<label>
+<input type="checkbox" name="shift" value="normal" checked> 정상</label>
+<label>
+<input type="checkbox" name="shift" value="dinner" checked> 석식교대</label>
+<label>
+<input type="checkbox" name="shift" value="night" checked> 야간</label>
+<label>
+<input type="checkbox" name="shift" value="slots" checked> 장중관제</label>
+</fieldset>
+<button>엑셀 다운로드</button>
+</form>
+</details>
 <div class="grid-wrap roster-scroll">
 <table class="roster month" id="roster">
 <thead>

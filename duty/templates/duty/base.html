@@ -189,8 +189,20 @@
     dialog.welcome video { width: 100%; max-height: 60vh; background: #000; border-radius: .3rem; margin-top: .5rem; }
     dialog.welcome footer { display: flex; gap: .5rem; justify-content: flex-end; }
     dialog.welcome footer button { width: auto; margin: 0; }
-    .site-foot { margin-top: 2rem; padding: 1rem 0; border-top: 1px solid var(--duty-line); text-align: right; font-size: .8rem; }
-    .site-foot a { opacity: .6; }
+    /* 엑셀 다운로드 상자·[내 근무] 기간: 이름표는 칸 위, 칸·버튼 48px, 글씨 1rem 이상(시력이 약한 사용자) */
+    details.export { margin: 0 0 1rem; }
+    details.export summary[role=button] { display: inline-flex; align-items: center; width: auto; min-height: 48px; padding: .4rem 1.1rem; font-size: 1.05rem; font-weight: 700; }
+    details.export form.dl { margin-top: .75rem; }
+    form.dl { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; margin-bottom: 1rem; }
+    form.dl label.date { display: flex; flex-direction: column; flex: 1 1 10rem; margin: 0; font-size: 1rem; font-weight: 600; }
+    form.dl label.date input { width: 100%; min-height: 48px; margin: .25rem 0 0; font-size: 1.05rem; }
+    form.dl fieldset { display: flex; flex-wrap: wrap; flex-basis: 100%; gap: .1rem 1.2rem; margin: 0; padding: .2rem .8rem .4rem; border: 1px solid var(--duty-line); border-radius: .3rem; }
+    form.dl legend { width: auto; padding: 0 .3rem; font-size: 1rem; font-weight: 600; }
+    form.dl fieldset label { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; margin: 0; font-size: 1.05rem; }
+    form.dl .hint { flex-basis: 100%; margin: 0; font-size: 1rem; }
+    form.dl button { width: auto; min-height: 48px; margin: 0; padding: .4rem 1.1rem; font-size: 1.05rem; font-weight: 700; }
+    @media (max-width: 600px) { details.export summary[role=button], form.dl button { width: 100%; justify-content: center; } }
+    .site-foot { margin-top: 2rem; padding: 1rem 0; border-top: 1px solid var(--duty-line); text-align: right; font-size: .9rem; }
   </style>
 </head>
 <body>
@@ -210,7 +222,7 @@
   </header>
   {% for m in messages %}{% if not m.extra_tags %}<div class="msg {{ m.tags }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endif %}{% endfor %}{# 칸 태그가 있는 메시지는 그 칸 안에서(근무표 설정) #}
   {% block content %}{% endblock %}
-  {% if repo_url %}<footer class="site-foot"><a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub 저장소</a></footer>{% endif %}
+  {% if repo_url %}<footer class="site-foot">Developed by SJ · <a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub</a></footer>{% endif %}
 </main>
 {% with welcome=welcome_videos %}{% if welcome %}
 <dialog id="help-welcome" class="welcome" aria-labelledby="help-welcome-title"><article>

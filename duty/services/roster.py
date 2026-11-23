@@ -8,7 +8,9 @@ from django.db.models import F
 
 from ..csv_io import join_reason
 from ..models import ChangeLog, Commute, DutyAssignment, User
-from ..shifts import SHIFT, SLOT_GROUP_NAME, cell_end, cell_label, cell_start, is_slot_cell, kind, ordered
+from ..shifts import (
+    DAY_LABELS, SHIFT, SLOT_GROUP_NAME, cell_end, cell_label, cell_start, display_order, is_slot_cell, kind, ordered,
+)
 from . import boards
 
 Log = tuple[str | None, str | None]
@@ -106,7 +108,8 @@ def find_day(board, d: date) -> Day | None:
     return days[0] if days else None
 
 
-def member_schedule(board, member: User, start: date, shown=lambda cell: True) -> list[tuple[date, list[str]]]:
+def member_schedule(board, member: User, start: date, shown=lambda cell: True,
+                    end: date | None = None) -> list[tuple[date, list[str]]]:
     """내 근무: 날마다 ["정상 08:00~17:00", "점심당번 11:30~12:30", "장중관제 08:30~09:30"]. 사유는 이름 뒤 "정상(휴가) 08:00~17:00".
     점심당번 시각은 부서 점심 시각(없으면 이름만)."""
     defs = boards.defs(board)
@@ -120,8 +123,37 @@ def member_schedule(board, member: User, start: date, shown=lambda cell: True) -
         return join_reason(cell_label(defs, c), day.reason(c, member.name)) + span
 
     out = []
-    for day in published_days(board, start, None):
+    for day in published_days(board, start, end):
         labels = [label(day, c) for c, names in day.members.items() if shown(c) and member.name in names]
         if labels:
             out.append((day.date, labels))
+    return out
+
+
+def _span(a, b) -> str:
+    return f"{a:%H:%M}~{b:%H:%M}" if a and b else ""
+
+
+def export_rows(board, start: date, end: date | None, keep=lambda name: True, shown=lambda cell: True) -> list[tuple]:
+    """엑셀 다운로드 줄: 배포된 날(published_days)의 지금 배정 한 사람마다
+    (날짜, 요일, 근무표, 칸, 시간, 이름, 부서, 사유). 칸 순서는 화면(display_order), 사유 있는 사람도 넣는다.
+    keep(이름)·shown(칸 키)은 근무표 화면의 부서·유형·스케줄 필터와 같은 함수다."""
+    defs = boards.defs(board)
+    days = published_days(board, start, end)
+    names = {n for day in days for ns in day.members.values() for n in ns}
+    people = {u.name: u.department for u in User.objects.filter(name__in=names).select_related("department")}
+    out = []
+    for day in days:
+        for x in display_order(defs):
+            if not shown(x.key):
+                continue
+            for n in filter(keep, day.members[x.key]):
+                dept = people.get(n)
+                if kind(x.key) == SHIFT or is_slot_cell(x.key):
+                    span = _span(x.start, x.end)
+                else:  # 점심당번: 그 사람 부서의 점심 시각(없으면 빈 칸)
+                    span = _span(dept.lunch_start, dept.lunch_end) if dept else ""
+                out.append((day.date, DAY_LABELS[day.date.weekday()], board.name,
+                            SLOT_GROUP_NAME if is_slot_cell(x.key) else x.name, span, n,
+                            dept.name if dept else "", day.reason(x.key, n)))
     return out

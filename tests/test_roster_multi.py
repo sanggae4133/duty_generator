@@ -112,7 +112,8 @@ def test_filters_apply_to_my_section_only(client, two):
     assert "가상다" not in body and "가상나" in body  # 운영팀 구역은 늘 전체
     assert "부서·유형·스케줄은 내 근무표에만 적용됩니다" in body
     assert '<input type="hidden" name="board" value="it"><input type="hidden" name="board" value="ops">' in body  # 필터 폼이 고른 목록 그대로
-    assert "부서·유형·스케줄은 내 근무표에만" not in client.get(WEEK + "&board=it").content.decode()  # 하나면 지금 그대로
+    one = client.get(WEEK + "&board=it").content.decode().split('<details class="export"')[0]  # 엑셀 상자는 근무표를 더 고를 수 있어 늘 적는다
+    assert "부서·유형·스케줄은 내 근무표에만" not in one  # 하나면 지금 그대로
 
 
 def test_to_mine_label_rules(client, two):

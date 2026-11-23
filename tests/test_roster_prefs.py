@@ -135,7 +135,7 @@ def test_day_does_not_overwrite_view_but_shares_filters(client, world):
 
 def test_defaults_without_prefs(client, world):
     client.force_login(world[0])
-    body = client.get("/").content.decode()
+    body = client.get("/").content.decode().split('<details class="export"')[0]  # 필터 상자만(엑셀 상자 빼고)
     assert body.count('type="checkbox"') == 12 and body.count(" checked") == 12
     assert not RosterPref.objects.exists()
 
@@ -145,7 +145,7 @@ def test_stale_saved_prefs_fall_back_to_all(client, world):
     RosterPref.objects.create(user=a, depts=["GONE"], types=["외부"], shifts=["bogus"])
     client.force_login(a)
     body = client.get("/").content.decode()
-    assert '<b class="sh">정상</b>' in body and body.count(" checked") == 12
+    assert '<b class="sh">정상</b>' in body and body.split('<details class="export"')[0].count(" checked") == 12  # 엑셀 상자 빼고
 
 
 def test_unchanged_get_does_not_write(client, world):
