@@ -68,7 +68,7 @@ def test_sections_in_order_with_labels(client, two):
     assert "보기 전용</small>" not in body  # 바꿀 수 있는 근무표(IT)가 있다
     assert '<a class="to-mine" role="button" href="/?board=it">내 근무표만 보기</a>' in body
     month = client.get(BOTH.replace("view=week", "view=month")).content.decode()
-    assert len(_names(month)) == 2 * 30  # 2026년 11월 30일(주말 메모 칸 포함) × 2, 다른 달 날짜에는 구역이 없다
+    assert len(_names(month)) == 2 * 35  # 2026년 11월 달력 5주(11/1 일 ~ 12/5 토, 앞뒤 달 날짜도 구역을 그린다) × 2
 
 
 def test_holiday_once_memos_named_and_nowork_line(client, two):

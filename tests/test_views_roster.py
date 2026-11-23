@@ -561,3 +561,30 @@ def test_month_starts_on_sunday_week_on_monday(client, world):
     assert month.split("<tbody>")[1].index("/day/2026-11-01/") < month.split("<tbody>")[1].index("/day/2026-11-02/")  # 11/1 일요일이 첫 칸
     assert "/day/2026-10-26/" not in month  # 월요일 시작이면 들어가던 앞 주
     assert head(client.get(f"/?view=week&date={D}").content.decode()) == list("월화수목금토일")
+
+
+def test_today_has_blue_tag_distinct_from_my_days(client, world):
+    """오늘은 파란 테두리 + '오늘' 꼬리표(내 근무 날의 분홍·빨강과 색과 글자로 구분)."""
+    a, _ = world
+    client.force_login(a)
+    body = client.get(f"/?date={D}").content.decode()
+    assert body.count('<span class="today-tag">오늘</span>') == 1
+    assert 'id="today" class="today-col mine"' in body
+
+
+def test_month_shows_adjacent_month_days_read_only(client, world):
+    """월간의 앞뒤 달 날짜도 같은 조회 범위라 명단을 보인다(옅게, 칸은 못 바꾸고 'N월 내 근무'에 안 센다)."""
+    a, _ = world
+    publish_more(a, date(2026, 12, 1))
+    client.force_login(a)
+    body = client.get(f"/?view=month&date={D}").content.decode()
+    other = body.split('data-day="/day/2026-12-01/"')[1].split("</td>")[0]
+    assert '<span class="tk me">가</span>' in other and "/cell/2026-12-01/" not in body
+    assert '<b id="mydays">1일</b>' in body  # 11/10 만(12/1 은 다른 달)
+
+
+def test_swipe_nav_links_marked(client, world):
+    a, _ = world
+    client.force_login(a)
+    body = client.get(f"/?date={D}").content.decode()
+    assert 'data-nav="prev"' in body and 'data-nav="next"' in body  # roster.js 가 좌우 밀기로 누른다

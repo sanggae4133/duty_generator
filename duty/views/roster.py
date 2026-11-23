@@ -317,7 +317,7 @@ def roster(request):
     def day_info(d: date) -> dict:
         other = view == "month" and d.month != anchor.month
         secs = [section(p, d, other) for p in parts]
-        my = [m for s in secs for m in s["mine"]] if not other else []
+        my = [m for s in secs for m in s["mine"]]  # 앞뒤 달 날짜도 보인다(같은 조회 범위). 'N월 내 근무'에는 안 센다
         for i, m in enumerate(my):
             m["more"] = i > 0  # 첫 것만 보인다(스케줄 체크로 앞의 것이 숨으면 roster.js 가 다음 것을 보인다)
         weekend = d.weekday() >= 5
@@ -348,7 +348,7 @@ def roster(request):
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
         "can_click": any(s["edit"] for w in days for d in w for s in d["sections"]),  # 범례 '칸을 누르면…'
         "weeks": days, "export": export,
-        "my_days": sum(1 for w in days for d in w if d["my"]) if view == "month" else None,  # 스케줄 체크를 따르는 값은 roster.js 가 다시 센다
+        "my_days": sum(1 for w in days for d in w if d["my"] and not d["other"]) if view == "month" else None,  # 스케줄 체크를 따르는 값은 roster.js 가 다시 센다
         "dim_default": request.user.department_id is not None,  # 근무표에 든 사람만 '다른 사람 흐리게'가 처음부터 켜짐
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }

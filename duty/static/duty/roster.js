@@ -205,7 +205,40 @@
     e.preventDefault();
     p.then(html => (html ? swap(html, a.href) : (location.href = a.href)));
   });
-  addEventListener("popstate", () => location.reload());  // 바꿔 끼운 화면에서 뒤로 가기 = 그 주소를 새로 연다
+  addEventListener("popstate", () => location.reload());
+  // 좌우로 밀어 넘기기(휴대폰·터치 화면·트랙패드 두 손가락). ◀ ▶ 를 누른 것과 같다(미리 받은 화면으로 바로).
+  // 표가 옆으로 스크롤되는 화면에서는 끝에 닿아 있을 때만. 마우스 끌기는 글자 고르기와 겹쳐 쓰지 않는다
+  const go = dir => { const a = $(`a[data-nav="${dir}"]`); if (a) a.click(); };
+  const canScroll = (g, dir, left) => g && g.scrollWidth > g.clientWidth + 2 &&
+    (dir === "next" ? left + g.clientWidth < g.scrollWidth - 2 : left > 2);
+  let t0 = null;
+  document.addEventListener("touchstart", e => {
+    const t = e.touches[0], root = e.target.closest && e.target.closest("#roster-root");
+    if (e.touches.length !== 1 || !root || e.target.closest("input, textarea, select, dialog")) { t0 = null; return; }
+    const g = e.target.closest(".grid-wrap");
+    t0 = {x: t.clientX, y: t.clientY, at: Date.now(), g, left: g ? g.scrollLeft : 0};
+  }, {passive: true});
+  document.addEventListener("touchend", e => {
+    const s = t0, t = e.changedTouches[0];
+    t0 = null;
+    if (!s || !t) return;
+    const dx = t.clientX - s.x, dy = t.clientY - s.y, dir = dx < 0 ? "next" : "prev";
+    if (Date.now() - s.at > 700 || Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy) || canScroll(s.g, dir, s.left)) return;
+    go(dir);
+  }, {passive: true});
+  let acc = 0, accAt = 0, cool = 0;
+  document.addEventListener("wheel", e => {
+    if (!e.target.closest || !e.target.closest("#roster-root") || Math.abs(e.deltaX) <= 2 * Math.abs(e.deltaY)) return;
+    const g = e.target.closest(".grid-wrap"), dir = e.deltaX > 0 ? "next" : "prev";
+    if (canScroll(g, dir, g ? g.scrollLeft : 0)) return;
+    e.preventDefault();  // 브라우저의 '뒤로 가기' 밀기와 겹치지 않게
+    const now = Date.now();
+    if (now < cool) return;
+    if (now - accAt > 300) acc = 0;
+    accAt = now;
+    acc += e.deltaX;
+    if (Math.abs(acc) > 150) { acc = 0; cool = now + 900; go(dir); }
+  }, {passive: false});  // 바꿔 끼운 화면에서 뒤로 가기 = 그 주소를 새로 연다
   // 칸·메모 팝업: 돌아올 주소는 지금 주소(필터가 주소창에만 바뀌어 있다), 근무 변경 To 후보는 지금 부서·유형 필터로
   document.addEventListener("htmx:configRequest", e => {
     const el = e.detail.elt, f = $("#flt");
