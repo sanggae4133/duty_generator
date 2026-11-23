@@ -305,7 +305,7 @@
   </header>
   {% for m in messages %}{% if not m.extra_tags %}<div class="msg {{ m.tags }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endif %}{% endfor %}{# 칸 태그가 있는 메시지는 그 칸 안에서(근무표 설정) #}
   {% block content %}{% endblock %}
-  {% if repo_url %}<footer class="site-foot">Developed by SJ · <a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub</a></footer>{% endif %}
+  {% if repo_url %}<footer class="site-foot">Made by SJ · <a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub</a></footer>{% endif %}
 </main>
 {% with welcome=welcome_videos %}{% if welcome %}
 <dialog id="help-welcome" class="welcome" aria-labelledby="help-welcome-title"><article>
