@@ -190,7 +190,7 @@ const VIDEOS = {
     await s.tap('form.dl input[name=shift][value=slots]', 1300);
     await s.tap('form.dl input[name=shift][value=slots]', 900);
     await s.tap('nav.menu a[href="/alarms/"]', 1500);
-    await s.say('알림·캘린더: 근무 전 알림, 내 근무가 바뀌면 바로 알림,\n메모 알림, 휴대폰 캘린더 구독을 여기서 켭니다.', 3600);
+    await s.say('알림·캘린더: 근무 전 알림, 내 근무가 바뀌면 바로 알림,\n휴대폰 캘린더 구독을 여기서 켭니다.', 3600);
     await s.scroll(600, 1500);
     await s.ev('scrollTo({top: 0})'); await sleep(500);
     await s.tap('nav.menu a[href="/help/"]', 1500);
@@ -236,7 +236,7 @@ const VIDEOS = {
     await s.say('글을 쓰고 [저장]. 평일 날 메모는 \'근무 없음\'으로\n그날 칸 전체를 덮을 수도 있습니다.', 3000);
     await s.tap('#dlg form button', 1800);
     await s.ev(`document.querySelector('td.we .memo').scrollIntoView({block: 'center', behavior: 'smooth'})`); await sleep(1200);
-    await s.say('메모를 새로 달거나 고치면 \'메모 알림\'을 켠\n그 근무표 사람에게 바로 알림이 갑니다.', 3200);
+    await s.say('[근무표 설정]에서 \'메모 알림\'을 켜면 메모 글 전체가\n그 근무표 사람 모두에게 바로 갑니다.', 3200);
     await s.ev('scrollTo({top: 0})'); await sleep(500);
     await s.tap('text=월간', 1800);
     await s.say('근무표: [주간]·[월간]으로 바꿔 봅니다.\n월간은 일요일부터, 근무조마다 한 줄로 이름을 모두 보여 줍니다.', 3200);

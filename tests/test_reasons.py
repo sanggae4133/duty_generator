@@ -352,7 +352,7 @@ def test_report_reason_is_per_person_day():
     r = _rule(kind="report", member_name=None, shifts=())
     due = _plan([r], [_day({("dawn", "가"): "휴가"}, dawn=["가", "나"], slot0=["가"])])[0]
     assert "08:30~09:30 가(휴가)" in due.text.split("\n")
-    assert due.push_text.endswith("· 1명")
+    assert due.push_text == due.text  # 푸시도 텔레그램과 같은 글
 
 
 def test_report_shows_name_with_reason():
@@ -362,7 +362,7 @@ def test_report_shows_name_with_reason():
     assert due.text.split("\n")[1] == "새벽(06:30~) 가(출장), 나"
     assert plain.text.split("\n")[1] == "새벽(06:30~) 가, 나"  # 사유가 없으면 지금 문구 그대로
     assert due.content_hash != plain.content_hash
-    assert due.push_text.endswith("· 1명")  # 근무로 치는 사람만 센다
+    assert due.push_text == due.text
 
 
 def test_calendar_skips_reason_day(pub, it_board, settings):

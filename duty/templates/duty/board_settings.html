@@ -3,7 +3,7 @@
 {% block content %}
 <h3>근무표 설정 · {{ board.name }}</h3>
 {% if boards|length > 1 %}<p class="seg" role="group" aria-label="고칠 근무표">{% for b in boards %}<a href="{% url 'board_settings' %}?board={{ b.code }}"{% if b.pk == board.pk %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</p>{% endif %}
-<nav class="jump" aria-label="칸 바로가기"><a href="#people">사람</a><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a><a href="#shifts">근무 정의와 부서</a><a href="#steps">회차 단계</a></nav>
+<nav class="jump" aria-label="칸 바로가기"><a href="#people">사람</a><a href="#admins">관리자</a><a href="#assignees">입력 담당자</a><a href="#shifts">근무 정의와 부서</a><a href="#notices">알림</a><a href="#steps">회차 단계</a></nav>
 
 <section id="people" class="cfg">
   <h4>사람 <small>이 근무표 부서 사람과 로그인 계정. 줄마다 [고치기]를 펼쳐 이름·구분을 고치고, 비밀번호 초기화·퇴사도 그 안에서 합니다</small></h4>
@@ -137,6 +137,17 @@
     </fieldset>{% endfor %}</div>
     {# 확인 값은 이 버튼에만: 위 [저장]으로는 확인을 건너뛰지 못한다(설계 6.2) #}
     <button class="wide"{% if ask %} name="confirm" value="{{ ask }}"{% endif %}>{% if ask %}그래도 저장{% elif unassigned %}부서 저장{% else %}저장{% endif %}</button>
+  </form>
+</section>
+
+<section id="notices" class="cfg">
+  <h4>알림 <small>메모를 공지처럼 쓸 때 켭니다</small></h4>
+  {% include "duty/_section_msgs.html" with sec="notices" %}
+  <form method="post" action="{{ here }}#notices" class="toggle">{% csrf_token %}<input type="hidden" name="do" value="memo_notice">
+    <label><input type="checkbox" name="on" value="1" role="switch"{% if board.notify_memos %} checked{% endif %} onchange="this.form.requestSubmit()">
+      <strong>메모 알림</strong></label>
+    <small>켜면 이 근무표에 날·주·달 메모(근무 없음 포함)를 새로 달거나 고칠 때, 메모 글 전체를 이 근무표 사람 모두에게 텔레그램·푸시로 보냅니다(쓴 사람 제외, 지우기는 알리지 않음).</small>
+    <noscript><button class="outline">저장</button></noscript>
   </form>
 </section>
 

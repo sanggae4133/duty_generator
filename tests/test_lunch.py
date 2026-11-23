@@ -369,7 +369,7 @@ def test_report_appends_lunch_line_without_time():
     [due] = _plan([r], [d], dept_names={"MEMS": "매칭엔진실"})
     assert (due.text, due.content_hash, due.push_text, due.expires_at) == (
         "[출근표] 11/16(월) — 매칭엔진실\n" + REPORT_BODY + "\n점심당번 가", "report:37fb102d22a93e95",
-        "[출근표] 11/16(월) — 매칭엔진실 · 2명", datetime(2026, 11, 16, 17, 0))  # 발송 창·만료는 시각 있는 칸으로
+        "[출근표] 11/16(월) — 매칭엔진실\n" + REPORT_BODY + "\n점심당번 가", datetime(2026, 11, 16, 17, 0))  # 발송 창·만료는 시각 있는 칸으로
     assert _plan([_rule(kind="report", member_name=None, shifts=("lunch",))], [d]) == []
 
 

@@ -316,10 +316,6 @@ def set_notify_changes(user, on: bool) -> None:
     User.objects.filter(pk=user.pk).update(notify_changes=on)
 
 
-def set_notify_memos(user, on: bool) -> None:
-    User.objects.filter(pk=user.pk).update(notify_memos=on)
-
-
 def test_push(user) -> tuple[int, int]:
     """내 모든 구독에 테스트 푸시. (성공, 실패). Gone은 삭제하고 실패로 센다."""
     ok = fail = 0

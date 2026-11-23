@@ -121,6 +121,13 @@ class NeedsConfirm(DutyError):
         self.rows = rows
 
 
+def set_memo_notice(by, board, on: bool) -> None:
+    """메모 알림 켜기·끄기(근무표 관리자). 켜면 메모를 새로 달거나 고칠 때 그 근무표 사람 모두에게 간다."""
+    _require_admin(by, board)
+    type(board).objects.filter(pk=board.pk).update(notify_memos=on)
+    _audit(by, board, board, board.code, "메모 알림 " + ("켬" if on else "끔"))
+
+
 def stranded(board) -> str:
     """끈 단계에 남은 회차 안내(설계 5.1·6.2). 없으면 빈 글자. 단계 저장 결과(설정 화면·관리 화면)에 쓴다."""
     on = board.steps()
