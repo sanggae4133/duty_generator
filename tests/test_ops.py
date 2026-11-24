@@ -87,6 +87,18 @@ def test_daily_backup_copies_to_copy_dir(data, tmp_path):
     p = backup.daily(at(2026, 11, 11, 15, 0))
     c = data.BACKUP_COPY_DIR / p.name
     assert rows(c) == ["a"] and sorted(x.name for x in data.BACKUP_COPY_DIR.iterdir()) == [p.name]
+    assert oct(c.stat().st_mode & 0o777) == "0o600"
+
+
+def test_daily_backup_copy_is_plain_file_copy(data, tmp_path, monkeypatch):
+    """사본은 이미 일관된 백업 파일을 그대로 복사한다(NAS 위에서 SQLite 잠금을 쓰지 않게)."""
+    data.BACKUP_COPY_DIR = tmp_path / "copy"
+    data.BACKUP_COPY_DIR.mkdir()
+    calls = []
+    real = backup._backup_to
+    monkeypatch.setattr(backup, "_backup_to", lambda s, t: (calls.append(t), real(s, t)))
+    backup.daily(at(2026, 11, 11, 15, 0))
+    assert len(calls) == 1 and data.BACKUP_DIR in calls[0].parents
 
 
 def test_daily_backup_copy_dir_missing_keeps_local_backup(data, tmp_path):

@@ -10,6 +10,7 @@ import logging
 import os
 import time
 import re
+import shutil
 import sqlite3
 import tempfile
 from datetime import date, datetime, timedelta
@@ -26,15 +27,16 @@ log = logging.getLogger(__name__)
 DATED = re.compile(r"db-(\d{8})(?:-\d{6})?\.sqlite3")
 
 
-def copy_db(src: Path, dest: Path) -> None:
-    """src(읽기 전용으로 연다)를 dest 로. 임시 파일에 다 쓴 뒤 이름을 바꿔 반쯤 쓴 파일이 남지 않게."""
+def copy_db(src: Path, dest: Path, plain: bool = False) -> None:
+    """src(읽기 전용으로 연다)를 dest 로. 임시 파일에 다 쓴 뒤 이름을 바꿔 반쯤 쓴 파일이 남지 않게.
+    plain: 이미 만든 백업 파일을 그대로 복사(NAS 위에서 SQLite 잠금을 쓰지 않게)."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     # 고유 이름에 처음부터 600(실명·해시가 들어간다). 실패하면 어느 단계든 지운다
     fd, name = tempfile.mkstemp(dir=dest.parent, prefix=dest.name + ".", suffix=".tmp")
     tmp = Path(name)
     try:
         os.close(fd)
-        _backup_to(src, tmp)
+        (shutil.copyfile if plain else _backup_to)(src, tmp)  # copyfile 은 tmp 의 600 을 그대로 둔다
         os.replace(tmp, dest)
     except BaseException:
         tmp.unlink(missing_ok=True)
@@ -100,7 +102,7 @@ def daily(now) -> Path | None:
         # 실패하면 그날은 다시 하지 않는다(상태 점검이 26시간 뒤 '사본 없음'으로 알린다)
         if not Path(copy_dir).is_dir():
             raise DutyError(f"DUTY_BACKUP_COPY_DIR 폴더가 없습니다(마운트 확인): {copy_dir}")
-        copy_db(dest, Path(copy_dir) / dest.name)
+        copy_db(dest, Path(copy_dir) / dest.name, plain=True)
         prune(local.date(), copy_dir)
         log.info("backup copy: %s", dest.name)
     return dest
