@@ -11,7 +11,12 @@
   <button>보기</button><button class="outline" formaction="{% url 'me_export' %}">엑셀 다운로드</button>
 </form>
 {% if error %}<div class="msg error" role="alert">{{ error }}</div>{% endif %}
-<script>
+{% endif %}
+{% if items %}<ul class="mine">{% for it in items %}
+<li{% if it.today or it.off %} class="{% if it.off %}off{% endif %}{% if it.today and it.off %} {% endif %}{% if it.today %}today{% endif %}"{% endif %}{% if it.today %} aria-current="date"{% endif %}><a href="{% url 'day' it.date %}"><span class="when">{{ it.date|date:"n/j" }} ({{ it.weekday }}){% if it.today %} 오늘{% endif %}</span><span class="what">{% for k, t in it.labels %}<span class="w{% if forloop.first %} f{% endif %}" data-k="{{ k }}">{{ t }}</span>{% empty %}{{ it.why }}{% endfor %}</span></a></li>
+{% endfor %}</ul>
+{% endif %}{% if member %}<p id="me-empty"{% if items %} hidden{% endif %}>예정된 근무가 없습니다.</p>
+<script>  {# 목록 뒤에 둔다: 처음 열 때(?shift=)도 거른다 #}
   // 스케줄 체크는 서버에 묻지 않고 바로 거른다(기간은 [보기]로). 주소창에도 남겨 [엑셀 다운로드]·새로고침이 같은 조건
   (() => {
     const form = document.querySelector("form.dl"), boxes = [...form.querySelectorAll("input[name=shift]")];
@@ -42,10 +47,6 @@
   })();
 </script>
 {% endif %}
-{% if items %}<ul class="mine">{% for it in items %}
-<li{% if it.today or it.off %} class="{% if it.off %}off{% endif %}{% if it.today and it.off %} {% endif %}{% if it.today %}today{% endif %}"{% endif %}{% if it.today %} aria-current="date"{% endif %}><a href="{% url 'day' it.date %}"><span class="when">{{ it.date|date:"n/j" }} ({{ it.weekday }}){% if it.today %} 오늘{% endif %}</span><span class="what">{% for k, t in it.labels %}<span class="w{% if forloop.first %} f{% endif %}" data-k="{{ k }}">{{ t }}</span>{% empty %}{{ it.why }}{% endfor %}</span></a></li>
-{% endfor %}</ul>
-{% endif %}{% if member %}<p id="me-empty"{% if items %} hidden{% endif %}>예정된 근무가 없습니다.</p>{% endif %}
 <style>
   ul.mine { list-style: none; padding: 0; margin: 0; }
   ul.mine li { list-style: none; margin: 0 0 .4rem; }
@@ -53,7 +54,7 @@
   ul.mine a:hover { border-color: var(--pico-primary); }
   ul.mine .when { min-width: 6.5rem; font-weight: 600; white-space: nowrap; }
   ul.mine li.today a { border: 2px solid var(--today); }
-  ul.mine li.off a { background: var(--duty-line); }
-  ul.mine .w:not(.f)::before { content: " · "; }  /* 숨긴 근무 뒤에 구분점이 남지 않게(보이는 첫 것에 f) */  /* 휴장일·근무 없음: 회색 줄 + 까닭(글씨는 본문 색이라 대비 유지) */
+  ul.mine li.off a { background: var(--duty-line); }  /* 휴장일·근무 없음: 회색 줄 + 까닭(글씨는 본문 색이라 대비 유지) */
+  ul.mine .w:not(.f)::before { content: " · "; }  /* 숨긴 근무 뒤에 구분점이 남지 않게(보이는 첫 것에 f) */
 </style>
 {% endblock %}

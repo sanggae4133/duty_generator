@@ -261,3 +261,13 @@ def test_filter_form_without_fd_keeps_dims(client, two_depts):
     client.get(f"/day/{D}/?f=1&shift=normal&shift=dinner")
     p = RosterPref.objects.get(user=a)
     assert p.dims["shift"] == ["normal"] and p.shifts == ["normal", "dinner"]
+
+
+def test_other_board_hist_keeps_my_dims(client, two_depts):
+    """남의 근무표만 볼 때(roster.js 가 mine=0 을 보낸다) 변경 내역만 저장하고 내 근무표의 흐리게 값은 둔다."""
+    a, _ = two_depts
+    client.force_login(a)
+    client.post("/prefs/", {"f": "1", "fd": "1", "ddim": "UI", "sdim": "normal"})
+    client.post("/prefs/", {"mine": "0", "fd": "1", "hist": ["0", "1"], "hdim": "1"})
+    p = RosterPref.objects.get(user=a)
+    assert p.dims == {"dept": ["UI"], "type": [], "shift": ["normal"], "hist": True}
