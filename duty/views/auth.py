@@ -4,7 +4,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
 
-from .. import accounts
+from ..services import accounts
 
 
 class DifferentPasswordForm(PasswordChangeForm):

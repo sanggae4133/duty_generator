@@ -8,5 +8,5 @@ class DutyConfig(AppConfig):
     def ready(self):
         from django.contrib.auth.signals import user_logged_in
 
-        from .accounts import on_login
+        from .services.accounts import on_login
         user_logged_in.connect(on_login, dispatch_uid="duty.help_popup")

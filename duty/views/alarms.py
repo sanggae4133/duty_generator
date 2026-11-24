@@ -6,9 +6,9 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from ..alarms.forms import RuleForm
 from ..alarms.schedule import same_day_notice
 from ..errors import DutyError
+from ..forms import RuleForm
 from ..models import AlarmRule, CalendarFeed, Department, PushAlarmSubscription, TelegramAlarmProfile
 from ..services import alarm_settings, alarms, boards, calendar, prefs
 

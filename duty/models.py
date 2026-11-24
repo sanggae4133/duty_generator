@@ -8,10 +8,9 @@ from django.db import models, transaction
 from django.db.models import F, Func, Q, Value
 from django.db.models.lookups import Exact
 
-from .csv_io import split_reason
 from .errors import DutyError
 from .shifts import (
-    DEVELOPER, DUTY_KEYS, KEYS, LUNCH, REASONS, SHIFT_KEYS, STAFF, is_slot_cell, slot_index, weekdays,
+    DEVELOPER, DUTY_KEYS, KEYS, LUNCH, REASONS, SHIFT_KEYS, STAFF, is_slot_cell, slot_index, split_reason, weekdays,
 )
 
 REASON_CHOICES = [("", "없음"), *((r, r) for r in REASONS)]

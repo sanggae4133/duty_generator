@@ -43,7 +43,7 @@ def test_disallowed_host_not_logged(client, db):
 
 def test_client_script_name_ignored(client, make_member):
     """#21: SCRIPT_NAME: /calendar 로 경로 앞부분을 바꿔 강제 비밀번호 변경을 건너뛰지 못한다."""
-    from duty.accounts import issue_account
+    from duty.services.accounts import issue_account
     u = make_member("가")
     issue_account(u)  # must_change_password
     client.force_login(u)

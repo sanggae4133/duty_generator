@@ -10,7 +10,7 @@ from django.utils import timezone
 from ..alarms import messages as m
 from ..models import Memo, User
 from . import alarm_settings
-from .change_notice import _send
+from .change_notice import send_to_user
 
 log = logging.getLogger(__name__)
 FRESH = timedelta(days=1)  # 작업자가 오래 꺼져 있었으면 밀린 메모는 보내지 않는다
@@ -43,7 +43,7 @@ def tick(now) -> int:
         url = f"/day/{r.date.isoformat()}/" if r.scope == Memo.Scope.DAY else \
             f"/?view={'month' if r.scope == Memo.Scope.MONTH else 'week'}&date={r.date.isoformat()}"
         for u in recipients(r.board, r.edited_by):  # 받는 사람의 내 근무표 = 메모의 근무표라 링크에 ?board= 가 필요 없다
-            sent += _send(conf, u, title, text, url)
+            sent += send_to_user(conf, u, title, text, url)
     if sent:
         log.info("memo notices: sent=%d", sent)
     return sent

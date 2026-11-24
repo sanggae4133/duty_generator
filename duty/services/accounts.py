@@ -5,9 +5,9 @@ from axes.utils import reset
 from django.db import transaction
 from django.utils import timezone
 
-from . import perms
-from .models import AlarmDelivery, Department, User
-from .services import alarms, calendar
+from .. import perms
+from ..models import AlarmDelivery, Department, User
+from . import alarms, calendar
 
 
 def password_changed(user: User) -> None:

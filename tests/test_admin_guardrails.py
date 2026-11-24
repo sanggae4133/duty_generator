@@ -50,7 +50,7 @@ def test_past_memo_is_not_notified(admin_user, make_member, it_board, monkeypatc
     make_member("가", user=True)
     Board.objects.filter(pk=it_board.pk).update(notify_memos=True)
     sent = []
-    monkeypatch.setattr("duty.services.memo_notice._send", lambda *a: sent.append(a) or 1)
+    monkeypatch.setattr("duty.services.memo_notice.send_to_user", lambda *a: sent.append(a) or 1)
     memos.save(admin_user, it_board, "week", date(2026, 11, 10), "지난주 기록")  # 11/9 ~ 11/15 주
     memos.save(admin_user, it_board, "day", date(2026, 11, 16), "오늘")
     now = timezone.make_aware(datetime(2026, 11, 16, 9, 0))

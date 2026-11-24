@@ -9,7 +9,7 @@ from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
-from duty.accounts import TEMP_PASSWORD_DAYS, issue_account
+from duty.services.accounts import TEMP_PASSWORD_DAYS, issue_account
 from duty.client_ip import client_ip
 from duty.models import Period, User
 from duty.services import generate, periods, publish

@@ -4,11 +4,11 @@ from datetime import datetime, timedelta
 import pytest
 from django.utils import timezone
 
-from duty.alarms.forms import RuleForm
+from duty.forms import RuleForm
 from duty.alarms.plan import RuleSpec, plan
 from duty.models import AlarmRule, ChangeLog, Commute, Memo, Period, RosterPref, User
 from duty.services import alarm_runner, alarms, boards, change_notice
-from duty.services.roster import Day
+from duty.shifts import Day
 from duty.shifts import KEYS
 from tests.it_defs import IT_DEFS
 from tests.test_alarm_boards import FORM, D, SUN18, env, ops, person, published  # noqa: F401 (env·ops 는 픽스처)

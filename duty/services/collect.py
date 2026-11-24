@@ -5,11 +5,10 @@ from django.db import transaction
 from django.db.models import Count
 
 from .. import perms
-from ..csv_io import (CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, join_reason, parse_commute_csv,
-                      split_reason)
+from ..csv_io import CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, parse_commute_csv
 from ..errors import DutyError
 from ..models import Commute, Department, Period, User
-from ..shifts import SHIFT_KEYS, by_key, shift_defs, two_week_rotation, weekdays
+from ..shifts import SHIFT_KEYS, by_key, join_reason, shift_defs, split_reason, two_week_rotation, weekdays
 from . import boards, roster
 
 

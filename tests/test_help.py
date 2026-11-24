@@ -98,7 +98,7 @@ def test_welcome_popup_on_login_until_dismissed(client, people, videos):
 
 
 def test_welcome_popup_waits_for_password_change(client, make_member, videos):
-    from duty.accounts import issue_account
+    from duty.services.accounts import issue_account
     u = make_member("다")
     pw = issue_account(u)
     client.post(reverse("login"), {"username": u.username, "password": pw})

@@ -11,11 +11,11 @@ from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, Validatio
 from django.db import transaction
 from django.db.models import Count, Q
 
-from .. import accounts, perms
+from .. import perms
 from ..errors import DutyError
 from ..models import BEFORE_PUBLISH, Board, BoardShift, Commute, Department, DutyAssignment, Period, User
 from ..shifts import DEVELOPER, SHIFT_KEYS, STAFF, is_slot_cell, josa, shift_defs
-from . import boards, prefs
+from . import accounts, boards, prefs
 
 log = logging.getLogger(__name__)
 

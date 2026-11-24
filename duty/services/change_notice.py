@@ -46,7 +46,7 @@ def tick(now) -> int:
             if u.is_active and u.notify_changes:
                 if u.pk not in homes:
                     homes[u.pk] = boards.home(u)
-                sent += _send(conf, u, title, text, f"/day/{r.date.isoformat()}/{boards.link_query(homes[u.pk], board)}")
+                sent += send_to_user(conf, u, title, text, f"/day/{r.date.isoformat()}/{boards.link_query(homes[u.pk], board)}")
     if sent:
         log.info("change notices: sent=%d", sent)
     return sent
@@ -68,7 +68,7 @@ def _live(r, now, today) -> bool:
     return owner is not None and owner.pk == p.pk
 
 
-def _send(conf, user, title, text, url) -> int:
+def send_to_user(conf, user, title, text, url) -> int:
     cfg, n = conf.sender_config(), 0
     if conf.telegram_on:
         tg = TelegramAlarmProfile.objects.filter(user=user, verified_at__isnull=False).exclude(chat_id="").first()

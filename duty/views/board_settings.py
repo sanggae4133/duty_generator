@@ -10,11 +10,11 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 
-from .. import accounts, perms
+from .. import perms
 from ..errors import DutyError
 from ..forms import StepsForm, shift_forms
 from ..models import Board, Department, Period, User
-from ..services import board_settings, boards, prefs
+from ..services import accounts, board_settings, boards, prefs
 from ..shifts import DEVELOPER, STAFF, josa, shift_defs, slot_defs
 from .common import admin_required, int_param
 
