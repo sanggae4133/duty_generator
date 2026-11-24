@@ -5,7 +5,7 @@ lunch = 점심당번.
 이름·시각·자격은 근무표마다 DB(BoardShift)에 있고, 아래 헬퍼는 그 정의 목록(defs)을 인자로 받는다(기본값 없음).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, time, timedelta
 
 SHIFT_KEYS = ("dawn", "normal", "dinner", "night")  # 근무조 키(한 사람 하루 하나)
@@ -24,6 +24,19 @@ STAFF = "직원"
 DAY_LABELS = "월화수목금토일"
 REASONS = ("휴가", "출장", "교육")  # 사유: 붙으면 그날 근무로 치지 않는다(설계 2절). 표·CSV 에는 "이름(휴가)"
 
+
+
+def split_reason(text: str) -> tuple[str, str]:
+    """'이름(휴가)' → ('이름', '휴가'). 끝이 정확히 (휴가)·(출장)·(교육)일 때만 떼고(앞 공백은 지운다), 아니면 (text, '')."""
+    for r in REASONS:
+        name = text.removesuffix(f"({r})").rstrip()
+        if name != text.rstrip() and name:
+            return name, r
+    return text, ""
+
+
+def join_reason(name: str, reason: str) -> str:
+    return f"{name}({reason})" if reason else name
 
 @dataclass(frozen=True)
 class Def:
@@ -172,3 +185,50 @@ def two_week_rotation(base: dict[date, dict[str, str]], names: list[str], keys: 
         rep = next((k for k in seen if seen.count(k) == top), None)
         out[name] = {early: late, late: early}.get(rep, mid)
     return out
+
+
+# ---- 배포된 근무표 하루(services.roster.published_days 가 만들고 화면·알림·캘린더가 읽는다) ----
+
+Log = tuple[str | None, str | None]
+
+
+@dataclass
+class Cell:
+    labels: list[str]
+    removed: list[str]
+    changed: bool
+
+
+@dataclass
+class Day:
+    date: date
+    period_id: int
+    cells: dict[str, Cell]
+    members: dict[str, list[str]]
+    replaced: dict[tuple[str, str], str]
+    reasons: dict[tuple[str, str], str] = field(default_factory=dict)  # (칸, 이름) → 사유. 있으면 근무로 치지 않는다
+
+    def excused(self, name: str) -> bool:
+        """그날 어느 근무조 배정에든 사유가 있으면 그 사람은 그날 전체를 근무로 치지 않는다(모든 칸)."""
+        return any(n == name for _, n in self.reasons)
+
+    def reason(self, cell: str, name: str) -> str:
+        """칸에 보일 사유: 그 칸의 사유, 없으면 그 사람의 그날 다른 사유."""
+        return self.reasons.get((cell, name)) or next((w for (_, n), w in self.reasons.items() if n == name), "")
+
+
+def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], dict[str, str]]:
+    """ChangeLog 순서대로 표시 라벨을 만든다. A→B 후 B→C 면 'A>B>C', 추가는 '+B', 제거는 removed 목록."""
+    label: dict[str, str] = {}
+    removed: list[str] = []
+    replaced: dict[str, str] = {}
+    for before, after in logs:
+        prev = label.pop(before, before) if before else None
+        if after:
+            label[after] = f"{prev}>{after}" if prev else f"+{after}"
+            replaced.pop(after, None)
+            if before:
+                replaced[after] = before
+        elif prev:
+            removed.append(prev)
+    return [label.get(n, n) for n in current], removed, replaced

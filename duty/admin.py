@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from py_vapid import _check_sub
 
-from .accounts import issue_account, on_department_change
+from .services.accounts import issue_account, on_department_change
 from .forms import SHIFT_KEY_CHOICES, STEP_FIELDS, BoardShiftForm, BoardShiftFormSet, StepsForm
 from .models import AlarmSettings, Board, BoardShift, Department, Holiday, User
 from .services import alarm_settings, board_settings, boards

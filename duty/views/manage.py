@@ -8,13 +8,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .. import perms
-from ..csv_io import join_reason
 from ..errors import DutyError
 from ..generator import GenerationError
 from ..models import Board, ChangeLog, Department, DutyAssignment, Period
 from ..services import boards, collect, generate, periods, stats
 from ..services import publish as publishing
-from ..shifts import LUNCH, by_key, cell_label, day_spans, gen_help, is_slot_cell, josa, slot_defs
+from ..shifts import LUNCH, by_key, cell_label, day_spans, gen_help, is_slot_cell, join_reason, josa, slot_defs
 from .common import admin_required, date_param
 
 

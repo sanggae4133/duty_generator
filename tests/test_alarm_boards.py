@@ -5,10 +5,10 @@ import pytest
 from django.contrib import admin as dj_admin
 from django.utils import timezone
 
-from duty import accounts
+from duty.services import accounts
 from duty.admin import UserAdmin
 from duty.alarms import senders
-from duty.alarms.forms import RuleForm
+from duty.forms import RuleForm
 from duty.errors import DutyError
 from duty.models import (AlarmDelivery, AlarmRule, AlarmSettings, Board, BoardShift, ChangeLog, Commute, Department,
                          Period, PeriodEvent, TelegramAlarmProfile, User)

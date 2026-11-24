@@ -1,9 +1,7 @@
 import fcntl
-import ipaddress
 import re
 import secrets
 from datetime import timedelta
-from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -12,6 +10,7 @@ from django.utils import timezone
 
 from .. import perms
 from ..alarms import senders
+from ..alarms.senders import check_endpoint
 from ..errors import DutyError
 from ..models import AlarmRule, Board, Department, PushAlarmSubscription, TelegramAlarmProfile, User
 from ..shifts import DEVELOPER, LUNCH, STAFF, shift_defs
@@ -230,8 +229,6 @@ def check_link(user) -> str:
 
 # ---- 웹 푸시 ----
 
-PUSH_HOSTS = ("fcm.googleapis.com", "updates.push.services.mozilla.com", "push.apple.com")  # WNS는 실제 Edge 검증 전까지 제외
-UNSUPPORTED = "지원하지 않는 푸시 서비스입니다."
 MAX_DEVICES = 20
 
 
@@ -241,31 +238,6 @@ class SubscriptionConflict(DutyError):
 
 def _b64url(v, lo, hi) -> bool:
     return isinstance(v, str) and lo <= len(v) <= hi and re.fullmatch(r"[A-Za-z0-9_-]+={0,2}", v) is not None
-
-
-def check_endpoint(endpoint) -> None:
-    """SSRF 방지: https, 포트 없음, netloc은 [a-z0-9.-]만(userinfo·대문자·이스케이프 불가), IP 리터럴 아님, 허용 목록 호스트."""
-    # 공백·제어 문자는 urlsplit·requests가 벗겨내므로 미리 막는다(같은 endpoint 중복 등록 방지)
-    if not isinstance(endpoint, str) or len(endpoint) > 500 or not re.fullmatch(r"[\x21-\x7e]+", endpoint):
-        raise DutyError("잘못된 푸시 구독입니다.")
-    try:
-        u = urlsplit(endpoint)
-        port = u.port
-    except ValueError:
-        raise DutyError("잘못된 푸시 구독입니다.") from None
-    # 정규화 전 netloc을 그대로 호스트로 본다: \, %, @, :, 대문자 등이 섞이면 urlsplit과 requests의 해석이 갈린다
-    host = u.netloc
-    # 빈 라벨(앞뒤 점, ..)과 fragment(#)는 같은 endpoint를 다른 문자열로 만들 수 있어 거부
-    if (u.scheme != "https" or port is not None or not re.fullmatch(r"[a-z0-9.-]+", host)
-            or "" in host.split(".") or "#" in endpoint):
-        raise DutyError(UNSUPPORTED)
-    try:
-        ipaddress.ip_address(host)
-        raise DutyError(UNSUPPORTED)
-    except ValueError:
-        pass
-    if not any(host == s or host.endswith("." + s) for s in PUSH_HOSTS):
-        raise DutyError(UNSUPPORTED)
 
 
 def ua_label(ua: str) -> str:

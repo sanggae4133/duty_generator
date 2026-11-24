@@ -126,7 +126,7 @@ def test_log_file_capped(tmp_path):
 # ---- #9 비밀번호 초기화 때 다른 연결도 끊는다 ----
 
 def test_reissue_revokes_channels(make_member):
-    from duty.accounts import issue_account
+    from duty.services.accounts import issue_account
     u = make_member("가")
     issue_account(u)  # 첫 발급
     CalendarFeed.objects.create(user=u, token_hash="h" * 64, issued_at=timezone.now())

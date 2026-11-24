@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from duty.accounts import issue_account
+from duty.services.accounts import issue_account
 from duty.models import AlarmRule, User
 
 
@@ -87,7 +87,7 @@ def test_issue_account_lifts_lockout(make_member):
     from unittest import mock
 
     m = make_member("가")
-    with mock.patch("duty.accounts.reset") as r:
+    with mock.patch("duty.services.accounts.reset") as r:
         issue_account(m)
     r.assert_called_once_with(username=m.username)
 
@@ -157,7 +157,7 @@ def test_issue_account_lifts_lockout_by_linked_username(make_member):
     m = make_member("가", user=True)
     m.username = "custom"
     m.save()
-    with mock.patch("duty.accounts.reset") as r:
+    with mock.patch("duty.services.accounts.reset") as r:
         issue_account(m)
     r.assert_called_once_with(username="custom")
 
@@ -209,14 +209,14 @@ def _has_links(u) -> tuple[bool, bool, bool]:
 
 
 def test_temp_password_shape():
-    from duty.accounts import ALPHABET, temp_password
+    from duty.services.accounts import ALPHABET, temp_password
     assert len(ALPHABET) == len(set(ALPHABET)) == 31 and set(ALPHABET).isdisjoint("0o1li")
     got = {temp_password() for _ in range(50)}
     assert len(got) == 50 and all(len(p) == 10 and set(p) <= set(ALPHABET) for p in got)  # 띄어쓰기도 없다
 
 
 def test_issue_account_uses_temp_password(make_member):
-    from duty.accounts import ALPHABET
+    from duty.services.accounts import ALPHABET
     pw = issue_account(make_member("가"))
     assert len(pw) == 10 and set(pw) <= set(ALPHABET)
 
@@ -225,7 +225,7 @@ def test_issue_accounts_action_uses_new_password_shape(su_client, make_member):
     """관리 화면 액션도 같은 함수라 모양이 같이 바뀐다."""
     import re
 
-    from duty.accounts import ALPHABET
+    from duty.services.accounts import ALPHABET
     a = make_member("가")
     body = su_client.post(reverse("admin:duty_user_changelist"),
                           {"action": "issue_accounts", "_selected_action": [a.pk]}, follow=True).content.decode()
@@ -260,7 +260,7 @@ def test_first_issue_needs_no_last_login(make_member):
 
 
 def test_deactivate_cuts_login_and_links(client, make_member):
-    from duty.accounts import deactivate
+    from duty.services.accounts import deactivate
     m = make_member("가", user=True)
     _links(m)
     client.force_login(m)

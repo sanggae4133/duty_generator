@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 from django.contrib.admin.models import LogEntry
 
-from duty.accounts import issue_account
+from duty.services.accounts import issue_account
 from duty.models import Commute, Department, Period, User
 
 URL = "/settings/"

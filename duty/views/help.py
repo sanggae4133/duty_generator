@@ -7,7 +7,8 @@ from django.http import FileResponse, Http404, HttpResponse, StreamingHttpRespon
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from .. import accounts, help as guide
+from .. import help as guide
+from ..services import accounts
 
 
 CHUNK = 1 << 20  # Range 응답 한 번의 최대 크기

@@ -7,7 +7,8 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from duty.csv_io import CsvInvalid, join_reason, split_reason
+from duty.csv_io import CsvInvalid
+from duty.shifts import join_reason, split_reason
 from duty.errors import DutyError
 from duty.models import (REASONS, ChangeLog, Commute, DutyAssignment, Period, RosterPref, TelegramAlarmProfile,
                          validate_member_name)

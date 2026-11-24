@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from duty.alarms.plan import RuleSpec, plan
-from duty.services.roster import Day
+from duty.shifts import Day
 from duty.shifts import KEYS
 from tests.it_defs import IT_DEFS
 

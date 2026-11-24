@@ -15,7 +15,7 @@ from duty.models import (AlarmRule, Board, BoardShift, ChangeLog, Commute, Depar
                          TelegramAlarmProfile)
 from duty.services import alarm_runner, alarm_settings, alarms, calendar, change_notice, changes, prefs, stats
 from duty.services.generate import run_generation
-from duty.services.roster import Day
+from duty.shifts import Day
 from duty.shifts import DUTY_KEYS, KEYS, LUNCH, SHIFT, SLOT, SLOT_KEYS, SOLO, cells_of, display_order, kind
 from tests.it_defs import IT_DEFS, IT_DEFS2, OPS_STEPS
 from tests.test_alarm_texts_it import REPORT_BODY

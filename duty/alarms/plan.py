@@ -3,9 +3,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from ..csv_io import join_reason
-from ..services.roster import Day
-from ..shifts import KEYS, LUNCH, cell_start, cells_of
+from ..shifts import KEYS, LUNCH, Day, cell_start, cells_of, join_reason
 from . import messages as m
 from .schedule import send_at
 

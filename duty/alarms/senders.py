@@ -3,16 +3,21 @@
 토큰·endpoint·본문은 예외 메시지에 넣지 않는다(로그 유출 방지).
 봇 토큰·VAPID 값은 Config 로 받는다(DB 설정은 services.alarm_settings 가 읽어 넘긴다 — 이 모듈은 ORM 없음).
 """
+import ipaddress
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 
 from py_vapid import VapidException
 from pywebpush import WebPushException, webpush
+
+from ..errors import DutyError
 
 
 class SendError(Exception):
@@ -115,8 +120,6 @@ def telegram_get_updates(cfg: Config, offset: int | None = None, limit: int = 10
 
 
 def push_send(cfg: Config, sub, title: str, body: str, url: str, ttl: int) -> None:
-    from ..errors import DutyError
-    from ..services.alarms import check_endpoint  # 순환 import 회피
     try:
         check_endpoint(sub.endpoint)  # 방어: 저장 후 규칙이 강화돼도 허용 목록 밖으로는 보내지 않고 구독을 지운다
     except DutyError:
@@ -143,3 +146,34 @@ def push_send(cfg: Config, sub, title: str, body: str, url: str, ttl: int) -> No
         raise Temporary(code) from None
     except (OSError, ValueError, TypeError, VapidException):  # 깨진 VAPID 키·subject 등 / requests 예외(ConnectionError·Timeout)
         raise Temporary() from None
+
+
+# ---- 푸시 endpoint 검사(services.alarms 구독 저장과 push_send 가 함께 쓴다) ----
+
+PUSH_HOSTS = ("fcm.googleapis.com", "updates.push.services.mozilla.com", "push.apple.com")  # WNS는 실제 Edge 검증 전까지 제외
+UNSUPPORTED = "지원하지 않는 푸시 서비스입니다."
+
+
+def check_endpoint(endpoint) -> None:
+    """SSRF 방지: https, 포트 없음, netloc은 [a-z0-9.-]만(userinfo·대문자·이스케이프 불가), IP 리터럴 아님, 허용 목록 호스트."""
+    # 공백·제어 문자는 urlsplit·requests가 벗겨내므로 미리 막는다(같은 endpoint 중복 등록 방지)
+    if not isinstance(endpoint, str) or len(endpoint) > 500 or not re.fullmatch(r"[\x21-\x7e]+", endpoint):
+        raise DutyError("잘못된 푸시 구독입니다.")
+    try:
+        u = urlsplit(endpoint)
+        port = u.port
+    except ValueError:
+        raise DutyError("잘못된 푸시 구독입니다.") from None
+    # 정규화 전 netloc을 그대로 호스트로 본다: \, %, @, :, 대문자 등이 섞이면 urlsplit과 requests의 해석이 갈린다
+    host = u.netloc
+    # 빈 라벨(앞뒤 점, ..)과 fragment(#)는 같은 endpoint를 다른 문자열로 만들 수 있어 거부
+    if (u.scheme != "https" or port is not None or not re.fullmatch(r"[a-z0-9.-]+", host)
+            or "" in host.split(".") or "#" in endpoint):
+        raise DutyError(UNSUPPORTED)
+    try:
+        ipaddress.ip_address(host)
+        raise DutyError(UNSUPPORTED)
+    except ValueError:
+        pass
+    if not any(host == s or host.endswith("." + s) for s in PUSH_HOSTS):
+        raise DutyError(UNSUPPORTED)

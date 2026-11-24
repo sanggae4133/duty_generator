@@ -1,62 +1,16 @@
 """배포된 근무표 읽기 모델. 화면·통계·알림·캘린더가 공통으로 쓴다."""
 
 from collections import defaultdict
-from dataclasses import dataclass, field
 from datetime import date
 
 from django.db.models import F
 
-from ..csv_io import join_reason
 from ..models import ChangeLog, Commute, DutyAssignment, User
 from ..shifts import (
-    DAY_LABELS, SHIFT, SLOT_GROUP, SLOT_GROUP_NAME, cell_end, cell_label, cell_start, display_order, is_slot_cell, kind, ordered,
+    DAY_LABELS, SHIFT, SLOT_GROUP, SLOT_GROUP_NAME, Cell, Day, Log, cell_end, cell_label, cell_start, chain, display_order,
+    is_slot_cell, join_reason, kind, ordered,
 )
 from . import boards
-
-Log = tuple[str | None, str | None]
-
-
-@dataclass
-class Cell:
-    labels: list[str]
-    removed: list[str]
-    changed: bool
-
-
-@dataclass
-class Day:
-    date: date
-    period_id: int
-    cells: dict[str, Cell]
-    members: dict[str, list[str]]
-    replaced: dict[tuple[str, str], str]
-    reasons: dict[tuple[str, str], str] = field(default_factory=dict)  # (칸, 이름) → 사유. 있으면 근무로 치지 않는다
-
-    def excused(self, name: str) -> bool:
-        """그날 어느 근무조 배정에든 사유가 있으면 그 사람은 그날 전체를 근무로 치지 않는다(모든 칸)."""
-        return any(n == name for _, n in self.reasons)
-
-    def reason(self, cell: str, name: str) -> str:
-        """칸에 보일 사유: 그 칸의 사유, 없으면 그 사람의 그날 다른 사유."""
-        return self.reasons.get((cell, name)) or next((w for (_, n), w in self.reasons.items() if n == name), "")
-
-
-def chain(current: list[str], logs: list[Log]) -> tuple[list[str], list[str], dict[str, str]]:
-    """ChangeLog 순서대로 표시 라벨을 만든다. A→B 후 B→C 면 'A>B>C', 추가는 '+B', 제거는 removed 목록."""
-    label: dict[str, str] = {}
-    removed: list[str] = []
-    replaced: dict[str, str] = {}
-    for before, after in logs:
-        prev = label.pop(before, before) if before else None
-        if after:
-            label[after] = f"{prev}>{after}" if prev else f"+{after}"
-            replaced.pop(after, None)
-            if before:
-                replaced[after] = before
-        elif prev:
-            removed.append(prev)
-    return [label.get(n, n) for n in current], removed, replaced
-
 
 def published_days(board, start: date | None = None, end: date | None = None) -> list[Day]:
     """그 근무표에서 주인(boards.owners)이 있는 평일마다 Day 하나. 주인 회차의 행·기록만 쓴다(행이 없으면 빈 칸).
