@@ -69,7 +69,8 @@ def test_links_do_not_carry_filters_and_keep_saved(client, world):
     client.force_login(world[0])
     body = client.get("/?shift=normal").content.decode().replace("&amp;", "&")
     assert "shift=" not in body.split('class="cal-nav"')[1].split('id="flt-panel"')[0]
-    client.get("/?view=month&date=2026-12-01")
+    client.post("/prefs/", {"f": "1", "shift": "normal"})
+    client.post("/prefs/", {"view": "month"})  # [월간] 링크(data-remember)
     p = RosterPref.objects.get(user=world[0])
     assert p.shifts == ["normal"] and p.view == "month"
 
@@ -119,7 +120,7 @@ def test_day_filter_form_and_nav_links(client, world):
 def test_saved_and_loaded(client, two_depts):
     a, _ = two_depts
     client.force_login(a)
-    client.get("/?dept=UI&type=개발자&shift=normal&view=month")
+    client.post("/prefs/", {"dept": "UI", "type": "개발자", "shift": "normal", "view": "month"})
     p = RosterPref.objects.get(user=a)
     assert (p.depts, p.types, p.shifts, p.view) == (["UI"], ["개발자"], ["normal"], "month")
     body = client.get("/").content.decode()  # 파라미터 없음 → 저장값
@@ -129,32 +130,33 @@ def test_saved_and_loaded(client, two_depts):
 def test_f1_without_boxes_means_all_and_saves(client, two_depts):
     a, _ = two_depts
     client.force_login(a)
-    client.get("/?dept=UI&shift=normal")
-    body = client.get("/?f=1").content.decode()
+    client.post("/prefs/", {"dept": "UI", "shift": "normal"})
+    client.post("/prefs/", {"f": "1"})
+    body = client.get("/").content.decode()
     assert flt(body).count(" checked") == 12 and RosterPref.objects.get(user=a).depts == []
 
 
 def test_all_checked_stored_as_empty(client, two_depts):
     a, _ = two_depts
     client.force_login(a)
-    client.get("/?f=1&dept=MEMS&dept=TMCH&dept=MD&dept=UI")
+    client.post("/prefs/", {"f": "1", "dept": ["MEMS", "TMCH", "MD", "UI"]})
     assert RosterPref.objects.get(user=a).depts == []
 
 
 def test_per_user_isolation(client, world):
     a, b = world
     client.force_login(a)
-    client.get("/?shift=normal")
+    client.post("/prefs/", {"shift": "normal"})
     client.force_login(b)
     assert 'value="dinner" checked' in flt(client.get("/").content.decode())
     assert RosterPref.objects.get(user=a).shifts == ["normal"]
 
 
-def test_day_does_not_overwrite_view_but_shares_filters(client, world):
+def test_day_filter_form_shares_filters(client, world):
     a, _ = world
     client.force_login(a)
-    client.get("/?view=month")
-    client.get(f"/day/{D}/?shift=dinner&view=week")
+    client.post("/prefs/", {"view": "month"})
+    client.post("/prefs/", {"f": "1", "shift": "dinner", "mine": "1"})  # 하루 화면 필터 폼(data-remember)이 보낸다
     p = RosterPref.objects.get(user=a)
     assert p.view == "month" and p.shifts == ["dinner"]
     body = client.get(f"/day/{D}/").content.decode()
@@ -176,14 +178,14 @@ def test_stale_saved_prefs_fall_back_to_all(client, world):
     assert 'data-k="normal"' in body and flt(body).count(" checked") == 12  # 엑셀 상자 빼고
 
 
-def test_unchanged_get_does_not_write(client, world):
+def test_unchanged_save_does_not_write(client, world):
     a, _ = world
     client.force_login(a)
-    client.get("/?view=month&shift=normal")
+    client.post("/prefs/", {"view": "month", "shift": "normal"})
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
     with CaptureQueriesContext(connection) as ctx:
-        client.get("/?view=month&shift=normal")
+        client.post("/prefs/", {"view": "month", "shift": "normal"})
     assert not [q for q in ctx.captured_queries if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE"))]
 
 
@@ -213,6 +215,7 @@ def test_history_off_hides_by_class_and_is_saved(client, changed):
     """변경 내역을 끄면 표 전체에 nohist(CSS 가 A>· 취소선·사유를 숨긴다). 내용은 그대로 그린다."""
     client.force_login(changed)
     assert roots(client, "?f=1&hist=0") == ' class="nohist"'
+    client.post("/prefs/", {"f": "1", "hist": "0"})
     assert "&gt;" in grid(client) and RosterPref.objects.get(user=changed).history is False
     assert roots(client) == ' class="nohist"'  # 저장값
     day = client.get(f"/day/{D}/").content.decode()
@@ -222,7 +225,7 @@ def test_history_off_hides_by_class_and_is_saved(client, changed):
 
 def test_history_kept_when_link_has_no_hist(client, changed):
     client.force_login(changed)
-    client.get("/?f=1&hist=0")
+    client.post("/prefs/", {"f": "1", "hist": "0"})
     assert roots(client, "?f=1&dept=MEMS") == ' class="nohist"'  # 날짜 이동 등 hist 없는 주소
 
 
@@ -258,7 +261,7 @@ def test_filter_form_without_fd_keeps_dims(client, two_depts):
     a, _ = two_depts
     client.force_login(a)
     client.post("/prefs/", {"f": "1", "fd": "1", "sdim": "normal"})
-    client.get(f"/day/{D}/?f=1&shift=normal&shift=dinner")
+    client.post("/prefs/", {"f": "1", "shift": ["normal", "dinner"], "mine": "1"})  # 하루 화면 필터 폼(fd 없음)
     p = RosterPref.objects.get(user=a)
     assert p.dims["shift"] == ["normal"] and p.shifts == ["normal", "dinner"]
 
@@ -271,3 +274,34 @@ def test_other_board_hist_keeps_my_dims(client, two_depts):
     client.post("/prefs/", {"mine": "0", "fd": "1", "hist": ["0", "1"], "hdim": "1"})
     p = RosterPref.objects.get(user=a)
     assert p.dims == {"dept": ["UI"], "type": [], "shift": ["normal"], "hist": True}
+
+
+# ── GET 은 읽기만, 저장은 POST /prefs/ 만(바깥 링크로 남의 설정을 바꾸지 못하게) ──
+
+def test_get_shows_url_values_but_never_writes(client, world):
+    client.force_login(world[0])
+    body = client.get("/?view=month&f=1&shift=normal&hist=0&fd=1&sdim=normal&board=it").content.decode()
+    assert '>월간</a>' in body and 'aria-current="page">월간' in body  # 주소 값은 그대로 보인다
+    assert 'value="dinner" checked' not in flt(body) and '<div id="roster-root" class="nohist">' in body
+    day = client.get(f"/day/{D}/?f=1&shift=dinner&hist=0").content.decode()
+    assert 'id="dinner"' in day and 'id="normal"' not in day
+    assert not RosterPref.objects.exists()
+
+
+def test_prefs_endpoint_saves_view(client, world):
+    a, _ = world
+    client.force_login(a)
+    client.post("/prefs/", {"view": "month"})  # [주간]·[월간] 링크를 누르면 base.html 이 보낸다
+    assert RosterPref.objects.get(user=a).view == "month"
+    client.post("/prefs/", {"view": "bogus"})
+    assert RosterPref.objects.get(user=a).view == "month"
+    assert 'aria-current="page">월간' in client.get("/").content.decode()
+
+
+def test_remember_links_and_forms(client, world):
+    """사용자가 고른 것만 저장한다: [주간]·[월간]·근무표 고르기·하루 화면 필터 폼에 data-remember."""
+    client.force_login(world[0])
+    body = client.get("/").content.decode()
+    assert 'data-remember="view=week"' in body and 'data-remember="view=month"' in body
+    day = client.get(f"/day/{D}/").content.decode()
+    assert '<form method="get" class="search" data-remember="mine=1">' in day

@@ -63,10 +63,10 @@ def _member(value: str | None) -> User | None:
     return m
 
 
-def _selection(request, remember: bool = False) -> tuple[list[Board], Board | None]:
+def _selection(request, memory: bool = False) -> tuple[list[Board], Board | None]:
     """고른 근무표와 내 근무표(근무표 통합 설계 9.1). 순서 = 내 근무표 먼저, 나머지 id 순(boards.in_order).
-    ?board=a&board=b(중복·빈 값은 버리고 없는 code 는 404) → (근무표 화면만) pick=1 이면 내 근무표만, 아니면 기억한 목록
-    (없는 code 는 버림) → 내 근무표. remember=True(근무표 화면)는 고른 목록을 기억한다([내 근무표]면 비운다).
+    ?board=a&board=b(중복·빈 값은 버리고 없는 code 는 404) → (근무표 화면만, memory=True) pick=1 이면 내 근무표만,
+    아니면 기억한 목록(없는 code 는 버림) → 내 근무표. 읽기만 한다: 기억은 POST /prefs/ 가 남긴다(roster_prefs).
     /day/ 는 기억을 읽지 않는다: ?board= 없는 알림 링크는 늘 내 근무표다."""
     user, home = request.user, boards.home(request.user)
     codes = [c for c in dict.fromkeys(request.GET.getlist("board")) if c]
@@ -74,15 +74,12 @@ def _selection(request, remember: bool = False) -> tuple[list[Board], Board | No
         chosen = list(Board.objects.filter(code__in=codes))
         if len(chosen) != len(codes):
             raise Http404
-    elif remember and not request.GET.get("pick"):
+    elif memory and not request.GET.get("pick"):
         pref = RosterPref.objects.filter(user=user).first()
         chosen = list(Board.objects.filter(code__in=pref.boards)) if pref else []
     else:
         chosen = []
-    chosen = boards.in_order(chosen or [home], home)
-    if remember:
-        prefs.remember_boards(user, chosen, home)  # DB 쓰기는 services(뷰는 읽기만)
-    return chosen, home
+    return boards.in_order(chosen or [home], home), home
 
 
 def _page_next(request) -> str:
@@ -144,12 +141,12 @@ def _shown(shifts: list[str]):
     return lambda k: not shifts or (SLOT_GROUP if is_slot_cell(k) else k) in shifts
 
 
-def _filter_ctx(board, defs, depts, types, shifts, history: bool = True, mine: bool = True, dims=None) -> dict:
+def _filter_ctx(board, defs, depts, types, shifts, history: bool = True, filterable: bool = True, dims=None) -> dict:
     dims = dims or {}
     dim = lambda k, code: code in (dims.get(k) or [])  # noqa: E731  흐리게(보임 목록 안에서만 뜻이 있다)
     return {
         "history": history, "hist_dim": history and bool(dims.get("hist")),
-        "filterable": mine,  # 내 근무표가 아니면 부서·유형·스케줄 필터를 그리지 않는다(늘 전체)
+        "filterable": filterable,  # 내 근무표가 아니면 부서·유형·스케줄 필터를 그리지 않는다(늘 전체)
         "filter_on": bool(depts or types or shifts),
         "type_choices": [{"code": t, "name": t, "checked": not types or t in types, "dim": dim("type", t)} for t in (STAFF, DEVELOPER)]
         if prefs.has_types(defs) else [],
@@ -213,17 +210,17 @@ def roster(request):
     names = split_names(request.GET.get("q", ""))[:3]  # 구버전 ?q=a,b,c
     names = [request.GET.get(f"q{i}", "").strip() or (names[i - 1] if i <= len(names) else "") for i in (1, 2, 3)]
     today, me = perms.today(), request.user.name
-    chosen, home = _selection(request, remember=True)
+    chosen, home = _selection(request, memory=True)
     multi, sq = len(chosen) > 1, boards.selection_query(chosen, home)
-    mine = home in chosen  # 부서·유형·스케줄 필터는 내 근무표 구역에만(설계 9.3). 목록에 없으면 필터 상자도 없다
-    fboard = home if mine else chosen[0]  # 필터 상자를 그릴 근무표(mine 이 아니면 '보기' 칸만 그린다)
-    pref = prefs.resolve(request.user, request.GET, fboard, mine=mine)
+    has_home = home in chosen  # 부서·유형·스케줄 필터는 내 근무표 구역에만(설계 9.3). 목록에 없으면 필터 상자도 없다
+    fboard = home if has_home else chosen[0]  # 필터 상자를 그릴 근무표(내 근무표가 없으면 '보기' 칸만 그린다)
+    pref = prefs.load(request.user, request.GET, fboard, mine=has_home)
     view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
     anchor = date_param(request, "date") or today
     if not LOW <= anchor <= HIGH:  # 극단 날짜의 overflow 방지
         anchor = today
     # 필터용 표시: 라벨의 지금(마지막) 사람의 부서·유형. 내 근무표 구역에만 붙인다
-    info = {n: (d or "", t) for n, d, t in User.objects.values_list("name", "department_id", "type")} if mine else {}
+    info = {n: (d or "", t) for n, d, t in User.objects.values_list("name", "department_id", "type")} if has_home else {}
 
     def link(v: str, d: date) -> str | None:
         if not LOW <= d <= HIGH:
@@ -303,9 +300,9 @@ def roster(request):
         duty = [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs)]
         commute = [cells[x.key] for x in shift_defs(defs) + lunch_defs(defs)]  # 근무조 → 점심당번
         # 내 근무(날짜 옆 표시·'N월 내 근무'): 근무마다 하나. 내 근무표 구역은 스케줄 키를 붙여 roster.js 가 스케줄 체크로 거른다
-        mine = [{"k": c["k"] if flt else "", "label": c["label"]} for c in commute if c["key"] in here]
+        my_shifts = [{"k": c["k"] if flt else "", "label": c["label"]} for c in commute if c["key"] in here]
         if any(c["key"] in here for c in duty):
-            mine.append({"k": SLOT_GROUP if flt else "", "label": "관제"})
+            my_shifts.append({"k": SLOT_GROUP if flt else "", "label": "관제"})
         return {
             **p["meta"], "memo": note.text if note else "", "no_work": no_work, "empty": found is None,
             "weekend": d.weekday() >= 5, "filter": flt,
@@ -313,7 +310,7 @@ def roster(request):
             # 배포된 근무표가 있는 날만, 근무 없음 날은 못 바꾼다
             "edit": (p["edit_past"] if d < today else p["edit_now"]) and not other and found is not None and not no_work,
             "commute": commute, "duty": duty, "slot_n": sum(c["n"] for c in duty),
-            "mine": [] if no_work else mine, "my_slots": [c["time"] for c in duty if c["key"] in here],
+            "mine": [] if no_work else my_shifts, "my_slots": [c["time"] for c in duty if c["key"] in here],
         }
 
     def day_info(d: date) -> dict:
@@ -354,17 +351,23 @@ def roster(request):
         "dim_default": request.user.department_id is not None,  # 근무표에 든 사람만 '다른 사람 흐리게'가 처음부터 켜짐
         "month_memos": [{"date": m, "memo": p["notes"]["month"].get(m), "p": p["meta"]} for m in months for p in parts],
     }
-    ctx.update(_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine, pref["dims"]))
+    ctx.update(_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, has_home, pref["dims"]))
     return render(request, "duty/roster.html", ctx)
 
 
 @login_required
 @require_POST
 def roster_prefs(request):
-    """근무표 화면에서 브라우저가 바꾼 필터·변경 내역 표시를 저장한다(화면은 이미 바뀌어 있다). 보기는 링크가 정한다."""
-    home = boards.home(request.user)
-    if home is not None:
-        prefs.resolve(request.user, request.POST, home, mine=request.POST.get("mine") != "0", with_view=False)
+    """보기 설정을 저장하는 유일한 길(GET 화면은 읽기만: 바깥 링크로 남의 설정을 바꾸지 못하게).
+    roster.js(필터·흐리게·변경 내역), base.html 의 data-remember([주간]·[월간], 근무표 고르기, 내 근무표로, 하루 화면 필터 폼)가 보낸다.
+    pick 이 있으면 board 목록을 기억한다(없는 code 는 버림, 하나도 없으면 내 근무표 = 기억 비움)."""
+    user, home = request.user, boards.home(request.user)
+    if home is None:  # 근무표가 하나도 없다
+        return HttpResponse(status=204)
+    prefs.save(user, request.POST, home, mine=request.POST.get("mine") != "0")
+    if "pick" in request.POST:
+        codes = request.POST.getlist("board")
+        prefs.remember_boards(user, boards.in_order(list(Board.objects.filter(code__in=codes)) or [home], home), home)
     return HttpResponse(status=204)
 
 
@@ -444,9 +447,9 @@ def _day_part(request, board: Board, d: date, home, multi: bool, page_next: str,
 def day(request, d):
     chosen, home = _selection(request)  # 기억은 읽지 않는다(?board= 없는 알림 링크는 내 근무표)
     multi, sq = len(chosen) > 1, boards.selection_query(chosen, home)
-    mine = home in chosen
-    fboard = home if mine else chosen[0]
-    pref = prefs.resolve(request.user, request.GET, fboard, with_view=False, mine=mine)
+    has_home = home in chosen
+    fboard = home if has_home else chosen[0]
+    pref = prefs.load(request.user, request.GET, fboard, with_view=False, mine=has_home)
     depts, types, shifts, history = pref["depts"], pref["types"], pref["shifts"], pref["history"]
     page_next = _page_next(request)
     parts = [_day_part(request, b, d, home, multi, page_next, history,
@@ -459,7 +462,7 @@ def day(request, d):
         "holiday": holidays.closed(d, d).get(d, ""), "prev": _neighbor(d, -1), "next_day": _neighbor(d, 1), "qs": qs,
         "bq": sq, "sel_codes": [b.code for b in chosen] if sq else [], "page_nq": quote(page_next),
         "view_only": view_only, "to_mine": _to_mine(chosen, home, view_only), "home_code": home.code if home else "",
-        **_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, mine),
+        **_filter_ctx(fboard, parts[chosen.index(fboard)]["defs"], depts, types, shifts, history, has_home),
     })
 
 

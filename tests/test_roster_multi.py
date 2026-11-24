@@ -48,7 +48,7 @@ def _names(body):
 def test_list_memory_shows_both(client, two):
     _, ga, _ = two
     client.force_login(ga)
-    client.get(WEEK + "&board=ops&board=it&board=ops")  # 주소 순서·중복과 상관없이
+    client.post("/prefs/", {"pick": "1", "board": ["ops", "it", "ops"]})  # 순서·중복과 상관없이
     assert RosterPref.objects.get(user=ga).boards == ["it", "ops"]  # 내 근무표 먼저 저장
     body = client.get(WEEK).content.decode()  # ?board= 가 없으면 기억한 목록
     assert "가상다" in body and "가상나" in body
@@ -66,7 +66,7 @@ def test_sections_in_order_with_labels(client, two):
     assert body.count("<small>보기만</small>") == 7  # 바꿀 수 없는 운영팀 구역만
     assert '<span class="bnames">IT 당번표 + 운영팀</span>' in body  # 제목 옆 고른 이름들
     assert "보기 전용</small>" not in body  # 바꿀 수 있는 근무표(IT)가 있다
-    assert '<a class="to-mine" role="button" href="/?board=it">내 근무표만 보기</a>' in body
+    assert '<a class="to-mine" role="button" href="/?board=it" data-remember="pick=1">내 근무표만 보기</a>' in body
     month = client.get(BOTH.replace("view=week", "view=month")).content.decode()
     assert len(_names(month)) == 2 * 35  # 2026년 11월 달력 5주(11/1 일 ~ 12/5 토, 앞뒤 달 날짜도 구역을 그린다) × 2
 
@@ -107,7 +107,7 @@ def test_only_editable_sections_link_with_their_board(client, two):
 def test_filters_apply_to_my_section_only(client, two):
     _, ga, _ = two
     client.force_login(ga)
-    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터: 가상다(MEMS)가 숨는다(브라우저가)
+    client.post("/prefs/", {"f": "1", "dept": "TMCH"})  # 내 근무표 필터: 가상다(MEMS)가 숨는다(브라우저가)
     body = client.get(f"/?date={D}&board=it&board=ops").content.decode()  # 저장한 필터 그대로
     assert 'value="TMCH" checked' in body and 'value="MEMS" checked' not in body
     assert re.search(r'data-d="MEMS" data-t="[^"]+"><span class="tk[^"]*">가상다<', body)  # 내 근무표 구역만 필터 표시
@@ -125,7 +125,7 @@ def test_to_mine_label_rules(client, two):
     assert ">보기 전용 · 내 근무표로</a>" in client.get(WEEK + "&board=ops").content.decode()  # 지금 글자
     ga.groups.add(board.admin_group)  # 바꿀 수 있는 남의 근무표 하나: '보기 전용'이라 하지 않는다(계획 5번)
     body = client.get(WEEK + "&board=ops").content.decode()
-    assert '<a class="to-mine" role="button" href="/?board=it">내 근무표로</a>' in body and "보기 전용" not in body
+    assert '<a class="to-mine" role="button" href="/?board=it" data-remember="pick=1">내 근무표로</a>' in body and "보기 전용" not in body
 
 
 def test_queries_do_not_grow_with_days(client, two):
@@ -149,7 +149,7 @@ def test_queries_do_not_grow_with_days(client, two):
 def test_day_two_boards(client, two):
     _, ga, _ = two
     client.force_login(ga)
-    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터는 내 구역에만
+    client.post("/prefs/", {"f": "1", "dept": "TMCH"})  # 내 근무표 필터는 내 구역에만
     body = client.get(f"/day/{D}/?board=ops&board=it").content.decode()
     it_at, ops_at = body.index('<h3 class="bname">IT 당번표'), body.index('<h3 class="bname">운영팀')
     assert it_at < ops_at  # 내 근무표 먼저
@@ -209,7 +209,7 @@ def test_popup_board_name_when_two_editable(client, two):
 # ── 근무표 고르기(설계 9.1, 계획 2·3번) ──
 
 def _picker(body):
-    return re.search(r'<form method="get" class="board-pick">.*?</form>', body, re.S)[0]
+    return re.search(r'<form method="get" class="board-pick"[^>]*>.*?</form>', body, re.S)[0]
 
 
 def test_picker_dropdown(client, two):
@@ -234,11 +234,11 @@ def test_picker_dropdown(client, two):
 def test_pick_semantics_and_memory(client, two):
     _, ga, _ = two
     client.force_login(ga)
-    client.get(f"/?pick=1&board=ops&board=it&date={D}")
+    client.post("/prefs/", {"pick": "1", "board": ["ops", "it"]})
     assert RosterPref.objects.get(user=ga).boards == ["it", "ops"]
     assert "가상나" in client.get(WEEK).content.decode()  # pick 도 board 도 없으면 기억한 목록
-    body = client.get(f"/?pick=1&date={D}").content.decode()  # 하나도 안 고르고 [보기]
-    assert "가상다" in body and "가상나" not in body and RosterPref.objects.get(user=ga).boards == []
+    body = client.get(f"/?pick=1&date={D}").content.decode()  # 하나도 안 고르고 [보기]: 기억과 상관없이 내 근무표만
+    assert "가상다" in body and "가상나" not in body
 
 
 def test_links_after_pick_have_no_pick_and_dropdown_closed(client, two):
@@ -246,15 +246,40 @@ def test_links_after_pick_have_no_pick_and_dropdown_closed(client, two):
     client.force_login(ga)
     body = client.get(f"/?pick=1&board=it&board=ops&view=week&date={D}").content.decode()
     assert "?board=it&amp;board=ops&amp;view=week&amp;date=2026-11-09" in body  # ◀ 도 같은 꼴, view·date 를 지킨다
-    assert "pick=" not in body and "pick%3D" not in body  # 다른 링크·팝업 next 에 pick 없음
+    links = body.replace('data-remember="pick=1"', "")  # [내 근무표만 보기]가 /prefs/ 로 보내는 값은 링크가 아니다
+    assert "pick=" not in links and "pick%3D" not in links  # 다른 링크·팝업 next 에 pick 없음
     assert '<details class="dropdown" open' not in body  # 보낸 뒤 닫힌 채(계획 3번)
 
 
 def test_picker_keeps_search_and_saved_filter(client, two):
     _, ga, _ = two
     client.force_login(ga)
-    client.get(WEEK + "&f=1&dept=TMCH")  # 내 근무표 필터: 가상다(MEMS) 숨김
-    client.get(WEEK + "&board=ops")  # 남의 근무표만(필터 상자 없음)
+    client.post("/prefs/", {"f": "1", "dept": "TMCH"})  # 내 근무표 필터: 가상다(MEMS) 숨김
+    client.post("/prefs/", {"pick": "1", "board": ["it", "ops"], "date": str(D), "q1": "가상나"})  # 고르기 폼이 보내는 꼴
     body = client.get(f"/?pick=1&board=it&board=ops&date={D}&q1=가상나").content.decode()
     assert RosterPref.objects.get(user=ga).depts == ["TMCH"]  # 고르기 폼이 저장된 필터를 지우지 않는다(계획 2번)
     assert 'value="TMCH" checked' in body and '<span class="tk hl1">가상나</span>' in body  # 필터·검색 색칠이 남는다
+
+
+def test_get_does_not_remember_boards_prefs_post_does(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    client.get(BOTH)
+    client.get(f"/?pick=1&board=ops&date={D}")
+    assert not RosterPref.objects.filter(user=ga).exists()  # GET 은 기억하지 않는다
+    client.post("/prefs/", {"pick": "1", "board": ["ops", "it", "ops", "nope"]})  # 고르기 폼이 보낸다(없는 code 는 버림)
+    assert RosterPref.objects.get(user=ga).boards == ["it", "ops"]
+    client.post("/prefs/", {"board": "ops", "f": "1"})  # 하루 화면 필터 폼(pick 없음)은 목록을 건드리지 않는다
+    assert RosterPref.objects.get(user=ga).boards == ["it", "ops"]
+    client.post("/prefs/", {"pick": "1"})  # 하나도 안 고름 = 내 근무표만 = 기억 비움
+    assert RosterPref.objects.get(user=ga).boards == []
+
+
+def test_pick_form_and_to_mine_remember(client, two):
+    _, ga, _ = two
+    client.force_login(ga)
+    body = client.get(WEEK + "&board=ops").content.decode()
+    assert '<form method="get" class="board-pick" data-remember="">' in body
+    assert '<a class="to-mine" role="button" href="/?board=it" data-remember="pick=1">' in body
+    day = client.get(f"/day/{D}/?board=ops").content.decode()
+    assert f'href="/?board=it&amp;date={D}" data-remember="pick=1">' in day

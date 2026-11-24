@@ -5,13 +5,13 @@
   <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong>{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</li></ul>
   <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
 </nav>
-{% if to_mine %}<p><a class="to-mine" role="button" href="/?board={{ home_code }}&amp;date={{ d|date:'Y-m-d' }}">{{ to_mine }}</a></p>{% endif %}
+{% if to_mine %}<p><a class="to-mine" role="button" href="/?board={{ home_code }}&amp;date={{ d|date:'Y-m-d' }}" data-remember="pick=1">{{ to_mine }}</a></p>{% endif %}
 {% if holiday %}<p class="hol">{{ holiday }}</p>{% endif %}
 {% if not multi %}{% with p=parts.0 %}
 {% if p.note and not p.note.no_work %}<p class="memo">{{ p.note.text|linebreaksbr }}</p>{% endif %}
 {% if p.memo_admin %}<p><a class="memo-btn" href="{% url 'memo' 'day' d %}{{ p.bq }}" hx-get="{% url 'memo' 'day' d %}?next={{ page_nq }}{{ p.bqa }}" hx-target="#dlg-body">[메모]</a></p>{% endif %}
 {% endwith %}{% endif %}
-<form method="get" class="search">
+<form method="get" class="search" data-remember="mine={{ filterable|yesno:'1,0' }}">
   {% include "duty/_filters.html" %}
 </form>
 {% for p in parts %}

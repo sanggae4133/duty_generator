@@ -360,6 +360,20 @@
     });
     draw();
   })();
+  // 보기 설정 기억: GET 화면은 읽기만 한다(바깥 링크로 남의 설정을 바꾸지 못하게). data-remember 가 붙은 링크를 누르거나
+  // 폼을 보내면 그 값(+ data-remember 의 추가 값)을 POST /prefs/ 로 저장하고, 이동은 그대로 한다
+  const remember = body => fetch("{% url 'roster_prefs' %}", {method: "POST", body, keepalive: true, credentials: "same-origin",
+                                                              headers: {"X-CSRFToken": "{{ csrf_token }}"}}).catch(() => {});
+  document.addEventListener("click", e => {
+    const a = e.target.closest && e.target.closest("a[data-remember]");
+    if (a) remember(new URLSearchParams(a.dataset.remember));
+  });
+  document.addEventListener("submit", e => {
+    const f = e.target, body = new FormData(f);
+    if (f.dataset.remember === undefined) return;
+    new URLSearchParams(f.dataset.remember).forEach((v, k) => body.append(k, v));
+    remember(body);
+  });
   document.body.addEventListener("htmx:afterSwap", e => {
     if (e.detail.target.id === "dlg-body") document.getElementById("dlg").showModal();
   });

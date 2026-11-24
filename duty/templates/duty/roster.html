@@ -11,8 +11,8 @@
   {% if prev %}<a class="navbtn" role="button" data-nav="prev" href="{{ prev }}" aria-label="이전{% if view == 'week' %} 주{% else %} 달{% endif %}">◀</a>{% endif %}
   <h3 class="cal-title">{{ title }}{% if multi %} <span class="bnames">{{ sel_names }}</span>{% endif %}{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</h3>
   {% if next %}<a class="navbtn" role="button" data-nav="next" href="{{ next }}" aria-label="다음{% if view == 'week' %} 주{% else %} 달{% endif %}">▶</a>{% endif %}
-  {% if to_mine %}<a class="to-mine" role="button" href="/?board={{ home_code }}">{{ to_mine }}</a>{% endif %}
-  {% if pick_boards %}<form method="get" class="board-pick">
+  {% if to_mine %}<a class="to-mine" role="button" href="/?board={{ home_code }}" data-remember="pick=1">{{ to_mine }}</a>{% endif %}
+  {% if pick_boards %}<form method="get" class="board-pick" data-remember="">
     <input type="hidden" name="pick" value="1"><input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
     {% for n in names %}{% if n %}<input type="hidden" name="q{{ forloop.counter }}" value="{{ n }}">{% endif %}{% endfor %}
     <details class="dropdown"><summary role="button" class="outline">근무표: {{ sel_names }}</summary>
@@ -26,7 +26,7 @@
   </form>{% endif %}
   <span class="seg" role="group" aria-label="이동"><a href="{{ today_link }}">오늘</a></span>
   <span class="seg" role="group" aria-label="보기">
-    <a href="{{ week_link }}"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
+    <a href="{{ week_link }}" data-remember="view=week"{% if view == 'week' %} aria-current="page"{% endif %}>주간</a><a href="{{ month_link }}" data-remember="view=month"{% if view == 'month' %} aria-current="page"{% endif %}>월간</a>
   </span>
   <span class="tb-gap"></span>
   {% if my_days is not None %}<span class="mydays">{{ date.month }}월 내 근무 <b id="mydays">{{ my_days }}일</b></span>{% endif %}

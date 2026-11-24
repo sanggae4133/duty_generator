@@ -51,9 +51,11 @@ def test_roster_board_order_and_memory(client, two):
     assert "가상다" in client.get(WEEK).content.decode()
     body = client.get(WEEK + "&board=ops").content.decode()
     assert "가상나" in body and "가상다" not in body
+    client.post("/prefs/", {"pick": "1", "board": "ops"})  # 고르기 폼(data-remember)이 보낸다
     assert RosterPref.objects.get(user=ga).boards == ["ops"]
     assert "가상나" in client.get(WEEK).content.decode()  # ?board= 가 없으면 기억한 근무표
     assert "가상다" in client.get(WEEK + "&board=it").content.decode()
+    client.post("/prefs/", {"pick": "1", "board": "it"})
     assert RosterPref.objects.get(user=ga).boards == []  # 내 근무표를 고르면 기억을 비운다
     assert client.get("/?board=nope").status_code == 404
 
@@ -83,11 +85,10 @@ def test_view_only_other_board(client, two):
     assert "보기 전용" in body and 'class="cell"' not in body and "칸을 누르면" not in body
     day = client.get(f"/day/{D}/?board=ops").content.decode()
     assert "보기 전용" in day and "가상나" in day and "바꾸기</summary>" not in day
-    assert '<a class="to-mine" role="button" href="/?board=it">보기 전용 · 내 근무표로</a>' in body  # 크게, 내 근무표로 돌아가기
-    assert f'<a class="to-mine" role="button" href="/?board=it&amp;date={D}">보기 전용 · 내 근무표로</a>' in day
+    assert '<a class="to-mine" role="button" href="/?board=it" data-remember="pick=1">보기 전용 · 내 근무표로</a>' in body  # 크게, 내 근무표로 돌아가기
+    assert f'<a class="to-mine" role="button" href="/?board=it&amp;date={D}" data-remember="pick=1">보기 전용 · 내 근무표로</a>' in day
     mine = client.get(WEEK + "&board=it").content.decode()
     assert "보기 전용" not in mine and 'class="cell"' in mine
-    assert RosterPref.objects.get(user=ga).boards == []  # 그 링크(?board=내 근무표)는 기억한 근무표를 비운다
 
 
 def test_view_only_home_board_has_no_back_link(client, two):
@@ -116,10 +117,12 @@ def test_other_board_shows_all_and_keeps_my_filters(client, two):
     board, ga, _ = two
     ga.groups.add(board.admin_group)  # 관리자라도 내 근무표가 아니면 필터 없이
     client.force_login(ga)
-    client.get(WEEK + "&f=1&dept=MEMS")
+    client.post("/prefs/", {"f": "1", "dept": "MEMS"})
     assert RosterPref.objects.get(user=ga).depts == ["MEMS"]
-    body = client.get(WEEK + "&board=ops&f=1&dept=TMCH&hist=0").content.decode()
+    body = client.get(WEEK + "&board=ops").content.decode()
     assert "가상나" in body and "<legend>부서</legend>" not in body and "<legend>보기</legend>" in body
+    assert 'data-mine="0"' in body
+    client.post("/prefs/", {"mine": "0", "f": "1", "dept": "TMCH", "hist": "0"})  # roster.js 가 남의 근무표에서 보내는 꼴
     p = RosterPref.objects.get(user=ga)
     assert p.depts == ["MEMS"] and p.history is False  # 필터는 그대로, 변경 내역 표시는 따른다
     assert "<legend>부서</legend>" in client.get(WEEK + "&board=it").content.decode()
