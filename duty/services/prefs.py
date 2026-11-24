@@ -47,14 +47,11 @@ def clean_dims(board, dims: dict, mine: bool = True) -> dict:
             "hist": bool(dims.get("hist"))}
 
 
-def resolve(user, get, board, with_view: bool = True, mine: bool = True) -> dict:
-    """요청에 값이 있으면 그 값을 쓰고 저장, 없으면 저장값을 불러온다. 빈 목록 = 전체. 세 묶음은 따로 본다:
-    필터(f·dept·type·shift 중 하나라도 있을 때), 변경 내역(hist), 보기(view). 없는 묶음은 저장값을 그대로 둔다
-    (근무표 화면의 이동 링크는 보기·날짜만 싣고 필터는 브라우저가 바꾸며 /prefs/ 로 저장한다).
+def _read(user, get, board, with_view: bool, mine: bool) -> tuple:
+    """(저장된 행, 저장값, 요청이 가진 새 값). 빈 목록 = 전체. 세 묶음은 따로 본다:
+    필터(f·dept·type·shift 중 하나라도 있을 때), 변경 내역(hist), 보기(view), 흐리게(fd). 없는 묶음은 저장값을 그대로 둔다.
     mine=False(보이는 근무표가 내 근무표가 아님, 설계 7): 부서·유형·스케줄은 늘 전체이고 저장된 필터를 덮어쓰지 않는다."""
     pref = RosterPref.objects.filter(user=user).first()
-    has_f = mine and any(k in get for k in _FILTER_KEYS)
-    has_h, has_v = "hist" in get, with_view and "view" in get
     if pref is None:
         saved = {"depts": [], "types": [], "shifts": [], "view": "week", "history": True,
                  "dims": clean_dims(board, {}, mine)}
@@ -62,25 +59,33 @@ def resolve(user, get, board, with_view: bool = True, mine: bool = True) -> dict
         d, t, s = clean(board, pref.depts, pref.types, pref.shifts) if mine else ([], [], [])
         saved = {"depts": d, "types": t, "shifts": s, "view": pref.view, "history": pref.history,
                  "dims": clean_dims(board, pref.dims, mine)}
-    has_d = "fd" in get  # 흐리게는 근무표 화면(roster.js)만 보낸다: 하루 화면 필터 폼은 저장된 흐리게를 두고 간다
-    if not (has_f or has_h or has_v or has_d):
-        return saved
     new = {}
-    if has_d:
+    if "fd" in get:  # 흐리게는 근무표 화면(roster.js)만 보낸다: 하루 화면 필터 폼은 저장된 흐리게를 두고 간다
         hist = get.get("hdim") == "1"
         if mine:
             new["dims"] = clean_dims(board, {**{k: get.getlist(p) for k, p in _DIM_PARAMS.items()}, "hist": hist})
         else:  # 남의 근무표만 볼 때: 내 근무표의 흐리게 값은 그대로 두고 변경 내역만
             new["dims"] = {**(pref.dims if pref else {}), "hist": hist}
-    if has_f:
+    if mine and any(k in get for k in _FILTER_KEYS):
         new["depts"], new["types"], new["shifts"] = clean(board, get.getlist("dept"), get.getlist("type"), get.getlist("shift"))
-    if has_v:
+    if with_view and "view" in get:
         new["view"] = get["view"] if get.get("view") in ("week", "month") else saved["view"]
-    if has_h:  # 체크박스는 hidden hist=0 뒤에 오므로 마지막 값을 본다
+    if "hist" in get:  # 체크박스는 hidden hist=0 뒤에 오므로 마지막 값을 본다
         new["history"] = get.getlist("hist")[-1] == "1"
-    if pref is None or any(getattr(pref, k) != v for k, v in new.items()):
-        RosterPref.objects.update_or_create(user=user, defaults=new)  # 첫 저장 동시 요청도 안전
+    return pref, saved, new
+
+
+def load(user, get, board, with_view: bool = True, mine: bool = True) -> dict:
+    """보기 설정 읽기(GET 화면용, DB 에 쓰지 않는다): 주소에 값이 있으면 그 값, 없으면 저장값."""
+    _, saved, new = _read(user, get, board, with_view, mine)
     return {**saved, **new}
+
+
+def save(user, data, board, mine: bool = True) -> None:
+    """보기 설정 저장(POST /prefs/ 만). 값이 있는 묶음만 바꾸고, 이미 같으면 쓰지 않는다."""
+    pref, _, new = _read(user, data, board, True, mine)
+    if new and (pref is None or any(getattr(pref, k) != v for k, v in new.items())):
+        RosterPref.objects.update_or_create(user=user, defaults=new)  # 첫 저장 동시 요청도 안전
 
 
 def remember_boards(user, chosen, home) -> None:
