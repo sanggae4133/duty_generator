@@ -153,8 +153,8 @@ LOGOUT_REDIRECT_URL = "/login/"
 SESSION_COOKIE_AGE = 90 * 24 * 3600  # 로그인할 때부터 90일. 요청마다 늘리지 않는다(SESSION_SAVE_EVERY_REQUEST 기본 False: 화면을 열 때 DB 쓰기 없음)
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-# HTTPS 는 Funnel 이 맡지만, 브라우저가 http 로 시도하지 않게 HSTS 를 보낸다(tailscaled 가 X-Forwarded-Proto 를 붙이고
-# gunicorn 이 127.0.0.1 의 그 헤더를 믿어 is_secure() 가 참일 때만 붙는다). SSL_REDIRECT 는 켜지 않는다(상태 점검이 http 로 부름)
+# HTTPS 는 Funnel 이 맡지만, 브라우저가 http 로 시도하지 않게 HSTS 를 보낸다(nginx 가 X-Forwarded-Proto: https 로 덮어쓰고
+# (deploy/duty-nginx.conf) gunicorn 이 127.0.0.1 의 그 헤더를 믿어 is_secure() 가 참일 때만 붙는다). SSL_REDIRECT 는 켜지 않는다(상태 점검이 http 로 부름)
 SECURE_HSTS_SECONDS = 0 if DEBUG else 30 * 24 * 3600
 # 클라이언트가 보낸 SCRIPT_NAME 헤더(gunicorn 은 127.0.0.1 에서 온 것을 믿는다)로 경로 앞부분을 바꾸지 못하게
 FORCE_SCRIPT_NAME = ""

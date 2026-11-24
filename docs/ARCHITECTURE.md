@@ -206,9 +206,10 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 
 - 로그인은 90일 유지된다(`SESSION_COOKIE_AGE`, 로그인할 때부터. 요청마다 늘리지 않아 화면을 열 때 세션 DB 쓰기가 없다). 비밀번호를 바꾸면 다른 기기의 로그인이, [계정 발급]으로 초기화하면 모든 로그인이 끊긴다.
 - 로그인 5회 실패 시 그 아이디가 15분 잠긴다(django-axes). 비밀번호 변경의 '지금 비밀번호' 확인도 같이 센다.
-- `config/wsgi.py` 가 Django 앞에 `duty/guard.py` 를 둔다: 본문 2MB 초과 413, 15초 안에 본문이 다 오지 않으면 408, 로그인·비밀번호 변경 POST 는 동시에 2개까지(넘치면 429). nginx 가 느린 연결을 먼저 받아 주고, 가드는 nginx 없이 돌 때(개발 PC)나 nginx 설정이 빠졌을 때의 한 번 더 막는 장치다.
+- `config/wsgi.py` 가 Django 앞에 `duty/guard.py` 를 둔다: 본문 2MB 초과 413, 15초 안에 본문이 다 오지 않으면 408, 로그인·비밀번호 변경 POST 는 동시에 2개까지(넘치면 429). nginx 가 느린 연결을 먼저 받아 주고, 가드는 nginx 없이 돌 때(개발 PC)나 nginx 설정이 빠졌을 때의 한 번 더 막는 장치다. 2자리가 사이트 전체 공용이라, nginx 가 같은 POST 를 접속 IP 마다 1분 10번(burst 10)으로 묶어 익명 한 명이 2자리를 계속 차지하지 못하게 한다(`limit_req`, 넘치면 429).
+- 모든 응답에 CSP(`duty/middleware.py` 의 `CSP`): 바깥 출처·`<object>`·`<base>`·다른 사이트에 끼우기를 막고 폼은 이 사이트와 `https://t.me`(텔레그램 연결 리다이렉트)로만. 인라인 `<script>`·`<style>`·`onsubmit` 을 쓰므로 `'unsafe-inline'` 은 남긴다(인라인 스크립트를 파일로 옮기면 좁힐 수 있다). htmx 는 `allowEval:false`(`hx-on` 등 eval 기능을 쓰지 않는다).
 - 로그인 잠금(axes)은 **아이디 + 접속 IP**(`AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]`). 접속 IP 는 `duty/client_ip.py`: 127.0.0.1(nginx·tailscaled)에서 온 요청만 `X-Forwarded-For` 의 마지막 값을 믿는다. tailscaled 는 그 헤더를 실제 IP 하나로 덮어쓰고(서버에서 가짜 값을 넣어 보내 확인, 2026-11-19), nginx 는 `real_ip_header` 로 받아 `$remote_addr` 하나로 넘긴다. IP 하나만으로는 잠그지 않는다(한 IP 를 여럿이 쓰면 전원 차단).
-- 로그인한 화면은 `Cache-Control: private, no-store`(`duty/middleware.py`). 로그 파일은 하루 50MB 를 넘으면 그날은 버린다(`duty/logging.py`).
+- 로그인한 화면은 `Cache-Control: private, no-store`(`duty/middleware.py`). systemd 유닛 두 개는 샌드박스(`ProtectSystem=strict`, 쓰기는 `data/` 만)로 돈다. 로그 파일은 하루 50MB 를 넘으면 그날은 버린다(`duty/logging.py`).
 - 관리 화면 액션 '계정 발급 / 비밀번호 초기화'의 초기화는 캘린더 구독·텔레그램·푸시 연결도 끊는다(탈취 의심 길). [근무표 설정]의 [비밀번호 초기화]는 연결을 남긴다(비밀번호 분실 길, `accounts.issue_account(revoke_links=False)` — 비밀번호가 바뀌어 로그인은 끊긴다). 퇴사(`accounts.deactivate`)는 재직을 끄고 쓸 수 없는 비밀번호로 모든 로그인을 끊고 연결을 모두 끊는다. 다시 재직(`accounts.reactivate`)은 퇴사와 같은 정리(관리 화면에서 재직만 끈 사람의 옛 비밀번호·연결도 끊는다) 뒤 재직을 켜서 [계정 발급]을 다시 해야 한다. 첫 발급(기본 알림 규칙)은 쓸 수 있는 비밀번호가 없고 로그인한 적도 없을 때만. 임시 비밀번호는 `accounts.temp_password`(헷갈리는 0·o·1·l·i 를 뺀 31자에서 `secrets.choice` 로 10자). 텔레그램은 `/start <일회용 코드>` 로만 연결한다(chat_id 직접 입력 없음).
 - 백업 사본에서는 로그인 세션을 지우고 파일 권한을 600 으로 둔다.
 - 실명은 커밋하지 않는다. 테스트는 가상 이름만 쓴다.
