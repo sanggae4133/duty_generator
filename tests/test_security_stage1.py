@@ -18,7 +18,7 @@ def _prod_settings(tmp_path) -> dict:
     code = ("import json, config.settings as s; print(json.dumps({'hsts': s.SECURE_HSTS_SECONDS, "
             "'script': s.FORCE_SCRIPT_NAME, 'axes': s.AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT, "
             "'disallowed': s.LOGGING['loggers'].get('django.security.DisallowedHost')}))")
-    env = {**os.environ, "DUTY_ENV_FILE": "", "DUTY_DEBUG": "0", "DUTY_SECRET_KEY": "x" * 50,
+    env = {**os.environ, "DUTY_ENV_FILE": "", "DUTY_DEBUG": "0", "DUTY_SECRET_KEY": "x" * 50, "DUTY_ADMIN_PATH": "ops-test",
            "DUTY_DATA_DIR": str(tmp_path)}
     out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True,
                          cwd=os.path.dirname(os.path.dirname(__file__)))
@@ -144,7 +144,7 @@ def test_prod_static_files_are_hashed_compressed_and_cached_long(tmp_path):
         "from django.core.management import call_command; call_command('collectstatic', '--noinput', verbosity=0)\n"
         "from django.contrib.staticfiles.storage import staticfiles_storage as st\n"
         "u = st.url('vendor/pico.min.css'); print(type(st._wrapped).__name__, u)\n" % root)
-    env = {**os.environ, "DUTY_ENV_FILE": "", "DUTY_DEBUG": "0", "DUTY_SECRET_KEY": "x" * 50,
+    env = {**os.environ, "DUTY_ENV_FILE": "", "DUTY_DEBUG": "0", "DUTY_SECRET_KEY": "x" * 50, "DUTY_ADMIN_PATH": "ops-test",
            "DUTY_DATA_DIR": str(tmp_path), "DJANGO_SETTINGS_MODULE": "config.settings"}
     out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True,
                          cwd=os.path.dirname(os.path.dirname(__file__)))

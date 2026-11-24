@@ -105,7 +105,7 @@ def test_day_dept_filter_names_and_cell_form(client, two_depts):
     body = client.get(f"/day/{D}/?dept=UI&shift=normal").content.decode()
     art = body.split('<article id="normal" class="dcell">')[1].split("</article>")[0]
     assert '<span class="lb"><span class="tk">라</span></span>' in art and '<span class="tk me">가</span>' not in art
-    assert f'value="{c.username}"' in art and f'value="{a.username}"' not in art
+    assert f'<option value="{c.pk}">' in art and f'<option value="{a.pk}">' not in art
 
 
 def test_day_filter_form_and_nav_links(client, world):

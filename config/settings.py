@@ -44,8 +44,8 @@ HELP_VIDEO_DIR = BASE_DIR / "duty" / "help_videos"  # 권한별 사용법 영상
 REPO_URL = env("DUTY_REPO_URL", "https://github.com/sanggae4133/duty_generator").strip()  # 화면 아래 링크(일부러 비우면 숨김)
 if REPO_URL and (not REPO_URL.startswith("https://") or any(c.isspace() or c in "\"'<>" for c in REPO_URL)):
     raise ImproperlyConfigured("DUTY_REPO_URL 은 https:// 로 시작하는 주소여야 합니다.")
-if not ADMIN_PATH:
-    raise ImproperlyConfigured("DUTY_ADMIN_PATH 가 비어 있을 수 없습니다.")
+if not ADMIN_PATH or (not DEBUG and ADMIN_PATH == "admin"):  # 운영은 짐작하기 어려운 주소를 꼭 정한다
+    raise ImproperlyConfigured("DUTY_ADMIN_PATH 를 정하세요(운영은 admin 이 아닌 짐작하기 어려운 값).")
 
 # 실행 중 생기는 파일은 전부 DATA_DIR 한 곳(DB·백업·로그·잠금). 상대 경로는 저장소 루트 기준.
 # 서비스 사용자(duty)가 쓸 수 있어야 한다(SQLite WAL 도 이 폴더에 파일을 만든다).

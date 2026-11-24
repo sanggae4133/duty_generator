@@ -56,7 +56,7 @@ def test_name_inside_chain_highlights(client, world, make_member):
     a, _ = world
     c = make_member("다")
     client.force_login(a)
-    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": c.username})
+    client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": c.pk})
     body = client.get("/?q3=다").content.decode()
     body = body.replace("&gt;", ">")
     assert '"><span class="tk old"><s>가</s></span><span class="ar">></span><span class="tk hl3">다</span></span>' in body
@@ -68,7 +68,7 @@ def test_highlighted_struck_name_keeps_both(client, world, make_member):
     a, _ = world
     c = make_member("다")
     client.force_login(a)
-    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": c.username})
+    client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": c.pk})
     body = client.get("/?q1=가").content.decode()
     assert '<span class="tk old hl1"><s>가</s></span>' in body
 
@@ -140,7 +140,7 @@ def test_change_via_post(client, world, make_member):
     a, _ = world
     c = make_member("다")
     client.force_login(a)
-    r = client.post(f"/cell/{D}/normal/", {"before": a.username, "after": c.username, "next": "/"})
+    r = client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": c.pk, "next": "/"})
     assert r.status_code == 302 and r.url == "/"
     assert Commute.objects.filter(date=D, member=c, shift="normal").exists()
 
@@ -150,14 +150,14 @@ def test_past_date_change_forbidden_for_member(client, world, fixed_today, make_
     c = make_member("다")
     fixed_today(date(2026, 11, 11))
     client.force_login(a)
-    r = client.post(f"/cell/{D}/normal/", {"before": a.username, "after": c.username})
+    r = client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": c.pk})
     assert r.status_code == 403
 
 
 def test_unknown_member_code_is_rejected(client, world):
     a, _ = world
     client.force_login(a)
-    r = client.post(f"/cell/{D}/normal/", {"before": a.username, "after": "NO_SUCH"})
+    r = client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": "NO_SUCH"})
     assert r.status_code == 302
     assert Commute.objects.filter(date=D, member=a, shift="normal").exists()
 
@@ -166,7 +166,7 @@ def test_swap_via_cell_dialog(client, world):
     """근무 변경 창에서 To 가 그날 다른 출근조면 맞교환된다(따로 있던 맞교환 화면은 없앴다)."""
     a, b = world  # 가=정상, 나=석식교대
     client.force_login(a)
-    r = client.post(f"/cell/{D}/normal/", {"before": a.username, "after": b.username})
+    r = client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": b.pk})
     assert r.status_code == 302
     assert Commute.objects.get(date=D, member=a).shift == "dinner" and Commute.objects.get(date=D, member=b).shift == "normal"
     assert client.get(f"/swap/{D}/").status_code == 404
@@ -175,7 +175,7 @@ def test_swap_via_cell_dialog(client, world):
 def test_remove_only_with_sentinel(client, world):
     a, _ = world
     client.force_login(a)
-    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": "-"})
+    client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": "-"})
     assert not Commute.objects.filter(date=D, member=a).exists()
 
 
@@ -291,7 +291,7 @@ def test_popup_filtered_by_type(client, mixed):
     a, c = mixed
     client.force_login(a)
     popup = client.get(f"/cell/{D}/normal/?type=직원").content.decode()
-    assert f'<option value="{c.username}">' in popup and f'<option value="{a.username}">' not in popup
+    assert f'<option value="{c.pk}">' in popup and f'<option value="{a.pk}">' not in popup
 
 
 def _checked(body: str) -> dict[tuple[str, str], bool]:
@@ -302,10 +302,10 @@ def _checked(body: str) -> dict[tuple[str, str], bool]:
 def test_popup_members_filtered_by_dept(client, two_depts):
     a, c = two_depts  # 가(MEMS)·라(UI) 모두 정상 칸 소속
     client.force_login(a)
-    popup = client.get(f"/cell/{D}/normal/?dept=UI").content.decode()
-    assert popup.count(f'<option value="{c.username}"') == 1 and f'<option value="{a.username}"' not in popup  # From 만(같은 칸 사람은 To 에서 뺀다)
+    popup = client.get(f"/cell/{D}/normal/?dept=UI").content.decode().split("<hr>")[0]  # 맞교환 폼(아래 사유 폼 앞)
+    assert popup.count(f'<option value="{c.pk}"') == 1 and f'<option value="{a.pk}"' not in popup  # From 만(같은 칸 사람은 To 에서 뺀다)
     full = client.get(f"/cell/{D}/normal/").content.decode()
-    assert f'<option value="{a.username}"' in full and f'<option value="{c.username}"' in full
+    assert f'<option value="{a.pk}"' in full and f'<option value="{c.pk}"' in full
 
 
 @pytest.mark.parametrize("q", ["", "?dept=NOPE&type=외부", "?dept=&type="])
@@ -339,7 +339,7 @@ def test_unknown_values_are_ignored_next_to_valid(client, two_depts):
 def test_removed_label_marked_by_its_department(client, two_depts):
     a, c = two_depts
     client.force_login(a)
-    client.post(f"/cell/{D}/normal/", {"before": a.username, "after": ""})  # 가(MEMS) 제거 → 취소선(변경 내역)
+    client.post(f"/cell/{D}/normal/", {"before": a.pk, "after": ""})  # 가(MEMS) 제거 → 취소선(변경 내역)
     grid = client.get("/").content.decode().split("<tbody>")[1].split("</tbody>")[0]
     assert '<span class="lb chg rm" data-d="MEMS" data-t="개발자"><span class="tk old"><s>가</s></span></span>' in grid
 
@@ -374,11 +374,11 @@ def test_candidates_exclude_departed_and_no_department(client, world, make_membe
     b.is_active = False  # 나: 퇴사했지만 기존 배정은 보인다
     b.save()
     popup = client.get(f"/cell/{D}/dinner/").content.decode()
-    to = popup.split('name="after"')[1]
-    assert f'value="{b.username}"' in popup.split('name="after"')[0]  # From 에는 기존 배정자
+    to = popup.split('name="after"')[1].split("</select>")[0]
+    assert f'value="{b.pk}"' in popup.split('name="after"')[0]  # From 에는 기존 배정자
     for u in (b, gone, admin_user):
-        assert f'value="{u.username}"' not in to
-    assert f'value="{a.username}"' in to
+        assert f'value="{u.pk}"' not in to
+    assert f'value="{a.pk}"' in to
     assert '<span class="tk hl1">나</span>' in client.get("/?q1=나").content.decode()  # 근무표 조회엔 그대로
 
 
@@ -442,7 +442,7 @@ def test_cell_form_defaults_to_swap(client, world, make_member):
     body = client.get(f"/cell/{D}/normal/").content.decode()
     before = body.split('name="before"')[1].split("</select>")[0]
     after = body.split('name="after"')[1].split("</select>")[0]
-    assert before.strip().startswith(">") and f'<option value="{a.username}">가</option>' in before  # 첫 사람이 기본
+    assert before.strip().startswith(">") and f'<option value="{a.pk}">가</option>' in before  # 첫 사람이 기본
     assert before.rstrip().endswith('<option value="+">(없음 — 새로 넣기만)</option>')
     assert '<option value="" disabled selected>바꿀 사람 선택</option>' in after
     assert re.search(r'<option value="[^"]+">나 · [^<]*\(석식교대\)</option>', after)
@@ -537,7 +537,7 @@ def test_slot_popup_offers_keep_other_and_post_takes_both(client, world, make_me
     popup = client.get(f"/cell/{D}/slot0/").content.decode()
     assert 'name="keep_other"' in popup
     assert 'name="keep_other"' not in client.get(f"/cell/{D}/normal/").content.decode()  # 근무조 칸에는 없다
-    client.post(f"/cell/{D}/slot0/", {"before": a.username, "after": b.username, "keep_other": "1"})
+    client.post(f"/cell/{D}/slot0/", {"before": a.pk, "after": b.pk, "keep_other": "1"})
     assert set(DutyAssignment.objects.filter(member=b).values_list("cell", flat=True)) == {"slot0", "slot1"}
 
 

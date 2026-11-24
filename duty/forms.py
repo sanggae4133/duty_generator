@@ -3,7 +3,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Board, BoardShift, Department
+from .models import Board, BoardShift, Department, unsafe_cell_text
 from .services import boards
 from .shifts import DEVELOPER, LUNCH, SHIFT_KEYS, STAFF, is_slot_cell, shift_defs
 
@@ -31,8 +31,8 @@ class BoardShiftForm(forms.ModelForm):
 
     def clean_name(self):
         v = self.cleaned_data["name"].strip()
-        if v in ("date", "day") or any(c in v for c in "(\r\n"):  # CSV 열 이름이 된다
-            raise forms.ValidationError("이름은 date·day 가 아니어야 하고 ( 와 줄바꿈을 쓸 수 없습니다(CSV 열 이름이 됩니다).")
+        if v in ("date", "day") or "(" in v or unsafe_cell_text(v):  # CSV 열 이름이 된다
+            raise forms.ValidationError("이름은 date·day 가 아니어야 하고 ( 와 줄바꿈·제어 문자를 쓸 수 없고 + = - @ 로 시작할 수 없습니다(CSV 열 이름이 됩니다).")
         return v
 
     def clean_eligible_shifts(self):

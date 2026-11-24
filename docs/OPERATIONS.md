@@ -29,7 +29,7 @@
 | `DUTY_ALLOWED_HOSTS` | 비움(`127.0.0.1,localhost`) | `duty.example.ts.net,127.0.0.1,localhost` |
 | `DUTY_CSRF_ORIGINS` | 비움 | `https://duty.example.ts.net` |
 | `DUTY_SITE_URL` | 비움 또는 `http://127.0.0.1:8000` | `https://duty.example.ts.net` |
-| `DUTY_ADMIN_PATH` | 비움(`admin`) | 짐작하기 어려운 값 |
+| `DUTY_ADMIN_PATH` | 비움(`admin`) | 짐작하기 어려운 값(필수: 비우거나 `admin` 이면 서버가 뜨지 않는다) |
 | `DUTY_DATA_DIR` | 비움(`data/`) | 비움(`/opt/duty_generator/data`) |
 | `DUTY_REPO_URL` | 줄 없음(기본 `https://github.com/sanggae4133/duty_generator`) | 줄 없음(같음). `DUTY_REPO_URL=` 처럼 일부러 비우면 화면 아래 "Made by SJ · GitHub" 를 숨긴다 |
 | `DUTY_BACKUP_HOUR` / `DUTY_BACKUP_KEEP_DAYS` / `DUTY_LOG_KEEP_DAYS` | 비움(3시 / 30일 / 14일) | 비움(같음) |

@@ -77,7 +77,7 @@ def test_save_draft_syncs_after_saving_so_its_year_is_covered(it_board, fixed_to
 
 def test_editing_dates_syncs(it_board, fixed_today):
     fixed_today(TODAY)
-    p = periods.save_draft(Period(board=it_board, name="p", start_date=date(2026, 12, 7), end_date=date(2026, 12, 11)))
+    p = periods.save_draft(Period(board=it_board, name="p", start_date=date(2027, 2, 1), end_date=date(2027, 2, 5)))
     p.end_date = date(2028, 1, 7)
     periods.save_draft(p)
     assert 2028 in _years()

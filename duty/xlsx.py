@@ -4,6 +4,7 @@ from io import BytesIO
 from urllib.parse import quote
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Font
 
 HEAD = ("날짜", "요일", "근무표", "칸", "시간", "이름", "부서", "사유")
@@ -18,7 +19,8 @@ def build(rows) -> bytes:
     ws.title = "근무"
     ws.append(HEAD)
     for r in rows:
-        ws.append([v or None for v in r])  # 빈 사유는 빈 칸
+        # 빈 사유는 빈 칸. 제어 문자는 엑셀이 받지 않아(파일 생성 오류) 지운다(입력 검사 전에 저장된 값 대비)
+        ws.append([(ILLEGAL_CHARACTERS_RE.sub("", v) if isinstance(v, str) else v) or None for v in r])
         for c in ws[ws.max_row]:  # '=' 로 시작하는 이름도 글자로(관리자가 넣은 값이 받는 사람 엑셀에서 수식으로 돌지 않게)
             if isinstance(c.value, str) and c.value.startswith("="):
                 c.data_type = "s"

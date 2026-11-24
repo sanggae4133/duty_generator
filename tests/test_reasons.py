@@ -294,6 +294,8 @@ def test_cell_post_sets_reason(pub, client):
                     follow=True)
     assert "변경할 내용이 없습니다." in r.content.decode()
     r = client.post("/cell/2026-11-10/normal/", {"set_reason": "1", "member": "x", "reason": "휴가"}, follow=True)
+    assert "없는 멤버입니다." in r.content.decode()
+    r = client.post("/cell/2026-11-10/normal/", {"set_reason": "1", "member": "", "reason": "휴가"}, follow=True)
     assert "사유를 붙일 사람을 골라 주세요." in r.content.decode()
 
 
