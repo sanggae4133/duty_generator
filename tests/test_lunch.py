@@ -299,11 +299,11 @@ def test_cell_form_for_lunch_and_carry(pub, client, lunch):
 def test_cell_post_carry_lunch(pub, client):
     p, m = pub
     client.force_login(m["다"])
-    client.post("/cell/2026-11-10/dawn/", {"before": m["가"].username, "after": m["라"].username})  # 체크 해제
+    client.post("/cell/2026-11-10/dawn/", {"before": m["가"].pk, "after": m["라"].pk})  # 체크 해제
     assert _lunch_names(p) == ["가"]
-    client.post("/cell/2026-11-10/dawn/", {"before": m["라"].username, "after": m["나"].username, "carry_lunch": "1"})
+    client.post("/cell/2026-11-10/dawn/", {"before": m["라"].pk, "after": m["나"].pk, "carry_lunch": "1"})
     assert _lunch_names(p) == ["가"]  # 떠나는 라는 점심당번이 아니다
-    client.post("/cell/2026-11-10/lunch/", {"before": m["가"].username, "after": m["라"].username})
+    client.post("/cell/2026-11-10/lunch/", {"before": m["가"].pk, "after": m["라"].pk})
     assert _lunch_names(p) == ["라"]
 
 

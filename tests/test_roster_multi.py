@@ -9,7 +9,7 @@ from django.contrib.messages import get_messages
 from django.utils.encoding import iri_to_uri
 from django.utils.html import escape
 
-from duty.models import Holiday, Memo, RosterPref
+from duty.models import Holiday, Memo, RosterPref, User
 from duty.services import boards, prefs
 from tests.test_alarm_boards import D, ops  # noqa: F401 (ops 는 픽스처)
 from tests.test_board_pick import WEEK, member, two  # noqa: F401 (two 는 픽스처)
@@ -174,13 +174,14 @@ def test_popup_next_round_trip_and_safe(client, two):
     """회귀 방지(먼저 실패하는 테스트가 아님): 겹친 화면의 next 가 팝업 POST 뒤 그대로 돌아오고, 밖 주소는 버린다."""
     _, ga, _ = two
     nb = member("it03", "가상라", ga.department)
+    da = User.objects.get(username="it02")
     client.force_login(ga)
     back = BOTH + f"&q1=가상다#d-{D}"
     form = client.get(f"/cell/{D}/dawn/?next={quote(back)}").content.decode()
     assert f'name="next" value="{escape(back)}"' in form
-    r = client.post(f"/cell/{D}/dawn/", {"before": "it02", "after": nb.username, "next": back})
+    r = client.post(f"/cell/{D}/dawn/", {"before": da.pk, "after": nb.pk, "next": back})
     assert r.status_code == 302 and r.url == iri_to_uri(back)  # 고른 근무표·검색·앵커가 그대로(Location 은 한글을 %인코딩)
-    r = client.post(f"/cell/{D}/dawn/", {"before": nb.username, "after": "it02", "next": "https://evil.example/"})
+    r = client.post(f"/cell/{D}/dawn/", {"before": nb.pk, "after": da.pk, "next": "https://evil.example/"})
     assert r.url == f"/day/{D}/"  # 밖 주소는 safe_next 가 버린다
 
 
@@ -201,7 +202,7 @@ def test_popup_board_name_when_two_editable(client, two):
     assert "운영팀 · 2026-11-16" in client.get(f"/cell/{D}/dawn/?board=ops").content.decode()
     assert "운영팀 · 11/16 주 메모" in client.get(f"/memo/week/{D}/?board=ops").content.decode()
     nb = member("op02", "가상마", na.department)
-    r = client.post(f"/cell/{D}/dawn/?board=ops", {"before": na.username, "after": nb.username})
+    r = client.post(f"/cell/{D}/dawn/?board=ops", {"before": na.pk, "after": nb.pk})
     assert "운영팀 · 변경했습니다." in [str(m) for m in get_messages(r.wsgi_request)]
 
 

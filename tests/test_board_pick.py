@@ -149,7 +149,7 @@ def test_day_cell_memo_use_board_query(client, two):
     assert f'action="/cell/{D}/dawn/?board=ops"' in body
     assert 'href="/day/2026-11-13/?board=ops&amp;f=1' in body  # 앞 날짜
     assert f'value="/day/{D}/?board=ops"' in body  # 저장 뒤 돌아올 주소
-    r = client.post(f"/cell/{D}/dawn/?board=ops", {"before": na.username, "after": nb.username})
+    r = client.post(f"/cell/{D}/dawn/?board=ops", {"before": na.pk, "after": nb.pk})
     assert r.url == f"/day/{D}/?board=ops"
     assert Commute.objects.get(period__board=board, date=D).member == nb
     assert client.get(f"/memo/day/{D}/").status_code == 404  # IT 관리자는 아니다
@@ -186,7 +186,7 @@ def test_member_cannot_edit_other_board_by_forged_query(client, two, it_board):
 
     before = counts()
     client.force_login(na)
-    r = client.post(f"/cell/{D}/dawn/?board=it", {"before": da.username, "after": ga.username})
+    r = client.post(f"/cell/{D}/dawn/?board=it", {"before": da.pk, "after": ga.pk})
     assert r.status_code == 403
     r = client.post(f"/cell/{D}/dawn/?board=it", {"set_reason": "1", "member": str(da.pk), "reason": "휴가"})
     assert r.status_code == 403

@@ -28,11 +28,16 @@ def validate_chat_id(value: int) -> None:
         raise ValidationError("0은 쓸 수 없습니다. 개인은 양수, 단톡방은 -로 시작하는 숫자입니다.")
 
 
+def unsafe_cell_text(value: str) -> bool:
+    """CSV·엑셀 칸에 그대로 나가는 이름에 쓰면 안 되는 글자: 제어 문자(엑셀 파일을 못 만든다),
+    앞 + = - @ 탭(CSV 를 엑셀로 열 때 수식으로 실행된다)."""
+    return any(ord(c) < 32 or ord(c) == 127 for c in value) or value.startswith(("+", "=", "-", "@", "\t"))
+
+
 def validate_member_name(value: str) -> None:
-    # '>', ',', 줄바꿈, 앞 '+'는 라벨(A>B, +B)·CSV 문법이라 이름에 쓰면 깨진다.
-    # 앞 = - @ 탭은 CSV 를 엑셀로 열 때 수식으로 실행된다
-    if any(c in value for c in ">,\n\r") or value.startswith(("+", "=", "-", "@", "\t")):
-        raise ValidationError("이름에 > , 줄바꿈을 쓸 수 없고 + = - @ 탭으로 시작할 수 없습니다.")
+    # '>', ',', 줄바꿈, 앞 '+'는 라벨(A>B, +B)·CSV 문법이라 이름에 쓰면 깨진다
+    if any(c in value for c in ">,") or unsafe_cell_text(value):
+        raise ValidationError("이름에 > , 줄바꿈·제어 문자를 쓸 수 없고 + = - @ 탭으로 시작할 수 없습니다.")
     if split_reason(value)[1]:  # 표·CSV 의 "이름(휴가)"와 헷갈린다
         raise ValidationError("이름이 (휴가)·(출장)·(교육)으로 끝날 수 없습니다.")
 

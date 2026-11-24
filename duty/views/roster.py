@@ -52,10 +52,12 @@ def _visible(labels: list[str], why: dict[str, str], history: bool) -> list[str]
     return labels if history else [n for n in _latest(labels) if n not in why]
 
 
-def _member(username: str | None) -> User | None:
-    if not username:
+def _member(value: str | None) -> User | None:
+    """근무 변경 창의 From/To 값(사람 번호). 로그인 아이디는 보기 전용 사용자에게도 가는 목록이라 쓰지 않는다."""
+    if not value:
         return None
-    m = User.objects.filter(username=username).first()
+    pk = int_param(value)
+    m = User.objects.filter(pk=pk).first() if pk is not None else None
     if m is None:
         raise DutyError("없는 멤버입니다.")  # 조작된 코드가 '삭제'로 해석되지 않게
     return m
@@ -191,7 +193,7 @@ def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types
         "carry": kind(cell) == SHIFT and any(x.key == LUNCH and x.active for x in defs),
         "current_members": current_members, "reason_choices": REASONS,
         "has_slots": any(kind(x.key) == SLOT and x.active for x in defs),  # 사유 안내의 "관제" 문구
-        "to_options": [{"username": m.username, "name": m.name, "dept": m.department.name,
+        "to_options": [{"pk": m.pk, "name": m.name, "dept": m.department.name,
                         "where": where.get(m.name, "근무 없음")} for m in members if m.name not in current],
     }
 
@@ -379,8 +381,7 @@ def cell(request, d, cell):
         reason_form = bool(request.POST.get("set_reason"))  # 근무조 칸의 사유 선택(같은 창의 두 번째 폼)
         try:
             if reason_form:
-                pk = int_param(request.POST.get("member"))  # 위 폼과 option 값이 겹치지 않게 아이디 대신 번호
-                member = User.objects.filter(pk=pk).first() if pk is not None else None
+                member = _member(request.POST.get("member"))
                 if member is None:
                     raise DutyError("사유를 붙일 사람을 골라 주세요.")
                 result = changes.set_reason(request.user, board, d, member, request.POST.get("reason", ""))

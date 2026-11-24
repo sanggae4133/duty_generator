@@ -29,6 +29,11 @@ def save_draft(period: Period, by=None) -> Period:
         raise DutyError(f"기간은 '{_names(board, board.editable())}' 단계에서만 고칠 수 있습니다.")
     if period.start_date > period.end_date:
         raise DutyError("시작일이 종료일보다 늦습니다.")
+    # 주소의 날짜 범위(urls.py)와 같은 해, 길이는 1년까지(아주 긴 회차는 화면마다 날짜를 수백만 개 만든다)
+    if period.start_date.year < 2000 or period.end_date.year > 2099:
+        raise DutyError("기간은 2000~2099년 안이어야 합니다.")
+    if (period.end_date - period.start_date).days > 365:
+        raise DutyError("기간은 1년을 넘을 수 없습니다.")
     if not period.dates():
         raise DutyError("기간에 평일이 없습니다.")
     clash = (
