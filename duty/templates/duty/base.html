@@ -14,7 +14,7 @@
   <meta name="htmx-config" content='{"allowEval":false}'>
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   <style>
-    /* NEXTRADE BI: RED #E50038(로고·위험), PURPLE #2B1B40(주요 동작). 지정 서체 Noto Sans CJK KR(없으면 시스템 글꼴) */
+    /* NEXTRADE BI: RED #E50038(로고·위험), PURPLE #2B1B40(주요 동작). 흰 글씨를 얹는 채움은 --red-fill·--today-fill(다크에서도 흰 글씨 대비 4.5:1 이상: #d6003a 5.4:1, #1d4ed8 6.7:1). 지정 서체 Noto Sans CJK KR(없으면 시스템 글꼴) */
     /* 화면 모드: <html data-theme="light|dark">(사용자가 고름) 또는 없음(시스템 설정). 다크 값은 아래 두 곳에 같이 둔다 */
     /* 글씨 크기: <html data-size="l|xl">(사용자가 고름, 없으면 보통). Pico 가 화면 폭마다 바꾸는 기본 크기에 곱한다 */
     :root[data-size=l] { font-size: calc(var(--pico-font-size) * 1.15); }
@@ -26,7 +26,7 @@
       --pico-primary-hover-border: #3f2a5e; --pico-primary-focus: rgba(75, 47, 127, .35); --pico-primary-inverse: #fff;
       --nxt-red: #e50038; --day-line: #9aa4b1; --duty-line: #dfe3e8; --chg: #e91e63; --pill-collect: #8a5300; --logo-filter: none;
       --memo-bg: #fff3cd; --memo-bar: #e0a100; --memo-fg: #3d2a00; --exc: #4b515b; --cell-hover: rgba(75, 47, 127, .15);
-      --today: #1d4ed8; --today-bg: #dbeafe; --sec-bg: #f8f9fc; --sec-line: #d5dae6; --we-bg: #eef0f5; --mine-line: #e8a3ad; --dim-fg: #7d8698;
+      --today: #1d4ed8; --today-bg: #dbeafe; --red-fill: #e50038; --today-fill: #1d4ed8; --sec-bg: #f8f9fc; --sec-line: #d5dae6; --we-bg: #eef0f5; --mine-line: #e8a3ad; --dim-fg: #7d8698;
     }
     @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) {
       --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
@@ -34,7 +34,7 @@
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
       --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8; --cell-hover: rgba(196, 178, 240, .15);
-      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #8a93a3;
+      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --red-fill: #d6003a; --today-fill: #1d4ed8; --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #8a93a3;
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     } }
     :root[data-theme=dark] {
@@ -43,7 +43,7 @@
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
       --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8; --cell-hover: rgba(196, 178, 240, .15);
-      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #8a93a3;
+      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --red-fill: #d6003a; --today-fill: #1d4ed8; --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #8a93a3;
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     }
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
@@ -51,9 +51,9 @@
     form.search .pair { display: flex; align-items: center; gap: .5rem; flex-wrap: nowrap; }
     form.search .names { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
     form.search fieldset.filter { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem 1rem; margin: 0; padding: .1rem .7rem .3rem; border: 1px solid var(--duty-line); border-radius: .3rem; }
-    form.search fieldset.filter legend { width: auto; margin: 0; padding: 0 .3rem; font-size: .75rem; opacity: .7; }
+    form.search fieldset.filter legend { width: auto; margin: 0; padding: 0 .3rem; font-size: .9rem; color: var(--pico-muted-color); }  /* 투명도 대신 흐린 글씨 색(대비 4.5:1 이상) */
     form.search fieldset.filter label { margin: 0; white-space: nowrap; font-size: .9rem; }
-    form.search .hint { flex-basis: 100%; margin: .25rem 0 0 .4rem; font-size: .8rem; opacity: .65; }
+    form.search .hint { flex-basis: 100%; margin: .25rem 0 0 .4rem; font-size: .9rem; color: var(--pico-muted-color); }
     form.search .name { display: flex; align-items: center; gap: .25rem; flex: 1 1 10rem; }
     form.search button { width: auto; margin: 0; white-space: nowrap; }
     /* 라벨이 위에 붙는 입력칸(placeholder 에만 기대지 않게) */
@@ -69,7 +69,7 @@
     .cal-title { margin: 0; white-space: nowrap; font-size: 1.3rem; }
     /* 묶음 버튼: 지금 선택이 채워진다 */
     .seg, .seg[role=group] { display: inline-flex; width: auto; margin: 0; box-shadow: none; border: 1px solid var(--pico-primary-border); border-radius: .4rem; overflow: hidden; }
-    .seg a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 .9rem; text-decoration: none; white-space: nowrap; }
+    .seg a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .9rem; text-decoration: none; white-space: nowrap; }
     .seg a + a { border-left: 1px solid var(--pico-primary-border); }
     .seg a[aria-current] { background: var(--pico-primary-background); color: var(--pico-primary-inverse); font-weight: 600; }
     /* 근무표 칸: 누를 수 있는 칸은 칸 전체가 누르는 영역 */
@@ -100,13 +100,13 @@
     section.danger h4 { margin: 0 0 .6rem; color: var(--nxt-red); font-size: 1rem; }
     section.danger form { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     button.danger-btn { width: auto; margin: 0; background: transparent; color: var(--nxt-red); border-color: var(--nxt-red); }
-    button.danger-btn:hover { background: var(--nxt-red); color: #fff; }
+    button.danger-btn:hover { background: var(--red-fill); color: #fff; }
     /* 메모: 날 메모는 휴장일 아래 한 줄, 근무 없음은 칸 전체를 덮는다. 주·달 메모는 표 위·아래(월간 주 메모는 그 주 행 아래) */
     .memo { margin: .2rem 0 0; }
     .memo, .memo-note.filled { padding: .15rem .4rem; border-left: 3px solid var(--memo-bar); border-radius: .25rem; background: var(--memo-bg); color: var(--memo-fg); font-weight: 700; }  /* 메모 글: 노란 상자 + 왼쪽 띠(밝게·어둡게 모두 대비) */
     .exc { font-weight: 400; font-style: normal; color: var(--exc); }  /* 사유 있는 사람: "이름(사유)" 전체 취소선·회색(배경과 대비 4.5:1 이상, 변경 내역을 끄면 안 보임) */
     .nowork { margin: .4rem 0 0; padding: 1.2rem .4rem; border-radius: .3rem; text-align: center; font-weight: 700; background: var(--duty-line); }
-    .memo-btn { margin-left: .3rem; font-size: .8rem; white-space: nowrap; }
+    .memo-btn { display: inline-flex; align-items: center; min-height: 44px; margin-left: .3rem; font-size: .8rem; white-space: nowrap; }
     /* 여러 근무표 겹쳐 보기(둘 이상 골랐을 때만 그린다, 근무표 통합 5단계): 구역 = 이름표 → 날 메모 → 칸.
        이름표 띠는 중립색(링크 색이면 눌리는 것처럼 보인다), 바꿀 수 없는 구역 표시는 흐리게도 작게도 하지 않는다(시력이 약한 사용자, 굵기로만 구분) */
     .bname { margin: .35rem 0 .1rem; padding-left: .4rem; border-left: 4px solid var(--pico-muted-border-color); font-size: 1.05em; font-weight: 700; color: var(--pico-color); }
@@ -146,7 +146,7 @@
     /* 오늘 표시는 border-collapse 경합을 피하려고 inset 그림자로 그린다 */
     table.roster.month td.today-col { box-shadow: inset 0 0 0 3px var(--today); position: relative; }  /* 오늘 = 파랑(빨강·분홍은 '나') */
     @keyframes blink { 0%, 100% { background: transparent; } 50% { background: var(--today-bg); } }
-    .today-tag { margin-left: .3rem; padding: 0 .4rem; border-radius: .3rem; background: var(--today); color: #fff; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+    .today-tag { margin-left: .3rem; padding: 0 .4rem; border-radius: .3rem; background: var(--today-fill); color: #fff; font-size: .8rem; font-weight: 700; white-space: nowrap; }
     .blink { animation: blink .4s 3; }
     @media (max-width: 768px) { .grid-wrap { margin: 0 calc(-1 * var(--pico-spacing, 1rem)); } }
     .grid-wrap { overflow-x: auto; }
@@ -172,11 +172,11 @@
     .topbar .account a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .5rem; }
     .topbar .account .who { opacity: .7; }
     .topbar .account form { margin: 0; }
-    .topbar .account button { width: auto; margin: 0; min-height: 40px; padding: .25rem .8rem; font-size: .85rem; }
-    .topbar .account .theme-btn, .topbar .account .size-btn { min-width: 40px; padding: .25rem .5rem; font-size: 1rem; line-height: 1; }
+    .topbar .account button { width: auto; margin: 0; min-height: 44px; padding: .25rem .8rem; font-size: .85rem; }
+    .topbar .account .theme-btn, .topbar .account .size-btn { min-width: 44px; padding: .25rem .5rem; font-size: 1rem; line-height: 1; }
     .topbar nav.menu ul { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0 0 .7rem; }
     .topbar nav.menu li { list-style: none; margin: 0; padding: 0; }
-    .topbar nav.menu a { display: block; margin: 0; padding: .5rem .9rem; border: 1px solid var(--duty-line); border-radius: 999px;
+    .topbar nav.menu a { display: flex; align-items: center; min-height: 44px; margin: 0; padding: .5rem .9rem; border: 1px solid var(--duty-line); border-radius: 999px;
       text-decoration: none; font-size: .9rem; color: var(--pico-color); white-space: nowrap; }
     .topbar nav.menu a:hover { border-color: var(--pico-primary); }
     .topbar nav.menu a[aria-current=page] { background: var(--pico-primary-background); border-color: var(--pico-primary-background);
@@ -236,13 +236,13 @@
     .histdim .tk.old, .histdim .ar, .histdim .lb.rm, .histdim .lb.exc { opacity: .45; }
     .histdim .chg { font-weight: inherit; color: inherit; }
     .dimbox { display: inline-block; width: .9em; height: .9em; vertical-align: -.1em; border-radius: .2em; background: linear-gradient(transparent 42%, #fff 42%, #fff 58%, transparent 58%) center / 60% 100% no-repeat, var(--pico-primary-background); }  /* 체크 상자 흐리게(indeterminate)와 같은 모양: 채운 상자 + 흰 가로줄 */
-    .tk.me { padding: 0 .3em; border-radius: .3em; background: var(--nxt-red); color: #fff; font-weight: 800; }
+    .tk.me { padding: 0 .3em; border-radius: .3em; background: var(--red-fill); color: #fff; font-weight: 800; }
     .tk.me s { color: #fff; }
     .dim .tk:not(.me):not(.hl1):not(.hl2):not(.hl3), .dim .lb:not(:has(.me)) .ar { color: var(--dim-fg); }  /* 나·검색 강조만 빼고 모두(바뀐 근무는 기울임 모양만 남는다) */
-    .mychip { margin-left: .3rem; padding: 0 .4rem; border-radius: .3rem; background: var(--nxt-red); color: #fff; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+    .mychip { margin-left: .3rem; padding: 0 .4rem; border-radius: .3rem; background: var(--red-fill); color: #fff; font-size: .8rem; font-weight: 700; white-space: nowrap; }
     .mdot { display: none; }
     details.slot { margin-bottom: 0; }
-    details.slot > summary { display: flex; align-items: center; gap: .2rem .4rem; min-height: 2rem; }
+    details.slot > summary { display: flex; align-items: center; gap: .2rem .4rem; min-height: 44px; }  /* 손가락 크기(PC 월간은 아래에서 0) */
     details.slot > summary::after { display: none; }  /* Pico 화살표 대신 '10명 ▾' */
     details.slot > summary .mychip { margin-left: auto; }
     /* PC 월간: 근무조마다 한 줄(이름은 줄이지 않고 이어서 줄바꿈) */

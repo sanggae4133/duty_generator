@@ -140,9 +140,9 @@ def test_rule_types_only_on_board_with_slots(client, depts, it_board, ops, admin
     assert alarms.save_rule(admin_user, report_base(board.pk, types=["직원"])).types == []
     client.force_login(admin_user)
     page = client.post("/alarms/rules/new/", {**FORM, "kind": "report", "board": str(board.pk), "redraw": "1"})
-    assert "<legend>유형</legend>" not in page.content.decode()
+    assert "<legend>구분</legend>" not in page.content.decode()
     page = client.post("/alarms/rules/new/", {**FORM, "kind": "report", "board": str(it_board.pk), "redraw": "1"})
-    assert "<legend>유형</legend>" in page.content.decode()
+    assert "<legend>구분</legend>" in page.content.decode()
 
 
 def test_rule_page_board_field_only_with_two_boards(client, depts, request):
@@ -158,7 +158,7 @@ def test_rule_list_names_shifts_by_rule_board(client, depts, ops, admin_user):
     AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
                              at_minute=18 * 60, telegram=True, shifts=["dawn"], depts=[], types=[])
     client.force_login(admin_user)
-    assert "스케줄: 오전" in client.get("/alarms/").content.decode()
+    assert "근무: 오전" in client.get("/alarms/").content.decode()
 
 
 def test_rule_list_ignores_stored_types_on_board_without_slots(client, depts, ops, admin_user):
@@ -167,7 +167,7 @@ def test_rule_list_ignores_stored_types_on_board_without_slots(client, depts, op
     AlarmRule.objects.create(user=admin_user, kind="report", board=board, timing="days", offset=1,
                              at_minute=18 * 60, telegram=True, shifts=["dawn"], depts=[], types=["개발자"])
     client.force_login(admin_user)
-    assert "유형: 전부" in client.get("/alarms/").content.decode()
+    assert "구분: 전부" in client.get("/alarms/").content.decode()
 
 
 # ---- 정기 알림 ----
@@ -229,7 +229,7 @@ def test_change_notice_uses_period_board_names(env, depts, ops):
     p = published(board, (b, "dawn"))
     ChangeLog.objects.create(period=p, date=D, cell="dawn", before=a, after=b)
     change_notice.tick(timezone.now())
-    assert sorted(env) == [(c, "[근무 변경] 11/16(월) 오전\n가상운영 → 가상운영둘\n바꾼 사람: -") for c in ("222", "333")]
+    assert sorted(env) == [(c, "[근무 변경] 내일 11/16(월) 오전 07:30~16:30\n가상운영 → 가상운영둘\n바꾼 사람: -") for c in ("222", "333")]
 
 
 def test_change_notice_sent_when_period_owns_empty_day(env, depts, it_board):
@@ -238,7 +238,7 @@ def test_change_notice_sent_when_period_owns_empty_day(env, depts, it_board):
     p = published(it_board)
     ChangeLog.objects.create(period=p, date=D, cell="dawn", before=a, after=None)
     change_notice.tick(timezone.now())
-    assert env == [("111", "[근무 변경] 11/16(월) 새벽\n가상아이 빠짐\n바꾼 사람: -")]
+    assert env == [("111", "[근무 변경] 내일 11/16(월) 새벽 06:30~15:30\n가상아이 빠짐\n바꾼 사람: -")]
 
 
 def test_change_notice_skipped_when_newer_period_owns_day(env, depts, it_board):

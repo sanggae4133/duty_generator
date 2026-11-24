@@ -96,6 +96,13 @@ def test_empty_clears_regardless_of_cooldown(client, me, bot):
     assert p.chat_id == "" and p.verified_at is None
 
 
+def test_connected_status_hides_chat_id(client, me):
+    """연결 상태에 chat_id 숫자를 보이지 않는다(DS-TG-CHATID)."""
+    TelegramAlarmProfile.objects.create(user=me, chat_id="424242", verified_at=timezone.now())
+    body = client.get("/alarms/").content.decode()
+    assert "연결됨 (" in body and "424242" not in body
+
+
 # ---- 텔레그램 자동 연결 ----
 
 def test_link_redirect(client, me, bot):

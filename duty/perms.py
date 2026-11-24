@@ -56,7 +56,7 @@ def assert_can_edit(user, board, d: date) -> None:
     if not (user.is_authenticated and user.department_id and user.department.board_id == board.pk):
         raise PermissionDenied("이 근무표를 바꿀 권한이 없습니다.")
     if d < today():
-        raise PermissionDenied("지난 날짜는 어드민만 수정할 수 있습니다.")
+        raise PermissionDenied("지난 날짜는 관리자만 수정할 수 있습니다.")
 
 
 def can_edit(user, board, d: date) -> bool:

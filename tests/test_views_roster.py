@@ -184,6 +184,8 @@ def test_day_page(client, world):
     client.force_login(a)
     body = client.get(f"/day/{D}/").content.decode()
     assert "08:30~09:30" in body and 'name="a"' not in body  # 따로 있던 맞교환 폼은 없다
+    assert 'aria-label="전날"' in body and 'aria-label="다음 날"' in body  # ◀ ▶ 를 읽기 프로그램이 읽게(DS-DAY-NAV-LABEL)
+    assert f"{D.month}월 {D.day}일 (" in body and f"<strong>{D:%Y-%m-%d}" not in body
 
 
 def test_dept_page_removed(client, world):

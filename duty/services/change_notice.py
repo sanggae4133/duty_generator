@@ -38,9 +38,9 @@ def tick(now) -> int:
         defs = defs_of[board.pk]
         by = (r.by.name or r.by.username) if r.by else "-"
         if pair:
-            title, text = m.swap_notice(defs, r.date, r.cell, r.before.name, pair.cell, r.after.name, by)
+            title, text = m.swap_notice(defs, r.date, today, r.cell, r.before.name, pair.cell, r.after.name, by)
         else:
-            title, text = m.change_notice(defs, r.date, r.cell, r.before and r.before.name,
+            title, text = m.change_notice(defs, r.date, today, r.cell, r.before and r.before.name,
                                           r.after and r.after.name, by)
         for u in {r.before, r.after} - {None, r.by}:
             if u.is_active and u.notify_changes:

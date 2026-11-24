@@ -53,10 +53,10 @@
   <label class="date">종료일<input type="date" name="end" value="{{ export.1|date:'Y-m-d' }}" required></label>
   <p class="hint">기간은 1년까지 고를 수 있습니다. 배포된 근무만 들어갑니다.</p>
   {% if pick_boards %}<fieldset><legend>근무표</legend>{% for b in pick_boards %}<label><input type="checkbox" name="board" value="{{ b.code }}"{% if b.on %} checked{% endif %}> {{ b.name }}{% if b.home %} (내 근무표){% endif %}</label>{% endfor %}</fieldset>
-  <p class="hint">하나도 고르지 않으면 내 근무표만 받습니다.{% if filterable %} 부서·유형·스케줄은 내 근무표에만 적용됩니다.{% endif %}</p>{% endif %}
+  <p class="hint">하나도 고르지 않으면 내 근무표만 받습니다.{% if filterable %} 부서·구분·근무는 내 근무표에만 적용됩니다.{% endif %}</p>{% endif %}
   {% if filterable %}<fieldset><legend>부서</legend>{% for c in dept_choices %}<label><input type="checkbox" name="dept" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  {% if type_choices %}<fieldset><legend>유형</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
-  <fieldset><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
+  {% if type_choices %}<fieldset><legend>구분</legend>{% for c in type_choices %}<label><input type="checkbox" name="type" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
+  <fieldset><legend>근무</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>{% endif %}
   <button>엑셀 다운로드</button>
 </form></div>
 <div id="roster-root"{% if not history %} class="nohist"{% elif hist_dim %} class="histdim"{% endif %}>

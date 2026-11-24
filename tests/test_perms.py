@@ -76,7 +76,7 @@ def test_can_edit_own_board_only(fixed_today, it_board, ops, make_member):
         assert not perms.can_edit(u, it_board, today)
     with pytest.raises(PermissionDenied, match="이 근무표를 바꿀 권한이 없습니다"):
         perms.assert_can_edit(m, ops[0], today)
-    with pytest.raises(PermissionDenied, match="지난 날짜는 어드민만"):
+    with pytest.raises(PermissionDenied, match="지난 날짜는 관리자만"):
         perms.assert_can_edit(m, it_board, past)
 
 

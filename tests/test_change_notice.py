@@ -59,7 +59,7 @@ def test_opt_out_and_push(world):
     change_notice.tick(NOW)
     assert sorted(x for x, _ in sent) == ["11", f"push:{sub.pk}"]
     push = dict(sent)[f"push:{sub.pk}"]
-    assert push.startswith("[근무 변경] 11/10(화)") and dict(sent)["11"].startswith(push)  # 텔레그램과 같은 글(링크 줄만 빼고)
+    assert push.startswith("[근무 변경] 오늘 11/10(화)") and dict(sent)["11"].startswith(push)  # 텔레그램과 같은 글(링크 줄만 빼고)
 
 
 def test_old_or_past_changes_are_skipped(world, fixed_today):
@@ -71,10 +71,10 @@ def test_old_or_past_changes_are_skipped(world, fixed_today):
 
 
 def test_message_text():
-    title, text = m.change_notice(IT_DEFS, D, "slot0", "가", "나", "관리자")
+    title, text = m.change_notice(IT_DEFS, D, D, "slot0", "가", "나", "관리자")
     assert title == "근무 변경" and "11/10(화)" in text and "장중관제 08:30~09:30" in text
     assert "가 → 나" in text and "관리자" in text
-    assert "+나" in m.change_notice(IT_DEFS, D, "normal", None, "나", "관리자")[1]
+    assert "나 추가" in m.change_notice(IT_DEFS, D, D, "normal", None, "나", "관리자")[1]
 
 
 def test_toggle_view(client, world):

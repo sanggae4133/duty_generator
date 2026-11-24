@@ -205,7 +205,7 @@ def test_gen_help_mixed_types_described_generically():
                     Def("slot2", "관제2", time(10), time(11), ("dawn",))]
     for defs in (differ, empty):
         h = gen_help(defs)
-        assert (h["types"], h["who"], h["whom"]) == ("칸마다 정한 유형", "사람", "사람을")
+        assert (h["types"], h["who"], h["whom"]) == ("칸마다 정한 구분", "사람", "사람을")
     same = base + [Def("slot1", "관제1", time(9), time(10), ("dawn",), ("직원", "개발자")),
                    Def("slot2", "관제2", time(10), time(11), ("dawn",), ("개발자", "직원"))]
     assert gen_help(same)["types"] == "직원·개발자"
@@ -262,7 +262,7 @@ def test_period_page_with_draft_off_and_close_on(it_board, admin_user, client):
     p.save()
     body = client.get(f"/periods/{p.pk}/").content.decode()  # 2단계: 생성 방식 문장은 이 근무표의 관제 정의에서
     assert ">장중관제 생성</button>" in body and "장중관제 1칸(10:00~11:00)에 직원을 한 명씩" in body
-    assert "직원이고 그날 그 칸의 출근조에 있어야 합니다." in body and "모든 칸은 이른만 됩니다." in body
+    assert "직원이고 그날 그 칸의 근무조에 있어야 합니다." in body and "모든 칸은 이른만 됩니다." in body
 
 
 def test_renamed_steps_rename_buttons(it_board, admin_user, client):

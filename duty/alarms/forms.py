@@ -21,9 +21,9 @@ class RuleForm(forms.Form):
                               widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
     telegram = forms.BooleanField(label="텔레그램", required=False, initial=True)
     push = forms.BooleanField(label="푸시", required=False)
-    shifts = forms.MultipleChoiceField(label="스케줄", required=False, widget=forms.CheckboxSelectMultiple)
+    shifts = forms.MultipleChoiceField(label="근무", required=False, widget=forms.CheckboxSelectMultiple)
     depts = forms.MultipleChoiceField(label="부서", required=False, widget=forms.CheckboxSelectMultiple)
-    types = forms.MultipleChoiceField(label="유형", choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)], required=False,
+    types = forms.MultipleChoiceField(label="구분", choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)], required=False,
                                       widget=forms.CheckboxSelectMultiple)
 
     def __init__(self, *args, user=None, **kwargs):

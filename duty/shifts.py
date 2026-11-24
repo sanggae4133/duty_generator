@@ -106,7 +106,7 @@ def gen_help(defs: list[Def]) -> dict | None:
         types = "·".join(slots[0].eligible_types)  # 비면 구분 없이 누구나
         who = types or "사람"
     else:  # 칸마다 유형이 다르거나 일부만 누구나: 합치면 틀린 문장이 된다
-        types, who = "칸마다 정한 유형", "사람"
+        types, who = "칸마다 정한 구분", "사람"
     return {"count": len(slots), "start": min(x.start for x in slots), "end": max(x.end for x in slots), "types": types,
             "who": who, "whom": who + josa(who, "을/를"), "rule": ", ".join(rule)}
 

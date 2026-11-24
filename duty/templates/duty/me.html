@@ -6,8 +6,8 @@
   <label class="date">시작일<input type="date" name="start" value="{{ start|date:'Y-m-d' }}"></label>
   <label class="date">종료일<input type="date" name="end" value="{{ end|date:'Y-m-d' }}"></label>
   <p class="hint">종료일을 비우면 마지막 근무까지 보입니다.</p>
-  <fieldset><legend>스케줄</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
-  <p class="hint">스케줄을 모두 해제하면 전체 표시</p>
+  <fieldset><legend>근무</legend>{% for c in shift_choices %}<label><input type="checkbox" name="shift" value="{{ c.code }}"{% if c.checked %} checked{% endif %}> {{ c.name }}</label>{% endfor %}</fieldset>
+  <p class="hint">근무를 모두 해제하면 전체 표시</p>
   <button>보기</button><button class="outline" formaction="{% url 'me_export' %}">엑셀 다운로드</button>
 </form>
 {% if error %}<div class="msg error" role="alert">{{ error }}</div>{% endif %}
@@ -16,6 +16,7 @@
 <li{% if it.today or it.off %} class="{% if it.off %}off{% endif %}{% if it.today and it.off %} {% endif %}{% if it.today %}today{% endif %}"{% endif %}{% if it.today %} aria-current="date"{% endif %}><a href="{% url 'day' it.date %}"><span class="when">{{ it.date|date:"n/j" }} ({{ it.weekday }}){% if it.today %} 오늘{% endif %}</span><span class="what">{% for k, t in it.labels %}<span class="w{% if forloop.first %} f{% endif %}" data-k="{{ k }}">{{ t }}</span>{% empty %}{{ it.why }}{% endfor %}</span></a></li>
 {% endfor %}</ul>
 {% endif %}{% if member %}<p id="me-empty"{% if items %} hidden{% endif %}>예정된 근무가 없습니다.</p>
+<p id="me-empty-filter" hidden>고른 근무가 없습니다. 근무 체크를 바꿔 보세요.</p>
 <script>  {# 목록 뒤에 둔다: 처음 열 때(?shift=)도 거른다 #}
   // 스케줄 체크는 서버에 묻지 않고 바로 거른다(기간은 [보기]로). 주소창에도 남겨 [엑셀 다운로드]·새로고침이 같은 조건
   (() => {
@@ -35,8 +36,9 @@
         li.classList.toggle("x", !show);
         any = any || show;
       });
-      const empty = document.getElementById("me-empty");
-      if (empty) empty.hidden = any;
+      const rows = document.querySelectorAll("ul.mine li").length;  // 근무가 있는데 체크로 다 걸렀으면 다른 안내
+      document.getElementById("me-empty").hidden = any || rows > 0;
+      document.getElementById("me-empty-filter").hidden = any || !rows;
       const u = new URL(location.href);
       u.searchParams.delete("shift");
       if (!all) on.forEach(v => u.searchParams.append("shift", v));

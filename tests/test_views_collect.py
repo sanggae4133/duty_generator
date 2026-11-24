@@ -109,7 +109,7 @@ def test_past_row_unchanged_ok_changed_rejected(client, ctx, fixed_today):
     r = client.post(f"/collect/{p.pk}/MEMS/", {"c_2026-11-09_normal": "가", "c_2026-11-10_dawn": "가"})
     assert r.status_code == 302 and Commute.objects.count() == 2
     r = client.post(f"/collect/{p.pk}/MEMS/", {"c_2026-11-09_dawn": "가", "c_2026-11-10_dawn": "가"})
-    assert r.status_code == 400 and "지난 날짜는 어드민만 수정할 수 있습니다." in r.content.decode()
+    assert r.status_code == 400 and "지난 날짜는 관리자만 수정할 수 있습니다." in r.content.decode()
     assert set(Commute.objects.values_list("date", "shift")) == {(date(2026, 11, 9), "normal"), (date(2026, 11, 10), "dawn")}
 
 

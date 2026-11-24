@@ -69,7 +69,7 @@ def test_rejects_shift_department_does_not_have(setup, depts, make_member, admin
     table = {date(2026, 11, 9): {"dawn": ["유아이"]}}
     with pytest.raises(CsvInvalid) as e:
         collect.apply_table(admin_user, p, depts["UI"], table)
-    assert "출근조가 없습니다" in reasons(e)
+    assert "근무조가 없습니다" in reasons(e)
 
 
 def test_errors_mean_nothing_is_written(setup):

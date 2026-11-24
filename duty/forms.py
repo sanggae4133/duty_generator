@@ -94,7 +94,7 @@ class BoardShiftFormSet(forms.BaseInlineFormSet):
             tail = "아래 부서에서 켜진 근무조를 하나 이상 체크하세요."
         else:
             planned = {d.name: set(d.shift_keys()) for d in self.instance.departments.all()} if self.instance.pk else {}
-            tail = "부서의 출근조를 먼저 바꾸세요."
+            tail = "부서의 근무조를 먼저 바꾸세요."
         for name, picked in planned.items():
             if not picked & on_keys:
                 raise ValidationError(f"{name} 부서에 켜진 근무조가 하나도 남지 않습니다. {tail}")
@@ -135,8 +135,8 @@ class StepsForm(forms.ModelForm):
 class DeptShiftsForm(forms.ModelForm):
     """[근무표 설정] 부서 한 덩어리(설계 7.2): 가능한 출근조(그 근무표의 켜진 근무조, 시작 시각 순, "이름 시작~끝")와 점심 시각.
     점심 시각 검사는 모델 제약 department_lunch_valid(같은 한국어 문구). 출근조 저장은 board_settings.save_shifts 가 한다."""
-    shifts = forms.MultipleChoiceField(label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
-                                       error_messages={"required": "출근조를 하나 이상 선택하세요."})
+    shifts = forms.MultipleChoiceField(label="가능한 근무조", widget=forms.CheckboxSelectMultiple,
+                                       error_messages={"required": "근무조를 하나 이상 선택하세요."})
 
     class Meta:
         model = Department
