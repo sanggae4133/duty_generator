@@ -304,6 +304,7 @@
     </div>
     {% if menu %}<nav class="menu" aria-label="메뉴"><ul>{% for m in menu %}<li><a href="{{ m.url }}"{% if m.active %} aria-current="page"{% endif %}>{{ m.label }}</a></li>{% endfor %}</ul></nav>{% endif %}
   </header>
+  {% if worker_stale %}<div class="msg error" role="alert">작업자(run_worker)가 10분 넘게 돌지 않습니다. 알림·백업·장애 알림이 멈췄습니다. 서버에서 <code>systemctl status duty-worker</code> 와 worker.log 를 확인하세요.</div>{% endif %}
   {% for m in messages %}{% if not m.extra_tags %}<div class="msg {{ m.tags }}" role="{% if m.level >= 40 %}alert{% else %}status{% endif %}">{{ m }}</div>{% endif %}{% endfor %}{# 칸 태그가 있는 메시지는 그 칸 안에서(근무표 설정) #}
   {% block content %}{% endblock %}
   {% if repo_url %}<footer class="site-foot">Made by SJ · <a href="{{ repo_url }}" target="_blank" rel="noopener">GitHub</a></footer>{% endif %}

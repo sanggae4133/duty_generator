@@ -1,6 +1,7 @@
 """DB 백업·복원(data/backups/). 백업은 SQLite 백업 API 로 뜬다(WAL 까지 담긴 일관된 단일 파일, 서비스가 도는 중에도 안전).
 
 - 매일: run_worker 가 BACKUP_HOUR 시 이후 처음 돌 때 db-YYYYMMDD.sqlite3, 그 뒤 BACKUP_KEEP_DAYS 일보다 오래된 db-* 정리
+  BACKUP_COPY_DIR(다른 디스크·NAS)를 정했으면 같은 파일을 그곳에도 한 벌(보관 규칙도 같다)
 - 손으로: manage.py backup → db-YYYYMMDD-HHMMSS.sqlite3 (같은 보관 규칙)
 - 복원: manage.py restore <파일> → 지금 DB 를 before-restore-*.sqlite3 로 남기고 교체(이 파일들은 지우지 않는다)
 """
@@ -58,9 +59,9 @@ def _backup_to(src: Path, tmp: Path) -> None:
         s.close()
 
 
-def prune(today: date) -> None:
+def prune(today: date, folder=None) -> None:
     cutoff = today - timedelta(days=settings.BACKUP_KEEP_DAYS)
-    for p in settings.BACKUP_DIR.glob("db-*.sqlite3"):
+    for p in Path(folder or settings.BACKUP_DIR).glob("db-*.sqlite3"):
         m = DATED.fullmatch(p.name)
         if m and datetime.strptime(m[1], "%Y%m%d").date() < cutoff:
             p.unlink()
@@ -75,11 +76,11 @@ def backup_now(now) -> Path:
 RECENT = 26 * 3600  # 상태 점검의 "최근 백업" 기준과 같다
 
 
-def has_recent() -> bool:
+def has_recent(folder=None) -> bool:
     """RECENT 안에 만든 db-* 백업이 있는가(파일 수정 시각 기준)."""
     cutoff = time.time() - RECENT
     try:
-        return any(p.stat().st_mtime >= cutoff for p in Path(settings.BACKUP_DIR).glob("db-*.sqlite3"))
+        return any(p.stat().st_mtime >= cutoff for p in Path(folder or settings.BACKUP_DIR).glob("db-*.sqlite3"))
     except OSError:
         return False
 
@@ -94,6 +95,14 @@ def daily(now) -> Path | None:
     copy_db(settings.DB_PATH, dest)
     prune(local.date())
     log.info("backup: %s", dest.name)
+    if copy_dir := settings.BACKUP_COPY_DIR:
+        # 폴더를 만들지 않는다: NAS 가 마운트되지 않았으면 빈 마운트 지점(로컬 디스크)에 쓰게 된다.
+        # 실패하면 그날은 다시 하지 않는다(상태 점검이 26시간 뒤 '사본 없음'으로 알린다)
+        if not Path(copy_dir).is_dir():
+            raise DutyError(f"DUTY_BACKUP_COPY_DIR 폴더가 없습니다(마운트 확인): {copy_dir}")
+        copy_db(dest, Path(copy_dir) / dest.name)
+        prune(local.date(), copy_dir)
+        log.info("backup copy: %s", dest.name)
     return dest
 
 

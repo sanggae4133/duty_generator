@@ -52,6 +52,8 @@ if not ADMIN_PATH or (not DEBUG and ADMIN_PATH == "admin"):  # 운영은 짐작�
 DATA_DIR = BASE_DIR / (env("DUTY_DATA_DIR") or "data")
 DB_PATH = DATA_DIR / "db.sqlite3"
 BACKUP_DIR = DATA_DIR / "backups"
+# 하루 백업을 한 벌 더 두는 곳(다른 디스크·NAS 마운트). 비우면 끔. 상대 경로는 저장소 루트 기준
+BACKUP_COPY_DIR = BASE_DIR / env("DUTY_BACKUP_COPY_DIR") if env("DUTY_BACKUP_COPY_DIR") else None
 LOG_DIR = DATA_DIR / "logs"
 ALARMS_LOCK_PATH = DATA_DIR / ".alarms.lock"  # run_worker 를 하나만 돌게
 TELEGRAM_UPDATES_LOCK_PATH = DATA_DIR / ".telegram-updates.lock"  # [연결 확인]의 getUpdates 를 한 번에 하나만

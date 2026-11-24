@@ -10,6 +10,7 @@ import fcntl
 import logging
 import time
 from collections import Counter
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -19,14 +20,15 @@ from duty.logging import log_to_file
 from duty.services import alarm_runner, backup, change_notice, health, holidays, memo_notice
 
 log = logging.getLogger("duty.worker")
-HEALTH_EVERY = 5  # 분
+HEALTH_EVERY = timedelta(minutes=5)
 
 
-def run_round(now, everything=False, skip_health=False) -> None:
+def run_round(now, health_due=True) -> None:
+    health.beat()
     # 백업·점검을 먼저: 알림 발송은 건마다 최대 10초라 네트워크가 느리면 오래 걸린다(그동안 백업·점검이 밀리지 않게)
     # 휴장일이 맨 앞: 영업일 기준 알림·근무표가 읽기 전에 올해·내년 휴장일이 표에 있게
     jobs = [("holidays", lambda t: holidays.sync(timezone.localdate(t))), ("backup", backup.daily)]
-    if everything or (not skip_health and timezone.localtime(now).minute % HEALTH_EVERY == 0):
+    if health_due:
         jobs.append(("health", health.check))
     jobs.append(("changes", change_notice.tick))  # 내 근무가 바뀌면 알림: 정기 알림보다 먼저('바로' 가게)
     jobs.append(("memos", memo_notice.tick))  # 메모 알림(켠 사람만)
@@ -58,13 +60,17 @@ class Command(BaseCommand):
                 raise CommandError("다른 run_worker가 실행 중입니다.", returncode=1) from None
             log_to_file("worker")
             if once:
-                run_round(timezone.now(), everything=True)
+                run_round(timezone.now())
                 return
             log.info("worker started")
-            first = True
+            # 첫 점검은 켜지고 5분 뒤: 재부팅·업그레이드 직후 아직 뜨는 중인 웹을 "응답 없음"으로 알리지 않게.
+            # 분 단위가 아니라 마지막 점검 시각으로 센다(한 바퀴가 1분을 넘겨도 점검을 건너뛰지 않게)
+            last_health = timezone.now()
             while True:
-                # 첫 바퀴는 점검을 건너뛴다: 재부팅·업그레이드 직후 아직 뜨는 중인 웹을 "응답 없음"으로 알리지 않게
-                run_round(timezone.now(), skip_health=first)
-                first = False
+                now = timezone.now()
+                due = now - last_health >= HEALTH_EVERY - timedelta(seconds=30)  # 바퀴 시작 몇 초 차이는 봐준다
+                if due:
+                    last_health = now
+                run_round(now, health_due=due)
                 now = timezone.now()
                 time.sleep(60 - now.second - now.microsecond / 1e6)

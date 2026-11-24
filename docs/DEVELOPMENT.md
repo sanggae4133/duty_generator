@@ -15,7 +15,7 @@ cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 ```
 
 - `.env` 없이 `DUTY_DEBUG=1 .venv/bin/python manage.py runserver` 처럼 앞에 환경변수를 붙여도 된다(환경변수가 `.env` 보다 이긴다).
-- 개발 PC 에서 `run_worker` 를 켜면 실제로 알림을 보낸다(관리 화면에 봇 토큰을 넣었을 때). 상태 점검은 웹을 nginx 주소 `127.0.0.1:8008` 에서 찾으므로, runserver(8000)만 켰다면 "웹 응답 없음"이 로그에 남는다(장애 알림 chat_id 를 비워 두면 보내지는 않는다).
+- 개발 PC 에서 `run_worker` 를 켜면 실제로 알림을 보낸다(관리 화면에 봇 토큰을 넣었을 때). 상태 점검은 웹을 nginx 주소 `127.0.0.1:8008` 에서 찾으므로, runserver(8000)만 켰다면 "웹 응답 없음"이 로그에 남는다(장애 알림 chat_id 를 비워 두면 보내지는 않는다). 한 번 켰다 끄면 10분 뒤부터 슈퍼유저 화면 맨 위에 "작업자가 10분 넘게 돌지 않습니다" 경고가 뜬다. 지우려면 `rm data/.worker.alive`.
 
 ## 테스트
 
@@ -77,4 +77,12 @@ python3 -m venv /tmp/lockvenv && /tmp/lockvenv/bin/pip install -U -r requirement
 { echo '# 운영 설치용 고정 버전. 갱신: docs/DEVELOPMENT.md "의존성 고정" 참고'; /tmp/lockvenv/bin/pip freeze; } > requirements.lock
 rm -rf /tmp/lockvenv
 .venv/bin/pip install -r requirements.lock -r requirements-dev.txt && .venv/bin/pytest -W error   # 통과하면 커밋
+```
+
+취약점 점검: lock 을 다시 만들 때와 운영 업그레이드 전에, 그리고 생각날 때(한 달에 한 번쯤) 알려진 취약점이 있는 버전인지 본다. 도구는 프로젝트 venv 에 넣지 않고 임시 venv 에서 돌린다.
+
+```bash
+python3 -m venv /tmp/auditvenv && /tmp/auditvenv/bin/pip install pip-audit
+/tmp/auditvenv/bin/pip-audit -r requirements.lock   # "No known vulnerabilities found" 면 끝. 나오면 그 라이브러리를 올려 lock 을 다시 만든다
+rm -rf /tmp/auditvenv
 ```
