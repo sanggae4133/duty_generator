@@ -25,7 +25,6 @@ DAY_LABELS = "월화수목금토일"
 REASONS = ("휴가", "출장", "교육")  # 사유: 붙으면 그날 근무로 치지 않는다(설계 2절). 표·CSV 에는 "이름(휴가)"
 
 
-
 def split_reason(text: str) -> tuple[str, str]:
     """'이름(휴가)' → ('이름', '휴가'). 끝이 정확히 (휴가)·(출장)·(교육)일 때만 떼고(앞 공백은 지운다), 아니면 (text, '')."""
     for r in REASONS:
@@ -37,6 +36,7 @@ def split_reason(text: str) -> tuple[str, str]:
 
 def join_reason(name: str, reason: str) -> str:
     return f"{name}({reason})" if reason else name
+
 
 @dataclass(frozen=True)
 class Def:
