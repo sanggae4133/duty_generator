@@ -223,3 +223,22 @@ def test_chat_id_direct_entry_removed(client, make_member):
     client.post("/alarms/telegram/", {"chat_id": "123"})
     assert not TelegramAlarmProfile.objects.filter(user=u, chat_id="123").exists()
     assert "chat_id 직접 입력" not in client.get("/alarms/").content.decode()
+
+
+# ---- 검토 2번: 로그인 DoS·CSP·htmx eval ----
+
+def test_csp_header_on_pages(client, make_member):
+    """인라인 스크립트를 깨지 않는 범위의 CSP(두 번째 방어 겹). t.me: 텔레그램 연결 POST 가 t.me 로 리다이렉트한다."""
+    pages = [client.get("/login/")]
+    client.force_login(make_member("가", user=True))
+    pages += [client.get("/me/"), client.get("/sw.js")]
+    for r in pages:
+        csp = r["Content-Security-Policy"]
+        for d in ("default-src 'self'", "object-src 'none'", "base-uri 'self'", "frame-ancestors 'none'",
+                  "form-action 'self' https://t.me"):
+            assert d in csp, (r.request["PATH_INFO"], d)
+
+
+def test_htmx_eval_off(client):
+    """hx-on 등 htmx 의 eval 기능은 쓰지 않는다 → 꺼 둔다(HTML 주입이 생겨도 속성만으로 코드가 돌지 않게)."""
+    assert """<meta name="htmx-config" content='{"allowEval":false}'>""" in client.get("/login/").content.decode()

@@ -100,11 +100,12 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/   # 200
 - `--workers 1 --threads 4` — 프로세스 하나에 스레드 4개. `web.log` 를 한 프로세스만 써야 자정에 파일을 넘길 때 꼬이지 않는다. 사용자가 수십 명이라 충분하다.
   느린 연결은 앞단 nginx 가 받아 주고, 앱 안의 요청 가드(`duty/guard.py`)는 2MB 넘는 요청 413, 15초 안에 본문이 다 오지 않는 요청 408, 동시에 몰린 로그인 POST 429 로 한 번 더 막는다.
 - 접근 로그(`--access-logfile`)는 켜지 않는다 — 캘린더 구독 주소에 비밀 토큰이 들어 있다.
+- `NoNewPrivileges`·`PrivateTmp`·`ProtectSystem=strict`·`ProtectHome`·`ReadWritePaths=/opt/duty_generator/data` — 샌드박스. 앱에 코드 실행 구멍이 생겨도 시스템·`/home` 은 읽기 전용이거나 보이지 않고 쓰기는 `data/` 하나만 된다. `.env` 의 `DUTY_DATA_DIR` 을 바꾸면 `ReadWritePaths` 도 같이 바꾼다.
 - `Restart=always`, `RestartSec=5` — 죽으면 5초 뒤 다시 띄운다.
 - `WantedBy=multi-user.target` — `enable` 해 두면 부팅 때 켜진다.
 
 `duty-worker.service` 의 줄:
-- `User`, `WorkingDirectory`, `Restart`, `WantedBy` — 웹과 같다.
+- `User`, `WorkingDirectory`, `Restart`, `WantedBy`, 샌드박스 다섯 줄 — 웹과 같다.
 - `ExecStart=... manage.py run_worker` — 작업자. `data/.alarms.lock` 잠금으로 한 번에 하나만 돈다(같은 알림이 두 번 가지 않게). 한 작업이 실패해도 로그(`worker job failed: <작업>`)만 남기고 다른 작업은 계속한다.
 
 유닛을 고쳤거나 새 버전에서 바뀌었으면 `sudo cp deploy/*.service /etc/systemd/system/ && sudo systemctl daemon-reload` 후 재시작한다.
@@ -114,6 +115,8 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/   # 200
 인터넷 → Tailscale Funnel(HTTPS) → **nginx `127.0.0.1:8008`** → gunicorn `127.0.0.1:8090`.
 
 웹(gunicorn)은 스레드가 4개뿐이라, 요청 본문을 아주 느리게 보내는 연결 몇 개만 있어도 사이트 전체가 멈춘다. nginx 는 이런 연결 수천 개를 적은 메모리로 들고 있다가, 요청을 끝까지 다 받은 것만 gunicorn 에 넘긴다. 설정은 저장소의 `deploy/duty-nginx.conf` 하나이고, 서버에서는 패키지 기본 설정 `/etc/nginx/nginx.conf` 를 이 파일로 **통째로 바꿔서** 쓴다(기본 설정에 든 80 포트 안내 페이지를 없애려고. 패키지 업데이트는 이 파일을 덮어쓰지 않는다). 각 줄의 뜻은 파일 안 주석에 있다.
+
+로그인·관리 화면 로그인·비밀번호 변경 POST 는 접속 IP 마다 1분에 10번(한 번에 10번까지는 바로)으로 묶는다(넘치면 429 "Too Many Requests"). 앱은 이 POST 를 사이트 전체에서 동시에 2개만 받으므로(`duty/guard.py`), 묶지 않으면 익명 한 명이 계속 보내 모든 사람의 로그인을 막을 수 있다. 사무실처럼 한 IP 를 여럿이 쓰는데 429 가 자주 보이면 `limit_req` 의 `burst` 를 올린다.
 
 ### 이미 운영 중인 서버에 처음 넣기 (한 번만, 20분)
 

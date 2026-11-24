@@ -118,6 +118,14 @@ def test_deploy_is_two_units_and_nginx():
     # 실제 접속 IP: tailscaled(127.0.0.1)가 준 X-Forwarded-For 만 믿고, 웹에는 그 IP 하나만 넘긴다(덧붙이지 않는다)
     assert "set_real_ip_from 127.0.0.1;" in nginx and "real_ip_header X-Forwarded-For;" in nginx
     assert "proxy_set_header X-Forwarded-For $remote_addr;" in nginx and "$proxy_add_x_forwarded_for" not in nginx
+    # 로그인·비밀번호 POST 는 IP 마다 레이트 리밋(앱의 전역 로그인 슬롯 2개를 한 IP 가 다 차지하지 못하게)
+    assert "limit_req_zone $login_key zone=login:" in nginx and "limit_req zone=login " in nginx
+    assert "limit_req_status 429;" in nginx and "$binary_remote_addr" in nginx
+    for unit in ("duty-web.service", "duty-worker.service"):  # 샌드박스: 쓰기는 data/ 만
+        u = (ROOT / "deploy" / unit).read_text(encoding="utf-8")
+        for line in ("NoNewPrivileges=yes", "PrivateTmp=yes", "ProtectSystem=strict", "ProtectHome=yes",
+                     "ReadWritePaths=/opt/duty_generator/data"):
+            assert f"\n{line}\n" in u, (unit, line)
     texts = [p.read_text(encoding="utf-8") for p in (ROOT / "deploy").iterdir()]
     texts.append((ROOT / ".env.example").read_text(encoding="utf-8"))
     for t in texts:
