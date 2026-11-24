@@ -1,10 +1,11 @@
-"""상태 점검(run_worker 가 5분마다): 웹 응답·최근 백업·디스크.
+"""상태 점검(run_worker 가 5분마다): 웹 응답·최근 백업(사본 포함)·디스크. 작업자 자체의 정지는 웹이 화면에 띄운다(worker_stale).
 상태가 바뀔 때만(문제 생김 / 정상 복귀) 알림 설정의 ops_chat_id 로 텔레그램을 보낸다. 비어 있으면 로그만.
 마지막 상태는 data/.health.state. 발송에 실패하면 상태를 저장하지 않아 다음 점검에서 다시 보낸다.
 """
 import logging
 import shutil
 import socket
+import time
 import urllib.request
 from pathlib import Path
 
@@ -43,6 +44,8 @@ def problems() -> str:
         out.append("nginx 응답 없음(웹은 정상)" if _ok(APP_URL) else "웹 응답 없음")
     if not backup.has_recent():
         out.append("26시간 안에 만든 백업 없음")
+    if settings.BACKUP_COPY_DIR and not backup.has_recent(settings.BACKUP_COPY_DIR):
+        out.append("백업 사본(DUTY_BACKUP_COPY_DIR)에 26시간 안에 만든 백업 없음")
     use = _disk_percent(settings.DATA_DIR)
     if use is None:
         out.append("디스크 확인 실패")
@@ -69,3 +72,19 @@ def check(now) -> None:
         text = f"[NXT 당번표 {socket.gethostname()}]{found or ' 정상으로 돌아왔습니다.'}"
         senders.telegram_send(conf.sender_config(), str(conf.ops_chat_id), text)  # 실패는 예외 → 상태 저장 안 함
     state.write_text(found, encoding="utf-8")
+
+
+STALE = 10 * 60  # 초
+
+
+def beat() -> None:
+    """작업자가 바퀴마다 부른다. 웹이 이 파일 시각으로 작업자 정지를 알아챈다(worker_stale)."""
+    (Path(settings.DATA_DIR) / ".worker.alive").touch()
+
+
+def worker_stale() -> bool:
+    """작업자가 STALE 넘게 바퀴를 돌지 않았나. 파일이 없으면(한 번도 안 돌린 개발 PC) False."""
+    try:
+        return time.time() - (Path(settings.DATA_DIR) / ".worker.alive").stat().st_mtime > STALE
+    except FileNotFoundError:
+        return False

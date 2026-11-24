@@ -170,8 +170,8 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 
 ## 작업자와 운영 파일
 
-- `manage.py run_worker`: 1분마다 **휴장일 채우기**(`holidays.sync`, 없는 날짜만 넣어 가볍다) → **백업**(하루 한 번 `DUTY_BACKUP_HOUR` 이후) → **상태 점검**(5분마다, 바뀔 때만 장애 알림) → **알림**. 작업마다 예외를 따로 잡아 하나가 실패해도 나머지는 돈다. 파일 잠금으로 한 프로세스만 돈다.
-- 실행 중 생기는 파일은 전부 `data/`: `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`.
+- `manage.py run_worker`: 1분마다 **휴장일 채우기**(`holidays.sync`, 없는 날짜만 넣어 가볍다) → **백업**(하루 한 번 `DUTY_BACKUP_HOUR` 이후, `DUTY_BACKUP_COPY_DIR` 가 있으면 그곳에도 한 벌) → **상태 점검**(마지막 점검에서 5분 지나면, 바뀔 때만 장애 알림) → **알림**. 작업마다 예외를 따로 잡아 하나가 실패해도 나머지는 돈다. 파일 잠금으로 한 프로세스만 돈다.
+- 실행 중 생기는 파일은 전부 `data/`: `db.sqlite3`, `backups/`, `logs/`(web.log·worker.log, 자정 회전), 잠금·`.health.state`·`.worker.alive`(작업자가 바퀴마다 시각을 고친다. 10분보다 오래되면 웹이 슈퍼유저 화면 맨 위에 경고, `health.worker_stale`).
 - 개발·운영 차이는 `.env` 값뿐이다. 셸 스크립트·타이머·logrotate는 없다. 업그레이드·롤백·복원은 OPERATIONS.md 의 명령으로 한다.
 
 ## 화면 디자인

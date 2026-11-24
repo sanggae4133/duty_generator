@@ -79,6 +79,36 @@ def test_daily_backup_right_away_without_recent_backup(data):
     assert backup.daily(at(2026, 11, 11, 2, 0)) is None
 
 
+def test_daily_backup_copies_to_copy_dir(data, tmp_path):
+    """DUTY_BACKUP_COPY_DIR(다른 디스크·NAS)가 있으면 하루 백업을 그곳에도 한 벌, 보관 일수도 똑같이."""
+    data.BACKUP_COPY_DIR = tmp_path / "copy"
+    data.BACKUP_COPY_DIR.mkdir()
+    (data.BACKUP_COPY_DIR / "db-20261001.sqlite3").write_text("x")
+    p = backup.daily(at(2026, 11, 11, 15, 0))
+    c = data.BACKUP_COPY_DIR / p.name
+    assert rows(c) == ["a"] and sorted(x.name for x in data.BACKUP_COPY_DIR.iterdir()) == [p.name]
+    assert oct(c.stat().st_mode & 0o777) == "0o600"
+
+
+def test_daily_backup_copy_is_plain_file_copy(data, tmp_path, monkeypatch):
+    """사본은 이미 일관된 백업 파일을 그대로 복사한다(NAS 위에서 SQLite 잠금을 쓰지 않게)."""
+    data.BACKUP_COPY_DIR = tmp_path / "copy"
+    data.BACKUP_COPY_DIR.mkdir()
+    calls = []
+    real = backup._backup_to
+    monkeypatch.setattr(backup, "_backup_to", lambda s, t: (calls.append(t), real(s, t)))
+    backup.daily(at(2026, 11, 11, 15, 0))
+    assert len(calls) == 1 and data.BACKUP_DIR in calls[0].parents
+
+
+def test_daily_backup_copy_dir_missing_keeps_local_backup(data, tmp_path):
+    """사본 폴더가 없으면(마운트 안 됨) 만들지 않고 실패한다: 로컬 디스크에 몰래 쓰지 않게. 원래 백업은 남는다."""
+    data.BACKUP_COPY_DIR = tmp_path / "nas"
+    with pytest.raises(DutyError, match="DUTY_BACKUP_COPY_DIR"):
+        backup.daily(at(2026, 11, 11, 15, 0))
+    assert (data.BACKUP_DIR / "db-20261111.sqlite3").exists() and not data.BACKUP_COPY_DIR.exists()
+
+
 def test_daily_backup_catches_up_late_start(data):
     assert backup.daily(at(2026, 11, 11, 15, 0)).name == "db-20261111.sqlite3"
 
@@ -327,6 +357,32 @@ def test_health_no_backup_dir(box, data):
     assert "26시간 안에 만든 백업 없음;" in box["sent"][0][2]
 
 
+def test_health_no_recent_copy(box, data, tmp_path):
+    data.BACKUP_COPY_DIR = tmp_path / "copy"
+    health.check(NOW)
+    assert "백업 사본(DUTY_BACKUP_COPY_DIR)에 26시간 안에 만든 백업 없음;" in box["sent"][0][2]
+    data.BACKUP_COPY_DIR.mkdir()
+    (data.BACKUP_COPY_DIR / "db-20261111.sqlite3").write_text("x")
+    health.check(NOW)
+    assert box["sent"][-1][2].endswith("정상으로 돌아왔습니다.")
+
+
+def test_worker_stale_banner_for_superuser(client, data, db, make_member):
+    """작업자가 10분 넘게 바퀴를 돌지 않으면(.worker.alive 가 오래됨) 슈퍼유저 화면 맨 위에 경고. 파일이 없으면(한 번도 안 돌린 개발 PC) 조용히."""
+    from duty.models import User
+    su = User.objects.create_superuser("root", password="unused-Pw-123", name="운영자")
+    client.force_login(su)
+    msg = "작업자(run_worker)가 10분 넘게 돌지 않습니다"
+    assert msg not in client.get("/help/").content.decode()
+    health.beat()
+    assert msg not in client.get("/help/").content.decode()
+    old = time.time() - 11 * 60
+    os.utime(data.DATA_DIR / ".worker.alive", (old, old))
+    assert msg in client.get("/help/").content.decode()
+    client.force_login(make_member("M1"))
+    assert msg not in client.get("/help/").content.decode()
+
+
 def test_health_disk_check_failed(box):
     box["disk"] = OSError("x")
     health.check(NOW)
@@ -374,7 +430,7 @@ def jobs(monkeypatch, db, data):
     return calls
 
 
-def test_round_isolates_failures(jobs, caplog):
+def test_round_isolates_failures(jobs, data, caplog):
     from duty.management.commands import run_worker
     run_worker.run_round(NOW)
     # 백업·점검이 먼저: 알림 발송이 네트워크 타임아웃으로 오래 걸려도 백업·점검이 밀리지 않게
@@ -383,14 +439,7 @@ def test_round_isolates_failures(jobs, caplog):
     assert [n for n, _ in jobs] == ["holidays", "backup", "health", "changes", "alarms"]
     assert jobs[0] == ("holidays", timezone.localdate(NOW)) and all(t == NOW for _, t in jobs[1:])
     assert "worker job failed: alarms" in caplog.text and "worker job failed: holidays" in caplog.text
-
-
-def test_health_every_five_minutes(jobs):
-    from duty.management.commands import run_worker
-    for m in range(10):
-        run_worker.run_round(NOW + timedelta(minutes=m))
-    assert [t.minute for n, t in jobs if n == "health"] == [0, 5]
-    assert len([n for n, _ in jobs if n == "alarms"]) == 10
+    assert (data.DATA_DIR / ".worker.alive").exists()  # 바퀴마다 표시(웹이 작업자 정지를 알아챈다)
 
 
 def test_once_runs_all_jobs_and_logs_to_file(jobs, data, monkeypatch):
@@ -429,15 +478,24 @@ class Stop(Exception):
     pass
 
 
-def test_loop_skips_health_on_first_round(jobs, data, monkeypatch):
-    """막 켜졌을 때(재부팅·업그레이드) 아직 뜨는 중인 웹을 '응답 없음'으로 보지 않게 첫 바퀴는 점검을 건너뛴다."""
+def test_loop_health_every_five_minutes_even_if_round_is_slow(jobs, data, monkeypatch):
+    """점검은 마지막 점검에서 5분이 지나면. 첫 바퀴는 건너뛴다(재부팅 직후 뜨는 중인 웹을 '응답 없음'으로 보지 않게).
+    한 바퀴가 1분을 넘겨 :05 바퀴가 없어져도 다음 바퀴에서 점검한다."""
     from duty.management.commands import run_worker
-    monkeypatch.setattr(timezone, "now", lambda: NOW)  # 5의 배수 분
+    clock = [NOW + timedelta(seconds=20)]  # 분 중간에 켜짐
+    monkeypatch.setattr(timezone, "now", lambda: clock[0])
+
+    def slow_alarms(now):
+        jobs.append(("alarms", now))
+        if timezone.localtime(now).minute == 4:
+            clock[0] += timedelta(seconds=70)  # :04 바퀴가 :05 를 넘긴다
+    monkeypatch.setattr(alarm_runner, "tick", slow_alarms)
     sleeps = []
 
     def sleep(sec):
+        clock[0] += timedelta(seconds=sec)
         sleeps.append(sec)
-        if len(sleeps) == 2:
+        if len(sleeps) == 13:
             raise Stop
     monkeypatch.setattr(run_worker.time, "sleep", sleep)
     root = logging.getLogger()
@@ -450,8 +508,8 @@ def test_loop_skips_health_on_first_round(jobs, data, monkeypatch):
             if h not in before:
                 root.removeHandler(h)
                 h.close()
-    assert [n for n, _ in jobs] == ["holidays", "backup", "changes", "alarms",
-                                    "holidays", "backup", "health", "changes", "alarms"]
+    assert [timezone.localtime(t).minute for n, t in jobs if n == "health"] == [6, 11]
+    assert len([n for n, _ in jobs if n == "alarms"]) == 13
 
 
 # ---- 파일 로그 ----

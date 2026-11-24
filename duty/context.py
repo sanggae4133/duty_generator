@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from . import help as guide
 from . import perms
+from .services import health
 
 
 def nav(request):
@@ -23,6 +24,7 @@ def nav(request):
         items.append(("근무표 설정", "/settings/", ()))  # 관리자·입력 담당자·근무 정의와 부서·단계(근무표 통합 설계 7절)
     if user.is_superuser:
         items.append(("관리", reverse("admin:index"), ()))
+        out["worker_stale"] = health.worker_stale  # 템플릿이 그릴 때만 파일을 본다
     items.append(("도움말", "/help/", ()))
     # 로그인 직후 첫 화면에 사용법 팝업(비밀번호 변경 화면에서는 미룬다). base.html 이 실제로 그릴 때만
     # 세션 표시를 소비한다(템플릿이 부를 때 실행) — 근무 변경 팝업 같은 부분 응답이 먼저 와도 잃지 않게
