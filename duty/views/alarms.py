@@ -34,10 +34,10 @@ def _names(vals, labels: dict) -> str:
 
 def condition_label(r, dept_names: dict, shift_names: dict, typed: bool = True) -> str:
     """typed=False: 관제 없는 근무표라 저장된 유형을 무시한다(발송과 같게 '전부')."""
-    s = f"스케줄: {_names(r.shifts, shift_names)}"
+    s = f"근무: {_names(r.shifts, shift_names)}"
     if r.kind == "personal":
         return s
-    return f"부서: {_names(r.depts, dept_names)} / 유형: {_names(r.types if typed else [], {})} / {s}"
+    return f"부서: {_names(r.depts, dept_names)} / 구분: {_names(r.types if typed else [], {})} / {s}"
 
 
 def _bot_link(conf) -> str:

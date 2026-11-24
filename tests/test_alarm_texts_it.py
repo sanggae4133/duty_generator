@@ -70,13 +70,14 @@ def test_report_full_text():
 
 
 def test_change_notices():
-    assert m.change_notice(IT_DEFS, E, "slot0", "가", "나", "관리자") == (
+    """변경 알림: 칸 시각과 오늘·내일을 붙이고, 넣기는 'B 추가'(US-CHANGE-TEXT)."""
+    assert m.change_notice(IT_DEFS, E, D, "slot0", "가", "나", "관리자") == (
         "근무 변경", "[근무 변경] 11/10(화) 장중관제 08:30~09:30\n가 → 나\n바꾼 사람: 관리자")
-    assert m.change_notice(IT_DEFS, E, "normal", None, "나", "관리자") == (
-        "근무 변경", "[근무 변경] 11/10(화) 정상\n+나\n바꾼 사람: 관리자")
-    assert m.change_notice(IT_DEFS, E, "night", "가", None, "관리자") == (
-        "근무 변경", "[근무 변경] 11/10(화) 야간\n가 빠짐\n바꾼 사람: 관리자")
-    assert m.swap_notice(IT_DEFS, E, "normal", "가", "dinner", "나", "다") == (
+    assert m.change_notice(IT_DEFS, E, E, "normal", None, "나", "관리자") == (
+        "근무 변경", "[근무 변경] 오늘 11/10(화) 정상 08:00~17:00\n나 추가\n바꾼 사람: 관리자")
+    assert m.change_notice(IT_DEFS, E, date(2026, 11, 9), "night", "가", None, "관리자") == (
+        "근무 변경", "[근무 변경] 내일 11/10(화) 야간 13:30~21:30\n가 빠짐\n바꾼 사람: 관리자")
+    assert m.swap_notice(IT_DEFS, E, D, "normal", "가", "dinner", "나", "다") == (
         "근무 변경", "[근무 변경] 11/10(화) 맞교환\n가 정상 → 석식교대\n나 석식교대 → 정상\n바꾼 사람: 다")
 
 

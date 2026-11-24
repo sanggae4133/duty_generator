@@ -132,7 +132,7 @@ def test_department_left_without_active_shift_is_refused(ops_board, ops_admin):
 @pytest.mark.parametrize("dept,msg", [
     ({"lunch_start": "11:30"}, "점심 시각은 둘 다 비우거나, 둘 다 넣고 시작을 끝보다 이르게 하세요."),
     ({"lunch_start": "12:30", "lunch_end": "11:30"}, "점심 시각은 둘 다 비우거나, 둘 다 넣고 시작을 끝보다 이르게 하세요."),
-    ({"shifts": []}, "출근조를 하나 이상 선택하세요."),
+    ({"shifts": []}, "근무조를 하나 이상 선택하세요."),
 ])
 def test_department_checks(ops_board, ops_admin, dept, msg):
     formset, dept_forms = shift_forms(ops_board, shift_data(ops_board, change={"normal": {"name": "중간"}}, depts={"OPS": dept}))

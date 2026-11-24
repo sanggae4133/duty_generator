@@ -1,9 +1,9 @@
 {% extends "duty/base.html" %}
 {% block content %}
 <nav aria-label="날짜 이동">
-  <ul><li><a href="{% url 'day' prev %}{{ qs }}">◀</a></li></ul>
-  <ul><li><strong>{{ d|date:"Y-m-d" }} ({{ weekday }})</strong>{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</li></ul>
-  <ul><li><a href="{% url 'day' next_day %}{{ qs }}">▶</a></li></ul>
+  <ul><li><a href="{% url 'day' prev %}{{ qs }}" aria-label="전날">◀</a></li></ul>
+  <ul><li><strong>{{ d|date:"Y년 n월 j일" }} ({{ weekday }})</strong>{% if view_only and not to_mine %} <small>보기 전용</small>{% endif %}</li></ul>
+  <ul><li><a href="{% url 'day' next_day %}{{ qs }}" aria-label="다음 날">▶</a></li></ul>
 </nav>
 {% if to_mine %}<p><a class="to-mine" role="button" href="/?board={{ home_code }}&amp;date={{ d|date:'Y-m-d' }}" data-remember="pick=1">{{ to_mine }}</a></p>{% endif %}
 {% if holiday %}<p class="hol">{{ holiday }}</p>{% endif %}
@@ -19,7 +19,7 @@
 {% if p.note and not p.note.no_work %}<p class="memo">{{ p.note.text|linebreaksbr }}</p>{% endif %}{% endif %}
 {% if p.note.no_work %}<p class="{% if multi %}nowork-line{% else %}nowork{% endif %}">{{ p.note.text|default:"근무 없음"|linebreaksbr }}</p>{% elif not p.found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
 {% for s in p.sections %}
-{% ifchanged s.slot s.lunch %}<h4 class="grp">{% if s.slot %}장중관제{% elif s.lunch %}당번{% else %}출근조{% endif %}</h4>{% endifchanged %}
+{% ifchanged s.slot s.lunch %}<h4 class="grp">{% if s.slot %}장중관제{% elif s.lunch %}당번{% else %}근무조{% endif %}</h4>{% endifchanged %}
 <article id="{% if multi %}{{ p.code }}-{% endif %}{{ s.cell }}" class="dcell">
   <strong>{{ s.label }}</strong>
   <p>{% with line=s.items %}{% include "duty/_labels.html" %}{% endwith %}{% if not s.items %}-{% endif %}{% if s.removed_items %} {% with line=s.removed_items %}{% include "duty/_labels.html" %}{% endwith %}{% endif %}</p>

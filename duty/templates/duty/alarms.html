@@ -17,7 +17,7 @@
 <article id="telegram">
   <header><strong>텔레그램</strong> · <a href="{% url 'help_telegram' %}">도움말</a></header>
   {% if tg.verified_at and tg.chat_id %}
-    <p>연결됨 (chat_id {{ tg.chat_id }}, {{ tg.verified_at|date:"Y-m-d H:i" }} 확인)</p>
+    <p>연결됨 ({{ tg.verified_at|date:"n/j" }} 확인)</p>
   {% else %}
     <p>연결 안 됨</p>
   {% endif %}
@@ -87,11 +87,18 @@
         const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
         return Uint8Array.from(b, c => c.charCodeAt(0));
       };
+      // 브라우저가 던진 영문 오류는 보이지 않고(콘솔에만) 다음 할 일을 한국어로
+      const why = e => {
+        if (e && e.ko) return e.ko;
+        console.error(e);
+        return e && e.name === "NotAllowedError" ? "알림 권한이 막혀 있습니다. 도움말을 보고 브라우저 설정에서 허용하세요."
+          : "잠시 뒤 다시 누르거나 도움말을 보세요.";
+      };
       const send = async (url, body) => {
         const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF},
                                     body: JSON.stringify(body), credentials: "same-origin"});
         const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(d.error || "서버 오류입니다.");
+        if (!r.ok) throw {ko: d.error || "서버 오류입니다."};
       };
       document.getElementById("push-on").addEventListener("click", async () => {
         try {
@@ -104,7 +111,7 @@
           await send("{% url 'alarm_push_subscribe' %}", {...sub.toJSON(), replaces: last()});
           last(sub.endpoint);
           location.reload();
-        } catch (e) { msg("등록하지 못했습니다: " + e.message); }
+        } catch (e) { msg("등록하지 못했습니다. " + why(e)); }
       });
       // 이 기기가 실제로 등록돼 있을 때만 [이 기기 해제]를 보인다
       navigator.serviceWorker.getRegistration("/").then(r => r && r.pushManager.getSubscription()).then(sub => {
@@ -119,7 +126,7 @@
           await sub.unsubscribe();
           last("");
           location.reload();
-        } catch (e) { msg("해제하지 못했습니다: " + e.message); }
+        } catch (e) { msg("해제하지 못했습니다. " + why(e)); }
       });
     })();
     </script>
@@ -206,7 +213,7 @@
   .row-btns { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
   .row-btns form { margin: 0; }
   .row-btns button { width: auto; margin: 0; }
-  button.small { width: auto; margin: 0; min-height: 40px; padding: .3rem .8rem; font-size: .85rem; }
+  button.small { width: auto; margin: 0; min-height: 44px; padding: .3rem .8rem; font-size: .85rem; }
   td.nowrap, td.nowrap a { white-space: nowrap; }
   table.devices { word-break: keep-all; }
   table.rules { min-width: 40rem; word-break: keep-all; }

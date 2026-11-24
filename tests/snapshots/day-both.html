@@ -1,17 +1,17 @@
 <nav aria-label="날짜 이동">
 <ul>
 <li>
-<a href="/day/2026-11-13/?board=it&amp;board=ops&amp;f=1">◀</a>
+<a href="/day/2026-11-13/?board=it&amp;board=ops&amp;f=1" aria-label="전날">◀</a>
 </li>
 </ul>
 <ul>
 <li>
-<strong>2026-11-16 (월)</strong>
+<strong>2026년 11월 16일 (월)</strong>
 </li>
 </ul>
 <ul>
 <li>
-<a href="/day/2026-11-17/?board=it&amp;board=ops&amp;f=1">▶</a>
+<a href="/day/2026-11-17/?board=it&amp;board=ops&amp;f=1" aria-label="다음 날">▶</a>
 </li>
 </ul>
 </nav>
@@ -25,7 +25,7 @@
 <details class="filters">
 <summary>필터</summary>
 <div class="filters-body">
-<p class="hint mine-only">부서·유형·스케줄은 내 근무표에만 적용됩니다</p>
+<p class="hint mine-only">부서·구분·근무는 내 근무표에만 적용됩니다</p>
 <fieldset class="filter">
 <legend>부서</legend>
 <label>
@@ -38,14 +38,14 @@
 <input type="checkbox" name="dept" value="UI" checked> UI</label>
 </fieldset>
 <fieldset class="filter">
-<legend>유형</legend>
+<legend>구분</legend>
 <label>
 <input type="checkbox" name="type" value="직원" checked> 직원</label>
 <label>
 <input type="checkbox" name="type" value="개발자" checked> 개발자</label>
 </fieldset>
 <fieldset class="filter">
-<legend>스케줄</legend>
+<legend>근무</legend>
 <label>
 <input type="checkbox" name="shift" value="dawn" checked> 새벽</label>
 <label>
@@ -63,14 +63,14 @@
 <label>
 <input type="checkbox" name="hist" value="1" checked> 변경 내역 표시(A&gt;B·취소선)</label>
 </fieldset>
-<small class="hint">부서·유형·스케줄은 모두 해제하면 전체 표시</small>
+<small class="hint">부서·구분·근무는 모두 해제하면 전체 표시</small>
 </div>
 </details>
 <script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { const g = document.querySelector(".roster-scroll"); try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => { // 근무표의 '오늘로 이동'보다 뒤에 const g = document.querySelector(".roster-scroll"); if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; } scrollTo(0, s.y); }); }</script>
 </form>
 <section class="bsec">
 <h3 class="bname">IT 당번표</h3>
-<h4 class="grp">출근조</h4>
+<h4 class="grp">근무조</h4>
 <article id="it-dawn" class="dcell">
 <strong>새벽</strong>
 <p>
@@ -650,7 +650,7 @@
 <section class="bsec">
 <h3 class="bname">운영팀 <small>보기만</small>
 </h3>
-<h4 class="grp">출근조</h4>
+<h4 class="grp">근무조</h4>
 <article id="ops-dawn" class="dcell">
 <strong>이른</strong>
 <p>

@@ -214,6 +214,6 @@ def test_eligibility_warning_reads_board_defs(two, ops):
     dev = ops_member(dept, "운영개발", type="개발자")
     DutyAssignment.objects.create(period=op, date=d(11, 10), cell="slot0", member=oa)
     w = changes.change_cell(oa, board, d(11, 10), "slot0", oa, dev)
-    assert w == ["운영개발의 그날 출근조(없음)는 점검A 관제 자격이 아닙니다."]
+    assert w == ["운영개발의 그날 근무조(없음)는 점검A 관제 자격이 아닙니다."]
     w = changes.change_cell(oa, board, d(11, 10), "slot0", dev, ob)
-    assert w == ["운영나은(는) 개발자가 아닙니다.", "운영나의 그날 출근조(없음)는 점검A 관제 자격이 아닙니다."]
+    assert w == ["운영나은(는) 개발자가 아닙니다.", "운영나의 그날 근무조(없음)는 점검A 관제 자격이 아닙니다."]

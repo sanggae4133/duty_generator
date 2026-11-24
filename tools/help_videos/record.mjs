@@ -186,7 +186,7 @@ const VIDEOS = {
     await s.tap('[aria-controls=xl-panel]', 500);
     await s.tap('text=주간', 1500);
     await s.tap('nav.menu a[href="/me/"]', 1500);
-    await s.say('내 근무: 내 근무만 모아 봅니다. 기간을 고르면\n지난 근무도 보고, 스케줄 체크는 바로 거릅니다.', 3200);
+    await s.say('내 근무: 내 근무만 모아 봅니다. 기간을 고르면\n지난 근무도 보고, 근무 체크는 바로 거릅니다.', 3200);
     await s.tap('form.dl input[name=shift][value=slots]', 1300);
     await s.tap('form.dl input[name=shift][value=slots]', 900);
     await s.tap('nav.menu a[href="/alarms/"]', 1500);
@@ -207,7 +207,7 @@ const VIDEOS = {
     await s.tap('nav.menu a[href="/collect/"]', 1500);
     await s.say('취합 중인 회차와 부서별 입력 현황이 나옵니다.\n내 부서를 누릅니다.', 2800);
     await s.tap('a[href*="/MEMS/"]', 1500);
-    await s.say('날짜마다 출근조 칸에 이름을 쉼표(,)로 구분해 적습니다.\n한 사람은 하루에 한 출근조만.', 3600);
+    await s.say('날짜마다 근무조 칸에 이름을 쉼표(,)로 구분해 적습니다.\n한 사람은 하루에 한 근무조만.', 3600);
     const names = (await s.ev(`(document.querySelector('p.guide').innerText.split('인원:')[1] || '').split(',').map(x => x.trim()).filter(Boolean)`)) || [];
     names.splice(0, names.length, ...names.filter(n => !['문하늘', '배다온', '노은별'].includes(n)));  // seed.py FREE(근무 없는 사람)는 넣지 않는다
     const rows = 'table.roster tbody tr:last-child td textarea';
@@ -249,7 +249,7 @@ const VIDEOS = {
     await s.say('작성 중 → 취합 중 → 마감 → 생성됨 → 배포됨 순서로 진행합니다.\n지금 할 다음 단계만 진한 버튼으로 보입니다.', 3800);
     await s.say('취합 중에는 부서 담당자가 출근표를 입력합니다.\n입력 현황이 다 차면 [취합 마감].', 3200);
     await s.tap('form[action$="/close/"] button', 1600);
-    await s.say('[장중관제 생성]: 출근조를 보고 장중관제 10칸을\n편차 2 이하로 자동 배정합니다.', 3200);
+    await s.say('[장중관제 생성]: 출근표를 보고 장중관제 10칸을\n편차 2 이하로 자동 배정합니다.', 3200);
     await s.tap('form[action$="/generate/"] button', 2000);
     await s.tap('button[onclick*="gen-help"]', 1400);
     await s.say('[생성 방식]에서 배정 규칙을 볼 수 있습니다.', 2800);
@@ -257,14 +257,14 @@ const VIDEOS = {
     await s.tap('a[href$="/publish/"]', 1500);
     await s.say('배포: 덮어쓰기 시작일을 고르면 겹치는 기존 근무표를\n그날부터 이 회차로 바꿉니다. 범위를 확인하고 [배포].', 3800);
     await s.tap('form[onsubmit*="배포할까요"] button', 2000);
-    await s.say('배포하면 근무표에 바로 나타나고 알림이 나갑니다.\n잘못 배포했으면 [배포 취소]로 되돌릴 수 있습니다.', 3600);
+    await s.say('배포하면 근무표에 바로 나타나고, 각자 정한 근무 알림이 그 시각에 나갑니다.\n잘못 배포했으면 [배포 취소]로 되돌릴 수 있습니다.', 3600);
     await s.scroll(600, 1500);
     await s.say('상태 기록에 누가 언제 무엇을 바꿨는지 남습니다.\n시험으로 만든 회차는 맨 아래 위험 구역에서 지웁니다.', 3400);
     await s.ev('scrollTo({top: 0})'); await sleep(500);
     await s.tap('nav.menu a[href="/stats/"]', 1500);
     await s.say('통계: 기간별 장중관제·새벽·야간 횟수.', 2400);
     await s.tap('nav.menu a[href="/changes/"]', 1500);
-    await s.say('이력: 누가 어떤 근무를 바꿨는지 찾아봅니다.\n계정·부서·알림 설정은 [관리]에서 합니다.', 3400);
+    await s.say('이력: 누가 어떤 근무를 바꿨는지 찾아봅니다.\n사람·계정은 [근무표 설정], 인사이동은 슈퍼유저에게.', 3400);
     await s.finish();
   },
 };

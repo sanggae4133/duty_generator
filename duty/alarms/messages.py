@@ -35,10 +35,17 @@ def _where(defs, cell: str) -> str:
     return f"{SLOT_GROUP_NAME} {cell_label(defs, cell)}" if is_slot_cell(cell) else cell_label(defs, cell)
 
 
-def change_notice(defs, d: date, cell: str, before: str | None, after: str | None, by: str) -> tuple[str, str]:
-    """내 근무가 바뀌었을 때(제목, 본문). 교체 A → B, 넣기 +B, 빼기 A 빠짐."""
-    what = f"{before} → {after}" if before and after else (f"+{after}" if after else f"{before} 빠짐")
-    return "근무 변경", f"[근무 변경] {day_label(d)} {_where(defs, cell)}\n{what}\n바꾼 사람: {by}"
+def _when(d: date, today: date) -> str:
+    """'오늘 11/10(화)'·'내일 11/10(화)', 그 밖에는 '11/10(화)'."""
+    rel = relative_day(d, today)
+    return f"{rel} {day_label(d)}" if rel != day_label(d) else rel
+
+
+def change_notice(defs, d: date, today: date, cell: str, before: str | None, after: str | None, by: str) -> tuple[str, str]:
+    """내 근무가 바뀌었을 때(제목, 본문). 교체 A → B, 넣기 B 추가, 빼기 A 빠짐. 근무조는 시각까지('그래서 몇 시에')."""
+    what = f"{before} → {after}" if before and after else (f"{after} 추가" if after else f"{before} 빠짐")
+    where = _where(defs, cell) if is_slot_cell(cell) else cell_span(defs, cell)
+    return "근무 변경", f"[근무 변경] {_when(d, today)} {where}\n{what}\n바꾼 사람: {by}"
 
 
 def memo_notice(board: str, scope: str, d: date, text: str, no_work: bool, by: str) -> tuple[str, str]:
@@ -48,9 +55,9 @@ def memo_notice(board: str, scope: str, d: date, text: str, no_work: bool, by: s
     return "메모", f"[메모] {board} · {where}\n{body}\n쓴 사람: {by}"
 
 
-def swap_notice(defs, d: date, cell_a: str, a: str, cell_b: str, b: str, by: str) -> tuple[str, str]:
+def swap_notice(defs, d: date, today: date, cell_a: str, a: str, cell_b: str, b: str, by: str) -> tuple[str, str]:
     """맞교환 한 번(기록 2건)을 한 통으로: A 는 cell_a → cell_b, B 는 반대로."""
-    return "근무 변경", (f"[근무 변경] {day_label(d)} 맞교환\n{a} {_where(defs, cell_a)} → {_where(defs, cell_b)}\n"
+    return "근무 변경", (f"[근무 변경] {_when(d, today)} 맞교환\n{a} {_where(defs, cell_a)} → {_where(defs, cell_b)}\n"
                        f"{b} {_where(defs, cell_b)} → {_where(defs, cell_a)}\n바꾼 사람: {by}")
 
 

@@ -134,7 +134,7 @@ def test_board_without_slots_has_no_type_filter(client, two):
     RosterPref.objects.create(user=na, types=["개발자"])  # 가상나는 직원: 이 값이 먹으면 가상나가 숨는다
     client.force_login(na)
     body = client.get(WEEK).content.decode()
-    assert "<legend>부서</legend>" in body and "<legend>유형</legend>" not in body and "가상나" in body
+    assert "<legend>부서</legend>" in body and "<legend>구분</legend>" not in body and "가상나" in body
     assert "가상나" in client.get(f"/day/{D}/").content.decode()
     assert "가상나" in client.get(WEEK + "&f=1&type=개발자").content.decode()  # 요청 값도 무시
 

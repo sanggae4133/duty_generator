@@ -32,8 +32,8 @@ def _input_users(dept):
 class DepartmentForm(forms.ModelForm):
     # DB에는 지금처럼 "normal,dinner,night" 문자열로 저장하고, 입력만 체크박스로 받는다
     shifts = forms.MultipleChoiceField(
-        label="가능한 출근조", widget=forms.CheckboxSelectMultiple,
-        error_messages={"required": "출근조를 하나 이상 선택하세요."},
+        label="가능한 근무조", widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "근무조를 하나 이상 선택하세요."},
     )
     # 입력 담당자 = 부서 입력 그룹 멤버. 모델 칸이 아니라 DepartmentAdmin.save_related 가 그룹에 넣는다
     managers = forms.ModelMultipleChoiceField(
@@ -96,7 +96,7 @@ class DepartmentAdmin(admin.ModelAdmin):
         return (super().get_queryset(request).annotate(_n=Count("members", distinct=True))
                 .prefetch_related("input_group__user_set"))
 
-    @admin.display(description="가능한 출근조")
+    @admin.display(description="가능한 근무조")
     def shift_labels(self, obj):
         defs = boards.defs(obj.board)  # 꺼진 근무조도 이름으로 보인다. 순서는 입력 표와 같은 시작 시각 순
         names = {x.key: x.name for x in defs}

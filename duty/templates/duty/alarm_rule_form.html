@@ -17,10 +17,10 @@
       <span id="days-unit">일 전</span> {{ form.at_time }}</div>
     <small>0일 전 = 근무 당일</small></fieldset>
   <fieldset class="filter"><legend>채널</legend><label>{{ form.telegram }} 텔레그램</label><label>{{ form.push }} 푸시</label></fieldset>
-  <fieldset class="filter"><legend>스케줄</legend>{{ form.shifts }}</fieldset>
+  <fieldset class="filter"><legend>근무</legend>{{ form.shifts }}</fieldset>
   {% if multi_board %}<fieldset class="filter" data-kind="report"><legend>근무표</legend>{{ form.board }}</fieldset>
   {% endif %}<fieldset class="filter" data-kind="report"><legend>부서</legend>{{ form.depts }}</fieldset>
-  {% if "types" in form.fields %}<fieldset class="filter" data-kind="report"><legend>유형</legend>{{ form.types }}</fieldset>
+  {% if "types" in form.fields %}<fieldset class="filter" data-kind="report"><legend>구분</legend>{{ form.types }}</fieldset>
   {% endif %}<small>모두 해제하면 전부</small>
   <button name="redraw" value="1" formnovalidate hidden></button>
   <div class="row-btns"><button>저장</button><a href="{% url 'alarms' %}" role="button" class="secondary">취소</a></div>

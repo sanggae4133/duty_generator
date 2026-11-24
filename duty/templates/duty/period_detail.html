@@ -110,9 +110,9 @@
 {% if gen_help %}
 <dialog id="gen-help"><article>
   <h4>장중관제 생성 방식</h4>
-  <p>취합된 출근조를 보고 날짜마다 장중관제 {{ gen_help.count }}칸({{ gen_help.start|time:"H:i" }}~{{ gen_help.end|time:"H:i" }})에 {{ gen_help.whom }} 한 명씩 배정합니다.</p>
+  <p>취합된 출근표를 보고 날짜마다 장중관제 {{ gen_help.count }}칸({{ gen_help.start|time:"H:i" }}~{{ gen_help.end|time:"H:i" }})에 {{ gen_help.whom }} 한 명씩 배정합니다.</p>
   <ol>
-    <li><strong>자격</strong> — {% if gen_help.types %}{{ gen_help.types }}이고 {% endif %}그날 그 칸의 출근조에 있어야 합니다.
+    <li><strong>자격</strong> — {% if gen_help.types %}{{ gen_help.types }}이고 {% endif %}그날 그 칸의 근무조에 있어야 합니다.
       {{ gen_help.rule }}</li>
     <li><strong>1단계 배정</strong> — 날짜마다 자격자가 적은 칸부터 채웁니다.
       그날 아직 배정되지 않은 자격자 중 지금까지 배정 횟수가 가장 적은 사람을 고르고, 같으면 무작위로 정합니다.

@@ -93,7 +93,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
         seen: dict[str, str] = {}
         for key, names in table[d].items():
             if names and key not in shift_keys:
-                add_error(errors, CsvError(0, col, f"{dept.name}에는 {labels[key].name} 출근조가 없습니다."))
+                add_error(errors, CsvError(0, col, f"{dept.name}에는 {labels[key].name} 근무조가 없습니다."))
                 continue
             for name in (split_reason(n)[0] for n in names):  # 사유는 떼고 사람만 본다
                 if name not in members:
@@ -108,7 +108,7 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
         today = perms.today()
         for d in sorted(x for x in set(table) | set(existing) if x < today and x not in skip):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
-                add_error(errors, CsvError(0, d.isoformat(), "지난 날짜는 어드민만 수정할 수 있습니다."))
+                add_error(errors, CsvError(0, d.isoformat(), "지난 날짜는 관리자만 수정할 수 있습니다."))
     return errors
 
 

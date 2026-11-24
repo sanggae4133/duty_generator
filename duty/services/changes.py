@@ -30,7 +30,7 @@ def _eligibility_warnings(defs: list[Def], period: Period, d: date, cell: str, m
         out.append(f"{m.name}은(는) {'·'.join(df.eligible_types)}가 아닙니다.")
     shift = Commute.objects.filter(period=period, date=d, member=m).values_list("shift", flat=True).first()
     if shift not in df.eligible_shifts:
-        out.append(f"{m.name}의 그날 출근조({names.get(shift, '없음')})는 {df.name} 관제 자격이 아닙니다.")
+        out.append(f"{m.name}의 그날 근무조({names.get(shift, '없음')})는 {df.name} 관제 자격이 아닙니다.")
     return out
 
 
@@ -117,7 +117,7 @@ def change_cell(user, board, d: date, cell: str, before: User | None, after: Use
             if row is None:
                 raise DutyError(f"{before.name}은(는) 이 칸에 없습니다.")
         if after is not None and Commute.objects.filter(period=period, date=d, member=after).exists():
-            raise DutyError(f"{after.name}은(는) 그날 이미 다른 출근조에 있습니다. 맞교환을 사용하세요.")
+            raise DutyError(f"{after.name}은(는) 그날 이미 다른 근무조에 있습니다. 맞교환을 사용하세요.")
         if row is not None:
             row.delete()
         if after is not None:
@@ -204,7 +204,7 @@ def swap(user, board, d: date, cell_a: str, a: User, cell_b: str, b: User, carry
     if a == b or cell_a == cell_b:
         raise DutyError("서로 다른 두 칸의 서로 다른 사람을 골라 주세요.")
     if kind(cell_a) != kind(cell_b):  # 점심당번끼리는 위의 같은 칸 검사에 걸린다(혼자인 칸)
-        raise DutyError("출근조끼리 또는 관제 칸끼리만 맞교환할 수 있습니다.")
+        raise DutyError("근무조끼리 또는 관제 칸끼리만 맞교환할 수 있습니다.")
     warnings: list[str] = []
     why_a = why_b = ""  # 사유는 사람을 따라간다(근무조 행만 있다). 두 기록 모두에 남긴다
     if is_slot_cell(cell_a):

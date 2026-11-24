@@ -16,7 +16,7 @@
   <ul>{% for e in errors %}<li>{% if e.row %}{{ e.row }}행 {% endif %}{{ e.column }}: {{ e.reason }}</li>{% endfor %}</ul>
 </article>
 {% endif %}
-<p class="guide"><small>칸마다 그 출근조에 들어갈 사람 이름을 쉼표(,)로 구분해 적습니다. 한 사람은 하루에 한 출근조만. 휴가·출장·교육은 이름 뒤에 이름(휴가)처럼 붙입니다(근무로 치지 않음).{% if names %}<br>{{ dept.name }} 인원: {{ names|join:", " }}{% endif %}</small></p>
+<p class="guide"><small>칸마다 그 근무조에 들어갈 사람 이름을 쉼표(,)로 구분해 적습니다. 한 사람은 하루에 한 근무조만. 휴가·출장·교육은 이름 뒤에 이름(휴가)처럼 붙입니다(근무로 치지 않음).{% if names %}<br>{{ dept.name }} 인원: {{ names|join:", " }}{% endif %}</small></p>
 {% if filled %}<div class="msg warning" role="status">{% if changed %}{{ changed }}칸을 채웠습니다(색칠한 칸). 아직 저장하지 않았습니다. 확인하고 고친 뒤 [표 저장]을 누르세요.{% else %}바뀐 칸이 없습니다.{% endif %}</div>{% endif %}
 <form method="post">{% csrf_token %}
 {% if show_fill %}<button class="enter-save" tabindex="-1" aria-hidden="true">표 저장</button>{% endif %}{# 칸에서 Enter 를 누르면 채우기가 아니라 저장(첫 제출 버튼)이 눌리게 #}

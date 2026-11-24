@@ -241,3 +241,22 @@ def test_steps_cover_roster_redesign_features():
                  "N월 내 근무", "[엑셀 ▾]", "메모 알림은 근무표 관리자가", "텔레그램과 같습니다"):
         assert word in text, word
     assert "토·일 칸에도 메모" in "\n".join(STEPS["admin"])
+
+
+def test_admin_video_only_for_boards_with_slots(client, make_member, videos):
+    """관제 없는 근무표만 관리하는 사람에게는 IT 화면으로 찍은 관리자 영상 대신 글 도움말만(PLAN-HELP-2)."""
+    from duty.models import Board
+    u = make_member("다", user=True)
+    Board.objects.create(code="ops", name="운영팀", **OPS_STEPS).admin_group.user_set.add(u)
+    client.force_login(u)
+    body = client.get("/help/").content.decode()
+    assert "/help/video/admin.mp4" not in body and "회차 운영(단계·출근표·생성·배포)" in body
+    assert client.get("/help/video/admin.mp4").status_code == 403
+
+
+def test_admin_text_points_to_settings_not_admin_menu():
+    """계정 일은 [근무표 설정]에서(PLAN-HELP-1), 배포는 알림을 따로 보내지 않는다(PLAN-HELP-3)."""
+    from duty.help import STEPS
+    text = "\n".join(STEPS["admin"])
+    assert "[근무표 설정]" in text and "계정·부서·알림 설정은 [관리]에서" not in text
+    assert "알림이 나갑니다" not in text

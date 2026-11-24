@@ -183,7 +183,7 @@ def test_lunch_and_slots_do_not_mix(pub, it_board):
     warnings = changes.exchange(m["라"], it_board, T, "slot0", m["나"], m["다"])
     assert not any("다른 관제 칸" in w for w in warnings)
     assert DutyAssignment.objects.get(cell="slot0").member == m["다"] and _lunch_names(p) == ["나"]
-    with pytest.raises(DutyError, match="출근조끼리 또는 관제 칸끼리만"):
+    with pytest.raises(DutyError, match="근무조끼리 또는 관제 칸끼리만"):
         changes.swap(m["라"], it_board, T, "lunch", m["나"], "normal", m["다"])
 
 
@@ -228,8 +228,8 @@ def test_carry_lunch_on_swap_keeps_notice_pairing(pub, it_board, monkeypatch):
     assert _lunch_names(p) == ["나"]
     change_notice.tick(NOW)
     texts = sorted(t.split("\n")[0] + "|" + chat for chat, t in sent)
-    assert texts == ["[근무 변경] 11/10(화) 맞교환|11", "[근무 변경] 11/10(화) 맞교환|22",
-                     "[근무 변경] 11/10(화) 점심당번|11", "[근무 변경] 11/10(화) 점심당번|22"]
+    assert texts == ["[근무 변경] 오늘 11/10(화) 맞교환|11", "[근무 변경] 오늘 11/10(화) 맞교환|22",
+                     "[근무 변경] 오늘 11/10(화) 점심당번|11", "[근무 변경] 오늘 11/10(화) 점심당번|22"]
 
 
 def test_carry_lunch_on_swap_from_other_side(pub, it_board):
@@ -267,7 +267,7 @@ def test_roster_and_day_order(pub, client):
     assert body.index("<strong>야간</strong>") < body.index("<strong>점심당번</strong>") < body.index("<strong>08:30~09:30</strong>")
     assert "11:30~12:30</strong>" not in body.split("<strong>점심당번</strong>")[1][:50]  # 시각 없이
     grp = body.split('<h4 class="grp">')
-    assert [g.split("<")[0] for g in grp[1:]] == ["출근조", "당번", "장중관제"]  # 점심당번은 출근조 아래가 아니다
+    assert [g.split("<")[0] for g in grp[1:]] == ["근무조", "당번", "장중관제"]  # 점심당번은 출근조 아래가 아니다
 
 
 def test_schedule_filter_and_me(pub, client):
@@ -374,7 +374,7 @@ def test_report_appends_lunch_line_without_time():
 
 
 def test_lunch_message_kinds_and_same_day_notice():
-    assert m.change_notice(IT_DEFS2, T, "lunch", "가", "나", "관리자") == (
+    assert m.change_notice(IT_DEFS2, T, date(2026, 11, 1), "lunch", "가", "나", "관리자") == (
         "근무 변경", "[근무 변경] 11/10(화) 점심당번\n가 → 나\n바꾼 사람: 관리자")
     assert m.report_line(IT_DEFS2, "lunch", []) == "점심당번 -"
     assert same_day_notice(IT_DEFS2, "personal", "days", 0, 10 * 60, []) == \

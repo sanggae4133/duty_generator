@@ -112,10 +112,10 @@ def test_filters_apply_to_my_section_only(client, two):
     assert 'value="TMCH" checked' in body and 'value="MEMS" checked' not in body
     assert re.search(r'data-d="MEMS" data-t="[^"]+"><span class="tk[^"]*">가상다<', body)  # 내 근무표 구역만 필터 표시
     assert re.search(r'<span class="lb"><span class="tk">가상나<', body)  # 운영팀 구역은 늘 전체(표시 없음)
-    assert "부서·유형·스케줄은 내 근무표에만 적용됩니다" in body
+    assert "부서·구분·근무는 내 근무표에만 적용됩니다" in body
     assert '<input type="hidden" name="board" value="it"><input type="hidden" name="board" value="ops">' in body  # 필터 폼이 고른 목록 그대로
     one = client.get(WEEK + "&board=it").content.decode().split('id="xl-panel"')[0]  # 엑셀 상자는 근무표를 더 고를 수 있어 늘 적는다
-    assert "부서·유형·스케줄은 내 근무표에만" not in one  # 하나면 지금 그대로
+    assert "부서·구분·근무는 내 근무표에만" not in one  # 하나면 지금 그대로
 
 
 def test_to_mine_label_rules(client, two):
