@@ -12,8 +12,9 @@ from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html
 from py_vapid import _check_sub
 
 from .accounts import issue_account, on_department_change
@@ -157,6 +158,9 @@ class UserForm(UserChangeForm):
         return c
 
 
+MINE_SKIPPED = "자기 계정은 발급에서 뺐습니다. 내 비밀번호는 메뉴의 [비밀번호]에서 바꾸세요."
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     form = UserForm
@@ -164,7 +168,9 @@ class UserAdmin(DjangoUserAdmin):
     add_form_template = None  # 기본 안내("아이디와 비밀번호를 먼저…")가 맞지 않아 일반 추가 화면을 쓴다
     add_fieldsets = ((None, {"fields": ("username", "name", "department", "part", "type")}),)
     fieldsets = (
-        (None, {"fields": ("username", "password", "must_change_password")}),
+        # Django 비밀번호 칸(초기화·설정 버튼)은 뺀다: 비밀번호는 액션 '계정 발급 / 비밀번호 초기화' 한 길로만 준다
+        # (그 화면으로 정하면 첫 로그인 변경·기본 알림 규칙·임시 비밀번호 유효 기간을 거치지 않는다)
+        (None, {"fields": ("username", "must_change_password")}),
         ("근무표", {"fields": ("name", "department", "part", "type")}),
         ("도움말·알림", {"fields": ("help_dismissed", "notify_changes"),
                      "description": "'사용법 팝업 다시 보지 않기'를 끄면 다음 로그인 때 사용법 팝업이 다시 뜹니다."}),
@@ -239,13 +245,12 @@ class UserAdmin(DjangoUserAdmin):
         queryset = queryset.exclude(pk=request.user.pk)  # 자기 비밀번호가 바뀌면 세션과 함께 이 목록도 사라진다
         with transaction.atomic():  # 중간 실패 시 이미 발급된 비밀번호가 사라지지 않도록 전체 롤백
             lines = [f"{u.name}({u.username}): {issue_account(u)}" for u in queryset]
+        if lines:  # 임시 비밀번호는 이 응답 본문에만: messages(세션 DB)·로그에 싣지 않는다([근무표 설정]과 같은 규칙)
+            return TemplateResponse(request, "admin/duty/user/issued.html", {
+                **self.admin_site.each_context(request), "opts": self.opts, "title": "임시 비밀번호",
+                "lines": lines, "mine": MINE_SKIPPED if mine else ""})
         if mine:
-            self.message_user(request, "자기 계정은 발급에서 뺐습니다. 내 비밀번호는 메뉴의 [비밀번호]에서 바꾸세요.",
-                              messages.INFO)
-        if lines:
-            self.message_user(request, format_html(  # 한 줄에 한 사람: 1:1로 옮길 때 섞이지 않게
-                "임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요.{}",
-                format_html_join("", "<br>{}", ((x,) for x in lines))), messages.WARNING)
+            self.message_user(request, MINE_SKIPPED, messages.INFO)
 
 
 class BoardShiftInline(admin.TabularInline):

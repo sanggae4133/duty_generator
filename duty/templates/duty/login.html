@@ -3,7 +3,7 @@
 <article style="max-width: 24rem; margin: auto">
   <img src="{% static 'duty/nextrade-logo.svg' %}" alt="NEXTRADE" class="login-logo">
   <h3>당번표 로그인</h3>
-  {% if form.errors %}<div class="msg error" role="alert">아이디 또는 비밀번호가 맞지 않습니다.</div>{% endif %}
+  {% if form.errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0|default:"아이디 또는 비밀번호가 맞지 않습니다." }}</div>{% endif %}
   <form method="post">{% csrf_token %}
     <label>아이디 (멤버 코드)<input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus></label>
     <label>비밀번호<input name="password" type="password" autocomplete="current-password" required></label>

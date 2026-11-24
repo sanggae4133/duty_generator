@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date
 
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
 from .. import perms
@@ -9,6 +10,15 @@ from ..models import MOVABLE, ChangeLog, Commute, Department, DutyAssignment, Pe
 from . import boards, holidays
 
 S = Period.Status
+
+
+def require_admin(period: Period, by) -> None:
+    """회차를 바꾸는 서비스(저장·이동·지우기·생성·배포·배포 취소)의 입구 검사: by 가 그 근무표 관리자가 아니면 PermissionDenied.
+    뷰는 이미 _period()(관리자가 아니면 404)를 거친다. 이것은 그 검사를 빠뜨린 새 길을 막는 두 번째 겹이다.
+    by=None 은 사람이 아닌 호출(테스트·시드 스크립트)이라 보지 않는다."""
+    # ponytail: by=None 이면 건너뛴다 — 뷰가 by 까지 빠뜨리면 못 막는다. 막으려면 by 를 필수로(테스트 호출 130여 곳 수정)
+    if by is not None and not perms.is_board_admin(by, period.board):
+        raise PermissionDenied("이 근무표 관리자가 아닙니다.")
 
 
 def record(period: Period, old: str, by=None, note: str = "") -> None:
@@ -23,6 +33,7 @@ def _names(board, statuses) -> str:
 
 @transaction.atomic
 def save_draft(period: Period, by=None) -> Period:
+    require_admin(period, by)
     board = period.board
     row = Period.objects.select_for_update().get(pk=period.pk) if period.pk else None  # 상태는 DB 에서(낡은 객체 대비)
     if row and row.status not in board.editable():  # 작성 중, 작성 중을 안 쓰면 취합 중에서도(설계 5.2)
@@ -63,6 +74,7 @@ def save_draft(period: Period, by=None) -> Period:
 @transaction.atomic
 def move(period: Period, to: str, by=None) -> None:
     """배포 전 상태끼리 자유롭게 옮긴다. 생성됨에서 나가면 생성 결과(장중관제)를 지운다. 출근표는 남는다."""
+    require_admin(period, by)
     period.refresh_from_db()
     if period.status == S.PUBLISHED:
         raise DutyError("배포된 회차는 배포 취소로만 되돌릴 수 있습니다.")
@@ -79,8 +91,9 @@ def move(period: Period, to: str, by=None) -> None:
 
 
 @transaction.atomic
-def delete(period: Period) -> None:
+def delete(period: Period, by=None) -> None:
     """시험·실수로 만든 회차를 지운다. 배포된 회차, 근무 변경 기록이 남은 회차(배포된 적 있음)는 안 된다."""
+    require_admin(period, by)
     period.refresh_from_db()
     if period.status == S.PUBLISHED:
         raise DutyError("배포된 회차는 지울 수 없습니다. 먼저 배포 취소하세요.")

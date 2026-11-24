@@ -1,0 +1,7 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:duty_user_changelist' %}">사용자 목록으로</a></div>{% endblock %}
+{% block content %}
+{% if mine %}<p>{{ mine }}</p>{% endif %}
+{# 한 줄에 한 사람: 1:1로 옮길 때 섞이지 않게. 세션 메시지가 아니라 이 응답에만 있다(새로 고치거나 떠나면 다시 볼 수 없다) #}
+<p class="errornote">임시 비밀번호 — 이 화면에서만 보입니다. 사람마다 1:1로만 전달하세요.{% for x in lines %}<br>{{ x }}{% endfor %}</p>
+{% endblock %}

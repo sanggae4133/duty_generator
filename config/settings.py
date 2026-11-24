@@ -174,7 +174,8 @@ AXES_RESET_ON_SUCCESS = True
 # 잠긴 동안의 시도로 잠금을 다시 15분 늘리거나 기록을 쌓지 않는다(피해자가 스스로 잠금을 늘리지 않게, DB 행 비대 방지)
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 AXES_LOCKOUT_TEMPLATE = "duty/locked.html"
-MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 임시 비밀번호가 쿠키에 실리지 않게
+AXES_DISABLE_ACCESS_LOG = True  # 로그인 성공마다 IP·User-Agent 를 쌓지 않는다(쓰는 곳 없음, 개인정보). 잠금(실패 기록)과 무관
+MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"  # 메시지가 쿠키에 실리지 않게(임시 비밀번호는 메시지에 넣지 않고 응답 본문에만)
 # duty.* INFO 로그(예: "alarms tick:")를 stderr(→ journald)로. 웹·run_worker 는 시작할 때 data/logs/<web|worker>.log 도 붙인다
 # (duty.logging.log_to_file). 기본 설정은 WARNING 이상만 찍는다.
 # 캘린더 피드 경로(/calendar/<토큰>.ics)는 비밀이라 django.request·django.server 로그에서 지운다.

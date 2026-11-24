@@ -1,8 +1,10 @@
 """관리 화면과 [근무표 설정]이 함께 쓰는 폼(근무표 통합 설계 6.2·7.3): 근무 정의 한 줄·근무표 전체 검사, 회차 단계 칸,
 부서 출근조·점심 시각. 검사 규칙은 한 곳에만 둔다."""
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
+from . import accounts
 from .models import Board, BoardShift, Department, unsafe_cell_text
 from .services import boards
 from .shifts import DEVELOPER, LUNCH, SHIFT_KEYS, STAFF, is_slot_cell, shift_defs
@@ -174,3 +176,14 @@ def shift_forms(board, data=None):
     return (ShiftFormSet(data, instance=board),
             [DeptShiftsForm(data, instance=d, prefix=f"d-{d.code}", defs=defs)
              for d in board.departments.order_by("order", "code")])
+
+
+class LoginForm(AuthenticationForm):
+    """로그인: 첫 로그인 대기인데 임시 비밀번호 유효 기간이 지났으면 들이지 않는다(비밀번호는 맞아도)."""
+    error_messages = {**AuthenticationForm.error_messages, "invalid_login": "아이디 또는 비밀번호가 맞지 않습니다."}
+
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        if accounts.temp_password_expired(user):
+            raise ValidationError(f"임시 비밀번호의 유효 기간({accounts.TEMP_PASSWORD_DAYS}일)이 지났습니다. "
+                                  "관리자에게 다시 발급해 달라고 요청하세요.", code="temp_password_expired")

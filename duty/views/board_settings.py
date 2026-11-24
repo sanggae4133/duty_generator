@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 
-from .. import perms
+from .. import accounts, perms
 from ..errors import DutyError
 from ..forms import StepsForm, shift_forms
 from ..models import Board, Department, Period, User
@@ -211,9 +211,12 @@ ACTIONS = {  # POST do → (칸 id, 처리). 처리는 결과 글(성공 메시�
 
 
 def _state(u) -> str:
-    """계정 열(설계 7.2): 쓸 수 있는 비밀번호가 없으면 발급 전, 첫 로그인 비밀번호 변경 전이면 첫 로그인 대기."""
+    """계정 열(설계 7.2): 쓸 수 있는 비밀번호가 없으면 발급 전, 첫 로그인 비밀번호 변경 전이면 첫 로그인 대기
+    (유효 기간이 지났으면 임시 비밀번호 만료: [비밀번호 초기화]로 다시 발급)."""
     if not u.has_usable_password():
         return "발급 전"
+    if accounts.temp_password_expired(u):
+        return "임시 비밀번호 만료"
     return "첫 로그인 대기" if u.must_change_password else "사용 중"
 
 

@@ -1,7 +1,9 @@
 import secrets
+from datetime import timedelta
 
 from axes.utils import reset
 from django.db import transaction
+from django.utils import timezone
 
 from . import perms
 from .models import AlarmDelivery, Department, User
@@ -20,10 +22,22 @@ def dismiss_help(user: User) -> None:
     User.objects.filter(pk=user.pk).update(help_dismissed=True)
 
 
+SUPERUSER_SESSION_AGE = 12 * 3600  # 관리 화면(비밀번호 초기화·봇 토큰·그룹 권한)이 열리는 세션은 90일이 아니라 12시간
+TEMP_PASSWORD_DAYS = 7  # 임시 비밀번호는 발급 뒤 7일 안에 첫 로그인해야 쓸 수 있다(지나면 다시 발급)
+
+
 def on_login(sender, request, user, **kwargs) -> None:
-    """로그인할 때마다: 다시 보지 않기를 안 눌렀으면 이번 로그인의 첫 화면에 사용법 팝업."""
+    """로그인할 때마다: 다시 보지 않기를 안 눌렀으면 이번 로그인의 첫 화면에 사용법 팝업. 슈퍼유저는 세션을 짧게."""
     if not user.help_dismissed:
         request.session["show_help"] = True
+    if user.is_superuser:
+        request.session.set_expiry(SUPERUSER_SESSION_AGE)
+
+
+def temp_password_expired(user: User) -> bool:
+    """첫 로그인 대기인데 임시 비밀번호를 발급한 지 TEMP_PASSWORD_DAYS 가 지났다. 발급 시각이 없으면(관리 화면에서 칸만 켠 경우) 만료로 보지 않는다."""
+    issued = user.temp_password_issued_at
+    return user.must_change_password and issued is not None and timezone.now() - issued > timedelta(days=TEMP_PASSWORD_DAYS)
 
 
 ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz"  # 헷갈리는 0·o·1·l·i 를 뺐다(근무표 통합 설계 5.7)
@@ -50,6 +64,7 @@ def issue_account(user: User, revoke_links: bool = True) -> str:
     password = temp_password()
     user.set_password(password)
     user.must_change_password = True
+    user.temp_password_issued_at = timezone.now()
     user.save()
     reset(username=user.username)
     if first:

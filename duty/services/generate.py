@@ -10,13 +10,14 @@ from ..generator import GenerationOutput, generate_control_duty
 from ..models import Commute, Department, DutyAssignment, Period, User
 from ..shifts import LUNCH, by_key, day_spans, shift_defs, slot_defs
 from . import boards, holidays
-from .periods import missing_dates, record
+from .periods import missing_dates, record, require_admin
 
 S = Period.Status
 
 
 @transaction.atomic  # 검사·입력 읽기·저장을 한 트랜잭션에(IMMEDIATE: 그동안 다른 쓰기는 기다린다)
 def run_generation(period: Period, seed: int | None = None, by=None) -> GenerationOutput:
+    require_admin(period, by)
     period.refresh_from_db()
     board = period.board
     active = boards.active_defs(board)
