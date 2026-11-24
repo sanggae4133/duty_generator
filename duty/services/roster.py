@@ -109,9 +109,9 @@ def find_day(board, d: date) -> Day | None:
 
 
 def member_schedule(board, member: User, start: date, shown=lambda cell: True,
-                    end: date | None = None, keys: bool = False) -> list[tuple[date, list]]:
+                    end: date | None = None) -> list[tuple[date, list[tuple[str, str]]]]:
     """내 근무: 날마다 ["정상 08:00~17:00", "점심당번 11:30~12:30", "장중관제 08:30~09:30"]. 사유는 이름 뒤 "정상(휴가) 08:00~17:00".
-    점심당번 시각은 부서 점심 시각(없으면 이름만). keys=True 면 (스케줄 키, 글) — 관제 칸은 'slots'(화면이 브라우저에서 거른다)."""
+    점심당번 시각은 부서 점심 시각(없으면 이름만). 글마다 (스케줄 키, 글) — 관제 칸은 'slots'(화면이 브라우저에서 거른다)."""
     defs = boards.defs(board)
     dept = member.department
     lunch = f" {dept.lunch_start:%H:%M}~{dept.lunch_end:%H:%M}" if dept and dept.lunch_start else ""
@@ -124,7 +124,7 @@ def member_schedule(board, member: User, start: date, shown=lambda cell: True,
 
     out = []
     for day in published_days(board, start, end):
-        labels = [((SLOT_GROUP if is_slot_cell(c) else c), label(day, c)) if keys else label(day, c)
+        labels = [((SLOT_GROUP if is_slot_cell(c) else c), label(day, c))
                   for c, names in day.members.items() if shown(c) and member.name in names]
         if labels:
             out.append((day.date, labels))

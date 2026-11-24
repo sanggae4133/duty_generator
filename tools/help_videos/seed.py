@@ -1,4 +1,4 @@
-"""사용법 영상 녹화용 가짜 데이터(실명 없음). record.mjs 가 빈 DUTY_DATA_DIR 에서 `manage.py shell < seed.py` 로 부른다.
+"""사용법 영상 녹화용 가짜 데이터(실명 없음). docs/DEVELOPMENT.md 절차대로 빈 DUTY_DATA_DIR 에서 `manage.py shell < seed.py` 로 돌린다.
 
 계정(비밀번호 모두 Demo-pass-123): member(일반), manager(MEMS 출근표 입력 그룹), admin(슈퍼유저 + IT 근무표 관리 그룹)
 2단계 화면 예시: 휴장일(이번 회차), 날·주·달 메모, 근무 없음 날(다음 회차), 사유(휴가) 한 명, 점심당번(생성이 새벽 근무자로 채움)

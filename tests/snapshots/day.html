@@ -60,7 +60,7 @@
 <small class="hint">부서·구분·근무는 모두 해제하면 전체 표시</small>
 </div>
 </details>
-<script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { const g = document.querySelector(".roster-scroll"); try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => { // 근무표의 '오늘로 이동'보다 뒤에 const g = document.querySelector(".roster-scroll"); if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; } scrollTo(0, s.y); }); }</script>
+<script>{ // 체크박스를 바꾸면 바로 다시 불러온다. 그때 스크롤 위치와 필터 펼침을 기억했다가 되살린다(맨 위로 튀거나 다시 접히지 않게) const f = document.currentScript.closest("form"), d = f.querySelector("details.filters"), key = "duty-filter:" + location.pathname; let s = null; try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {} if (innerWidth > 768 || (s && s.open)) d.open = true; f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => { try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY})); } catch (e) {} f.requestSubmit(); }); if (s) addEventListener("DOMContentLoaded", () => scrollTo(0, s.y)); }</script>
 </form>
 <h4 class="grp">근무조</h4>
 <article id="dawn" class="dcell">

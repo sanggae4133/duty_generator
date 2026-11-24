@@ -9,27 +9,13 @@ from duty.services.publish import publish, unpublish, unpublish_info
 from duty.services.roster import find_day
 from duty.shifts import weekdays
 from tests.it_defs import OPS_STEPS
+from tests.helpers import make_period, rows
 
 S = Period.Status
 
 
 def d(m, day):
     return date(2026, m, day)
-
-
-def make_period(name, start, end, status, member):
-    it_board = Board.objects.get(code="it")
-    p = Period.objects.create(board=it_board, name=name, start_date=start, end_date=end, status=status)
-    for x in weekdays(start, end):
-        Commute.objects.create(period=p, date=x, member=member, shift="normal")
-        DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=member)
-    return p
-
-
-def rows(p):
-    c = sorted(Commute.objects.filter(period=p).values_list("date", "member_id", "shift"))
-    k = sorted(DutyAssignment.objects.filter(period=p).values_list("date", "member_id", "cell"))
-    return c, k
 
 
 # ── 배포 전 상태끼리 이동 ──

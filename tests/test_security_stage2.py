@@ -220,7 +220,7 @@ def test_chat_id_direct_entry_removed(client, make_member):
     AlarmSettings.objects.update_or_create(pk=1, defaults={"telegram_bot_token": "TOK"})  # 사용자명 없음
     u = make_member("가", user=True)
     client.force_login(u)
-    client.post("/alarms/telegram/", {"chat_id": "123"})
+    client.post("/alarms/telegram/unlink/", {"chat_id": "123"})
     assert not TelegramAlarmProfile.objects.filter(user=u, chat_id="123").exists()
     assert "chat_id 직접 입력" not in client.get("/alarms/").content.decode()
 

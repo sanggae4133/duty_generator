@@ -287,6 +287,7 @@ class PeriodStatus(models.TextChoices):
 
 
 MOVABLE = (PeriodStatus.DRAFT, PeriodStatus.COLLECTING, PeriodStatus.CLOSED)  # 생성됨·배포됨은 생성·배포 버튼으로만 간다
+BEFORE_PUBLISH = (*MOVABLE, PeriodStatus.GENERATED)
 
 
 class Period(models.Model):

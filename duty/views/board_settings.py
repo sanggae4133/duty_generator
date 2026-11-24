@@ -20,7 +20,7 @@ from .common import admin_required, int_param
 
 
 def _mine(request) -> list[Board]:
-    return list(perms.admin_boards(request.user).order_by("id"))  # admin_required 를 지났으니 비어 있지 않다
+    return list(perms.admin_boards(request.user))  # admin_required 를 지났으니 비어 있지 않다
 
 
 def _board(request) -> Board:

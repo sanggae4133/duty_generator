@@ -9,6 +9,7 @@ from .views import auth as auth_views_local
 from .views import board_settings as board_settings_views
 from .views import calendar as calendar_views
 from .views import collect as collect_views
+from .views.common import HIGH, LOW
 from .views import help as help_views
 from .views import manage as manage_views
 from .views import roster as roster_views
@@ -19,7 +20,7 @@ class IsoDateConverter:
 
     def to_python(self, value):
         d = date.fromisoformat(value)
-        if not 2000 <= d.year <= 2099:  # 범위 밖(예: 9999-12-31)은 날짜 계산이 넘쳐 500 이 났다 → 404
+        if not LOW <= d <= HIGH:  # 범위 밖(예: 9999-12-31)은 날짜 계산이 넘쳐 500 이 났다 → 404
             raise ValueError(value)
         return d
 
@@ -55,7 +56,7 @@ urlpatterns = [
     path("changes/", manage_views.change_log, name="changes"),
     path("settings/", board_settings_views.index, name="board_settings"),
     path("alarms/", alarm_views.index, name="alarms"),
-    path("alarms/telegram/", alarm_views.telegram_save, name="alarm_telegram"),
+    path("alarms/telegram/unlink/", alarm_views.telegram_unlink, name="alarm_telegram_unlink"),
     path("alarms/telegram/link/", alarm_views.telegram_link, name="alarm_telegram_link"),
     path("alarms/telegram/link/check/", alarm_views.telegram_link_check, name="alarm_telegram_check"),
     path("alarms/changes/", alarm_views.notify_changes, name="alarm_notify_changes"),

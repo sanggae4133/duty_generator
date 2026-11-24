@@ -5,7 +5,8 @@ from datetime import date
 from django.db.models import Q
 
 from ..models import Board, Commute, DutyAssignment, Period, User
-from ..shifts import TARGET_SPREAD, is_slot_cell, slot_defs
+from ..generator import TARGET_SPREAD
+from ..shifts import is_slot_cell, slot_defs
 from . import boards
 from .roster import published_days
 

@@ -10,7 +10,7 @@ from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Memo, Period
 
 DAY, WEEK, MONTH = Memo.Scope.DAY, Memo.Scope.WEEK, Memo.Scope.MONTH
-MAX_TEXT = 500
+MAX_TEXT = Memo._meta.get_field("text").max_length
 
 
 def normalize(scope: str, d: date) -> date:

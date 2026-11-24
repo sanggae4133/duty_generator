@@ -3,7 +3,9 @@
 - 휴장일 채우기: 매 바퀴 맨 앞(holidays.sync, 없는 날짜만 넣어 가볍다)
 - DB 백업: 하루 한 번, BACKUP_HOUR 시 이후(backup.daily)
 - 상태 점검: 5분마다(health.check)
-- 알림 발송: 매분(alarm_runner.tick)
+- 근무 변경 알림: 매분(change_notice.tick)
+- 메모 알림: 매분(memo_notice.tick)
+- 정기 알림 발송: 매분(alarm_runner.tick)
 한 작업이 실패해도 로그만 남기고 다른 작업과 다음 바퀴는 계속 돈다.
 """
 import fcntl
@@ -31,7 +33,7 @@ def run_round(now, health_due=True) -> None:
     if health_due:
         jobs.append(("health", health.check))
     jobs.append(("changes", change_notice.tick))  # 내 근무가 바뀌면 알림: 정기 알림보다 먼저('바로' 가게)
-    jobs.append(("memos", memo_notice.tick))  # 메모 알림(켠 사람만)
+    jobs.append(("memos", memo_notice.tick))  # 메모 알림(관리자가 켠 근무표만)
     jobs.append(("alarms", alarm_runner.tick))
     for name, job in jobs:
         try:

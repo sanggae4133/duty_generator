@@ -49,7 +49,7 @@ def _period(request, pid) -> Period:
 
 @admin_required
 def period_list(request):
-    mine = list(perms.admin_boards(request.user).order_by("id"))  # admin_required 를 지났으니 비어 있지 않다
+    mine = list(perms.admin_boards(request.user))  # admin_required 를 지났으니 비어 있지 않다
     if request.method == "POST":
         try:
             period = _form_period(request.POST)
@@ -200,14 +200,14 @@ def period_move(request, pid):
 def period_publish(request, pid):
     period = _period(request, pid)
     raw = request.POST.get("from") or request.GET.get("from")
-    default = min(max(perms.today(), period.start_date), period.end_date)
     try:
-        start = date.fromisoformat(raw) if raw else default
+        start = date.fromisoformat(raw) if raw else None
     except ValueError:
-        start = default
-    if request.method == "POST" and (not raw or start is default):
+        start = None
+    if request.method == "POST" and start is None:
         messages.error(request, "덮어쓰기 시작일이 올바르지 않습니다.")
         return redirect("period_detail", pid)
+    start = start or min(max(perms.today(), period.start_date), period.end_date)
     try:
         if request.method == "POST":
             publishing.publish(period, start, by=request.user)
@@ -241,7 +241,7 @@ LOG_LIMIT = 500  # 변경 이력 한 화면에 보이는 최대 건수
 
 @admin_required
 def change_log(request):
-    mine = list(perms.admin_boards(request.user).order_by("id"))
+    mine = list(perms.admin_boards(request.user))
     qs = (ChangeLog.objects.filter(period__board__in=mine)  # 내가 관리하는 근무표만(설계 9절)
           .select_related("by", "before", "after", "period__board").order_by("-at", "-id"))
     board_code = request.GET.get("board", "")

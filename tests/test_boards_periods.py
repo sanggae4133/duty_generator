@@ -7,8 +7,8 @@ from duty.errors import DutyError
 from duty.models import Board, BoardShift, ChangeLog, Commute, Department, DutyAssignment, Period, User
 from duty.services import collect, periods
 from duty.services.publish import preview_publish, publish, unpublish, unpublish_info
-from duty.shifts import weekdays
 from tests.it_defs import OPS_STEPS
+from tests.helpers import make_period, rows
 
 S = Period.Status
 
@@ -30,26 +30,11 @@ def ops_member(dept, name="운영가"):
                                     department=dept, part="", type="직원")
 
 
-def make_period(board, name, start, end, status, member, slots=True):
-    p = Period.objects.create(board=board, name=name, start_date=start, end_date=end, status=status)
-    for x in weekdays(start, end):
-        Commute.objects.create(period=p, date=x, member=member, shift="normal")
-        if slots:
-            DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=member)
-    return p
-
-
-def rows(p):
-    c = sorted(Commute.objects.filter(period=p).values_list("date", "member_id", "shift"))
-    a = sorted(DutyAssignment.objects.filter(period=p).values_list("date", "member_id", "cell"))
-    return c, a
-
-
 @pytest.fixture
 def two(it_board, ops, make_member):
     board, dept = ops
-    it = make_period(it_board, "IT회차", d(11, 2), d(11, 27), S.GENERATED, make_member("가"))
-    op = make_period(board, "운영회차", d(11, 16), d(12, 11), S.GENERATED, ops_member(dept), slots=False)
+    it = make_period("IT회차", d(11, 2), d(11, 27), S.GENERATED, make_member("가"), board=it_board)
+    op = make_period("운영회차", d(11, 16), d(12, 11), S.GENERATED, ops_member(dept), slots=False, board=board)
     return it, op
 
 
@@ -75,8 +60,8 @@ def test_preview_ignores_other_board(two):
 
 
 def test_preview_uses_owner_even_without_rows(it_board, make_member):
-    a = make_period(it_board, "A", d(11, 2), d(11, 27), S.GENERATED, make_member("가"))
-    b = make_period(it_board, "B", d(11, 16), d(12, 11), S.GENERATED, make_member("나"))
+    a = make_period("A", d(11, 2), d(11, 27), S.GENERATED, make_member("가"), board=it_board)
+    b = make_period("B", d(11, 16), d(12, 11), S.GENERATED, make_member("나"), board=it_board)
     publish(a, d(11, 2))
     m = Commute.objects.filter(period=a).first().member
     Commute.objects.filter(period=a, date=d(11, 19)).delete()  # 그날 배정을 다 비워도 주인은 A
