@@ -26,7 +26,7 @@
     <form method="post" action="{% url 'alarm_telegram_link' %}" target="_blank">{% csrf_token %}<button>텔레그램 연결</button></form>
     <form method="post" action="{% url 'alarm_telegram_check' %}">{% csrf_token %}<button class="secondary">연결 확인</button></form>
     {% endif %}
-    {% if tg.chat_id %}<form method="post" action="{% url 'alarm_telegram' %}">{% csrf_token %}<input type="hidden" name="chat_id" value=""><button class="outline secondary">연결 해제</button></form>{% endif %}
+    {% if tg.chat_id %}<form method="post" action="{% url 'alarm_telegram_unlink' %}">{% csrf_token %}<button class="outline secondary">연결 해제</button></form>{% endif %}
   </div>
   {% if bot_ready %}
     <small>[텔레그램 연결]을 누르면 봇 대화창이 열립니다. [시작]을 누른 뒤 이 화면에서 [연결 확인]을 누르세요.</small>

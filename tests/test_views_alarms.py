@@ -91,7 +91,7 @@ def test_others_rule_404(client, me, other):
 
 def test_empty_clears_regardless_of_cooldown(client, me, bot):
     TelegramAlarmProfile.objects.create(user=me, chat_id="9", verified_at=timezone.now(), last_test_at=timezone.now())
-    post(client, "/alarms/telegram/", {"chat_id": ""})
+    post(client, "/alarms/telegram/unlink/")
     p = TelegramAlarmProfile.objects.get(user=me)
     assert p.chat_id == "" and p.verified_at is None
 
@@ -334,7 +334,7 @@ def test_csrf_enforced(me):
     from django.test import Client
     c = Client(enforce_csrf_checks=True)
     c.force_login(me)
-    assert c.post("/alarms/telegram/", {"chat_id": ""}).status_code == 403
+    assert c.post("/alarms/telegram/unlink/").status_code == 403
 
 
 def _other_client(other):
@@ -347,7 +347,7 @@ def _other_client(other):
 def test_disconnect_invalidates_pending_code(client, me, other, bot, tgapi):
     code = code_of(me, client)
     TelegramAlarmProfile.objects.filter(user=me).update(chat_id="9", verified_at=timezone.now())
-    post(client, "/alarms/telegram/", {"chat_id": ""})
+    post(client, "/alarms/telegram/unlink/")
     p = TelegramAlarmProfile.objects.get(user=me)
     assert (p.chat_id, p.verified_at, p.link_code, p.link_expires_at) == ("", None, None, None)
     c2 = _other_client(other)

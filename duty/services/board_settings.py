@@ -13,14 +13,13 @@ from django.db.models import Count, Q
 
 from .. import accounts, perms
 from ..errors import DutyError
-from ..models import Board, BoardShift, Commute, Department, DutyAssignment, Period, User
+from ..models import BEFORE_PUBLISH, Board, BoardShift, Commute, Department, DutyAssignment, Period, User
 from ..shifts import DEVELOPER, SHIFT_KEYS, STAFF, is_slot_cell, josa, shift_defs
 from . import boards, prefs
 
 log = logging.getLogger(__name__)
 
 S = Period.Status
-BEFORE_PUBLISH = [S.DRAFT, S.COLLECTING, S.CLOSED, S.GENERATED]
 INVALID = "저장하지 않았습니다. 빨간 글씨로 표시한 칸을 고쳐 주세요."
 STALE = "화면을 연 뒤 근무 정의나 부서가 바뀌었습니다. 저장하지 않았습니다. 근무표 설정 화면을 다시 열어 주세요."
 NO_ADMIN_LEFT = "재직 중인 관리자가 아무도 남지 않습니다. 회차·배포·설정을 할 사람이 없으니 다른 사람을 먼저 넣으세요."

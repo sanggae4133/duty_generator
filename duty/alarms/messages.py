@@ -82,7 +82,10 @@ def report_line(defs, cell: str, names: list[str]) -> str:
     return f"{label} {', '.join(names) if names else '-'}"
 
 
-def clip(text: str, limit: int = 4000) -> str:
+LIMIT = 4000  # 텔레그램 본문 최대 길이
+
+
+def clip(text: str, limit: int = LIMIT) -> str:
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
 
 

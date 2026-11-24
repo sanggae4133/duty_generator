@@ -3,24 +3,15 @@ from datetime import date
 import pytest
 
 from duty.errors import DutyError
-from duty.models import Board, ChangeLog, Commute, DutyAssignment, Period
+from duty.models import ChangeLog, Commute, DutyAssignment, Period
 from duty.services.publish import preview_publish, publish
-from duty.shifts import weekdays
+from tests.helpers import make_period
 
 S = Period.Status
 
 
 def d(m, day):
     return date(2026, m, day)
-
-
-def make_period(name, start, end, status, member):
-    it_board = Board.objects.get(code="it")  # make_member·me 픽스처가 it_board 를 이미 만든다
-    p = Period.objects.create(board=it_board, name=name, start_date=start, end_date=end, status=status)
-    for x in weekdays(start, end):
-        Commute.objects.create(period=p, date=x, member=member, shift="normal")
-        DutyAssignment.objects.create(period=p, date=x, cell="slot0", member=member)
-    return p
 
 
 def dates_of(p):

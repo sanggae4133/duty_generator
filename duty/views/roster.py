@@ -18,7 +18,12 @@ from ..shifts import (
     DAY_LABELS, DEVELOPER, LUNCH, REASONS, SHIFT, SLOT, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell,
     kind, lunch_defs, ordered, shift_defs, slot_defs,
 )
-from .common import date_param, int_param, safe_next
+from .common import HIGH, LOW, date_param, int_param, safe_next
+
+
+def last_name(label: str) -> str:
+    """라벨(A, A>B>C, +B)의 지금(마지막) 사람."""
+    return label.split(">")[-1].strip().lstrip("+")
 
 
 def _item(label: str, names: list[str], removed: bool = False, reasons: dict[str, str] | None = None) -> dict:
@@ -44,7 +49,7 @@ def _why(day, cell: str) -> dict[str, str]:
 
 def _latest(labels: list[str]) -> list[str]:
     """변경 내역을 숨길 때: 'A>B>C'·'+C' → 'C'(지금 근무하는 사람만)."""
-    return [lb.split(">")[-1].strip().lstrip("+") for lb in labels]
+    return [last_name(lb) for lb in labels]
 
 
 def _visible(labels: list[str], why: dict[str, str], history: bool) -> list[str]:
@@ -130,7 +135,7 @@ def _keeper(depts: list[str], types: list[str]):
     info = {n: (d, t) for n, d, t in User.objects.values_list("name", "department_id", "type")} if depts or types else {}
 
     def keep(label: str) -> bool:
-        d, t = info.get(label.split(">")[-1].strip().lstrip("+"), (None, None))
+        d, t = info.get(last_name(label), (None, None))
         return (not depts or d in depts) and (not types or t in types)
 
     return keep
@@ -195,7 +200,6 @@ def _cell_context(defs, day, cell: str, d, depts: list[str] | None = None, types
     }
 
 
-LOW, HIGH = date(2000, 1, 1), date(2099, 12, 31)
 
 
 def _month_shift(d: date, step: int) -> date:
@@ -217,8 +221,6 @@ def roster(request):
     pref = prefs.load(request.user, request.GET, fboard, mine=has_home)
     view, depts, types, shifts, history = pref["view"], pref["depts"], pref["types"], pref["shifts"], pref["history"]
     anchor = date_param(request, "date") or today
-    if not LOW <= anchor <= HIGH:  # 극단 날짜의 overflow 방지
-        anchor = today
     # 필터용 표시: 라벨의 지금(마지막) 사람의 부서·유형. 내 근무표 구역에만 붙인다
     info = {n: (d or "", t) for n, d, t in User.objects.values_list("name", "department_id", "type")} if has_home else {}
 
@@ -262,9 +264,7 @@ def roster(request):
             "by_date": {x.date: x for x in published_days(b, first_day, last_day)},
             "notes": memos.for_range(b, first_day, last_day),  # 메모는 회차가 아니라 (근무표, 날짜)에 붙는다
             "meta": {"name": b.name if multi else "", "code": b.code, "bq": bq, "bqa": bqa, "memo_admin": admin,
-                     "view_only": b != boards.board_of(request.user) and not admin, "home": b == home,
-                     # 근무 변경 창 To 후보를 거를 부서·유형은 브라우저가 지금 필터로 붙인다(roster.js)
-                     "filter_qs": bqa},
+                     "view_only": b != boards.board_of(request.user) and not admin},
         }
 
     parts = [part(b) for b in chosen]
@@ -517,7 +517,7 @@ def roster_export(request):
     chosen, home = _selection(request)
     start, end = date_param(request, "start"), date_param(request, "end")
     error = ""
-    if not (start and end and LOW <= start <= HIGH and LOW <= end <= HIGH):
+    if not (start and end):
         error = "시작일과 종료일을 넣어 주세요."
     elif start > end:
         error = "시작일이 종료일보다 늦습니다."
@@ -544,8 +544,6 @@ def _me_query(request) -> dict:
     _, _, shifts = prefs.clean(board, [], [], request.GET.getlist("shift"))
     today = perms.today()
     start, end = date_param(request, "start") or today, date_param(request, "end")
-    start = start if LOW <= start <= HIGH else today
-    end = end if end and LOW <= end <= HIGH else None
     return {"member": member, "board": board, "shifts": shifts, "today": today, "start": start, "end": end,
             "error": "시작일이 종료일보다 늦습니다." if end and start > end else ""}
 
@@ -555,7 +553,7 @@ def me(request):
     q = _me_query(request)
     member, board, today, start, end = q["member"], q["board"], q["today"], q["start"], q["end"]
     ok = member and not q["error"]
-    rows = dict(member_schedule(board, member, start, end=end, keys=True)) if ok else {}  # 스케줄은 브라우저가 거른다
+    rows = dict(member_schedule(board, member, start, end=end)) if ok else {}  # 스케줄은 브라우저가 거른다
     days = boards.owners(board, start, end) if ok else {}
     if days:  # 휴장일·근무 없음 날도 회색 줄로(근무 없는 보통 날은 뺀다)
         off = holidays.closed(start, max(days)) | {

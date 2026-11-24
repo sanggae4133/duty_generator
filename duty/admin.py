@@ -76,7 +76,7 @@ class DepartmentForm(forms.ModelForm):
         name = c.get("name")
         # 입력 그룹은 첫 담당자를 고를 때 생기고(save_related → ensure_input_group), 부서 이름을 바꾸면 따라 바뀐다(설계 5.3).
         # 그 그룹 이름이 이미 있으면 Group.name unique 위반(500) 대신 이름 칸 오류로
-        group = f"{name} 출근표 입력"
+        group = Department(name=name).input_group_name()
         makes = not self.instance.input_group_id and c.get("managers")
         renames = self.instance.input_group_id and "name" in self.changed_data
         if name and (makes or renames) and Group.objects.exclude(pk=self.instance.input_group_id).filter(name=group).exists():
@@ -273,8 +273,8 @@ class BoardForm(StepsForm):
         if name and Board.objects.exclude(pk=self.instance.pk).filter(name=name).exists():
             self.add_error("name", f"같은 이름의 근무표가 이미 있습니다: {name}")
         elif (name and "name" in self.changed_data  # 이름을 바꿀 때만 관리 그룹 이름이 바뀐다
-              and Group.objects.exclude(pk=self.instance.admin_group_id).filter(name=f"{name} 근무표 관리").exists()):
-            self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {name} 근무표 관리")
+              and Group.objects.exclude(pk=self.instance.admin_group_id).filter(name=(group := Board(name=name).admin_group_name())).exists()):
+            self.add_error("name", f"같은 이름의 그룹이 이미 있습니다: {group}")
         return c
 
 

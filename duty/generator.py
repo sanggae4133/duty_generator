@@ -10,7 +10,8 @@ import random
 from dataclasses import dataclass, field
 from datetime import date
 
-from .shifts import MAX_SWAP_ITERATIONS, TARGET_SPREAD
+TARGET_SPREAD = 2
+MAX_SWAP_ITERATIONS = 10000
 
 Slots = list[tuple[str, tuple[str, ...], tuple[str, ...]]]  # (라벨, 자격 근무조, 자격 유형 — 빈 튜플 = 전원). 인덱스 = 칸 번호, 키 변환은 services/generate.py
 

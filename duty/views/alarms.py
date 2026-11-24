@@ -86,7 +86,7 @@ def _index(request, **extra):
 
 @require_POST
 @login_required
-def telegram_save(request):
+def telegram_unlink(request):
     """연결 해제만. chat_id 직접 입력은 없앴다(남의 채팅으로 알림을 보낼 수 있어서). 연결은 /start 코드로만."""
     alarms.clear_telegram(request.user)
     messages.info(request, "텔레그램 연결을 해제했습니다.")

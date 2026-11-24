@@ -18,7 +18,7 @@ def today() -> date:
 
 
 def admin_boards(user):
-    """내가 관리 그룹 멤버인 근무표들."""
+    """내가 관리 그룹 멤버인 근무표들(Board.Meta.ordering 대로 id 순)."""
     if not user.is_authenticated:
         return Board.objects.none()
     return Board.objects.filter(admin_group__user=user)

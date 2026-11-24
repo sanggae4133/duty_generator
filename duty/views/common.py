@@ -25,12 +25,17 @@ def int_param(raw: str | None) -> int | None:
     return int(raw) if raw and re.fullmatch(r"\d{1,18}", raw, re.ASCII) else None
 
 
+LOW, HIGH = date(2000, 1, 1), date(2099, 12, 31)  # 받는 날짜 범위(밖은 날짜 계산이 넘친다). 회차 기간도 이 안(periods)
+
+
 def date_param(request, name: str) -> date | None:
+    """?name=YYYY-MM-DD. 형식이 틀리거나 LOW~HIGH 밖이면 None."""
     raw = request.GET.get(name, "")
     try:
-        return date.fromisoformat(raw) if raw else None
+        d = date.fromisoformat(raw) if raw else None
     except ValueError:
         return None
+    return d if d and LOW <= d <= HIGH else None
 
 
 def safe_next(request, fallback: str) -> str:

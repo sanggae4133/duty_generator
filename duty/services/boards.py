@@ -1,4 +1,4 @@
-"""근무표(Board)와 근무 정의 읽기, 그날의 주인(설계 6.1). 1단계는 IT 근무표 하나."""
+"""근무표(Board)와 근무 정의 읽기, 그날의 주인(설계 6.1)."""
 from datetime import date
 from urllib.parse import urlencode
 

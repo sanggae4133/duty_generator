@@ -3,7 +3,8 @@ from datetime import date
 import pytest
 
 from duty.generator import GenerationError, SlotFailure, generate_control_duty
-from duty.shifts import TARGET_SPREAD, weekdays
+from duty.generator import TARGET_SPREAD
+from duty.shifts import weekdays
 from tests.it_defs import IT_SLOTS
 
 DATES = weekdays(date(2026, 11, 9), date(2026, 11, 27))  # 15일

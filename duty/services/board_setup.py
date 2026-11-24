@@ -47,7 +47,7 @@ def create_board(code: str, name: str, shifts: list[Span], lunch: Span | None,
         raise DutyError("명단 파일에 이름이 없습니다.")
     if Board.objects.filter(code=code).exists():
         raise DutyError(f"이미 있는 근무표 코드입니다: {code}")
-    if Board.objects.filter(name=name).exists() or Group.objects.filter(name=f"{name} 근무표 관리").exists():
+    if Board.objects.filter(name=name).exists() or Group.objects.filter(name=Board(name=name).admin_group_name()).exists():
         raise DutyError(f"같은 이름의 근무표나 관리 그룹이 이미 있습니다: {name}")
     if len(code) > Department._meta.get_field("code").max_length:  # 부서 코드로도 쓴다
         raise DutyError("코드는 8자 이내로 적습니다(부서 코드로도 씁니다).")

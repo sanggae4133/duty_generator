@@ -23,21 +23,20 @@ log = logging.getLogger(__name__)
 HORIZON = timedelta(days=45)
 BIZ_BACK = timedelta(days=90)  # 영업일 기준 최대 30영업일 전 + 긴 연휴 여유: 이만큼 앞의 휴장일까지 읽는다
 KEEP = timedelta(days=7)
-LIMIT = 4000  # 텔레그램 본문 최대 길이
 
 
 def _link(url: str) -> str | None:
     """SITE_URL 절대 링크. 비었거나 너무 길어 본문(최소 생략 표시만큼) 자리가 없으면 None."""
     link = settings.SITE_URL.rstrip("/") + url if settings.SITE_URL else None
-    return link if link and len(link) + 1 + len(m.CUT) <= LIMIT else None
+    return link if link and len(link) + 1 + len(m.CUT) <= m.LIMIT else None
 
 
 def telegram_text(text: str, url: str) -> str:
     """SITE_URL이 있으면 마지막 줄에 절대 링크. 링크 자리를 먼저 빼고 본문을 잘라 전체 4000자 이내."""
     link = _link(url)
     if link is None:
-        return m.clip(text, LIMIT)
-    return m.clip(text, LIMIT - len(link) - 1) + "\n" + link
+        return m.clip(text)
+    return m.clip(text, m.LIMIT - len(link) - 1) + "\n" + link
 
 
 def _destinations(rules, conf):

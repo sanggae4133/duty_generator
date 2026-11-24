@@ -15,13 +15,8 @@
     try { s = JSON.parse(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch (e) {}
     if (innerWidth > 768 || (s && s.open)) d.open = true;
     f.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => {
-      const g = document.querySelector(".roster-scroll");
-      try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY, gx: g ? g.scrollLeft : 0, gy: g ? g.scrollTop : 0})); } catch (e) {}
+      try { sessionStorage.setItem(key, JSON.stringify({open: d.open, y: scrollY})); } catch (e) {}
       f.requestSubmit();
     });
-    if (s) addEventListener("DOMContentLoaded", () => {  // 근무표의 '오늘로 이동'보다 뒤에
-      const g = document.querySelector(".roster-scroll");
-      if (g) { g.scrollTop = s.gy; g.scrollLeft = s.gx; }
-      scrollTo(0, s.y);
-    });
+    if (s) addEventListener("DOMContentLoaded", () => scrollTo(0, s.y));
   }</script>{% endif %}

@@ -16,6 +16,7 @@ from ..errors import DutyError
 from ..models import CalendarFeed, ChangeLog, Period
 from ..shifts import LUNCH, SLOT_GROUP, SLOT_GROUP_NAME, is_slot_cell, ordered
 from . import boards, roster
+from .alarms import normalize, rule_board
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,6 @@ def issue(user) -> str:
 
 def set_shifts(user, shifts) -> None:
     """캘린더에 넣을 근무를 고른다(알림 규칙의 스케줄과 같은 값). 구독 주소는 그대로."""
-    from .alarms import normalize, rule_board  # 순환 import 피함
     row = CalendarFeed.objects.filter(user=user).first()
     if row is None:
         raise DutyError("먼저 구독 주소를 발급하세요.")
