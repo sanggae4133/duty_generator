@@ -362,7 +362,7 @@ def roster_prefs(request):
     """근무표 화면에서 브라우저가 바꾼 필터·변경 내역 표시를 저장한다(화면은 이미 바뀌어 있다). 보기는 링크가 정한다."""
     home = boards.home(request.user)
     if home is not None:
-        prefs.resolve(request.user, request.POST, home, with_view=False)
+        prefs.resolve(request.user, request.POST, home, mine=request.POST.get("mine") != "0", with_view=False)
     return HttpResponse(status=204)
 
 

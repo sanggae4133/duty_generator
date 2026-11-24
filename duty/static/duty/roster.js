@@ -2,7 +2,6 @@
 // 부서·유형·스케줄 필터, 변경 내역 표시, 이름 강조, 다른 사람 흐리게, 관제 펼치기. 필터 값은 주소창에 남기고 /prefs/ 로 저장한다.
 // ◀ ▶ 앞뒤 기간은 화면이 열리자마자 미리 받아 두었다가 누르면 바로 바꿔 끼운다(브라우저 캐시는 쓰지 않는다: 고친 뒤 옛 화면 방지).
 (() => {
-  if (window.DutyRoster) { window.DutyRoster.init(); return; }
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const store = {
     get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -14,8 +13,8 @@
   // 체크 상자 셋째 상태: 누를 때마다 보임(on) → 흐리게(dim, indeterminate) → 숨김(off). 흐리게도 checked(보임 목록에 든다)
   const setTri = (c, st) => { c.dataset.state = st; c.checked = st !== "off"; c.indeterminate = st === "dim"; };
   const tri = c => c.dataset.state || (c.checked ? "on" : "off");
-  const cache = new Map();  // 미리 받은 화면 {주소(이름 강조 뺌): Promise<HTML|null>}
-  let carry = null, saveTimer = 0;
+  const cache = new Map(), FRESH = 60000;  // 미리 받은 화면 {주소(이름 강조 뺌): {at, p: Promise<HTML|null>}}. 1분 지나면 새로 받는다
+  let carry = null, saveTimer = 0, busy = false;
 
   function state(f) {
     const pick = n => {  // 일부만 골랐을 때만 거른다(모두·하나도 안 고름 = 전체, prefs.clean 과 같다)
@@ -56,8 +55,9 @@
         c.classList.toggle("x", !ok || shown);
         shown = shown || ok;
       });
-      td.classList.toggle("mine", shown);
-      if (shown && !td.classList.contains("other")) mine++;
+      const own = shown && !td.classList.contains("other");  // 앞뒤 달 날짜는 읽기 전용이라 표시·셈에서 뺀다
+      td.classList.toggle("mine", own);
+      if (own) mine++;
     });
     const md = $("#mydays");
     if (md) md.textContent = `${mine}일`;
@@ -99,6 +99,7 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       const body = new FormData();
+      body.append("mine", f.dataset.mine);  // 남의 근무표만 볼 때(0) 서버는 내 흐리게 값을 두고 변경 내역만 저장
       for (const [k, v] of new FormData(f)) {
         if (k === "hist" || (f.dataset.mine === "1" && FILTER.includes(k))) body.append(k, v);
       }
@@ -118,9 +119,9 @@
 
   const key = h => { const u = new URL(h, location.href); NAMES.forEach(k => u.searchParams.delete(k)); u.hash = ""; return u.href; };
   function prefetch(h) {
-    const k = key(h);
-    if (!cache.has(k)) cache.set(k, fetch(h, {credentials: "same-origin"})
-      .then(r => (r.ok && !r.redirected ? r.text() : null)).catch(() => null));
+    const k = key(h), c = cache.get(k);
+    if (!c || Date.now() - c.at > FRESH) cache.set(k, {at: Date.now(), p: fetch(h, {credentials: "same-origin"})
+      .then(r => (r.ok && !r.redirected ? r.text() : null)).catch(() => null)});
   }
   function swap(html, href) {
     const doc = new DOMParser().parseFromString(html, "text/html"), next = $("main", doc);
@@ -179,14 +180,8 @@
       dim.addEventListener("change", () => { store.set("duty-dim", dim.checked ? "1" : "0"); draw(); });
       draw();
     }
-    const open = store.get("duty-slots") === "1";  // 관제: 하나를 펴거나 접으면 모두 같이, 기기마다 기억
-    $$("details.slot").forEach(x => {
-      x.open = open;
-      x.addEventListener("toggle", () => {
-        store.set("duty-slots", x.open ? "1" : "0");
-        $$("details.slot").forEach(y => { if (y.open !== x.open) y.open = x.open; });
-      });
-    });
+    const open = store.get("duty-slots") === "1";  // 관제 펼침: 기기마다 기억(아래 toggle 위임)
+    $$("details.slot").forEach(x => { x.open = open; });
     apply(f);
     monthPanel();
     const today = $("#today");
@@ -200,12 +195,22 @@
   document.addEventListener("click", e => {
     const a = e.target.closest("a[data-nav]");
     if (!a || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    const p = cache.get(key(a.href));
-    if (!p) return;
+    if (busy) { e.preventDefault(); return; }  // 바꿔 끼우는 중에 또 누르거나 밀면 무시(히스토리 두 번 방지)
+    const k = key(a.href), c = cache.get(k);
+    if (!c || Date.now() - c.at > FRESH) return;  // 없거나 오래됐으면 보통 이동(새 화면)
     e.preventDefault();
-    p.then(html => (html ? swap(html, a.href) : (location.href = a.href)));
+    busy = true;
+    cache.delete(k);  // 한 번 쓴 것은 버린다
+    c.p.then(html => (html ? swap(html, a.href) : (location.href = a.href))).finally(() => { busy = false; });
   });
-  addEventListener("popstate", () => location.reload());
+  addEventListener("popstate", () => location.reload());  // 바꿔 끼운 화면에서 뒤로 가기 = 그 주소를 새로 연다
+  // 관제: 하나를 펴거나 접으면 모두 같이. 위임이라 휴대폰 월간 명단(#mday)에 복사한 것도 같다
+  document.addEventListener("toggle", e => {
+    const x = e.target;
+    if (!x.matches || !x.matches("details.slot")) return;
+    store.set("duty-slots", x.open ? "1" : "0");
+    $$("details.slot").forEach(y => { if (y.open !== x.open) y.open = x.open; });
+  }, true);
   // 좌우로 밀어 넘기기(휴대폰·터치 화면·트랙패드 두 손가락). ◀ ▶ 를 누른 것과 같다(미리 받은 화면으로 바로).
   // 표가 옆으로 스크롤되는 화면에서는 끝에 닿아 있을 때만. 마우스 끌기는 글자 고르기와 겹쳐 쓰지 않는다
   const go = dir => { const a = $(`a[data-nav="${dir}"]`); if (a) a.click(); };
@@ -238,7 +243,7 @@
     accAt = now;
     acc += e.deltaX;
     if (Math.abs(acc) > 150) { acc = 0; cool = now + 900; go(dir); }
-  }, {passive: false});  // 바꿔 끼운 화면에서 뒤로 가기 = 그 주소를 새로 연다
+  }, {passive: false});
   // 칸·메모 팝업: 돌아올 주소는 지금 주소(필터가 주소창에만 바뀌어 있다), 근무 변경 To 후보는 지금 부서·유형 필터로
   document.addEventListener("htmx:configRequest", e => {
     const el = e.detail.elt, f = $("#flt");
@@ -252,6 +257,5 @@
       if (s.type) e.detail.parameters.type = [...s.type];
     }
   });
-  window.DutyRoster = {init};
   init();
 })();
