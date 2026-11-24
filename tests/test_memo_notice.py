@@ -29,7 +29,7 @@ def world(make_member, admin_user, monkeypatch, it_board, ops_board):
 
 
 def tick():
-    return memo_notice.tick(timezone.now())
+    return memo_notice.tick(NOW)  # 메모 날짜(11/10)가 지나지 않은 시각
 
 
 def test_board_on_notifies_all_members_once(world, it_board):
@@ -79,7 +79,7 @@ def test_other_board_members_and_stale_rows_skipped(world, ops_board, it_board):
     memos.save(admin, ops_board, "month", D, "운영 달 메모")  # 가·나는 IT 소속
     assert tick() == 0
     memos.save(admin, it_board, "day", D, "오래된 메모")
-    Memo.objects.filter(text="오래된 메모").update(edited_at=timezone.now() - timedelta(days=2))  # 작업자가 오래 꺼져 있었다
+    Memo.objects.filter(text="오래된 메모").update(edited_at=NOW - timedelta(days=2))  # 작업자가 오래 꺼져 있었다
     assert tick() == 0 and not Memo.objects.filter(notice_pending=True).exists()
 
 

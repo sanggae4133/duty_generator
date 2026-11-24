@@ -12,7 +12,7 @@ from .. import perms, xlsx
 from ..csv_io import split_names
 from ..errors import DutyError
 from ..models import Board, Department, Memo, RosterPref, User
-from ..services import boards, changes, holidays, memos, prefs
+from ..services import boards, changes, holidays, memo_notice, memos, prefs
 from ..services.roster import export_rows, find_day, member_schedule, published_days
 from ..shifts import (
     DAY_LABELS, DEVELOPER, LUNCH, REASONS, SHIFT, SLOT, SLOT_GROUP, STAFF, by_key, cell_label, display_order, is_slot_cell,
@@ -391,6 +391,8 @@ def cell(request, d, cell):
             else:
                 # "+"·"-" = 없음(넣기만·빼기만). 기본은 둘 다 고른 맞교환
                 before, after = request.POST.get("before"), request.POST.get("after")
+                if not before:  # 비어 있으면 넣기만("+")으로 읽지 않는다
+                    raise DutyError("From 을 골라 주세요.")
                 result = changes.exchange(request.user, board, d, cell, _member(None if before == "+" else before),
                                           _member(None if after == "-" else after),
                                           carry_lunch=request.POST.get("carry_lunch") == "1",
@@ -482,7 +484,8 @@ def memo(request, scope, d):
                 msg = "메모를 지웠습니다."
             else:
                 cleared = memos.save(request.user, board, scope, d, request.POST.get("text", ""),
-                                     no_work=bool(request.POST.get("no_work")), confirm=int_param(request.POST.get("confirm")))
+                                     no_work=bool(request.POST.get("no_work")), confirm=int_param(request.POST.get("confirm")),
+                                     notify=bool(request.POST.get("notify")))
                 msg = f"메모를 저장했습니다. {cleared}명의 근무를 지웠습니다." if cleared else "메모를 저장했습니다."
         except DutyError as e:
             messages.error(request, str(e))
@@ -493,6 +496,7 @@ def memo(request, scope, d):
         "scope": scope, "d": d, "memo": memos.for_range(board, d, d)[scope].get(d), "next": safe_next(request, fallback),
         "title": prefix + {"day": f"{d:%Y-%m-%d} 메모", "week": f"{d.month}/{d.day} 주 메모", "month": f"{d.year}년 {d.month}월 메모"}[scope],
         "affected": memos.affected(board, d) if scope == Memo.Scope.DAY else 0, "bq": bq,
+        "notice_to": memo_notice.recipients(board, request.user).count() if board.notify_memos else None,
     })
 
 

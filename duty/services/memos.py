@@ -57,8 +57,10 @@ def _clear_day(user, board, d: date) -> int:
 
 
 @transaction.atomic
-def save(user, board, scope: str, d: date, text: str, no_work: bool = False, confirm: int | None = None) -> int:
+def save(user, board, scope: str, d: date, text: str, no_work: bool = False, confirm: int | None = None,
+         notify: bool = True) -> int:
     """메모를 저장하고 지운 근무의 사람 수를 돌려준다. 글이 비고 근무 없음도 아니면 지운다.
+    notify=False 면 바뀌어도 메모 알림을 보내지 않는다(오타 고침 등).
     근무 없음으로 저장할 때 그날 배정이 있으면 confirm 이 확인창에서 본 인원수와 같아야 한다(그사이 바뀌었거나 없으면 DutyError)."""
     _require_admin(user, board)
     d = normalize(scope, d)
@@ -81,7 +83,8 @@ def save(user, board, scope: str, d: date, text: str, no_work: bool = False, con
     old = Memo.objects.filter(board=board, scope=scope, date=d).first()
     fields = {"text": text, "no_work": no_work}
     if old is None or old.text != text or old.no_work != no_work:  # 새로 달거나 바꿨을 때만 메모 알림(memo_notice)
-        fields.update(notice_pending=True, edited_by=user, edited_at=timezone.now())
+        # 알림 끔이어도 아직 안 나간 알림은 살린다(저장 직후 오타 고침이 먼저 알림을 지우지 않게)
+        fields.update(notice_pending=notify or bool(old and old.notice_pending), edited_by=user, edited_at=timezone.now())
     Memo.objects.update_or_create(board=board, scope=scope, date=d, defaults=fields)
     return cleared
 

@@ -3,7 +3,8 @@
   {% if not inline %}<p><strong>{{ prefix }}{{ d|date:"Y-m-d" }} {% if slot %}장중관제 {% endif %}{{ label }}</strong></p>{% endif %}
   <p><small>{% if lunch %}From 대신 To 가 점심당번이 됩니다.{% else %}From 과 To 의 근무를 서로 맞바꿉니다. To 가 그날 {% if slot %}장중관제가{% else %}근무가{% endif %} 없으면 From 대신 들어갑니다.{% endif %}</small></p>
   <label>From
-    <select name="before">
+    <select name="before" required>
+      <option value="" disabled{% if current_members|length > 1 %} selected{% endif %}>바뀔 사람 선택</option>
       {% for m in current_members %}<option value="{{ m.pk }}">{{ m.name }}</option>
       {% endfor %}{% if not slot %}<option value="+">(없음 — 새로 넣기만)</option>{% endif %}
     </select>
@@ -25,7 +26,8 @@
   <input type="hidden" name="next" value="{{ next }}">
   <p><small>휴가·출장·교육이면 사유를 붙입니다. 사유가 붙으면 그날 근무로 치지 않습니다(알림·캘린더{% if has_slots %}·관제{% endif %}에서 빠짐).</small></p>
   <label>사유
-    <select name="member" aria-label="사유를 붙일 사람">
+    <select name="member" aria-label="사유를 붙일 사람" required>
+      <option value="" disabled{% if current_members|length > 1 %} selected{% endif %}>사유를 붙일 사람 선택</option>
       {% for m in current_members %}<option value="{{ m.pk }}">{{ m.name }}{% if m.reason %} ({{ m.reason }}){% endif %}</option>
       {% endfor %}
     </select>
@@ -35,12 +37,12 @@
 </form>
 {% endif %}
 <script>
-  // 넣기만·빼기만은 드물다: 한 번 더 묻는다
+  // 넣기만·빼기만은 드물다: 한 번 더 묻는다. 맞교환도 누구와 누구인지 한 줄로 확인한다
   window.cellConfirm = window.cellConfirm || (f => {
     const b = f.before.value, a = f.after.value;
     if (b === "+" && a === "-") { alert("From 과 To 중 하나는 사람을 골라 주세요."); return false; }
     if (b === "+") return confirm("아무도 빼지 않고 " + f.after.selectedOptions[0].text.split(" · ")[0] + "을(를) 이 칸에 넣기만 할까요?\n보통은 From 사람과 맞바꿉니다.");
     if (a === "-") return confirm(f.before.selectedOptions[0].text + "을(를) 이 칸에서 빼기만 할까요?\n보통은 다른 사람과 맞바꿉니다.");
-    return true;
+    return confirm("From: " + f.before.selectedOptions[0].text + "\nTo: " + f.after.selectedOptions[0].text.split(" · ")[0] + "\n저장할까요?");
   });
 </script>

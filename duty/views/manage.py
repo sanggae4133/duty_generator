@@ -217,7 +217,8 @@ def period_publish(request, pid):
     except DutyError as e:
         messages.error(request, str(e))
         return redirect("period_detail", pid)
-    return render(request, "duty/publish.html", {"period": period, "preview": preview})
+    past = (perms.today() - start).days  # 이미 지난 날도 덮어쓰면 경고(막지는 않는다)
+    return render(request, "duty/publish.html", {"period": period, "preview": preview, "past_days": max(past, 0)})
 
 
 @admin_required
@@ -228,9 +229,14 @@ def stats_view(request):
     if board is None:
         raise PermissionDenied
     rows, duty_summary, total_summary = stats.member_stats(board, start, end)
+    names = {d.key: d.name for d in boards.defs(board)}
     return render(request, "duty/stats.html", {
+        "board": board, "dawn": names.get("dawn", "새벽"), "night": names.get("night", "야간"),
         "rows": rows, "duty": duty_summary, "total": total_summary, "start": start, "end": end,
     })
+
+
+LOG_LIMIT = 500  # 변경 이력 한 화면에 보이는 최대 건수
 
 
 @admin_required
@@ -255,13 +261,13 @@ def change_log(request):
     defs = {b.pk: boards.defs(b) for b in Board.objects.all()}  # 근무표마다 한 번만 읽는다
     logs = [
         {
-            "at": log.at, "by": (log.by.name or log.by.username) if log.by else "시트 가져오기", "date": log.date,
+            "at": log.at, "by": (log.by.name or log.by.username) if log.by else "(예전 기록)", "date": log.date,
             "cell": cell_label(defs[log.period.board_id], log.cell),
             "before": join_reason(log.before.name, log.reason_before) if log.before else "",
             "after": join_reason(log.after.name, log.reason_after) if log.after else "", "period": log.period.name,
             "board": log.period.board.name,
         }
-        for log in qs[:500]
+        for log in qs[:LOG_LIMIT + 1]
     ]
-    return render(request, "duty/changes.html", {"logs": logs, "name": name, "by": by, "start": start, "end": end,
+    return render(request, "duty/changes.html", {"logs": logs[:LOG_LIMIT], "cut": len(logs) > LOG_LIMIT, "name": name, "by": by, "start": start, "end": end,
                                                  "board_choices": mine if len(mine) > 1 else [], "board_code": board_code})
