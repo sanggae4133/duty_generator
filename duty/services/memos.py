@@ -83,7 +83,8 @@ def save(user, board, scope: str, d: date, text: str, no_work: bool = False, con
     old = Memo.objects.filter(board=board, scope=scope, date=d).first()
     fields = {"text": text, "no_work": no_work}
     if old is None or old.text != text or old.no_work != no_work:  # 새로 달거나 바꿨을 때만 메모 알림(memo_notice)
-        fields.update(notice_pending=notify, edited_by=user, edited_at=timezone.now())
+        # 알림 끔이어도 아직 안 나간 알림은 살린다(저장 직후 오타 고침이 먼저 알림을 지우지 않게)
+        fields.update(notice_pending=notify or bool(old and old.notice_pending), edited_by=user, edited_at=timezone.now())
     Memo.objects.update_or_create(board=board, scope=scope, date=d, defaults=fields)
     return cleared
 

@@ -33,6 +33,9 @@ def test_memo_save_without_notice(admin_user, it_board):
     assert not Memo.objects.get().notice_pending
     memos.save(admin_user, it_board, "day", date(2026, 11, 18), "오타 고침")
     assert Memo.objects.get().notice_pending
+    # 아직 안 나간 알림이 있으면 바로 이어 오타만 고쳐(알림 끔) 저장해도 그 알림은 살아 있다(고친 글로 나간다)
+    memos.save(admin_user, it_board, "day", date(2026, 11, 18), "오타 고침.", notify=False)
+    assert Memo.objects.get().notice_pending
 
 
 def test_memo_post_without_notify_box(admin_client_ok, it_board):
