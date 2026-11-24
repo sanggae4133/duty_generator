@@ -442,7 +442,8 @@ def test_cell_form_defaults_to_swap(client, world, make_member):
     body = client.get(f"/cell/{D}/normal/").content.decode()
     before = body.split('name="before"')[1].split("</select>")[0]
     after = body.split('name="after"')[1].split("</select>")[0]
-    assert before.strip().startswith(">") and f'<option value="{a.pk}">가</option>' in before  # 첫 사람이 기본
+    # 칸에 한 사람이면 안내 항목을 기본으로 고르지 않아 그 사람이 기본(둘 이상이면 '바뀔 사람 선택'이 기본)
+    assert '<option value="" disabled>바뀔 사람 선택</option>' in before and f'<option value="{a.pk}">가</option>' in before
     assert before.rstrip().endswith('<option value="+">(없음 — 새로 넣기만)</option>')
     assert '<option value="" disabled selected>바꿀 사람 선택</option>' in after
     assert re.search(r'<option value="[^"]+">나 · [^<]*\(석식교대\)</option>', after)

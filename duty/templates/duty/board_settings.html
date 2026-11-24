@@ -121,7 +121,6 @@
         {% if fld.help_text %}<small>{{ fld.help_text }}</small>{% endif %}
         {% for e in fld.errors %}<p class="err">{{ e }}</p>{% endfor %}</div>{% endfor %}
     </fieldset>{% endfor %}</div>
-    <button class="outline">저장</button>
     <h5>부서</h5>
     {% if unassigned %}<div class="msg warning" role="status">아직 부서에 배정되지 않은 근무조: {{ unassigned|join:", " }}. 아래 부서에서 체크하고 [{% if ask %}그래도 저장{% else %}부서 저장{% endif %}]을 누르세요. 체크하지 않으면 입력 표에 칸이 생기지 않습니다.</div>{% endif %}
     <div class="cards">{% for d in dept_forms %}<fieldset class="card">
@@ -135,7 +134,6 @@
       </div>
       <small>점심 시각은 점심당번 알림·캘린더에 씁니다. 비우면 점심당번이 시각 기준 알림·캘린더에서 빠집니다.</small>
     </fieldset>{% endfor %}</div>
-    {# 확인 값은 이 버튼에만: 위 [저장]으로는 확인을 건너뛰지 못한다(설계 6.2) #}
     <button class="wide"{% if ask %} name="confirm" value="{{ ask }}"{% endif %}>{% if ask %}그래도 저장{% elif unassigned %}부서 저장{% else %}저장{% endif %}</button>
   </form>
 </section>

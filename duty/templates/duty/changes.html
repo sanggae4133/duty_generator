@@ -9,6 +9,7 @@
   {% if board_choices %}<label>근무표 <select name="board"><option value="">전부</option>{% for b in board_choices %}<option value="{{ b.code }}"{% if b.code == board_code %} selected{% endif %}>{{ b.name }}</option>{% endfor %}</select></label>{% endif %}
   <button>보기</button>
 </form>
+{% if cut %}<p class="note-box">최근 500건만 보입니다. 근무일·이름으로 좁히세요.</p>{% endif %}
 <div class="grid-wrap"><table>
   <thead><tr><th>시각</th><th>수정자</th>{% if board_choices %}<th>근무표</th>{% endif %}<th>근무일</th><th>칸</th><th>변경</th><th>회차</th></tr></thead>
   <tbody>{% for l in logs %}

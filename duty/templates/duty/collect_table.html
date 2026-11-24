@@ -28,7 +28,7 @@
       {% if can_rotate %}<button name="fill" value="2w:{{ r.week_start|date:'Y-m-d' }}" class="outline">2주 전 기준으로 채우기</button>{% endif %}
       <button name="fill" value="1w:{{ r.week_start|date:'Y-m-d' }}" class="outline">지난주와 같게</button></div></td></tr>{% endif %}
     <tr><td class="nw">{{ r.date|date:"Y-m-d" }}{% if r.closed %}<br><small class="hol" title="{{ r.closed }}">{{ r.closed|truncatechars:12 }}</small>{% endif %}</td><td>{{ r.weekday }}</td>
-      {% for c in r.cells %}<td><textarea name="{{ c.name }}" rows="2"{% if c.changed %} class="filled"{% endif %} {% if r.closed %}disabled placeholder="휴장"{% elif r.locked %}readonly{% endif %}>{{ c.value }}</textarea></td>{% endfor %}
+      {% for c in r.cells %}<td><textarea name="{{ c.name }}" rows="2"{% if c.changed %} class="filled"{% endif %} {% if r.closed %}disabled{% elif r.locked or not is_open %}readonly{% endif %}>{{ c.value }}</textarea></td>{% endfor %}
     </tr>{% endfor %}</tbody>
 </table>
 </div>
