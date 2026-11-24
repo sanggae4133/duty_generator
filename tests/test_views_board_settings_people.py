@@ -295,3 +295,14 @@ def test_non_ascii_or_huge_ids_are_404(ops_client, ops_board):
         assert ops_client.post(OPS, {"do": "leave", "user": a.pk, "confirm": bad}).status_code == 302  # confirm 은 없는 것으로
         assert ops_client.post(OPS, {"do": "shifts", "confirm": bad}).status_code == 302  # 폼 없음 = 낡은 화면, 500 아님
     assert User.objects.get(pk=a.pk).is_active is False
+
+
+def test_people_section_shows_expired_temp_password(ops_client, ops_board):
+    """임시 비밀번호 유효 기간이 지난 첫 로그인 대기: 관리자가 다시 발급하도록 상태 글을 바꾼다."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+    b = _ops_member("가상두리", "ops02")
+    issue_account(b)
+    User.objects.filter(pk=b.pk).update(temp_password_issued_at=timezone.now() - timedelta(days=8))
+    assert "임시 비밀번호 만료" in _row(ops_client.get(OPS).content.decode(), b)

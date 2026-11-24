@@ -8,7 +8,7 @@ from django.utils import timezone
 from ..errors import DutyError
 from ..models import ChangeLog, Commute, DutyAssignment, Period, PeriodEvent, User
 from . import boards, memos
-from .periods import record
+from .periods import record, require_admin
 
 S = Period.Status
 
@@ -54,6 +54,7 @@ _MODELS = {"c": (Commute, ("shift", "reason")), "a": (DutyAssignment, ("cell",))
 
 @transaction.atomic
 def publish(period: Period, overwrite_from: date, by=None) -> None:
+    require_admin(period, by)
     period.refresh_from_db()  # 화면이 트랜잭션 밖에서 읽은 상태를 믿지 않는다(동시 배포)
     _validate(period, overwrite_from)
     undo = []
@@ -104,6 +105,7 @@ def _restorable(period: Period) -> list:
 @transaction.atomic
 def unpublish(period: Period, by=None) -> None:
     """가장 최근 배포를 되돌린다: 배포가 지운 행을 되살리고 회차는 생성됨으로. 배포 뒤 수정은 회차 데이터에 남는다."""
+    require_admin(period, by)
     period = Period.objects.select_for_update().get(pk=period.pk)
     info = unpublish_info(period)
     if info.blocker:

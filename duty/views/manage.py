@@ -130,7 +130,7 @@ def period_detail(request, pid):
     period = _period(request, pid)
     if request.method == "POST":
         try:
-            periods.save_draft(_form_period(request.POST, period))
+            periods.save_draft(_form_period(request.POST, period), by=request.user)
         except (KeyError, ValueError):
             messages.error(request, "이름과 기간을 확인해 주세요.")
         except DutyError as e:
@@ -175,7 +175,7 @@ def period_action(request, pid, action):
 def period_delete(request, pid):
     period = _period(request, pid)
     try:
-        periods.delete(period)
+        periods.delete(period, by=request.user)
     except DutyError as e:
         messages.error(request, str(e))
         return redirect("period_detail", pid)

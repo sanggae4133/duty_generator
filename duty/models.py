@@ -258,6 +258,7 @@ class User(AbstractUser):
     type = models.CharField("구분", max_length=8, choices=[(STAFF, STAFF), (DEVELOPER, DEVELOPER)], blank=True)
     is_active = models.BooleanField("재직", default=True, help_text="끄면 로그인할 수 없고 근무표 후보에서 빠집니다.")
     must_change_password = models.BooleanField("첫 로그인 비번 변경 필요", default=False)
+    temp_password_issued_at = models.DateTimeField("임시 비밀번호 발급 시각", null=True, blank=True, editable=False)
     help_dismissed = models.BooleanField("사용법 팝업 다시 보지 않기", default=False)
     notify_changes = models.BooleanField("내 근무가 바뀌면 알림", default=True)
 

@@ -14,9 +14,10 @@ MON, FRI = date(2026, 11, 16), date(2026, 11, 20)
 
 
 @pytest.fixture
-def ops(it_board):
-    """가짜 직접 입력 근무표 '운영팀': 근무조 셋(이른·가운데·늦은) + 점심당번, 부서 하나."""
+def ops(it_board, admin_user):
+    """가짜 직접 입력 근무표 '운영팀': 근무조 셋(이른·가운데·늦은) + 점심당번, 부서 하나. admin_user 는 이 근무표 관리자도 겸한다."""
     board = Board.objects.create(code="ops", name="운영팀", **OPS_STEPS)
+    admin_user.groups.add(board.admin_group)
     for key, name, h in (("dawn", "이른", 7), ("normal", "가운데", 9), ("dinner", "늦은", 11)):
         BoardShift.objects.create(board=board, key=key, name=name, start=time(h, 30), end=time(h + 9, 30))
     BoardShift.objects.create(board=board, key="lunch", name="점심당번")

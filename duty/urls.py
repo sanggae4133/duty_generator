@@ -3,6 +3,7 @@ from datetime import date
 from django.contrib.auth import views as auth_views
 from django.urls import path, register_converter
 
+from .forms import LoginForm
 from .views import alarms as alarm_views
 from .views import auth as auth_views_local
 from .views import board_settings as board_settings_views
@@ -29,7 +30,7 @@ class IsoDateConverter:
 register_converter(IsoDateConverter, "isodate")
 
 urlpatterns = [
-    path("login/", auth_views.LoginView.as_view(template_name="duty/login.html"), name="login"),
+    path("login/", auth_views.LoginView.as_view(template_name="duty/login.html", authentication_form=LoginForm), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password/", auth_views_local.PasswordChange.as_view(), name="password_change"),
     path("", roster_views.roster, name="roster"),
