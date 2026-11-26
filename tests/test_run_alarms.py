@@ -535,5 +535,5 @@ def test_report_change_shows_before_after(member, fake, make_member):
     fake.sent.clear()
     alarm_runner.tick(SUN18 + timedelta(minutes=1))
     [(_, text)] = fake.sent
-    assert text.startswith(f"[출근표 변경] 11/16(월)\n바뀐 칸\n· 새벽(06:30~) {NAME} → {NAME}, 가상둘\n지금 출근표\n")
+    assert text.startswith(f"[출근표 변경] 11/16(월)\n바뀐 칸\n▶ 새벽(06:30~) {NAME} → {NAME}, 가상둘\n지금 출근표\n")
     assert AlarmDelivery.objects.get().last_sent_cells == {"dawn": f"{NAME}, 가상둘"}

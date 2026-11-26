@@ -59,7 +59,8 @@ def test_opt_out_and_push(world):
     change_notice.tick(NOW)
     assert sorted(x for x, _ in sent) == ["11", f"push:{sub.pk}"]
     push = dict(sent)[f"push:{sub.pk}"]
-    assert push.startswith("[근무 변경] 오늘 11/10(화)") and dict(sent)["11"].startswith(push)  # 텔레그램과 같은 글(링크 줄만 빼고)
+    assert push.startswith("[근무 변경] 맞교환 ") and "\n오늘 11/10(화)\n" in push  # 바뀐 것이 먼저, 날짜는 그 뒤
+    assert dict(sent)["11"].startswith(push)  # 텔레그램과 같은 글(링크 줄만 빼고)
 
 
 def test_old_or_past_changes_are_skipped(world, fixed_today):

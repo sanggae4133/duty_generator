@@ -227,9 +227,9 @@ def test_carry_lunch_on_swap_keeps_notice_pairing(pub, it_board, monkeypatch):
         ("dawn", "가", "나"), ("normal", "나", "가"), ("lunch", "가", "나")]
     assert _lunch_names(p) == ["나"]
     change_notice.tick(NOW)
-    texts = sorted(t.split("\n")[0] + "|" + chat for chat, t in sent)
-    assert texts == ["[근무 변경] 오늘 11/10(화) 맞교환|11", "[근무 변경] 오늘 11/10(화) 맞교환|22",
-                     "[근무 변경] 오늘 11/10(화) 점심당번|11", "[근무 변경] 오늘 11/10(화) 점심당번|22"]
+    texts = sorted(t.split("\n")[0] + "|" + t.split("\n")[-2] + "|" + chat for chat, t in sent)
+    assert texts == ["[근무 변경] 가 → 나|오늘 11/10(화) 점심당번|11", "[근무 변경] 가 → 나|오늘 11/10(화) 점심당번|22",
+                     "[근무 변경] 맞교환 가 ↔ 나|오늘 11/10(화)|11", "[근무 변경] 맞교환 가 ↔ 나|오늘 11/10(화)|22"]
 
 
 def test_carry_lunch_on_swap_from_other_side(pub, it_board):
@@ -375,7 +375,7 @@ def test_report_appends_lunch_line_without_time():
 
 def test_lunch_message_kinds_and_same_day_notice():
     assert m.change_notice(IT_DEFS2, T, date(2026, 11, 1), "lunch", "가", "나", "관리자") == (
-        "근무 변경", "[근무 변경] 11/10(화) 점심당번\n가 → 나\n바꾼 사람: 관리자")
+        "근무 변경", "[근무 변경] 가 → 나\n11/10(화) 점심당번\n바꾼 사람: 관리자")
     assert m.report_label(IT_DEFS2, "lunch") == "점심당번"
     assert same_day_notice(IT_DEFS2, "personal", "days", 0, 10 * 60, []) == \
         "새벽·정상·석식교대·장중관제 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."

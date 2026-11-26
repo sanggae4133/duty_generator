@@ -79,7 +79,7 @@ def test_report_change_diff_lines():
     [base] = run(r, d, dept_names={"MEMS": "매칭엔진실"})
     old = {**dict(base.cells), "normal": "-", "slot0": "가"}
     [ch] = run(r, d, {key: "old"}, dept_names={"MEMS": "매칭엔진실"}, sent_cells={key: old})
-    assert ch.text == ("[출근표 변경] 11/16(월) — 매칭엔진실\n바뀐 칸\n· 정상(08:00~) - → 나\n· 08:30~09:30 가 → 나\n"
+    assert ch.text == ("[출근표 변경] 11/16(월) — 매칭엔진실\n바뀐 칸\n▶ 정상(08:00~) - → 나\n▶ 08:30~09:30 가 → 나\n"
                        "지금 출근표\n" + REPORT_BODY)
     assert ch.push_text == ch.text and ch.content_hash == base.content_hash
 
@@ -87,13 +87,13 @@ def test_report_change_diff_lines():
 def test_change_notices():
     """변경 알림: 칸 시각과 오늘·내일을 붙이고, 넣기는 'B 추가'(US-CHANGE-TEXT)."""
     assert m.change_notice(IT_DEFS, E, D, "slot0", "가", "나", "관리자") == (
-        "근무 변경", "[근무 변경] 11/10(화) 장중관제 08:30~09:30\n가 → 나\n바꾼 사람: 관리자")
+        "근무 변경", "[근무 변경] 가 → 나\n11/10(화) 장중관제 08:30~09:30\n바꾼 사람: 관리자")
     assert m.change_notice(IT_DEFS, E, E, "normal", None, "나", "관리자") == (
-        "근무 변경", "[근무 변경] 오늘 11/10(화) 정상 08:00~17:00\n나 추가\n바꾼 사람: 관리자")
+        "근무 변경", "[근무 변경] 나 추가\n오늘 11/10(화) 정상 08:00~17:00\n바꾼 사람: 관리자")
     assert m.change_notice(IT_DEFS, E, date(2026, 11, 9), "night", "가", None, "관리자") == (
-        "근무 변경", "[근무 변경] 내일 11/10(화) 야간 13:30~21:30\n가 빠짐\n바꾼 사람: 관리자")
+        "근무 변경", "[근무 변경] 가 빠짐\n내일 11/10(화) 야간 13:30~21:30\n바꾼 사람: 관리자")
     assert m.swap_notice(IT_DEFS, E, D, "normal", "가", "dinner", "나", "다") == (
-        "근무 변경", "[근무 변경] 11/10(화) 맞교환\n가 정상 → 석식교대\n나 석식교대 → 정상\n바꾼 사람: 다")
+        "근무 변경", "[근무 변경] 맞교환 가 ↔ 나\n▶ 가 정상 → 석식교대\n▶ 나 석식교대 → 정상\n11/10(화)\n바꾼 사람: 다")
 
 
 def test_same_day_notices():
