@@ -519,3 +519,21 @@ def test_bizdays_rule_uses_holiday_table(member, fake, fixed_today):
     h.active = True
     h.save()
     assert alarm_runner.tick(thu17) == (1, 1, 0)
+
+
+def test_report_change_shows_before_after(member, fake, make_member):
+    """출근표 변경은 그 목적지에 마지막으로 보낸 칸과 비교해 바뀐 칸마다 '전 → 후'를 맨 위에 붙인다."""
+    report_rule(member)
+    verify(member)
+    alarm_runner.tick(SUN18)
+    [(_, first)] = fake.sent
+    assert "바뀐 칸" not in first
+    row = AlarmDelivery.objects.get()
+    assert row.last_sent_cells == {"dawn": NAME}
+    other = make_member("가상둘")
+    Commute.objects.create(period=Period.objects.get(), date=D, member=other, shift="dawn")
+    fake.sent.clear()
+    alarm_runner.tick(SUN18 + timedelta(minutes=1))
+    [(_, text)] = fake.sent
+    assert text.startswith(f"[출근표 변경] 11/16(월)\n바뀐 칸\n· 새벽(06:30~) {NAME} → {NAME}, 가상둘\n지금 출근표\n")
+    assert AlarmDelivery.objects.get().last_sent_cells == {"dawn": f"{NAME}, 가상둘"}

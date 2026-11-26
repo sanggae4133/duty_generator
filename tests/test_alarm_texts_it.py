@@ -67,6 +67,21 @@ def test_report_full_text():
     [changed] = run(r, d, {(1, D, "report", "telegram", "d"): "old"}, dept_names={"MEMS": "매칭엔진실"})
     assert changed.text == "[출근표 변경] 11/16(월) — 매칭엔진실\n" + REPORT_BODY
     assert changed.content_hash == "report:1b8af80d11eb4183"
+    assert dict(changed.cells) == {"dawn": "가", "normal": "나", "dinner": "-", "slot0": "나", **{
+        f"slot{i}": "-" for i in range(1, 10)}, "night": "-"}
+
+
+def test_report_change_diff_lines():
+    """출근표 변경: 그 목적지에 마지막으로 보낸 칸과 달라진 칸만 '전 → 후'. 표지·바뀐 칸은 hash 에 넣지 않는다."""
+    r = rule(kind="report", member_name=None, shifts=(), depts=("MEMS",))
+    d = day(dawn=["가"], normal=["나"], slot0=["나"], night=["다"])
+    key = (1, D, "report", "telegram", "d")
+    [base] = run(r, d, dept_names={"MEMS": "매칭엔진실"})
+    old = {**dict(base.cells), "normal": "-", "slot0": "가"}
+    [ch] = run(r, d, {key: "old"}, dept_names={"MEMS": "매칭엔진실"}, sent_cells={key: old})
+    assert ch.text == ("[출근표 변경] 11/16(월) — 매칭엔진실\n바뀐 칸\n· 정상(08:00~) - → 나\n· 08:30~09:30 가 → 나\n"
+                       "지금 출근표\n" + REPORT_BODY)
+    assert ch.push_text == ch.text and ch.content_hash == base.content_hash
 
 
 def test_change_notices():

@@ -105,6 +105,7 @@ def collect(now):
             for d in AlarmDelivery.objects.filter(date__gte=today)}
     info = {n: (dept, typ) for n, dept, typ in User.objects.values_list("name", "department__code", "type")}
     deliveries = {k: d.last_sent_hash for k, d in rows.items()}
+    sent_cells = {k: d.last_sent_cells for k, d in rows.items()}
     destinations = _destinations(rules, alarm_settings.current())
     dept_names = dict(Department.objects.values_list("code", "name"))
     local_now = timezone.localtime(now).replace(tzinfo=None)
@@ -133,7 +134,7 @@ def collect(now):
         days = [d for d in published_days(board, today, today + HORIZON) if any(d.members.values())]
         dues += plan(boards.defs(board), specs, days, info, deliveries, local_now,
                      destinations=destinations, dept_names=dept_names,
-                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today, closed=closed)
+                     extra_dates={k[1] for k in rows if k[0] in ids}, today=today, closed=closed, sent_cells=sent_cells)
     out = []
     for due in dues:
         row = rows.get((due.rule_id, due.date, due.cell, due.channel, due.destination))
@@ -195,7 +196,7 @@ def tick(now) -> tuple[int, int, int]:
             if err is None:
                 AlarmDelivery.objects.update_or_create(**key, defaults=dict(
                     status=AlarmDeliveryStatus.SENT, attempts=0, next_attempt_at=None,
-                    content_hash=due.content_hash, last_sent_hash=due.content_hash))
+                    content_hash=due.content_hash, last_sent_hash=due.content_hash, last_sent_cells=dict(due.cells)))
                 sent += 1
                 continue
             same = row is not None and row.status == AlarmDeliveryStatus.FAILED and row.content_hash == due.content_hash
