@@ -67,7 +67,8 @@ def _norm(day: dict[str, list[str]]) -> dict[str, list[str]]:
     return {k: sorted(v) for k, v in day.items() if v}
 
 
-def validate_table(user, period: Period, dept: Department, table: CommuteTable) -> list[CsvError]:
+def validate_table(user, period: Period, dept: Department, table: CommuteTable, keep=frozenset()) -> list[CsvError]:
+    """keep: table 에 없으면 저장된 그대로 둘 날(apply_table)."""
     errors: list[CsvError] = []
     valid_dates = set(period.dates())
     shift_keys = input_keys(dept)
@@ -77,15 +78,10 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
     existing = {d: {k: v for k, v in day.items() if k not in kept_keys} for d, day in loaded.items()}
     kept = _kept_names(loaded, kept_keys)
     members = set(User.objects.roster().filter(department=dept).values_list("name", flat=True))
-    skip = boards.skip_reasons(period)
     for d in sorted(table):
         col = d.isoformat()
         if d not in valid_dates:
             add_error(errors, CsvError(0, col, "회차 기간의 평일이 아닙니다."))
-            continue
-        if d in skip:  # 건너뛰는 날은 비워 둔다. 이미 있는 행은 저장해도 남는다(apply_table)
-            if any(table[d].values()):
-                add_error(errors, CsvError(0, col, f"{skip[d]}: 근무를 넣지 않는 날입니다."))
             continue
         if _norm(table[d]) == _norm(existing.get(d, {})):
             continue  # 변경 없는 날짜는 재검증하지 않는다 (퇴사자 이름이 남아 있어도 다른 수정을 막지 않음)
@@ -105,22 +101,23 @@ def validate_table(user, period: Period, dept: Department, table: CommuteTable) 
                     seen[name] = key
     if not perms.is_board_admin(user, period.board):
         today = perms.today()
-        for d in sorted(x for x in set(table) | set(existing) if x < today and x not in skip):
+        for d in sorted(x for x in set(table) | (set(existing) - set(keep)) if x < today):
             if _norm(table.get(d, {})) != _norm(existing.get(d, {})):
                 add_error(errors, CsvError(0, d.isoformat(), "지난 날짜는 관리자만 수정할 수 있습니다."))
     return errors
 
 
 @transaction.atomic
-def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> int:
+def apply_table(user, period: Period, dept: Department, table: CommuteTable, keep=frozenset()) -> int:
+    """그 부서의 회차 출근표를 table 로 바꾼다. keep 의 날 중 table 에 없는 날은 저장된 그대로 둔다."""
     period.refresh_from_db()  # 그사이 마감됐으면 막는다
     _require_input(user, period, dept)
-    errors = validate_table(user, period, dept, table)
+    errors = validate_table(user, period, dept, table, keep)
     if errors:
         raise CsvInvalid(errors)
     by_name = {m.name: m for m in User.objects.filter(department=dept)}
     (Commute.objects.filter(period=period, member__department=dept)
-     .exclude(shift__in=_kept_keys(dept)).exclude(date__in=boards.skip_dates(period)).delete())
+     .exclude(shift__in=_kept_keys(dept)).exclude(date__in=set(keep) - set(table)).delete())
     rows = [
         Commute(period=period, date=d, member=by_name[name], shift=key, reason=why)
         for d, day in table.items()
@@ -133,7 +130,8 @@ def apply_table(user, period: Period, dept: Department, table: CommuteTable) -> 
 
 def apply_csv(user, period: Period, dept: Department, raw: bytes) -> int:
     _require_input(user, period, dept)
-    return apply_table(user, period, dept, parse_commute_csv(raw, shift_names(dept)))
+    # 받은 CSV 에는 휴장일·근무 없음 날 줄이 없다: 사람이 줄을 추가한 날만 바꾸고, 없는 날은 그대로 둔다
+    return apply_table(user, period, dept, parse_commute_csv(raw, shift_names(dept)), keep=boards.skip_dates(period))
 
 
 def export_csv(period: Period, dept: Department) -> bytes:
@@ -216,6 +214,9 @@ def fill_week(period: Period, dept: Department, table: CommuteTable, day: date, 
     out = {d: v for d, v in table.items() if d not in week}
     for d in week:
         row = {k: [n for n in names if plan[d].get(n) == k and n not in kept.get(d, ())] for k in keys}
-        if d not in skip and any(row.values()):
+        if d in skip:  # 건너뛰는 날은 채우지 않는다. 직접 넣어 둔 것은 그대로
+            if table.get(d):
+                out[d] = table[d]
+        elif any(row.values()):
             out[d] = row
     return out

@@ -17,7 +17,7 @@
 {% for p in parts %}
 {% if multi %}<section class="bsec"><h3 class="bname">{{ p.name }}{% if p.view_only %} <small>보기만</small>{% endif %}{% if p.memo_admin %} <a class="memo-btn" href="{% url 'memo' 'day' d %}{{ p.bq }}" hx-get="{% url 'memo' 'day' d %}?next={{ page_nq }}{{ p.bqa }}" hx-target="#dlg-body" aria-label="{{ p.name }} 메모">[메모]</a>{% endif %}</h3>
 {% if p.note and not p.note.no_work %}<p class="memo">{{ p.note.text|linebreaksbr }}</p>{% endif %}{% endif %}
-{% if p.note.no_work %}<p class="{% if multi %}nowork-line{% else %}nowork{% endif %}">{{ p.note.text|default:"근무 없음"|linebreaksbr }}</p>{% elif not p.found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
+{% if p.note.no_work %}<p class="{% if multi %}nowork-line{% else %}nowork{% endif %}">{{ p.note.text|default:"근무 없음"|linebreaksbr }}</p>{% endif %}{% if not p.found %}<p>배포된 근무표에 없는 날짜입니다.</p>{% endif %}
 {% for s in p.sections %}
 {% ifchanged s.slot s.lunch %}<h4 class="grp">{% if s.slot %}장중관제{% elif s.lunch %}당번{% else %}근무조{% endif %}</h4>{% endifchanged %}
 <article id="{% if multi %}{{ p.code }}-{% endif %}{{ s.cell }}" class="dcell">

@@ -179,12 +179,12 @@ def test_week_header_uses_monday_when_period_starts_midweek(ops_admin, ops):
 
 
 def test_fill_keeps_other_weeks_skipped_day_values(ops_admin, ops):
-    """잠긴 날(휴장일·근무 없음) 칸은 보내지 않으므로, 채우기 뒤에도 DB 값을 그대로 보여 준다."""
+    """다른 주의 휴장일 칸에 넣어 둔 값은 채우기 뒤에도 그대로 보인다(휴장일도 입력할 수 있다)."""
     p, dept = ops
     Commute.objects.create(period=p, date=d(11, 25), member=User.objects.get(name="가상가"), shift="dawn")
     Holiday.objects.create(date=d(11, 25), name="가상휴일2")
-    r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "2w:2026-11-16"})
-    assert 'name="c_2026-11-25_dawn" rows="2" disabled>가상가</textarea>' in r.content.decode()
+    r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"fill": "2w:2026-11-16", "c_2026-11-25_dawn": "가상가"})
+    assert 'name="c_2026-11-25_dawn" rows="2" >가상가</textarea>' in r.content.decode()
 
 
 def test_fill_skips_people_kept_on_inactive_shift(ops):
@@ -210,7 +210,7 @@ def test_table_cells_wrap_and_messages_are_plain(ops_admin, ops):
     p, _ = ops
     body = ops_admin.get(f"/collect/{p.pk}/OPS/").content.decode()
     assert '<textarea name="c_2026-11-16_dawn"' in body  # 이름이 많아도 줄바꿈으로 다 보인다
-    assert 'name="c_2026-11-18_dawn" rows="2" disabled>' in body  # 11/18 휴장일 칸(까닭은 날짜 밑 글)
+    assert 'name="c_2026-11-18_dawn" rows="2" >' in body  # 11/18 휴장일 칸도 넣을 수 있다(까닭은 날짜 밑 글)
     assert "CSV 올리기(이 표 전체 교체)" in body and "부서 전체" not in body
     r = ops_admin.post(f"/collect/{p.pk}/OPS/", {"c_2026-11-16_dawn": "가상가"}, follow=True)
     assert "표를 저장했습니다." in r.content.decode() and "명분" not in r.content.decode()

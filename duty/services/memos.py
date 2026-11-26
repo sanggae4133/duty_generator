@@ -75,12 +75,12 @@ def save(user, board, scope: str, d: date, text: str, no_work: bool = False, con
         delete(user, board, scope, d)
         return 0
     cleared = 0
-    if no_work:
+    old = Memo.objects.filter(board=board, scope=scope, date=d).first()
+    if no_work and not (old and old.no_work):  # 근무 없음을 켤 때만 비운다(그 뒤 넣은 사람은 글을 고쳐도 남는다)
         n = affected(board, d)
         if n and confirm != n:
             raise DutyError(f"{n}명의 근무가 지워집니다. 확인하고 다시 저장해 주세요.")
         cleared = _clear_day(user, board, d)
-    old = Memo.objects.filter(board=board, scope=scope, date=d).first()
     fields = {"text": text, "no_work": no_work}
     if old is None or old.text != text or old.no_work != no_work:  # 새로 달거나 바꿨을 때만 메모 알림(memo_notice)
         # 알림 끔이어도 아직 안 나간 알림은 살린다(저장 직후 오타 고침이 먼저 알림을 지우지 않게)

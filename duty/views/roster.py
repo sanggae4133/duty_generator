@@ -283,11 +283,13 @@ def roster(request):
 
     def section(p: dict, d: date, other: bool) -> dict:
         found, defs, flt = p["by_date"].get(d), p["defs"], p["filter"]
+        note = p["notes"]["day"].get(d)
+        no_work = bool(note and note.no_work)
         cells, here = {}, []
         for x in display_order(defs):
             why = _why(found, x.key)
             items = _items(found.cells[x.key].labels, names, reasons=why) if found else []
-            gone = _items(found.cells[x.key].removed, names, True) if found else []
+            gone = _items(found.cells[x.key].removed, names, True) if found and not no_work else []  # 근무 없음으로 지운 사람은 글이 대신한다
             for it in gone:
                 it["rm"] = True
             items += gone
@@ -295,8 +297,6 @@ def roster(request):
                 here.append(x.key)
             cells[x.key] = {"key": x.key, "slot": is_slot_cell(x.key), "label": x.name, "items": items,
                             "k": SLOT_GROUP if is_slot_cell(x.key) else x.key, "n": len(found.cells[x.key].labels) if found else 0}
-        note = p["notes"]["day"].get(d)
-        no_work = bool(note and note.no_work)
         duty = [{"time": cells[x.key]["label"][:5], **cells[x.key]} for x in slot_defs(defs)]
         commute = [cells[x.key] for x in shift_defs(defs) + lunch_defs(defs)]  # 근무조 → 점심당번
         # 내 근무(날짜 옆 표시·'N월 내 근무'): 근무마다 하나. 내 근무표 구역은 스케줄 키를 붙여 roster.js 가 스케줄 체크로 거른다
@@ -307,10 +307,11 @@ def roster(request):
             **p["meta"], "memo": note.text if note else "", "no_work": no_work, "empty": found is None,
             "weekend": d.weekday() >= 5, "filter": flt,
             "week_memo": p["notes"]["week"].get(d),  # 월요일 칸에만 붙는다(week.0 = 그 주 월요일)
-            # 배포된 근무표가 있는 날만, 근무 없음 날은 못 바꾼다
-            "edit": (p["edit_past"] if d < today else p["edit_now"]) and not other and found is not None and not no_work,
+            # 근무 없음 날은 글 아래에 넣은 사람이 있을 때만 칸을 그린다(넣기는 하루 화면에서)
+            "covered": no_work and not any(c["n"] for c in cells.values()),  # 지운 사람(취소선)만 있으면 덮는다
+            "edit": (p["edit_past"] if d < today else p["edit_now"]) and not other and found is not None,  # 배포된 근무표가 있는 날만
             "commute": commute, "duty": duty, "slot_n": sum(c["n"] for c in duty),
-            "mine": [] if no_work else my_shifts, "my_slots": [c["time"] for c in duty if c["key"] in here],
+            "mine": my_shifts, "my_slots": [c["time"] for c in duty if c["key"] in here],
         }
 
     def day_info(d: date) -> dict:
@@ -423,13 +424,13 @@ def _day_part(request, board: Board, d: date, home, multi: bool, page_next: str,
     defs = boards.defs(board)
     found = find_day(board, d)
     note = memos.for_range(board, d, d)["day"].get(d)
-    no_work = bool(note and note.no_work)  # 근무 없음 날은 칸 대신 메모 글만, 바꾸기 없음
+    history = history and not (note and note.no_work)  # 근무 없음으로 지운 사람(취소선)은 글이 대신한다
     admin = perms.is_board_admin(request.user, board)
     members = _active_members(board, depts, types)
     keep, shown = _keeper(depts, types), _shown(shifts)
     bq = boards.link_query(home, board)
     sections = []
-    if found and not no_work:
+    if found:  # 근무 없음 날도 글 아래에 칸(필요한 사람을 넣는다)
         for k in filter(shown, [x.key for x in display_order(defs)]):  # 출근조 먼저, 관제는 뒤에 묶어서
             ctx = _cell_context(defs, found, k, d, depts, types, members)
             ctx.update(
@@ -441,7 +442,7 @@ def _day_part(request, board: Board, d: date, home, multi: bool, page_next: str,
             sections.append(ctx)
     return {"name": board.name, "code": board.code, "defs": defs, "bq": bq, "bqa": "&" + bq[1:] if bq else "",
             "memo_admin": admin, "view_only": board != boards.board_of(request.user) and not admin,
-            "found": found, "note": note, "editable": perms.can_edit(request.user, board, d) and not no_work,
+            "found": found, "note": note, "editable": perms.can_edit(request.user, board, d),
             "sections": sections}
 
 
@@ -495,7 +496,8 @@ def memo(request, scope, d):
     return render(request, "duty/_memo_form.html", {
         "scope": scope, "d": d, "memo": memos.for_range(board, d, d)[scope].get(d), "next": safe_next(request, fallback),
         "title": prefix + {"day": f"{d:%Y-%m-%d} 메모", "week": f"{d.month}/{d.day} 주 메모", "month": f"{d.year}년 {d.month}월 메모"}[scope],
-        "affected": memos.affected(board, d) if scope == Memo.Scope.DAY else 0, "bq": bq,
+        "affected": memos.affected(board, d) if scope == Memo.Scope.DAY and not memos.no_work_days(board, d, d) else 0,
+        "bq": bq,  # 이미 근무 없음인 날은 다시 비우지 않는다(memos.save)
         "notice_to": memo_notice.recipients(board, request.user).count() if board.notify_memos else None,
     })
 
