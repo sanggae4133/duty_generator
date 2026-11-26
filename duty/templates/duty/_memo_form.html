@@ -21,7 +21,7 @@
   window.memoConfirm = window.memoConfirm || (f => {
     const nw = f.elements.no_work, n = nw ? Number(nw.dataset.affected) : 0;
     if (!nw || !nw.checked || !n) return true;
-    if (!confirm(n + "명의 근무가 지워집니다. 저장할까요?")) return false;
+    if (!confirm(n + "명의 근무가 지워집니다.\n되돌릴 수 없습니다(메모를 지우거나 근무 없음을 꺼도 지운 근무는 돌아오지 않습니다).\n저장할까요?")) return false;
     f.elements.confirm.value = n;  // 본 인원수를 보낸다: 그사이 늘었으면 서비스가 다시 묻는다
     return true;
   });

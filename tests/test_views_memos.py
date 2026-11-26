@@ -122,6 +122,7 @@ def test_popup_form(admin_client_ok, world, it_board):
     assert "11/16 주 메모" in body and "기존 메모" in body and 'name="no_work"' not in body and "메모 지우기" in body
     body = admin_client_ok.get(f"/memo/day/{D}/").content.decode()
     assert 'name="no_work"' in body and 'data-affected="1"' in body and "메모 지우기" not in body
+    assert "되돌릴 수 없습니다" in body  # 근무 없음 확인창: 지운 근무는 메모를 지워도 돌아오지 않는다
     assert admin_client_ok.get(f"/memo/year/{D}/").status_code == 404
 
 
