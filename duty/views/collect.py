@@ -103,7 +103,7 @@ def table(request, pid, code):
         except DutyError as e:
             messages.error(request, str(e))
         else:
-            messages.success(request, "표를 저장했습니다.")
+            messages.success(request, " ".join(filter(None, ["표를 저장했습니다.", collect.closed_day_note(period, dept)])))
         return redirect("collect_table", pid, code)
     return _render_table(request, period, dept, collect.load_table(period, dept), [])
 
@@ -126,7 +126,7 @@ def upload(request, pid, code):
     except DutyError as e:
         messages.error(request, str(e))
     else:
-        messages.success(request, "CSV를 반영했습니다.")
+        messages.success(request, " ".join(filter(None, ["CSV를 반영했습니다.", collect.closed_day_note(period, dept)])))
     return redirect("collect_table", pid, code)
 
 

@@ -120,13 +120,14 @@ def test_old_period_accepts_names_on_holiday(mems):
 
 
 def test_csv_without_closed_day_row_keeps_that_day(mems, fixed_today):
-    """받은 CSV 에는 휴장일·근무 없음 날 줄이 없다: 그대로 올려도 그 날 넣어 둔 근무는 남는다(지난 날짜여도 막지 않는다)."""
+    """그 날 줄이 없는 CSV(예전에 받은 파일 등)를 올려도 그 날 넣어 둔 근무는 남는다(지난 날짜여도 막지 않는다)."""
     p, dept, user = mems
     Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="나"), shift="dawn")
     Commute.objects.create(period=p, date=NOWORK, member=User.objects.get(name="가"), shift="normal")
     fixed_today(d(13))  # HOL·NOWORK 는 지난 날짜
-    assert collect.apply_csv(user, p, dept, collect.export_csv(p, dept)) == 0
+    assert collect.apply_csv(user, p, dept, (CSV_HEAD + f"{d(13)},,,,\n").encode()) == 0
     assert set(Commute.objects.values_list("date", flat=True)) == {HOL, NOWORK}
+    assert collect.apply_csv(user, p, dept, collect.export_csv(p, dept)) == 2  # 받은 그대로 다시 올려도 같다
 
 
 def test_fill_keeps_names_typed_on_closed_day(mems):
@@ -135,13 +136,36 @@ def test_fill_keeps_names_typed_on_closed_day(mems):
     assert out[HOL] == {"dawn": ["나"]}  # 채우기는 건너뛰는 날을 채우지 않지만, 넣어 둔 것은 지우지 않는다
 
 
-def test_export_leaves_out_closed_day(mems):
-    """휴장일 등 근무를 넣지 않는 날은 CSV 에 줄이 없다(받은 사람이 거기에 이름을 넣지 않게)."""
+def test_export_marks_closed_days(mems):
+    """휴장일·근무 없음 날 줄은 day 칸에 까닭을 붙인다(화면처럼). 비워 두거나 그날 나오는 사람만 넣는다."""
     p, dept, user = mems
     Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="나"), shift="dawn")
-    text = collect.export_csv(p, dept).decode("utf-8-sig")
-    assert str(HOL) not in text and str(NOWORK) not in text
-    assert len(text.splitlines()) == 1 + len(p.dates()) - 2  # 머리 한 줄 + 휴장일·근무 없음 날을 뺀 날들
+    lines = collect.export_csv(p, dept).decode("utf-8-sig").splitlines()
+    assert f"{HOL},수(휴장: 시험 휴장),나,,," in lines and f"{NOWORK},목(근무 없음: 워크숍),,,," in lines
+    assert len(lines) == 1 + len(p.dates())
+    Memo.objects.filter(date=NOWORK).update(text="")
+    assert f"{NOWORK},목(근무 없음),,,," in collect.export_csv(p, dept).decode("utf-8-sig").splitlines()
+
+
+def test_closed_day_note(mems):
+    """저장 뒤 알림 글: 휴장일·근무 없음 날에 들어 있는 근무(주 단위 복사·붙여넣기로 잘못 들어간 것을 알아채게)."""
+    p, dept, user = mems
+    assert collect.closed_day_note(p, dept) == ""
+    Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="나"), shift="dawn")
+    Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="가"), shift="normal")
+    Commute.objects.create(period=p, date=NOWORK, member=User.objects.get(name="가"), shift="normal")
+    assert collect.closed_day_note(p, dept) == "휴장일·근무 없음 날에 넣은 근무: 11/11(수) 2명, 11/12(목) 1명. 맞는지 확인하세요."
+
+
+def test_upload_message_shows_closed_day_note(client, mems):
+    p, dept, user = mems
+    client.force_login(user)
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    f = SimpleUploadedFile("a.csv", (CSV_HEAD + f"{HOL},나,,,\n").encode())
+    body = client.post(f"/collect/{p.pk}/MEMS/upload/", {"file": f}, follow=True).content.decode()
+    assert "CSV를 반영했습니다." in body and "11/11(수) 1명" in body
+    body = client.post(f"/collect/{p.pk}/MEMS/", {f"c_{HOL}_dawn": "나"}, follow=True).content.decode()
+    assert "표를 저장했습니다." in body and "11/11(수) 1명" in body
     collect.apply_csv(user, p, dept, collect.export_csv(p, dept))  # 내려받은 그대로 다시 올려도 된다
 
 
@@ -152,7 +176,7 @@ def test_table_closed_rows_are_editable(client, mems):
     client.force_login(user)
     body = client.get(f"/collect/{p.pk}/MEMS/").content.decode()
     assert f'name="c_{HOL}_dawn" rows="2" ></textarea>' in body and f'name="c_{NOWORK}_normal" rows="2" ></textarea>' in body
-    assert "휴장일·근무 없음 날은 받은 CSV에 없습니다" in body
+    assert "까닭이 붙은 줄" in body
     assert f'name="c_{d(10)}_dawn" rows="2" ></textarea>' in body
     assert '<small class="hol" title="시험 휴장">시험 휴장</small>' in body
     assert '<small class="hol" title="워크숍">워크숍</small>' in body

@@ -8,7 +8,7 @@ from .. import perms
 from ..csv_io import CommuteTable, CsvError, CsvInvalid, add_error, export_commute_csv, parse_commute_csv
 from ..errors import DutyError
 from ..models import Commute, Department, Period, User
-from ..shifts import SHIFT_KEYS, by_key, join_reason, shift_defs, split_reason, two_week_rotation, weekdays
+from ..shifts import DAY_LABELS, SHIFT_KEYS, by_key, join_reason, shift_defs, split_reason, two_week_rotation, weekdays
 from . import boards, roster
 
 
@@ -136,8 +136,20 @@ def apply_csv(user, period: Period, dept: Department, raw: bytes) -> int:
 
 def export_csv(period: Period, dept: Department) -> bytes:
     _same_board(period, dept)
-    skip = boards.skip_dates(period)  # 휴장일 등 건너뛰는 날은 줄을 빼 둔다(거기에 이름을 넣지 않게. 올릴 때 없는 날은 그대로 둔다)
-    return export_commute_csv([d for d in period.dates() if d not in skip], shift_names(dept), load_table(period, dept))
+    notes = {d: f"휴장: {name}" for d, name in boards.closed_holidays(period).items()}  # 화면처럼 까닭을 붙인다
+    for d, why in boards.no_work_reasons(period).items():
+        why = why.splitlines()[0][:20] if why.strip() else "근무 없음"
+        notes[d] = "근무 없음" if why == "근무 없음" else f"근무 없음: {why}"
+    return export_commute_csv(period.dates(), shift_names(dept), load_table(period, dept), notes)
+
+
+def closed_day_note(period: Period, dept: Department) -> str:
+    """저장 뒤 알림 글: 휴장일·근무 없음 날에 들어 있는 근무(주 단위 복사·붙여넣기로 잘못 들어간 것을 알아채게). 없으면 ""."""
+    skip = boards.skip_dates(period)
+    table = load_table(period, dept)
+    days = [f"{d.month}/{d.day}({DAY_LABELS[d.weekday()]}) {len({split_reason(n)[0] for v in table[d].values() for n in v})}명"
+            for d in sorted(skip & set(table)) if any(table[d].values())]
+    return f"휴장일·근무 없음 날에 넣은 근무: {', '.join(days)}. 맞는지 확인하세요." if days else ""
 
 
 def progress(period: Period) -> dict[str, tuple[int, int]]:

@@ -6,7 +6,7 @@ from .. import perms
 from ..alarms import messages as m
 from ..alarms import senders
 from ..models import ChangeLog, Period, PushAlarmSubscription, TelegramAlarmProfile
-from . import alarm_settings, boards
+from . import alarm_settings, boards, holidays
 from .alarm_runner import telegram_text
 
 log = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def tick(now) -> int:
         if board.pk not in defs_of:
             defs_of[board.pk] = boards.defs(board)
         defs = defs_of[board.pk]
-        by = (r.by.name or r.by.username) if r.by else "-"
+        by = (r.by.name or r.by.username) if r.by else _auto(r)
         if pair:
             title, text = m.swap_notice(defs, r.date, today, r.cell, r.before.name, pair.cell, r.after.name, by)
         else:
@@ -50,6 +50,11 @@ def tick(now) -> int:
     if sent:
         log.info("change notices: sent=%d", sent)
     return sent
+
+
+def _auto(r) -> str:
+    """바꾼 사람 없는 기록: 휴장일 날의 빼기면 holidays.clear_day 가 남긴 것."""
+    return "자동(휴장일)" if r.after_id is None and holidays.closed(r.date, r.date) else "-"
 
 
 def _is_swap(a, b) -> bool:
