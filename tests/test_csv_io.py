@@ -56,7 +56,8 @@ def test_missing_column():
     raw = "date,정상,석식교대,야간\n2026-11-09,가,,\n".encode()
     with pytest.raises(CsvInvalid) as e:
         parse_commute_csv(raw, KEYS)
-    assert [(x.row, x.column) for x in e.value.errors] == [(1, "새벽")]
+    [err] = e.value.errors
+    assert (err.row, err.column) == (0, "첫 줄(열 제목)") and "필요한 열이 없습니다: 새벽." in err.reason
 
 
 def test_ui_without_dawn_column_is_fine():
@@ -86,3 +87,22 @@ def test_columns_follow_given_names():
     raw = export_commute_csv([date(2026, 11, 9)], names, {date(2026, 11, 9): {"dawn": ["가"]}})
     assert raw.decode("utf-8-sig").splitlines()[0] == "date,day,이른조,늦은조"
     assert parse_commute_csv(raw, names)[date(2026, 11, 9)] == {"dawn": ["가"], "night": []}
+
+
+TIMES = {"a": "07:30", "b": "09:00", "c": "11:00"}  # 시간을 이름으로 쓴 근무 정의(시장운영실)
+
+
+def test_time_header_without_leading_zero():
+    """엑셀은 CSV 를 저장할 때 07:30 을 7:30 으로 바꾼다. 같은 열로 본다."""
+    t = parse_commute_csv("date,day,7:30,9:00,11:00\n2026-11-30,월,가,나,다\n".encode(), TIMES)
+    assert t[date(2026, 11, 30)] == {"a": ["가"], "b": ["나"], "c": ["다"]}
+
+
+def test_missing_column_error_explains_what_to_fix():
+    with pytest.raises(CsvInvalid) as e:
+        parse_commute_csv("date,day,새벽,9:00\n".encode(), TIMES)
+    [err] = e.value.errors
+    assert err.row == 0 and err.column == "첫 줄(열 제목)"
+    assert "07:30, 11:00" in err.reason  # 없는 열
+    assert "date, day, 새벽, 9:00" in err.reason  # 파일에 있는 열
+    assert "date, day, 07:30, 09:00, 11:00" in err.reason  # 있어야 하는 첫 줄

@@ -125,11 +125,13 @@ def test_save_keeps_rows_already_on_closed_day(mems, fixed_today):
     assert set(Commute.objects.values_list("date", flat=True)) == {HOL, d(13)}
 
 
-def test_export_leaves_closed_day_empty(mems):
+def test_export_leaves_out_closed_day(mems):
+    """휴장일 등 근무를 넣지 않는 날은 CSV 에 줄이 없다(받은 사람이 거기에 이름을 넣지 않게)."""
     p, dept, user = mems
     Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="나"), shift="dawn")
-    lines = collect.export_csv(p, dept).decode("utf-8-sig").splitlines()
-    assert lines[3] == f"{HOL},수,,,,"
+    text = collect.export_csv(p, dept).decode("utf-8-sig")
+    assert str(HOL) not in text and str(NOWORK) not in text
+    assert len(text.splitlines()) == 1 + len(p.dates()) - 2  # 머리 한 줄 + 휴장일·근무 없음 날을 뺀 날들
     collect.apply_csv(user, p, dept, collect.export_csv(p, dept))  # 내려받은 그대로 다시 올려도 된다
 
 
