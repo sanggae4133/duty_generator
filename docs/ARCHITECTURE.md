@@ -177,8 +177,8 @@ AlarmSettings(한 행: 봇 토큰, 장애 알림 chat_id, 푸시 키)
 ## 화면 디자인
 
 - Pico.css + 공통 스타일 `duty/static/duty/app.css`(`base.html` 이 Pico 다음에 부른다. 화면 하나 전용은 그 템플릿 `<style>`). NEXTRADE BI를 따른다: 로고·심볼은 `duty/static/duty/`의 원본 그대로(비율·색 변경 금지), 어두운 배경(다크 모드)은 흰색 단색(CSS `filter`). 지정 서체 Noto Sans KR(없으면 시스템 글꼴, 글꼴 파일은 싣지 않는다).
-- 화면 모드: 상단 버튼으로 시스템·라이트·다크(기기마다 localStorage, `<html data-theme>`). 다크용 색은 `base.html` 맨 위 변수 두 곳(시스템 다크·직접 다크)에만 두고, 화면 규칙은 변수(`--chg`·`--logo-filter` 등)만 쓴다.
-- 글씨 크기: 화면 모드 버튼 옆 [가]로 보통 → 크게(×1.15) → 아주 크게(×1.3)(기기마다 localStorage `duty-size`, `<html data-size="l|xl">`). 화면 모드와 같은 head 스크립트가 스타일보다 먼저 붙여 깜빡이지 않는다. `base.html` 의 `:root[data-size]` 두 줄이 Pico 의 화면 폭별 기본 크기(`--pico-font-size`)에 곱하므로, 화면 규칙은 rem·em 으로 쓰면 함께 커진다. 상단 계정 줄은 넘치면 아래로 내려간다(아주 크게 + 390px).
+- 화면 모드: 상단 버튼으로 시스템·라이트·다크(기기마다 localStorage, `<html data-theme>`). 다크용 색은 `app.css` 맨 위 변수 두 곳(시스템 다크·직접 다크)에만 두고, 화면 규칙은 변수(`--chg`·`--logo-filter` 등)만 쓴다.
+- 글씨 크기: 화면 모드 버튼 옆 [가]로 보통 → 크게(×1.15) → 아주 크게(×1.3)(기기마다 localStorage `duty-size`, `<html data-size="l|xl">`). 화면 모드와 같은 head 스크립트가 스타일보다 먼저 붙여 깜빡이지 않는다. `app.css` 의 `:root[data-size]` 두 줄이 Pico 의 화면 폭별 기본 크기(`--pico-font-size`)에 곱하므로, 화면 규칙은 rem·em 으로 쓰면 함께 커진다. 상단 계정 줄은 넘치면 아래로 내려간다(아주 크게 + 390px).
 - 색: PURPLE `#2B1B40` = 주요 동작 버튼·현재 위치, RED `#E50038`(`--nxt-red`) = 로고·오류·위험 동작, 그리고 '나'(내 이름표 `.tk.me`·`.mychip`)만. 오늘은 파랑(`--today`). 흰 글씨를 얹는 채움은 `--red-fill`·`--today-fill`(다크에서 더 어둡게, 흰 글씨 대비 4.5:1 이상). 일반 버튼에 빨강을 쓰지 않는다(빨강 = 위험으로 읽힌다).
 - 화면마다 다음 단계 하나만 채운 버튼, 되돌리기·다시 하기는 테두리 버튼, 지우기는 맨 아래 "위험 구역"(빨간 테두리) + 확인창.
 - 메시지는 `messages` 종류대로 색과 기호(✓ 성공, ! 오류, ⚠ 경고)로 구분한다. 입력칸은 placeholder 말고 `<label>`(`form.labeled`).
