@@ -113,11 +113,13 @@ def parse_commute_csv(raw: bytes, names: dict[str, str]) -> CommuteTable:
     return table
 
 
-def export_commute_csv(dates: list[date], names: dict[str, str], table: CommuteTable) -> bytes:
+def export_commute_csv(dates: list[date], names: dict[str, str], table: CommuteTable, notes=None) -> bytes:
+    """notes {날짜: 까닭}: day 칸에 '수(휴장: 성탄절)'처럼 붙인다(올릴 때 day 칸은 읽지 않는다)."""
+    notes = notes or {}
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["date", "day", *names.values()])
     for d in dates:
         day = table.get(d, {})
-        w.writerow([d.isoformat(), DAY_LABELS[d.weekday()], *[", ".join(day.get(k, [])) for k in names]])
+        w.writerow([d.isoformat(), DAY_LABELS[d.weekday()] + (f"({notes[d]})" if d in notes else ""), *[", ".join(day.get(k, [])) for k in names]])
     return buf.getvalue().encode("utf-8-sig")

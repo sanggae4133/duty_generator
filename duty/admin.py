@@ -20,7 +20,7 @@ from py_vapid import _check_sub
 from .services.accounts import issue_account, on_department_change
 from .forms import SHIFT_KEY_CHOICES, STEP_FIELDS, BoardShiftForm, BoardShiftFormSet, StepsForm
 from .models import AlarmSettings, Board, BoardShift, Department, Holiday, User
-from .services import alarm_settings, board_settings, boards
+from .services import alarm_settings, board_settings, boards, holidays
 from .shifts import SHIFT_KEYS, shift_defs
 
 
@@ -322,7 +322,7 @@ class BoardAdmin(admin.ModelAdmin):
 @admin.register(Holiday)
 class HolidayAdmin(admin.ModelAdmin):
     """휴장일(설계 5절): 임시공휴일 추가(직접 추가), 휴장일이 아닌 날은 '휴장'을 끈다. 자동 행은 작업자가 채운다.
-    지우기는 막는다(지운 자동 휴장일은 다음 바퀴에 다시 생긴다). 이미 있는 배정은 바뀌지 않는다."""
+    지우기는 막는다(지운 자동 휴장일은 다음 바퀴에 다시 생긴다). 켜면 그날(오늘 이후) 배포된 근무를 비운다(holidays.clear_day)."""
     list_display = ["date", "name", "source", "active"]
     list_filter = ["active", "source"]
     list_editable = ["active"]
@@ -336,6 +336,15 @@ class HolidayAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def save_model(self, request, obj, form, change):
+        was_on = change and Holiday.objects.filter(pk=obj.pk, active=True).exists()
+        super().save_model(request, obj, form, change)
+        if obj.active and not was_on:  # 새로 켠 휴장일: 그날(오늘 이후) 배포된 근무를 비운다(당사자에게 변경 알림)
+            n = holidays.clear_day(obj.date)
+            if n:
+                self.message_user(request, f"{obj.date} 휴장일: {n}명의 근무를 지웠습니다(당사자에게 변경 알림). "
+                                  "그날 나와야 하는 사람은 근무표에서 다시 넣으세요.", messages.WARNING)
 
 
 admin.site.unregister(Group)  # django.contrib.auth.admin 이 등록한 기본 그룹 화면(권한 칸)을 바꾼다

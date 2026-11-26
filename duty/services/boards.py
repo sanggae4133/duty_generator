@@ -125,11 +125,16 @@ def owners(board, start: date | None, end: date | None) -> dict[date, Period]:
 def skip_reasons(period: Period) -> dict[date, str]:
     """만드는 도구(입력 표·CSV·생성·빈 날 검사)가 건너뛰는 날 {날짜: 까닭}(설계 5·6.5).
     근무 없음 날은 늘(까닭 = 메모 글), 휴장일은 period.skip_holidays 일 때만(2단계 전 회차는 거짓)."""
-    out = holidays.closed(period.start_date, period.end_date) if period.skip_holidays else {}
-    for x, memo in memos.for_range(period.board, period.start_date, period.end_date)[memos.DAY].items():
-        if memo.no_work:
-            out[x] = memo.text or "근무 없음"
-    return out
+    return {**closed_holidays(period), **no_work_reasons(period)}
+
+
+def closed_holidays(period: Period) -> dict[date, str]:
+    return holidays.closed(period.start_date, period.end_date) if period.skip_holidays else {}
+
+
+def no_work_reasons(period: Period) -> dict[date, str]:
+    return {x: memo.text or "근무 없음"
+            for x, memo in memos.for_range(period.board, period.start_date, period.end_date)[memos.DAY].items() if memo.no_work}
 
 
 def skip_dates(period: Period) -> set[date]:
