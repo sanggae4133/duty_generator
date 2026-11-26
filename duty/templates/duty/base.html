@@ -26,7 +26,7 @@
       --pico-primary-hover-border: #3f2a5e; --pico-primary-focus: rgba(75, 47, 127, .35); --pico-primary-inverse: #fff;
       --nxt-red: #e50038; --day-line: #9aa4b1; --duty-line: #dfe3e8; --chg: #e91e63; --pill-collect: #8a5300; --logo-filter: none;
       --memo-bg: #fff3cd; --memo-bar: #e0a100; --memo-fg: #3d2a00; --exc: #4b515b; --cell-hover: rgba(75, 47, 127, .15);
-      --today: #1d4ed8; --today-bg: #dbeafe; --red-fill: #e50038; --today-fill: #1d4ed8; --sec-bg: #f8f9fc; --sec-line: #d5dae6; --we-bg: #eef0f5; --mine-line: #e8a3ad; --dim-fg: #7d8698;
+      --today: #1d4ed8; --today-bg: #dbeafe; --red-fill: #e50038; --today-fill: #1d4ed8; --sec-bg: #f8f9fc; --sec-line: #d5dae6; --we-bg: #eef0f5; --mine-line: #e8a3ad; --dim-fg: #b9bfca;
     }
     @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) {
       --pico-primary: #c4b2f0; --pico-primary-hover: #ddd2f7; --pico-primary-underline: rgba(196, 178, 240, .5);
@@ -34,7 +34,7 @@
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
       --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8; --cell-hover: rgba(196, 178, 240, .15);
-      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --red-fill: #d6003a; --today-fill: #1d4ed8; --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #8a93a3;
+      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --red-fill: #d6003a; --today-fill: #1d4ed8; --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #5a616d;
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     } }
     :root[data-theme=dark] {
@@ -43,7 +43,7 @@
       --pico-primary-hover-border: #7c62c2; --pico-primary-focus: rgba(196, 178, 240, .35); --pico-primary-inverse: #fff;
       --nxt-red: #ff4d73; --day-line: #7d8896; --duty-line: #3a424d; --chg: #ff4081; --pill-collect: #f0a948;
       --memo-bg: #3b3013; --memo-bar: #f0b429; --memo-fg: #ffe7a3; --exc: #a3abb8; --cell-hover: rgba(196, 178, 240, .15);
-      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --red-fill: #d6003a; --today-fill: #1d4ed8; --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #8a93a3;
+      --today: #3b82f6; --today-bg: rgba(59, 130, 246, .25); --red-fill: #d6003a; --today-fill: #1d4ed8; --sec-bg: rgba(255, 255, 255, .03); --sec-line: #3a424d; --we-bg: rgba(255, 255, 255, .05); --mine-line: #a65a6b; --dim-fg: #5a616d;
       --logo-filter: brightness(0) invert(1);  /* BI: 어두운 배경은 흰색 단색 */
     }
     form.search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
@@ -229,8 +229,8 @@
     .nohist .chg { font-weight: inherit; font-style: normal; color: inherit; }
     /* 흐리게(필터의 셋째 상태): 부서·유형은 이름만, 스케줄은 그 근무조 칸 전체, 변경 내역은 지난 이름·화살표·빠진 사람·사유 */
     .lb.dm .tk:not(.me):not(.hl1):not(.hl2):not(.hl3), .lb.dm .ar { color: var(--dim-fg); }
-    .sec.dm { opacity: .45; }
-    .histdim .tk.old, .histdim .ar, .histdim .lb.rm, .histdim .lb.exc { opacity: .45; }
+    .sec.dm { opacity: .35; filter: grayscale(1); }  /* 회색조 + 투명도: 근무조 색 띠·아이콘까지 빠져 보통 칸과 한눈에 구별된다 */
+    .histdim .tk.old, .histdim .ar, .histdim .lb.rm, .histdim .lb.exc { opacity: .35; }
     .histdim .chg { font-weight: inherit; color: inherit; }
     .dimbox { display: inline-block; width: .9em; height: .9em; vertical-align: -.1em; border-radius: .2em; background: linear-gradient(transparent 42%, #fff 42%, #fff 58%, transparent 58%) center / 60% 100% no-repeat, var(--pico-primary-background); }  /* 체크 상자 흐리게(indeterminate)와 같은 모양: 채운 상자 + 흰 가로줄 */
     .tk.me { padding: 0 .3em; border-radius: .3em; background: var(--red-fill); color: #fff; font-weight: 800; }
