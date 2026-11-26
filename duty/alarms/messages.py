@@ -76,10 +76,20 @@ def report_header(d: date, cond: str, changed: bool) -> str:
     return f"[{title}] {day_label(d)}" + (f" — {cond}" if cond else "")
 
 
-def report_line(defs, cell: str, names: list[str]) -> str:
+def report_label(defs, cell: str) -> str:
     # 점심당번 줄은 시각 없이 "점심당번 가, 나"(기존 줄 뒤: 순회 순서 KEYS 의 끝)
-    label = f"{cell_label(defs, cell)}({cell_start(defs, cell):%H:%M}~)" if kind(cell) == SHIFT else cell_label(defs, cell)
-    return f"{label} {', '.join(names) if names else '-'}"
+    return f"{cell_label(defs, cell)}({cell_start(defs, cell):%H:%M}~)" if kind(cell) == SHIFT else cell_label(defs, cell)
+
+
+def report_names(names: list[str]) -> str:
+    return ", ".join(names) if names else "-"
+
+
+def report_diff(defs, changes: list[tuple[str, str, str]]) -> list[str]:
+    """출근표 변경 머리 아래 '바뀐 칸' 줄들: (칸, 전, 후)마다 '· 정상(08:00~) 가 → 가, 나'. 바뀐 칸이 없으면 []."""
+    if not changes:
+        return []
+    return ["바뀐 칸", *[f"· {report_label(defs, c)} {a} → {b}" for c, a, b in changes], "지금 출근표"]
 
 
 LIMIT = 4000  # 텔레그램 본문 최대 길이

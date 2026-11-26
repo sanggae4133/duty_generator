@@ -376,7 +376,7 @@ def test_report_appends_lunch_line_without_time():
 def test_lunch_message_kinds_and_same_day_notice():
     assert m.change_notice(IT_DEFS2, T, date(2026, 11, 1), "lunch", "가", "나", "관리자") == (
         "근무 변경", "[근무 변경] 11/10(화) 점심당번\n가 → 나\n바꾼 사람: 관리자")
-    assert m.report_line(IT_DEFS2, "lunch", []) == "점심당번 -"
+    assert m.report_label(IT_DEFS2, "lunch") == "점심당번"
     assert same_day_notice(IT_DEFS2, "personal", "days", 0, 10 * 60, []) == \
         "새벽·정상·석식교대·장중관제 08:30~10:30은 발송 시각이 근무 시작 이후라 제외됩니다."
     assert same_day_notice(IT_DEFS2, "personal", "days", 0, 13 * 60, ["lunch"]) is None

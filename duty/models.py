@@ -629,6 +629,7 @@ class AlarmDelivery(models.Model):
     next_attempt_at = models.DateTimeField(null=True, blank=True)
     content_hash = models.CharField(max_length=64)  # 마지막 시도 내용
     last_sent_hash = models.CharField(max_length=64, null=True, blank=True)  # 마지막 성공 내용
+    last_sent_cells = models.JSONField(default=dict, blank=True)  # 보고서: 마지막 성공 때 칸별 이름들(다음 변경 알림의 '전')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

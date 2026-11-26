@@ -7,7 +7,7 @@
   {% for f in form %}{% for e in f.errors %}<p class="err">{{ f.label }}: {{ e }}</p>{% endfor %}{% endfor %}
   <label>{{ form.enabled }} 켬</label>
   <fieldset class="filter"><legend>종류</legend>{{ form.kind }}
-    <small>개인: 내 근무만 알림 / 보고서형: 조건에 맞는 근무 전체 표</small></fieldset>
+    <small>개인: 내 근무만 알림 / 보고서형: 조건에 맞는 근무 전체 표(보낸 뒤 바뀌면 바뀐 칸의 전 → 후와 함께 다시 보냅니다)</small></fieldset>
   <fieldset class="filter"><legend>기준</legend>{{ form.timing }}</fieldset>
   <fieldset class="filter" data-timing="before_start"><legend>근무 시작 몇 분 전</legend>
     <div class="pair"><input type="number" name="hours" value="{{ form.hours.value|default_if_none:'' }}" min="0" max="168"> 시간

@@ -37,6 +37,7 @@ class Due:
     expires_at: datetime
     push_text: str
     destination: str = ""
+    cells: tuple = ()  # 보고서: (칸, 이름들) 쌍. 성공하면 AlarmDelivery.last_sent_cells 로 남아 다음 변경의 '전'이 된다
 
 
 def _empty(d: date) -> Day:
@@ -48,9 +49,10 @@ def _hash(prefix: str, text: str) -> str:
 
 
 def plan(defs, rules, days, info, deliveries, now, destinations=None, dept_names=None, extra_dates=None,
-         today=None, closed=frozenset()) -> list[Due]:
+         today=None, closed=frozenset(), sent_cells=None) -> list[Due]:
     """defs: 이 근무표의 정의. destinations: (rule_id, channel) → 목적지 목록. closed: 휴장일 날짜 집합(영업일 계산).
-    deliveries: (rule_id, date, cell, channel, destination) → 그 목적지에 마지막으로 성공한 내용 hash(없으면 None)."""
+    deliveries: (rule_id, date, cell, channel, destination) → 그 목적지에 마지막으로 성공한 내용 hash(없으면 None).
+    sent_cells: 같은 키 → 그 목적지에 마지막으로 보낸 보고서 칸 {칸: 이름들}(없으면 바뀐 칸을 쓰지 않는다)."""
     today = today or now.date()
     destinations = destinations or {}
     by_date = {d.date: d for d in days}
@@ -74,7 +76,7 @@ def plan(defs, rules, days, info, deliveries, now, destinations=None, dept_names
                                      destinations, today, closed)
             elif r.kind == "report" and starts:  # 점심당번만 고른 보고서는 저장 때 막는다(services.alarms.save_rule)
                 out += _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, day.date in synthetic,
-                               destinations, closed)
+                               destinations, closed, sent_cells or {})
     return out
 
 
@@ -134,7 +136,7 @@ def _personal(defs, r, day, cells, starts, deliveries, now, destinations, today,
     return out
 
 
-def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations, closed):
+def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synthetic, destinations, closed, sent_cells):
     first, last_start = min(starts.values()), max(starts.values())
     if not send_at(r.timing, r.offset, r.at_minute, day.date, first, closed) <= now < last_start:
         return []
@@ -143,10 +145,9 @@ def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synt
         dept, typ = info.get(name, ("", ""))
         return (not r.depts or dept in r.depts) and (not r.types or typ in r.types)
 
-    lines = []
-    for c in cells:
-        names = [n for n in day.members.get(c, []) if keep(n)]
-        lines.append(m.report_line(defs, c, [join_reason(n, day.reason(c, n)) for n in names]))  # 가(휴가)
+    now_cells = {c: m.report_names([join_reason(n, day.reason(c, n)) for n in day.members.get(c, []) if keep(n)])
+                 for c in cells}  # 가(휴가)
+    lines = [f"{m.report_label(defs, c)} {v}" for c, v in now_cells.items()]
     cond = "·".join([dept_names.get(x, x) for x in r.depts] + list(r.types))
     # 변경 표지만 빼고 보이는 내용 전체(머리·조건·근무표)
     h = _hash("report", "\n".join([m.report_header(day.date, cond, False), *lines]))
@@ -156,7 +157,10 @@ def _report(defs, r, day, cells, starts, info, deliveries, now, dept_names, synt
         if prev == h or (prev is None and synthetic):
             continue
         head = m.report_header(day.date, cond, prev is not None)
-        text = "\n".join([head, *lines])
+        before = sent_cells.get((r.id, day.date, "report", ch, dest)) or {}
+        diff = m.report_diff(defs, [(c, before[c], v) for c, v in now_cells.items() if c in before and before[c] != v])
+        text = "\n".join([head, *diff, *lines])
         out.append(Due(r.id, day.date, "report", ch, m.REPORT_TITLE, m.clip(text), h,
-                       f"/day/{day.date.isoformat()}/{r.query}", last_start, m.push_body(text), dest))
+                       f"/day/{day.date.isoformat()}/{r.query}", last_start, m.push_body(text), dest,
+                       tuple(now_cells.items())))
     return out
