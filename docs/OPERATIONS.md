@@ -90,7 +90,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8008/login/   # 200
 
 | 유닛 | 하는 일 | 로그 |
 |---|---|---|
-| `duty-web.service` | 웹. `gunicorn config.wsgi:application --bind 127.0.0.1:8090 --workers 1 --threads 4` | `data/logs/web.log`, `journalctl -u duty-web` |
+| `duty-web.service` | 웹. `gunicorn config.wsgi:application --bind 127.0.0.1:8090 --workers 1 --threads 4 --no-control-socket` | `data/logs/web.log`, `journalctl -u duty-web` |
 | `nginx.service`(RHEL 패키지) | 웹 앞단. 설정은 `deploy/duty-nginx.conf` → `/etc/nginx/nginx.conf`(아래 "nginx") | `/var/log/nginx/duty-error.log`, `journalctl -u nginx` |
 | `duty-worker.service` | 작업자 `manage.py run_worker`. 1분마다: 알림 발송(매분), DB 백업(하루 한 번 `DUTY_BACKUP_HOUR` 시 이후), 상태 점검(5분마다) | `data/logs/worker.log`, `journalctl -u duty-worker` |
 
