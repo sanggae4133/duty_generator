@@ -1,6 +1,7 @@
-"""화면 스냅샷(근무표 통합 설계 11절): 회차·입력 표·근무표·도움말 화면 본문(<main> 안, 메뉴 빼고)을 tests/snapshots/ 의
-기준 HTML 과 비교한다. 기준은 1단계 PR 첫 커밋에서 main 코드로 만들었다. 1단계는 기준을 고치지 않고 통과해야 하고,
-보이는 동작을 일부러 바꾸는 PR 만 DUTY_SNAPSHOT_WRITE=1 로 다시 쓰고 바뀐 줄을 PR diff 로 리뷰한다. 이름은 모두 가상."""
+"""화면 스냅샷: 핵심 화면 셋(근무표 하나인 주간·월간·하루)만 본문(<main> 안, 메뉴 빼고)을 tests/snapshots/ 의
+기준 HTML 과 비교한다. 보이는 동작을 일부러 바꾸는 PR 만 DUTY_SNAPSHOT_WRITE=1 로 다시 쓰고 바뀐 줄을 PR diff 로 리뷰한다.
+나머지 화면(회차·입력 표·회차 목록·출근표 입력·도움말·남의 근무표·겹친 화면)은 지키던 성질만 일반 assert 로 본다
+(결정 기록 2026-11-26: 화면 PR 마다 기준을 다시 써서 리뷰 가치가 떨어졌다). 이름은 모두 가상."""
 import os
 import re
 from datetime import date, datetime, time, timezone
@@ -126,8 +127,11 @@ def _pages(client, admin_user, world):
     return got
 
 
+SNAPSHOTS = ("roster-mine", "roster-month", "day")  # 근무표 하나인 화면은 겹쳐 보기 전과 같아야 한다(5단계 불변)
+
+
 def test_pages_match_snapshots(client, admin_user, world):
-    got = _pages(client, admin_user, world)
+    got = {k: v for k, v in _pages(client, admin_user, world).items() if k in SNAPSHOTS}
     if os.environ.get("DUTY_SNAPSHOT_WRITE") == "1":
         SNAP.mkdir(exist_ok=True)
         for old in SNAP.glob("*.html"):
@@ -138,3 +142,61 @@ def test_pages_match_snapshots(client, admin_user, world):
     assert sorted(f.stem for f in SNAP.glob("*.html")) == sorted(got)
     for name, body in got.items():
         assert body == (SNAP / f"{name}.html").read_text(encoding="utf-8"), name
+
+
+def _buttons(body: str) -> list[str]:
+    return [t.strip() for t in re.findall(r'<(?:button|a [^>]*role="button")[^>]*>([^<]*)', body)]
+
+
+# 회차 화면 버튼 순서: 단계 이름에서 나온 글자·임시 기준(마감 안 쓰는 근무표)·관제 이력 근무표가 main 과 같은지(옛 스냅샷이 지키던 것)
+PERIOD_BUTTONS = {
+    "it-draft": ["기간 저장", "취합 열기", "옮기기", "회차 삭제", "닫기"],
+    "it-collecting": ["취합 마감", "옮기기", "표 입력", "표 입력", "표 입력", "표 입력", "회차 삭제", "닫기"],
+    "it-closed": ["장중관제 생성", "생성 방식", "옮기기", "회차 삭제", "닫기"],
+    "it-generated": ["배포…", "재생성", "생성 방식", "옮기기", "회차 삭제", "닫기"],
+    "it-published": ["배포 취소", "닫기"],
+    "it-full-closed": ["장중관제 생성", "생성 방식", "옮기기", "회차 삭제", "닫기"],
+    "it-full-generated": ["배포…", "재생성", "생성 방식", "옮기기", "회차 삭제", "닫기"],
+    "ops-draft": ["기간 저장", "옮기기", "회차 삭제"],
+    "ops-collecting": ["기간 저장", "표 입력", "확정", "표 입력", "회차 삭제"],
+    "ops-closed": ["옮기기", "회차 삭제"],
+    "ops-generated": ["배포…", "확정 취소", "회차 삭제"],
+    "ops-published": ["배포 취소"],
+    "ops-slot-history": ["배포…", "확정 취소", "회차 삭제"],
+}
+TABLE_BUTTONS = {
+    "table-it-collecting": ["CSV 올리기(이 표 전체 교체)", "CSV 내려받기", "표 저장", "지난주와 같게", "표 저장"],
+    "table-it-closed": ["CSV 내려받기"],
+    "table-ops-collecting": ["CSV 올리기(이 표 전체 교체)", "CSV 내려받기", "표 저장", "2주 전 기준으로 채우기", "지난주와 같게",
+                             "표 저장"],
+    "table-ops-generated": ["CSV 내려받기"],
+}
+
+
+def test_other_pages_keep_their_shape(client, admin_user, world):
+    got = _pages(client, admin_user, world)
+    assert {f"period-{k}" for k in PERIOD_BUTTONS} | set(TABLE_BUTTONS) <= set(got)
+    for k, want in PERIOD_BUTTONS.items():
+        assert _buttons(got[f"period-{k}"]) == want, k
+    assert "⚠ 출근표가 비어 있는 날: 정보분배 5일" in got["period-it-closed"]  # 빈 평일 경고
+    for k, want in TABLE_BUTTONS.items():
+        assert _buttons(got[k]) == want, k
+    assert "'취합 중'인 회차가 아니라 저장할 수 없습니다." in got["table-it-closed"]
+    assert "'입력 중'인 회차가 아니라 저장할 수 없습니다." in got["table-ops-generated"]
+    # 회차 목록: 회차가 다 보인다. 출근표 입력: 받는 회차만, 부서마다 채운 날 수
+    assert _buttons(got["periods"]) == ["만들기"]
+    assert all(f">{x.name}</a>" in got["periods"] for x in world[0].values())
+    idx = got["collect-index"]
+    assert "it collecting" in idx and "ops collecting" in idx and "it closed" not in idx
+    assert "매칭엔진실</a> — 3 / 5일" in idx and "운영</a> — 3 / 5일" in idx
+    assert "· 관리자" in got["help-admin"] and "· 근무표 관리자" in got["help-admin"]
+    # 남의 근무표: 보기만(칸 링크·필터 없음), 겹친 모양 없음
+    other = got["roster-other"]
+    assert "hx-get" not in other and "data-d=" not in other and "bname" not in other
+    # 겹친 화면: 날짜마다 구역 이름표 둘·운영팀은 "보기만"·날짜 앵커. 칸 링크와 필터는 내 근무표 구역에만(하나일 때와 같은 수)
+    for both, one, days in (("roster-both", "roster-mine", 7), ("roster-both-month", "roster-month", 35)):
+        b = got[both]
+        assert 'class="bnames">IT 당번표 + 운영팀<' in b, both
+        assert b.count('class="bname">IT 당번표<') == days and b.count("보기만") == days and b.count('id="d-') == days
+        assert b.count("hx-get") == got[one].count("hx-get") and b.count("data-d=") == got[one].count("data-d=")
+    assert got["day-both"].count('class="bname"') == 2 and got["day-both"].count("보기만") == 1
