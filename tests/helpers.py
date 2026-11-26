@@ -1,4 +1,8 @@
 """여러 테스트 파일이 같이 쓰는 회차 헬퍼(픽스처 아님)."""
+from pathlib import Path
+
+from django.contrib.staticfiles import finders
+
 from duty.models import Board, Commute, DutyAssignment, Period
 from duty.shifts import weekdays
 
@@ -18,3 +22,8 @@ def rows(p):
     c = sorted(Commute.objects.filter(period=p).values_list("date", "member_id", "shift"))
     a = sorted(DutyAssignment.objects.filter(period=p).values_list("date", "member_id", "cell"))
     return c, a
+
+
+def app_css():
+    """base.html 이 부르는 공통 스타일(duty/static/duty/app.css) 글."""
+    return Path(finders.find("duty/app.css")).read_text(encoding="utf-8")

@@ -10,6 +10,7 @@ from duty.models import AlarmRule, ChangeLog, Commute, Memo, Period, RosterPref,
 from duty.services import alarm_runner, alarms, boards, change_notice
 from duty.shifts import Day
 from duty.shifts import KEYS
+from tests.helpers import app_css
 from tests.it_defs import IT_DEFS
 from tests.test_alarm_boards import FORM, D, SUN18, env, ops, person, published  # noqa: F401 (env·ops 는 픽스처)
 
@@ -72,9 +73,10 @@ def test_board_picker_only_with_two_boards(client, depts, request):
 def test_open_picker_overlay_above_sticky_table_head(client, two):
     """드롭다운이 열려 있을 때 고정 표 머리(z-index 2)를 눌러도 닫힌다: Pico 의 바깥 덮개(summary::before, z-index 1)를 그 위로."""
     client.force_login(two[1])
-    body = client.get(WEEK).content.decode()
-    assert "table.roster thead th { position: sticky; top: 0; z-index: 2;" in body
-    assert "form.board-pick details.dropdown[open] summary::before { z-index: 3; }" in body
+    assert "duty/app.css" in client.get(WEEK).content.decode()
+    css = app_css()
+    assert "table.roster thead th { position: sticky; top: 0; z-index: 2;" in css
+    assert "form.board-pick details.dropdown[open] summary::before { z-index: 3; }" in css
 
 # ── 보기 전용·필터 ──
 

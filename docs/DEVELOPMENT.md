@@ -26,7 +26,8 @@ cp .env.example .env   # 견본 값이 개발 PC 용이라 고칠 것 없다
 ```
 
 - 설정은 `config.test_settings`(pytest 가 알아서 쓴다). 테스트는 `.env` 를 읽지 않고 임시 `data/` 를 쓴다.
-- 화면 스냅샷: `tests/test_snapshots.py` 가 회차·입력 표·근무표(하나·겹친 화면)·하루·도움말 화면 본문(메뉴·공백 빼고, CSRF 토큰·회차 번호는 이름표로)을 `tests/snapshots/*.html` 과 비교한다. 보이는 동작을 일부러 바꾸는 PR 만 `DUTY_SNAPSHOT_WRITE=1 .venv/bin/pytest -q tests/test_snapshots.py`(값은 정확히 `1`. 다시 쓴 뒤 일부러 실패한다)로 다시 쓰고, 변수 없이 다시 돌려 통과시킨 뒤 `git diff tests/snapshots/` 의 바뀐 줄이 의도한 것뿐인지 PR 에서 리뷰한다. 의도하지 않은 줄이 바뀌었으면 기준을 다시 쓰지 말고 코드를 고친다. 근무표 하나인 화면은 겹쳐 보기 전과 같아야 한다(근무표 통합 1·5단계의 불변). IT 알림 문구·hash 는 `tests/test_alarm_texts_it.py` 가 지킨다.
+- 화면 스냅샷: `tests/test_snapshots.py` 가 핵심 화면 셋(근무표 하나인 주간·월간·하루)의 본문(메뉴·공백 빼고, CSRF 토큰·회차 번호는 이름표로)만 `tests/snapshots/*.html` 과 비교한다. 다른 화면(회차·입력 표·회차 목록·출근표 입력·도움말·남의 근무표·겹친 화면)은 같은 파일의 `test_other_pages_keep_their_shape` 가 버튼 순서·경고 글·보기만 구역 같은 성질만 assert 로 본다. 새 화면 성질은 스냅샷을 늘리지 말고 assert 로 더한다. 보이는 동작을 일부러 바꾸는 PR 만 `DUTY_SNAPSHOT_WRITE=1 .venv/bin/pytest -q tests/test_snapshots.py`(값은 정확히 `1`. 다시 쓴 뒤 일부러 실패한다)로 다시 쓰고, 변수 없이 다시 돌려 통과시킨 뒤 `git diff tests/snapshots/` 의 바뀐 줄이 의도한 것뿐인지 PR 에서 리뷰한다. 의도하지 않은 줄이 바뀌었으면 기준을 다시 쓰지 말고 코드를 고친다. 근무표 하나인 화면은 겹쳐 보기 전과 같아야 한다(근무표 통합 1·5단계의 불변). IT 알림 문구·hash 는 `tests/test_alarm_texts_it.py` 가 지킨다.
+- 공통 CSS 는 `duty/static/duty/app.css`(`base.html` 이 `{% static %}` 으로 부른다). 화면 하나 전용 스타일은 그 템플릿의 `<style>` 에 둔다. CSS 글을 확인하는 테스트는 `tests.helpers.app_css()` 로 파일을 읽는다.
 - **테스트를 먼저 쓴다**: 실패하는 것을 확인한 뒤 구현한다. 버그도 재현 테스트부터.
 - 실명을 쓰지 않는다(가상 이름·멤버 코드만). 비밀값처럼 생긴 문자열은 실행 중에 조립한다(`"1234567890:" + "FAKE" + ...`).
 - 텔레그램·웹 푸시는 실제로 부르지 않는다(`duty.alarms.senders` 를 monkeypatch).

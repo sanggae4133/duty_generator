@@ -521,6 +521,7 @@ systemctl is-active duty-web duty-worker     # 둘 다 active. 아니면 journal
   - 올리기 전부터 열어 둔 화면은 새로고침해야 새 모양이 된다(정적 파일은 해시 이름이라 브라우저 캐시를 지울 필요는 없다).
   - 되돌리기는 위 "롤백"(코드 되돌리기 + 업그레이드 전 백업 `restore`)이 기본이다. 거꾸로(`migrate duty 0025`)도 되지만 그사이 저장한 메모 알림 설정·흐리게 값이 지워진다.
 - **계정·세션 보안 손질(2026-11-24)로 올릴 때**: `migrate` 가 0029(`User.temp_password_issued_at`)를 적용하고, 지금 첫 로그인 대기인 사람은 업그레이드한 때 발급한 것으로 친다(그때부터 7일 안에 첫 로그인해야 한다). 업그레이드 절차 그대로(`collectstatic`·nginx·systemd·`.env` 변화 없음). 로그인해 있는 사람을 쫓아내지 않는다: 이미 로그인한 슈퍼유저 세션은 원래 기한(90일)대로 남으니 업그레이드 뒤 슈퍼유저는 한 번 로그아웃했다 다시 들어온다(그때부터 12시간). 이미 쌓인 로그인 성공 기록은 `sudo -u duty .venv/bin/python manage.py axes_reset_logs --age 0` 으로 지운다(실패 기록·잠금은 그대로). 되돌리기는 코드만 되돌려도 된다(칸 하나가 남을 뿐).
+- **공통 CSS 파일 분리(2026-11-26)로 올릴 때**: 업그레이드 절차 그대로. 새 정적 파일 `duty/app.css` 가 생겨 `collectstatic` 을 빠뜨리면 모든 화면이 500 이다. 마이그레이션·nginx·systemd·`.env` 변화 없음.
 - nginx 를 켜 둔 서버는 이 묶음을 마친 뒤 아래 "nginx → 평소 운영"의 **업그레이드 뒤 nginx 설정 갱신**을 한다(대부분 "같음"으로 끝난다).
 - git 이 "dubious ownership" 을 내면 앞에 `sudo` 를 빠뜨린 것이다(코드 폴더는 root 소유). `sudo` 를 붙여 다시 한다. 그래도 나오면 `sudo chown -R root:root /opt/duty_generator/.git` 후 다시 한다.
 - 업그레이드 전 백업도 `db-*` 라 `DUTY_BACKUP_KEEP_DAYS` 일 뒤 자동으로 지워진다. 오래 둘 것은 서버 밖으로 내려받는다.
