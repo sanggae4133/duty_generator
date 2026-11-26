@@ -138,9 +138,8 @@ def apply_csv(user, period: Period, dept: Department, raw: bytes) -> int:
 
 def export_csv(period: Period, dept: Department) -> bytes:
     _same_board(period, dept)
-    skip = boards.skip_dates(period)  # 건너뛰는 날은 빈 줄로(내려받은 그대로 다시 올려도 오류가 없게)
-    table = {d: day for d, day in load_table(period, dept).items() if d not in skip}
-    return export_commute_csv(period.dates(), shift_names(dept), table)
+    skip = boards.skip_dates(period)  # 휴장일 등 건너뛰는 날은 줄을 빼 둔다(거기에 이름을 넣지 않게. 올릴 때 없는 날은 그대로 둔다)
+    return export_commute_csv([d for d in period.dates() if d not in skip], shift_names(dept), load_table(period, dept))
 
 
 def progress(period: Period) -> dict[str, tuple[int, int]]:

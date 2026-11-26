@@ -229,7 +229,7 @@ def test_change_notice_uses_period_board_names(env, depts, ops):
     p = published(board, (b, "dawn"))
     ChangeLog.objects.create(period=p, date=D, cell="dawn", before=a, after=b)
     change_notice.tick(timezone.now())
-    assert sorted(env) == [(c, "[근무 변경] 내일 11/16(월) 오전 07:30~16:30\n가상운영 → 가상운영둘\n바꾼 사람: -") for c in ("222", "333")]
+    assert sorted(env) == [(c, "[근무 변경] 가상운영 → 가상운영둘\n내일 11/16(월) 오전 07:30~16:30\n바꾼 사람: -") for c in ("222", "333")]
 
 
 def test_change_notice_sent_when_period_owns_empty_day(env, depts, it_board):
@@ -238,7 +238,7 @@ def test_change_notice_sent_when_period_owns_empty_day(env, depts, it_board):
     p = published(it_board)
     ChangeLog.objects.create(period=p, date=D, cell="dawn", before=a, after=None)
     change_notice.tick(timezone.now())
-    assert env == [("111", "[근무 변경] 내일 11/16(월) 새벽 06:30~15:30\n가상아이 빠짐\n바꾼 사람: -")]
+    assert env == [("111", "[근무 변경] 가상아이 빠짐\n내일 11/16(월) 새벽 06:30~15:30\n바꾼 사람: -")]
 
 
 def test_change_notice_skipped_when_newer_period_owns_day(env, depts, it_board):

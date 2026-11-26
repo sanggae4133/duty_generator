@@ -42,10 +42,11 @@ def _when(d: date, today: date) -> str:
 
 
 def change_notice(defs, d: date, today: date, cell: str, before: str | None, after: str | None, by: str) -> tuple[str, str]:
-    """내 근무가 바뀌었을 때(제목, 본문). 교체 A → B, 넣기 B 추가, 빼기 A 빠짐. 근무조는 시각까지('그래서 몇 시에')."""
+    """내 근무가 바뀌었을 때(제목, 본문). 무엇이 바뀌었는지가 첫 줄(푸시 미리 보기에도 보이게): 교체 A → B, 넣기 B 추가,
+    빼기 A 빠짐. 다음 줄이 언제·어느 칸. 근무조는 시각까지('그래서 몇 시에')."""
     what = f"{before} → {after}" if before and after else (f"{after} 추가" if after else f"{before} 빠짐")
     where = _where(defs, cell) if is_slot_cell(cell) else cell_span(defs, cell)
-    return "근무 변경", f"[근무 변경] {_when(d, today)} {where}\n{what}\n바꾼 사람: {by}"
+    return "근무 변경", f"[근무 변경] {what}\n{_when(d, today)} {where}\n바꾼 사람: {by}"
 
 
 def memo_notice(board: str, scope: str, d: date, text: str, no_work: bool, by: str) -> tuple[str, str]:
@@ -56,9 +57,9 @@ def memo_notice(board: str, scope: str, d: date, text: str, no_work: bool, by: s
 
 
 def swap_notice(defs, d: date, today: date, cell_a: str, a: str, cell_b: str, b: str, by: str) -> tuple[str, str]:
-    """맞교환 한 번(기록 2건)을 한 통으로: A 는 cell_a → cell_b, B 는 반대로."""
-    return "근무 변경", (f"[근무 변경] {_when(d, today)} 맞교환\n{a} {_where(defs, cell_a)} → {_where(defs, cell_b)}\n"
-                       f"{b} {_where(defs, cell_b)} → {_where(defs, cell_a)}\n바꾼 사람: {by}")
+    """맞교환 한 번(기록 2건)을 한 통으로: A 는 cell_a → cell_b, B 는 반대로. 바뀐 두 줄이 먼저, 그다음 날짜."""
+    return "근무 변경", (f"[근무 변경] 맞교환 {a} ↔ {b}\n▶ {a} {_where(defs, cell_a)} → {_where(defs, cell_b)}\n"
+                       f"▶ {b} {_where(defs, cell_b)} → {_where(defs, cell_a)}\n{_when(d, today)}\n바꾼 사람: {by}")
 
 
 def personal_text(defs, name: str, d: date, cell: str, today: date, lunch=None) -> str:
@@ -86,10 +87,10 @@ def report_names(names: list[str]) -> str:
 
 
 def report_diff(defs, changes: list[tuple[str, str, str]]) -> list[str]:
-    """출근표 변경 머리 아래 '바뀐 칸' 줄들: (칸, 전, 후)마다 '· 정상(08:00~) 가 → 가, 나'. 바뀐 칸이 없으면 []."""
+    """출근표 변경 머리 바로 아래 '바뀐 칸' 줄들: (칸, 전, 후)마다 '▶ 정상(08:00~) 가 → 가, 나'(아래 출근표의 줄과 구별). 없으면 []."""
     if not changes:
         return []
-    return ["바뀐 칸", *[f"· {report_label(defs, c)} {a} → {b}" for c, a, b in changes], "지금 출근표"]
+    return ["바뀐 칸", *[f"▶ {report_label(defs, c)} {a} → {b}" for c, a, b in changes], "지금 출근표"]
 
 
 LIMIT = 4000  # 텔레그램 본문 최대 길이
