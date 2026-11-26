@@ -54,11 +54,27 @@ def test_no_work_without_text_and_without_roster(client, world, it_board):
     assert '<p class="nowork">근무 없음</p>' in body and "근무표 없음" in body  # 23일은 덮고, 24~27일은 근무표 없음
 
 
-def test_day_page_no_work_hides_change_buttons(client, world, it_board):
+def test_day_page_no_work_shows_cells_to_add(client, world, it_board):
+    """하루 화면은 근무 없음 글 아래 칸을 보여 준다(필요한 사람을 여기서 넣는다)."""
     memo(it_board, "day", D, "임시 휴무", no_work=True)
+    Commute.objects.filter(date=D).delete()
     client.force_login(world[1])
     body = client.get(f"/day/{D}/").content.decode()
-    assert '<p class="nowork">임시 휴무</p>' in body and 'class="dcell"' not in body and "배포된 근무표에 없는" not in body
+    assert '<p class="nowork">임시 휴무</p>' in body and 'class="dcell"' in body and "바꾸기" in body
+
+
+@pytest.mark.parametrize("url", [f"/?view=week&date={D}", f"/?view=month&date={D}"])
+def test_no_work_day_shows_people_added(client, world, it_board, url):
+    memo(it_board, "day", D, "임시 휴무", no_work=True)  # world 의 D 출근표(가)는 근무 없음 뒤에 넣은 것으로 본다
+    client.force_login(world[1])
+    body = client.get(url).content.decode()
+    assert '<p class="nowork">임시 휴무</p>' in body and f'/cell/{D}/' in body
+
+
+def test_memo_form_on_no_work_day_does_not_ask_to_clear_again(admin_client_ok, world, it_board):
+    memo(it_board, "day", D, "임시 휴무", no_work=True)
+    body = admin_client_ok.get(f"/memo/day/{D}/").content.decode()
+    assert 'data-affected="0"' in body
 
 
 def test_week_memo_above_table_in_week_view(client, world, it_board):
@@ -156,3 +172,12 @@ def test_delete_is_in_danger_zone(admin_client_ok, world, it_board):
     body = admin_client_ok.get(f"/memo/day/{D}/").content.decode()
     assert body.index("위험 구역") < body.index('class="danger-btn">메모 지우기')
     assert body.index("</form>") < body.index("위험 구역")  # 저장 폼 밖, 맨 아래
+
+
+def test_no_work_day_hides_cleared_people(client, world, it_board):
+    """근무 없음으로 지운 사람의 취소선은 그리지 않는다(글이 대신). 그 뒤 넣은 사람만 보인다."""
+    memo(it_board, "day", D, "임시 휴무", no_work=True)
+    ChangeLog.objects.create(by=world[1], period=world[0], date=D, cell="dawn", before=world[1])  # 지운 기록
+    client.force_login(world[1])
+    for url in (f"/?view=week&date={D}", f"/day/{D}/"):
+        assert "<s>가</s>" not in client.get(url).content.decode()

@@ -91,14 +91,18 @@ def mems(period, depts, make_member):
     return period, depts["MEMS"], mgr
 
 
-def test_csv_with_names_on_closed_day_is_rejected(mems):
+def test_csv_rows_added_for_closed_days_are_saved(mems):
+    """휴장일·근무 없음 날도 필요한 사람만 넣을 수 있다: 받은 CSV 에 없는 그 날 줄을 사람이 추가해 올린다."""
     p, dept, user = mems
     raw = CSV_HEAD + f"{d(10)},가,,,\n{HOL},나,,,\n{NOWORK},,가,,\n"
-    with pytest.raises(CsvInvalid) as e:
-        collect.apply_csv(user, p, dept, raw.encode())
-    got = {(x.column, x.reason) for x in e.value.errors}
-    assert got == {(HOL.isoformat(), "시험 휴장: 근무를 넣지 않는 날입니다."),
-                   (NOWORK.isoformat(), "워크숍: 근무를 넣지 않는 날입니다.")}
+    assert collect.apply_csv(user, p, dept, raw.encode()) == 3
+    assert set(Commute.objects.values_list("date", flat=True)) == {d(10), HOL, NOWORK}
+
+
+def test_csv_closed_day_row_replaces_that_day(mems):
+    p, dept, user = mems
+    Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="나"), shift="dawn")
+    assert collect.apply_csv(user, p, dept, (CSV_HEAD + f"{HOL},,,,\n").encode()) == 0  # 줄이 있으면 그 내용으로
     assert not Commute.objects.exists()
 
 
@@ -115,14 +119,20 @@ def test_old_period_accepts_names_on_holiday(mems):
     assert collect.apply_csv(user, p, dept, (CSV_HEAD + f"{HOL},나,,,\n").encode()) == 1
 
 
-def test_save_keeps_rows_already_on_closed_day(mems, fixed_today):
-    """휴장일을 나중에 추가해도 이미 넣은 행은 지우지 않는다(설계 5). 지난 날짜여도 일반 담당자의 저장을 막지 않는다."""
+def test_csv_without_closed_day_row_keeps_that_day(mems, fixed_today):
+    """받은 CSV 에는 휴장일·근무 없음 날 줄이 없다: 그대로 올려도 그 날 넣어 둔 근무는 남는다(지난 날짜여도 막지 않는다)."""
     p, dept, user = mems
-    na = User.objects.get(name="나")
-    Commute.objects.create(period=p, date=HOL, member=na, shift="dawn")
-    fixed_today(d(12))  # HOL 은 지난 날짜
-    assert collect.apply_table(user, p, dept, {d(13): {"normal": ["가"]}}) == 1
-    assert set(Commute.objects.values_list("date", flat=True)) == {HOL, d(13)}
+    Commute.objects.create(period=p, date=HOL, member=User.objects.get(name="나"), shift="dawn")
+    Commute.objects.create(period=p, date=NOWORK, member=User.objects.get(name="가"), shift="normal")
+    fixed_today(d(13))  # HOL·NOWORK 는 지난 날짜
+    assert collect.apply_csv(user, p, dept, collect.export_csv(p, dept)) == 0
+    assert set(Commute.objects.values_list("date", flat=True)) == {HOL, NOWORK}
+
+
+def test_fill_keeps_names_typed_on_closed_day(mems):
+    p, dept, user = mems
+    out = collect.fill_week(p, dept, {HOL: {"dawn": ["나"]}}, d(10), collect.FILL_1W)
+    assert out[HOL] == {"dawn": ["나"]}  # 채우기는 건너뛰는 날을 채우지 않지만, 넣어 둔 것은 지우지 않는다
 
 
 def test_export_leaves_out_closed_day(mems):
@@ -137,23 +147,24 @@ def test_export_leaves_out_closed_day(mems):
 
 # ── 출근표 입력 표(화면) ──
 
-def test_table_locks_closed_rows(client, mems):
+def test_table_closed_rows_are_editable(client, mems):
     p, dept, user = mems
     client.force_login(user)
     body = client.get(f"/collect/{p.pk}/MEMS/").content.decode()
-    assert f'name="c_{HOL}_dawn" rows="2" disabled' in body
-    assert f'name="c_{NOWORK}_normal" rows="2" disabled' in body
+    assert f'name="c_{HOL}_dawn" rows="2" ></textarea>' in body and f'name="c_{NOWORK}_normal" rows="2" ></textarea>' in body
+    assert "휴장일·근무 없음 날은 받은 CSV에 없습니다" in body
     assert f'name="c_{d(10)}_dawn" rows="2" ></textarea>' in body
     assert '<small class="hol" title="시험 휴장">시험 휴장</small>' in body
     assert '<small class="hol" title="워크숍">워크숍</small>' in body
 
 
-def test_table_post_on_closed_day_is_rejected(client, mems):
+def test_table_post_on_closed_days_saves_and_clears(client, mems):
     p, dept, user = mems
     client.force_login(user)
-    r = client.post(f"/collect/{p.pk}/MEMS/", {f"c_{HOL}_dawn": "가", f"c_{d(10)}_dawn": "나"})
-    assert r.status_code == 400 and "시험 휴장: 근무를 넣지 않는 날입니다." in r.content.decode()
-    assert not Commute.objects.exists()
+    client.post(f"/collect/{p.pk}/MEMS/", {f"c_{HOL}_dawn": "가", f"c_{NOWORK}_normal": "나", f"c_{d(10)}_dawn": "나"})
+    assert set(Commute.objects.values_list("date", flat=True)) == {HOL, NOWORK, d(10)}
+    client.post(f"/collect/{p.pk}/MEMS/", {f"c_{d(10)}_dawn": "나"})  # 표는 모든 날을 보낸다: 비운 칸은 지운다
+    assert set(Commute.objects.values_list("date", flat=True)) == {d(10)}
 
 
 # ── 생성 ──

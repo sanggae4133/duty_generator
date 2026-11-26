@@ -3,7 +3,6 @@ from datetime import date
 
 import pytest
 
-from duty.errors import DutyError
 from duty.models import Commute, DutyAssignment, Period
 from duty.services import changes, memos
 from duty.services.publish import publish, unpublish, unpublish_info
@@ -27,17 +26,13 @@ def world(make_member, admin_user, fixed_today, it_board):
 
 # ── 근무 없음 날 근무 변경 막기 ──
 
-def test_changes_blocked_on_no_work_day(world, admin_user, it_board):
+def test_changes_allowed_on_no_work_day(world, admin_user, it_board):
+    """근무 없음은 체크할 때 그날을 비울 뿐, 필요한 사람은 다시 넣을 수 있다."""
     _, m = world
     memos.save(admin_user, it_board, "day", D, "휴무", no_work=True, confirm=memos.affected(it_board, D))
-    with pytest.raises(DutyError, match="근무 없는 날입니다"):
-        changes.change_cell(admin_user, it_board, D, "normal", None, m["다"])
-    with pytest.raises(DutyError, match="근무 없는 날입니다"):
-        changes.exchange(admin_user, it_board, D, "normal", m["가"], m["다"])
-    with pytest.raises(DutyError, match="근무 없는 날입니다"):
-        changes.swap(admin_user, it_board, D, "dawn", m["가"], "normal", m["나"])
-    memos.delete(admin_user, it_board, "day", D)
-    changes.change_cell(admin_user, it_board, D, "normal", None, m["다"])  # 메모를 지우면 넣기로 다시 채운다
+    changes.change_cell(admin_user, it_board, D, "normal", None, m["다"])
+    assert Commute.objects.filter(date=D, member=m["다"]).exists()
+    memos.save(admin_user, it_board, "day", D, "휴무(오전 점검)", no_work=True)  # 이미 근무 없음: 글만 고치면 다시 지우지 않는다
     assert Commute.objects.filter(date=D, member=m["다"]).exists()
 
 
