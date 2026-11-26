@@ -52,7 +52,9 @@ def split_names(cell: str) -> list[str]:
 
 
 def header_key(h: str) -> str:
-    return re.split(r"[\n(]", h, maxsplit=1)[0].strip()
+    """열 제목 비교용: 줄바꿈·'(' 앞까지. 시각은 두 자리로(엑셀이 CSV 로 저장하면 07:30 이 7:30 이 된다)."""
+    k = re.split(r"[\n(]", h, maxsplit=1)[0].strip()
+    return k.zfill(5) if re.fullmatch(r"\d:\d\d", k) else k
 
 
 _DATE_PATTERNS = [
@@ -83,17 +85,14 @@ def parse_commute_csv(raw: bytes, names: dict[str, str]) -> CommuteTable:
     if not rows:
         raise CsvInvalid([CsvError(1, "", "빈 파일입니다.")])
     header = [header_key(h) for h in rows[0]]
+    cols = {key: header.index(header_key(label)) for key, label in names.items() if header_key(label) in header}
+    missing = ([] if "date" in header else ["date"]) + [label for key, label in names.items() if key not in cols]
+    if missing:  # 무엇이 없고, 파일에는 무엇이 있고, 첫 줄이 어떠해야 하는지 한 번에
+        raise CsvInvalid([CsvError(0, "첫 줄(열 제목)", (
+            f"필요한 열이 없습니다: {', '.join(missing)}. 파일 첫 줄: {', '.join(h.strip() for h in rows[0]) or '(비어 있음)'}. "
+            f"첫 줄은 date, day, {', '.join(names.values())} 이어야 합니다(근무 정의 이름과 같게, day 는 없어도 됩니다). "
+            "[CSV 받기]로 받은 파일에 이름만 채워 올리면 맞습니다."))])
     errors: list[CsvError] = []
-    if "date" not in header:
-        errors.append(CsvError(1, "date", "date 열이 없습니다."))
-    cols: dict[str, int] = {}
-    for key, label in names.items():
-        if label in header:
-            cols[key] = header.index(label)
-        else:
-            errors.append(CsvError(1, label, f"{label} 열이 없습니다."))
-    if errors:
-        raise CsvInvalid(errors)
 
     date_col = header.index("date")
     table: CommuteTable = {}
