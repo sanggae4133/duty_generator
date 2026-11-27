@@ -260,3 +260,12 @@ def test_admin_text_points_to_settings_not_admin_menu():
     text = "\n".join(STEPS["admin"])
     assert "[근무표 설정]" in text and "계정·부서·알림 설정은 [관리]에서" not in text
     assert "알림이 나갑니다" not in text
+
+
+def test_install_guide_open_before_login_and_linked(client, people):
+    """앱(PWA) 설치 안내: 로그인 전에도 열리고, 도움말 첫 화면에서 로그인 전·후 모두 링크가 보인다."""
+    body = client.get("/help/install/").content.decode()
+    assert "홈 화면에 추가" in body and "안드로이드" in body and "아이폰" in body and "PC" in body
+    assert 'href="/help/install/"' in client.get("/help/").content.decode()
+    client.force_login(people["member"])
+    assert 'href="/help/install/"' in client.get("/help/").content.decode()
