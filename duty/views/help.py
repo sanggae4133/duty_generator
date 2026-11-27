@@ -25,6 +25,11 @@ def _read(path, start: int, length: int):
             yield b
 
 
+def install(request):
+    """앱(PWA) 설치 안내. 로그인 전에도 열린다(설치하고 나서 로그인하는 사람이 많다)."""
+    return render(request, "duty/help_install.html")
+
+
 def index(request):
     """로그인 전에도 열린다(로그인 화면의 [사용법 보기]): 로그인 안내 + 일반 사용자 영상. 권한 영상·설정 도움말은 로그인 뒤."""
     return render(request, "duty/help.html", {"videos": guide.for_user(request.user), "texts": guide.texts_for(request.user)})

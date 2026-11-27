@@ -72,6 +72,7 @@ urlpatterns = [
     path("help/", help_views.index, name="help"),
     path("help/video/<str:name>.mp4", help_views.video, name="help_video"),
     path("help/dismiss/", help_views.dismiss, name="help_dismiss"),
+    path("help/install/", help_views.install, name="help_install"),
     path("help/push/", alarm_views.help_push, name="help_push"),
     path("sw.js", alarm_views.sw_js, name="sw_js"),
     path("manifest.webmanifest", alarm_views.manifest, name="manifest"),
